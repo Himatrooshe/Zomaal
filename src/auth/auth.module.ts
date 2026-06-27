@@ -5,7 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { MockOtpProvider } from '../providers/mock-otp.provider';
+import { TwilioOtpProvider } from '../providers/twilio-otp.provider';
 
 @Module({
   imports: [
@@ -25,7 +25,7 @@ import { MockOtpProvider } from '../providers/mock-otp.provider';
     JwtStrategy,
     {
       provide: 'OtpProvider',
-      useClass: MockOtpProvider,
+      useClass: TwilioOtpProvider,
     },
   ],
 })

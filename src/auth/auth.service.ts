@@ -27,13 +27,7 @@ export class AuthService {
   async sendOtp(sendOtpDto: SendOtpDto) {
     const { phone, channel } = sendOtpDto;
 
-    // Generate mock OTP
-    const otp = '123456';
-
-    // Store in Redis with 5 minutes expiry
-    await this.redisClient.setEx(`otp:${phone}`, 300, otp);
-
-    // Call provider
+    // Call Twilio provider
     await this.otpProvider.sendOtp(phone, channel);
 
     return { message: 'OTP sent successfully' };
@@ -42,18 +36,11 @@ export class AuthService {
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
     const { phone, otp } = verifyOtpDto;
 
-    const storedOtp = await this.redisClient.get(`otp:${phone}`);
+    const isValid = await this.otpProvider.verifyOtp(phone, otp);
 
-    if (!storedOtp) {
-      throw new BadRequestException('OTP expired or not found');
+    if (!isValid) {
+      throw new BadRequestException('Invalid or expired OTP');
     }
-
-    if (storedOtp !== otp) {
-      throw new BadRequestException('Invalid OTP');
-    }
-
-    // OTP matched, delete it
-    await this.redisClient.del(`otp:${phone}`);
 
     // Find or create user
     let user = await this.prisma.user.findUnique({ where: { phone } });
