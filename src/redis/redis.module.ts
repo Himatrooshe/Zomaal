@@ -13,7 +13,12 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
       useFactory: async (configService: ConfigService) => {
         const host = configService.get<string>('REDIS_HOST', 'localhost');
         const port = configService.get<number>('REDIS_PORT', 6379);
-        const redisUrl = configService.get<string>('REDIS_URL');
+        let redisUrl = configService.get<string>('REDIS_URL');
+
+        // If REDIS_HOST accidentally contains the full URL (common when pasting cloud URLs)
+        if (!redisUrl && (host.startsWith('redis://') || host.startsWith('rediss://'))) {
+          redisUrl = host;
+        }
 
         const client = createClient({
           url: redisUrl || `redis://${host}:${port}`,
