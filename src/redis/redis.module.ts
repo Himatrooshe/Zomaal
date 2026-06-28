@@ -13,9 +13,10 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
       useFactory: async (configService: ConfigService) => {
         const host = configService.get<string>('REDIS_HOST', 'localhost');
         const port = configService.get<number>('REDIS_PORT', 6379);
+        const redisUrl = configService.get<string>('REDIS_URL');
 
         const client = createClient({
-          url: `redis://${host}:${port}`,
+          url: redisUrl || `redis://${host}:${port}`,
         });
 
         await client.connect();
