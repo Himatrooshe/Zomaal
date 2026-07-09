@@ -1,0 +1,1305 @@
+openapi: 3.0.3
+info:
+  title: Zomaal API
+  version: 1.0.0
+  description: |
+    Standalone API documentation for the Zomaal backend.
+
+    Protected endpoints require `Authorization: Bearer <accessToken>`.
+servers:
+  - url: http://localhost:3001
+    description: Local development
+tags:
+  - name: Auth
+  - name: Users
+  - name: Stores
+  - name: Shipping - Sendit
+  - name: Shipping - QuickLivraison
+  - name: Shipping - ForceLog
+  - name: Shipping - OzoneExpress
+  - name: Webhooks
+paths:
+  /auth/send-otp:
+    post:
+      tags: [Auth]
+      summary: Send OTP to a phone number
+      security: []
+      requestBody:
+        $ref: '#/components/requestBodies/SendOtp'
+      responses:
+        '200':
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify OTP and login/register
+      security: []
+      requestBody:
+        $ref: '#/components/requestBodies/VerifyOtp'
+      responses:
+        '200':
+          description: Auth tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: New token pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /stores:
+    post:
+      tags: [Stores]
+      summary: Create current user's store
+      requestBody:
+        $ref: '#/components/requestBodies/CreateStore'
+      responses:
+        '201':
+          description: Store created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+
+  /stores/me:
+    get:
+      tags: [Stores]
+      summary: Get current user's store
+      responses:
+        '200':
+          description: Store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+    put:
+      tags: [Stores]
+      summary: Update current user's store
+      requestBody:
+        $ref: '#/components/requestBodies/UpdateStore'
+      responses:
+        '200':
+          description: Updated store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+
+  /shipping/sendit/connection:
+    get:
+      tags: [Shipping - Sendit]
+      summary: Check Sendit account connection
+      responses:
+        '200':
+          description: Connection status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderConnectionStatus'
+
+  /shipping/sendit/deliveries:
+    get:
+      tags: [Shipping - Sendit]
+      summary: List Sendit deliveries
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/QueryString'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+    post:
+      tags: [Shipping - Sendit]
+      summary: Create Sendit delivery
+      requestBody:
+        $ref: '#/components/requestBodies/SenditDelivery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/sendit/deliveries/statuses:
+    get:
+      tags: [Shipping - Sendit]
+      summary: List Sendit delivery statuses
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/sendit/deliveries/labels:
+    post:
+      tags: [Shipping - Sendit]
+      summary: Print Sendit delivery labels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SenditLabelsRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/sendit/deliveries/{code}:
+    get:
+      tags: [Shipping - Sendit]
+      summary: Get Sendit delivery details/tracking
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+    put:
+      tags: [Shipping - Sendit]
+      summary: Update Sendit delivery
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      requestBody:
+        $ref: '#/components/requestBodies/SenditDelivery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+    delete:
+      tags: [Shipping - Sendit]
+      summary: Delete Sendit delivery
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/sendit/districts:
+    get:
+      tags: [Shipping - Sendit]
+      summary: List Sendit districts/cities
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/QueryString'
+        - name: pickup-district
+          in: query
+          schema:
+            type: integer
+            enum: [0, 1]
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/sendit/districts/pickup-cities:
+    get:
+      tags: [Shipping - Sendit]
+      summary: List Sendit pickup cities
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/sendit/districts/{id}:
+    get:
+      tags: [Shipping - Sendit]
+      summary: Get Sendit district details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/sendit/pickups:
+    get:
+      tags: [Shipping - Sendit]
+      summary: List Sendit pickups
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/QueryString'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+    post:
+      tags: [Shipping - Sendit]
+      summary: Create Sendit pickup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SenditPickupRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/sendit/pickups/{code}:
+    get:
+      tags: [Shipping - Sendit]
+      summary: Get Sendit pickup details
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+    put:
+      tags: [Shipping - Sendit]
+      summary: Update Sendit pickup
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SenditUpdatePickupRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+    delete:
+      tags: [Shipping - Sendit]
+      summary: Delete Sendit pickup
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/sendit/returns:
+    get:
+      tags: [Shipping - Sendit]
+      summary: List Sendit returns
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/QueryString'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+    post:
+      tags: [Shipping - Sendit]
+      summary: Create Sendit return request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SenditReturnRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/sendit/returns/{code}:
+    get:
+      tags: [Shipping - Sendit]
+      summary: Get Sendit return details
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+    put:
+      tags: [Shipping - Sendit]
+      summary: Update Sendit return
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SenditUpdateReturnRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+    delete:
+      tags: [Shipping - Sendit]
+      summary: Delete Sendit return
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/quicklivraison/connection:
+    get:
+      tags: [Shipping - QuickLivraison]
+      summary: Check QuickLivraison account connection
+      responses:
+        '200':
+          description: Connection status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderConnectionStatus'
+
+  /shipping/quicklivraison/deliveries:
+    get:
+      tags: [Shipping - QuickLivraison]
+      summary: List QuickLivraison deliveries
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+    post:
+      tags: [Shipping - QuickLivraison]
+      summary: Create QuickLivraison delivery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickLivraisonDeliveryRequest'
+      responses:
+        '200':
+          description: Delivery created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuickLivraisonCreateDeliveryResponse'
+
+  /shipping/quicklivraison/deliveries/bulk:
+    post:
+      tags: [Shipping - QuickLivraison]
+      summary: Create QuickLivraison deliveries in bulk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickLivraisonBulkDeliveryRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/quicklivraison/deliveries/{trackingNumber}:
+    get:
+      tags: [Shipping - QuickLivraison]
+      summary: Track QuickLivraison delivery
+      parameters:
+        - name: trackingNumber
+          in: path
+          required: true
+          schema:
+            type: string
+          example: PARCEL_12345678
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/quicklivraison/products:
+    get:
+      tags: [Shipping - QuickLivraison]
+      summary: List QuickLivraison products
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/quicklivraison/cities:
+    get:
+      tags: [Shipping - QuickLivraison]
+      summary: List QuickLivraison cities
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/quicklivraison/cities/fees-delays:
+    get:
+      tags: [Shipping - QuickLivraison]
+      summary: List QuickLivraison cities with fees and delays
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/sendit/webhook:
+    post:
+      tags: [Webhooks]
+      summary: Receive Sendit webhook events
+      security: []
+      requestBody:
+        $ref: '#/components/requestBodies/AnyJson'
+      responses:
+        '200':
+          description: Webhook accepted
+
+  /shipping/quicklivraison/webhook:
+    post:
+      tags: [Webhooks]
+      summary: Receive QuickLivraison webhook events
+      description: Verifies `X-Webhook-Signature` when `QUICKLIVRAISON_WEBHOOK_SECRET` is configured.
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickLivraisonWebhookPayload'
+      responses:
+        '200':
+          description: Webhook accepted
+
+  /shipping/sendit/webhook/latest:
+    get:
+      tags: [Webhooks]
+      summary: Latest Sendit webhook payload
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/quicklivraison/webhook/latest:
+    get:
+      tags: [Webhooks]
+      summary: Latest QuickLivraison webhook payload
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/forcelog/connection:
+    get:
+      tags: [Shipping - ForceLog]
+      summary: Check ForceLog account connection
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/forcelog/parcels:
+    post:
+      tags: [Shipping - ForceLog]
+      summary: Add a ForceLog parcel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForceLogParcelRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/forcelog/parcels/{code}:
+    get:
+      tags: [Shipping - ForceLog]
+      summary: Get ForceLog parcel details
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+    delete:
+      tags: [Shipping - ForceLog]
+      summary: Delete ForceLog parcel with NEW_PARCEL status
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/forcelog/parcels/{code}/sticker:
+    get:
+      tags: [Shipping - ForceLog]
+      summary: Get ForceLog parcel sticker as base64 PDF
+      parameters:
+        - $ref: '#/components/parameters/Code'
+      responses:
+        '200':
+          description: Base64 encoded PDF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Base64FileResponse'
+
+  /shipping/forcelog/parcels/relaunch:
+    post:
+      tags: [Shipping - ForceLog]
+      summary: Relaunch ForceLog parcel to a new customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForceLogRelaunchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/forcelog/parcels/relaunch-zone:
+    post:
+      tags: [Shipping - ForceLog]
+      summary: Relaunch ForceLog parcel to a new city
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForceLogRelaunchZoneRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/forcelog/pickups:
+    post:
+      tags: [Shipping - ForceLog]
+      summary: Create ForceLog pickup request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForceLogPickupRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/forcelog/cities:
+    get:
+      tags: [Shipping - ForceLog]
+      summary: List ForceLog cities
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/forcelog/stock:
+    get:
+      tags: [Shipping - ForceLog]
+      summary: List ForceLog stock products
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/forcelog/stock/products:
+    post:
+      tags: [Shipping - ForceLog]
+      summary: Add ForceLog stock product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForceLogProductRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/forcelog/returns/eligible:
+    post:
+      tags: [Shipping - ForceLog]
+      summary: Get ForceLog parcels eligible for return
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/forcelog/returns:
+    post:
+      tags: [Shipping - ForceLog]
+      summary: Request ForceLog parcel return
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForceLogReturnRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/ozoneexpress/connection:
+    get:
+      tags: [Shipping - OzoneExpress]
+      summary: Check OzoneExpress account connection
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/ozoneexpress/parcels:
+    post:
+      tags: [Shipping - OzoneExpress]
+      summary: Add an OzoneExpress parcel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OzoneExpressParcelRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/ozoneexpress/parcels/{trackingNumber}:
+    get:
+      tags: [Shipping - OzoneExpress]
+      summary: Get OzoneExpress parcel information
+      parameters:
+        - name: trackingNumber
+          in: path
+          required: true
+          schema:
+            type: string
+          example: OZE123456789
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/ozoneexpress/tracking:
+    post:
+      tags: [Shipping - OzoneExpress]
+      summary: Track one or more OzoneExpress parcels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OzoneExpressTrackingRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/ozoneexpress/delivery-notes:
+    post:
+      tags: [Shipping - OzoneExpress]
+      summary: Create an OzoneExpress delivery note
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/ozoneexpress/delivery-notes/parcels:
+    post:
+      tags: [Shipping - OzoneExpress]
+      summary: Add parcels to an OzoneExpress delivery note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OzoneExpressDeliveryNoteParcelsRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/ozoneexpress/delivery-notes/save:
+    post:
+      tags: [Shipping - OzoneExpress]
+      summary: Save an OzoneExpress delivery note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OzoneExpressDeliveryNoteRefRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+  /shipping/ozoneexpress/delivery-notes/{ref}/pdf-links:
+    get:
+      tags: [Shipping - OzoneExpress]
+      summary: Get OzoneExpress delivery note PDF links
+      parameters:
+        - name: ref
+          in: path
+          required: true
+          schema:
+            type: string
+          example: BL240115001
+      responses:
+        '200':
+          description: Delivery note PDF links
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OzoneExpressDeliveryNotePdfLinks'
+
+  /shipping/ozoneexpress/cities:
+    get:
+      tags: [Shipping - OzoneExpress]
+      summary: List OzoneExpress cities
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+    QueryString:
+      name: querystring
+      in: query
+      required: false
+      schema:
+        type: string
+    Code:
+      name: code
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBodies:
+    AnyJson:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    SendOtp:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SendOtpRequest'
+    VerifyOtp:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/VerifyOtpRequest'
+    CreateStore:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateStoreRequest'
+    UpdateStore:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UpdateStoreRequest'
+    SenditDelivery:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SenditDeliveryRequest'
+  responses:
+    ProviderResponse:
+      description: Provider response proxied by Zomaal
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+  schemas:
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: OTP sent successfully
+    SendOtpRequest:
+      type: object
+      required: [phone, channel]
+      properties:
+        phone:
+          type: string
+          example: '+14155551234'
+        channel:
+          type: string
+          enum: [sms, whatsapp]
+    VerifyOtpRequest:
+      type: object
+      required: [phone, otp]
+      properties:
+        phone:
+          type: string
+          example: '+14155551234'
+        otp:
+          type: string
+          minLength: 6
+          maxLength: 6
+          example: '123456'
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+    TokenPair:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+    AuthTokensResponse:
+      allOf:
+        - $ref: '#/components/schemas/TokenPair'
+        - type: object
+          properties:
+            isProfileCompleted:
+              type: boolean
+    UserProfile:
+      type: object
+      additionalProperties: true
+    CreateStoreRequest:
+      type: object
+      required: [ownerName, businessName, address, city, country]
+      properties:
+        ownerName:
+          type: string
+        businessName:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        logoUrl:
+          type: string
+          format: uri
+    UpdateStoreRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateStoreRequest'
+    Store:
+      allOf:
+        - $ref: '#/components/schemas/CreateStoreRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+            userId:
+              type: string
+            isActive:
+              type: boolean
+    ProviderConnectionStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        provider:
+          type: string
+        accountName:
+          type: string
+          nullable: true
+        message:
+          type: string
+    SenditDeliveryRequest:
+      type: object
+      required: [pickup_district_id, district_id, name, amount, address, phone]
+      properties:
+        pickup_district_id:
+          type: integer
+        district_id:
+          type: integer
+        name:
+          type: string
+        amount:
+          type: number
+        address:
+          type: string
+        phone:
+          type: string
+        comment:
+          type: string
+        reference:
+          type: string
+        allow_open:
+          type: integer
+          enum: [0, 1]
+        allow_try:
+          type: integer
+          enum: [0, 1]
+        products_from_stock:
+          type: integer
+          enum: [0, 1]
+        products:
+          type: string
+        packaging_id:
+          type: integer
+        option_exchange:
+          type: integer
+          enum: [0, 1]
+        delivery_exchange_id:
+          type: string
+    SenditLabelsRequest:
+      type: object
+      required: [codesToPrint, printFormat]
+      properties:
+        codesToPrint:
+          type: string
+          example: DH1,DH2,DH3
+        printFormat:
+          type: integer
+          enum: [0, 1]
+    SenditPickupRequest:
+      type: object
+      required: [district_id, name, phone, address, note]
+      properties:
+        district_id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        note:
+          type: string
+        deliveries:
+          type: string
+        movements:
+          type: string
+    SenditUpdatePickupRequest:
+      allOf:
+        - $ref: '#/components/schemas/SenditPickupRequest'
+    SenditReturnRequest:
+      type: object
+      required: [type, district_id, name, phone, note, deliveries]
+      properties:
+        type:
+          type: string
+          enum: [WAREHOUSE, HOME]
+        district_id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        note:
+          type: string
+        deliveries:
+          type: string
+    SenditUpdateReturnRequest:
+      allOf:
+        - $ref: '#/components/schemas/SenditReturnRequest'
+    QuickLivraisonDeliveryRequest:
+      type: object
+      required: [district_id, name, amount, phone, address]
+      properties:
+        district_id:
+          type: integer
+          example: 123
+        name:
+          type: string
+          example: Jean Dupont
+        amount:
+          type: number
+          example: 250
+        phone:
+          type: string
+          example: '0612345678'
+        address:
+          type: string
+          example: 123 Rue Principale
+        code:
+          type: string
+        note:
+          type: string
+        open:
+          type: boolean
+        try:
+          type: boolean
+        echange:
+          type: boolean
+        echange_colis:
+          type: string
+        vendeur_name:
+          type: string
+        vendeur_phone:
+          type: string
+        store_name:
+          type: string
+        prd_name:
+          type: string
+        qte_prd:
+          type: integer
+        received_quantity:
+          type: object
+          additionalProperties:
+            type: integer
+    QuickLivraisonBulkDeliveryRequest:
+      type: object
+      required: [parcels]
+      properties:
+        parcels:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/QuickLivraisonDeliveryRequest'
+    QuickLivraisonCreateDeliveryResponse:
+      type: object
+      properties:
+        success:
+          type: string
+          example: Colis ajouté avec succès.
+        tracking_number:
+          type: string
+          example: PARCEL_12345678
+    QuickLivraisonWebhookPayload:
+      type: object
+      properties:
+        event:
+          type: string
+          example: status_changed
+        timestamp:
+          type: string
+          example: '2026-05-22T15:00:00+01:00'
+        data:
+          type: object
+          additionalProperties: true
+    ForceLogParcelRequest:
+      type: object
+      required: [ORDER_NUM, RECEIVE, PHONE, CITY, ADDRESS]
+      properties:
+        ORDER_NUM:
+          type: string
+          maxLength: 20
+        RECEIVE:
+          type: string
+          maxLength: 50
+        PHONE:
+          type: string
+          maxLength: 14
+        CITY:
+          type: string
+          maxLength: 50
+        ADDRESS:
+          type: string
+          maxLength: 100
+        HOW:
+          type: string
+          maxLength: 100
+        PRODUCT_NATURE:
+          type: string
+          maxLength: 100
+        COD:
+          type: number
+        CAN_OPEN:
+          type: boolean
+        STOCK:
+          type: string
+          example: REF1:2,REF2
+        FRAGILE:
+          type: boolean
+        CARTON:
+          type: string
+    ForceLogRelaunchRequest:
+      type: object
+      required: [CODE, RECEIVER, PHONE, ADDRESS, COD]
+      properties:
+        CODE:
+          type: string
+        RECEIVER:
+          type: string
+        PHONE:
+          type: string
+        ADDRESS:
+          type: string
+        COD:
+          type: number
+        COMMENT:
+          type: string
+    ForceLogRelaunchZoneRequest:
+      allOf:
+        - $ref: '#/components/schemas/ForceLogRelaunchRequest'
+        - type: object
+          required: [CITY]
+          properties:
+            CITY:
+              type: string
+    ForceLogPickupRequest:
+      type: object
+      required: [PHONE, CITY, ADDRESS]
+      properties:
+        PHONE:
+          type: string
+        CITY:
+          type: string
+        ADDRESS:
+          type: string
+        HOW:
+          type: string
+        STICKERS:
+          type: boolean
+    ForceLogProductRequest:
+      type: object
+      required: [PRODUCT_NAME]
+      properties:
+        PRODUCT_NAME:
+          type: string
+        QUANTITY:
+          type: integer
+        BARCODE:
+          type: string
+        CATEGORY_ID:
+          type: integer
+        VARIANTS:
+          type: array
+          items:
+            type: object
+            required: [NAME, QUANTITY]
+            properties:
+              NAME:
+                type: string
+              QUANTITY:
+                type: integer
+              BARCODE:
+                type: string
+    ForceLogReturnRequest:
+      type: object
+      required: [PARCELS, PHONE, QUARTER, CITY]
+      properties:
+        PARCELS:
+          type: array
+          items:
+            type: string
+        PHONE:
+          type: string
+        QUARTER:
+          type: string
+          minLength: 5
+        CITY:
+          type: string
+        NOTE:
+          type: string
+    Base64FileResponse:
+      type: object
+      properties:
+        contentType:
+          type: string
+          example: application/pdf
+        data:
+          type: string
+          description: Base64 encoded file contents.
+        encoding:
+          type: string
+          example: base64
+    OzoneExpressProductItem:
+      type: object
+      required: [ref, qnty]
+      properties:
+        ref:
+          type: string
+          example: PROD001
+        qnty:
+          type: number
+          example: 2
+    OzoneExpressParcelRequest:
+      type: object
+      required: [receiver, phone, city, address, price, stock]
+      properties:
+        trackingNumber:
+          type: string
+          description: Optional personalized tracking number.
+        receiver:
+          type: string
+          example: Mohammed Alami
+        phone:
+          type: string
+          example: '0612345678'
+        city:
+          type: string
+          description: OzoneExpress city ID.
+          example: '1'
+        address:
+          type: string
+          example: 123 Rue Hassan II
+        price:
+          type: number
+          example: 250
+        stock:
+          type: integer
+          enum: [0, 1]
+          description: 1 = stock, 0 = pickup.
+        note:
+          type: string
+        nature:
+          type: string
+        open:
+          type: integer
+          enum: [1, 2]
+          description: 1 = open package, 2 = do not open.
+        fragile:
+          type: integer
+          enum: [0, 1]
+        replace:
+          type: integer
+          enum: [0, 1]
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/OzoneExpressProductItem'
+    OzoneExpressTrackingRequest:
+      type: object
+      required: [trackingNumber]
+      properties:
+        trackingNumber:
+          oneOf:
+            - type: string
+              example: OZE123456789
+            - type: array
+              items:
+                type: string
+              example: [OZE123456789, OZE987654321]
+    OzoneExpressDeliveryNoteParcelsRequest:
+      type: object
+      required: [ref, codes]
+      properties:
+        ref:
+          type: string
+          example: BL240115001
+        codes:
+          type: array
+          items:
+            type: string
+          example: [OZE123456789, OZE987654321]
+    OzoneExpressDeliveryNoteRefRequest:
+      type: object
+      required: [ref]
+      properties:
+        ref:
+          type: string
+          example: BL240115001
+    OzoneExpressDeliveryNotePdfLinks:
+      type: object
+      properties:
+        ref:
+          type: string
+        pdfStandard:
+          type: string
+          format: uri
+        labelsA4:
+          type: string
+          format: uri
+        labels10x10:
+          type: string
+          format: uri
+security:
+  - bearerAuth: []

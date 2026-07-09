@@ -16,7 +16,10 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
         let redisUrl = configService.get<string>('REDIS_URL');
 
         // If REDIS_HOST accidentally contains the full URL (common when pasting cloud URLs)
-        if (!redisUrl && (host.startsWith('redis://') || host.startsWith('rediss://'))) {
+        if (
+          !redisUrl &&
+          (host.startsWith('redis://') || host.startsWith('rediss://'))
+        ) {
           redisUrl = host;
         }
 
@@ -24,7 +27,21 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           url: redisUrl || `redis://${host}:${port}`,
         });
 
-        await client.connect();
+        try {
+          await client.connect();
+        } catch (error) {
+          const redisRequired =
+            configService.get<string>('REDIS_REQUIRED', 'false') === 'true';
+
+          if (redisRequired) {
+            throw error;
+          }
+
+          console.warn(
+            'Redis connection failed; continuing because REDIS_REQUIRED is not true.',
+          );
+        }
+
         return client;
       },
       inject: [ConfigService],

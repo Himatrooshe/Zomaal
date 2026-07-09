@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+node_modules
+dist
+build
+coverage
+.nyc_output
+.DS_Store
+*.log
+CODEX_NOTES.md
+docs
+test
+*.md

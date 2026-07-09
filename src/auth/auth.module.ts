@@ -29,4 +29,4 @@ import { TwilioOtpProvider } from '../providers/twilio-otp.provider';
     },
   ],
 })
-export class AuthModule { }
+export class AuthModule {}

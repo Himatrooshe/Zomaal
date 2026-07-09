@@ -1,29 +1,14 @@
-import {
-  Controller,
-  Post,
-  Body,
-  HttpCode,
-  HttpStatus,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { CurrentUser } from './decorators/current-user.decorator';
-import type { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Post('send-otp')
   @HttpCode(HttpStatus.OK)
@@ -45,15 +30,10 @@ export class AuthController {
     return this.authService.verifyOtp(verifyOtpDto);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
-  refreshTokens(
-    @CurrentUser() user: JwtPayload,
-    @Body() refreshDto: RefreshTokenDto,
-  ) {
-    return this.authService.refreshTokens(user.userId, refreshDto.refreshToken);
+  refreshTokens(@Body() refreshDto: RefreshTokenDto) {
+    return this.authService.refreshTokens(refreshDto.refreshToken);
   }
 }
