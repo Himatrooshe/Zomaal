@@ -17,9 +17,31 @@ export function validateEnvironment(
     errors.push('JWT_SECRET must be at least 32 characters long');
   }
 
+  const shippingEncryptionKey =
+    typeof config.SHIPPING_CREDENTIAL_ENCRYPTION_KEY === 'string'
+      ? Buffer.from(config.SHIPPING_CREDENTIAL_ENCRYPTION_KEY, 'base64')
+      : Buffer.alloc(0);
+  if (shippingEncryptionKey.length !== 32) {
+    errors.push(
+      'SHIPPING_CREDENTIAL_ENCRYPTION_KEY must be a base64-encoded 32-byte key',
+    );
+  }
+
   const port = Number(config.PORT ?? 3000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     errors.push('PORT must be a valid TCP port');
+  }
+
+  const developmentOtpEnabled = config.DEV_OTP_ENABLED === 'true';
+  const nodeEnv = typeof config.NODE_ENV === 'string' ? config.NODE_ENV : '';
+  const developmentOtpCode =
+    typeof config.DEV_OTP_CODE === 'string' ? config.DEV_OTP_CODE : '123456';
+
+  if (developmentOtpEnabled && nodeEnv === 'production') {
+    errors.push('DEV_OTP_ENABLED must never be true in production');
+  }
+  if (developmentOtpEnabled && !/^\d{6}$/.test(developmentOtpCode)) {
+    errors.push('DEV_OTP_CODE must contain exactly 6 digits');
   }
 
   if (errors.length > 0) {

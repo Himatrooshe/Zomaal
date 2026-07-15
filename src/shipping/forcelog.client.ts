@@ -10,44 +10,54 @@ import { parseProviderJson } from './utils/provider-response';
 export class ForceLogClient {
   constructor(private readonly configService: ConfigService) {}
 
-  checkConnection() {
-    return this.request('GET', '/health', { useHealthBaseUrl: true });
+  checkConnection(apiKey: string) {
+    return this.getCities(apiKey);
   }
 
-  addParcel(payload: unknown) {
-    return this.request('POST', '/Parcels/AddParcel', { body: payload });
+  addParcel(apiKey: string, payload: unknown) {
+    return this.request(apiKey, 'POST', '/Parcels/AddParcel', {
+      body: payload,
+    });
   }
 
-  getParcel(code: string) {
-    return this.request('GET', '/Parcels/GetParcel', {
+  getParcel(apiKey: string, code: string) {
+    return this.request(apiKey, 'GET', '/Parcels/GetParcel', {
       query: { Code: code },
     });
   }
 
-  relaunchParcel(payload: unknown) {
-    return this.request('POST', '/Parcels/Relaunch', { body: payload });
+  relaunchParcel(apiKey: string, payload: unknown) {
+    return this.request(apiKey, 'POST', '/Parcels/Relaunch', { body: payload });
   }
 
-  relaunchParcelZone(payload: unknown) {
-    return this.request('POST', '/Parcels/RelaunchZone', { body: payload });
+  relaunchParcelZone(apiKey: string, payload: unknown) {
+    return this.request(apiKey, 'POST', '/Parcels/RelaunchZone', {
+      body: payload,
+    });
   }
 
-  deleteParcel(code: string) {
-    return this.request('POST', '/Parcels/DeleteParcel', {
+  deleteParcel(apiKey: string, code: string) {
+    return this.request(apiKey, 'POST', '/Parcels/DeleteParcel', {
       body: { CODE: code },
     });
   }
 
-  async getParcelSticker(parcelCode: string) {
-    const response = await fetch(
-      this.buildUrl('/PDF/ParcelSticker', {
-        parcelCode,
-      }),
-      {
-        method: 'GET',
-        headers: this.getHeaders(),
-      },
-    );
+  async getParcelSticker(apiKey: string, parcelCode: string) {
+    let response: Response;
+
+    try {
+      response = await fetch(
+        this.buildUrl('/PDF/ParcelSticker', { parcelCode }),
+        {
+          method: 'GET',
+          headers: this.getHeaders(apiKey),
+        },
+      );
+    } catch {
+      throw new ServiceUnavailableException(
+        'ForceLog is currently unreachable',
+      );
+    }
 
     if (!response.ok) {
       throw new BadGatewayException(
@@ -66,47 +76,54 @@ export class ForceLogClient {
     };
   }
 
-  createPickup(payload: unknown) {
-    return this.request('POST', '/Pickups/CreateRequest', { body: payload });
+  createPickup(apiKey: string, payload: unknown) {
+    return this.request(apiKey, 'POST', '/Pickups/CreateRequest', {
+      body: payload,
+    });
   }
 
-  getCities() {
-    return this.request('GET', '/Cities');
+  getCities(apiKey: string) {
+    return this.request(apiKey, 'GET', '/Cities');
   }
 
-  getStock() {
-    return this.request('GET', '/Stock');
+  getStock(apiKey: string) {
+    return this.request(apiKey, 'GET', '/Stock');
   }
 
-  addProduct(payload: unknown) {
-    return this.request('POST', '/Stock/AddProduct', { body: payload });
+  addProduct(apiKey: string, payload: unknown) {
+    return this.request(apiKey, 'POST', '/Stock/AddProduct', { body: payload });
   }
 
-  getReturnEligibleParcels() {
-    return this.request('POST', '/Return/GetParcels');
+  getReturnEligibleParcels(apiKey: string) {
+    return this.request(apiKey, 'POST', '/Return/GetParcels');
   }
 
-  requestReturn(payload: unknown) {
-    return this.request('POST', '/Return/Request', { body: payload });
+  requestReturn(apiKey: string, payload: unknown) {
+    return this.request(apiKey, 'POST', '/Return/Request', { body: payload });
   }
 
   private async request<T = unknown>(
+    apiKey: string,
     method: string,
     path: string,
     options: {
       query?: Record<string, string | number | boolean | undefined>;
       body?: unknown;
-      useHealthBaseUrl?: boolean;
     } = {},
   ): Promise<T> {
-    const response = await fetch(
-      this.buildUrl(path, options.query, options.useHealthBaseUrl),
-      {
+    let response: Response;
+
+    try {
+      response = await fetch(this.buildUrl(path, options.query), {
         method,
-        headers: this.getHeaders(),
+        headers: this.getHeaders(apiKey),
         body: options.body ? JSON.stringify(options.body) : undefined,
-      },
-    );
+      });
+    } catch {
+      throw new ServiceUnavailableException(
+        'ForceLog is currently unreachable',
+      );
+    }
 
     const body = await parseProviderJson<T>(response, 'ForceLog');
 
@@ -120,40 +137,22 @@ export class ForceLogClient {
     return body;
   }
 
-  private getHeaders() {
+  private getHeaders(apiKey: string) {
     return {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'X-API-Key': this.getApiKey(),
+      'X-API-Key': apiKey,
     };
-  }
-
-  private getApiKey(): string {
-    const apiKey = this.configService.get<string>('FORCELOG_API_KEY');
-
-    if (!apiKey) {
-      throw new ServiceUnavailableException(
-        'ForceLog API key is not configured',
-      );
-    }
-
-    return apiKey;
   }
 
   private buildUrl(
     path: string,
     query?: Record<string, string | number | boolean | undefined>,
-    useHealthBaseUrl = false,
   ): string {
-    const baseUrl = useHealthBaseUrl
-      ? this.configService.get<string>(
-          'FORCELOG_HEALTH_BASE_URL',
-          'https://api.forcelog.ma',
-        )
-      : this.configService.get<string>(
-          'FORCELOG_API_BASE_URL',
-          'https://api.forcelog.ma/customer',
-        );
+    const baseUrl = this.configService.get<string>(
+      'FORCELOG_API_BASE_URL',
+      'https://api.forcelog.ma/customer',
+    );
     const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
     const normalizedPath = path.replace(/^\/+/, '');
     const url = new URL(`${normalizedBaseUrl}/${normalizedPath}`);

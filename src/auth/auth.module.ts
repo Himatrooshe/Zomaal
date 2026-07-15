@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TwilioOtpProvider } from '../providers/twilio-otp.provider';
+import { DevelopmentOtpProvider } from '../providers/development-otp.provider';
 
 @Module({
   imports: [
@@ -23,9 +24,19 @@ import { TwilioOtpProvider } from '../providers/twilio-otp.provider';
   providers: [
     AuthService,
     JwtStrategy,
+    TwilioOtpProvider,
+    DevelopmentOtpProvider,
     {
       provide: 'OtpProvider',
-      useClass: TwilioOtpProvider,
+      inject: [ConfigService, TwilioOtpProvider, DevelopmentOtpProvider],
+      useFactory: (
+        configService: ConfigService,
+        twilio: TwilioOtpProvider,
+        development: DevelopmentOtpProvider,
+      ) =>
+        configService.get<string>('DEV_OTP_ENABLED') === 'true'
+          ? development
+          : twilio,
     },
   ],
 })

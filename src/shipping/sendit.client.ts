@@ -1,144 +1,234 @@
 import {
   BadGatewayException,
   Injectable,
-  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { SenditConnectionStatus } from './interfaces/sendit-connection.interface';
 import type { SenditLoginResponse } from './interfaces/sendit-login-response.interface';
+import type { SenditCredentials } from './sendit-connection.service';
 import { parseProviderJson } from './utils/provider-response';
 
 @Injectable()
 export class SenditClient {
-  private token: string | null = null;
-  private accountName: string | null = null;
-  private tokenExpiresAt = 0;
+  private readonly tokens = new Map<
+    string,
+    { token: string; expiresAt: number }
+  >();
 
   constructor(private readonly configService: ConfigService) {}
 
-  async checkConnection(): Promise<SenditConnectionStatus> {
-    const login = await this.login();
-
-    return {
-      connected: true,
-      provider: 'sendit.ma',
-      accountName: login.data?.name ?? null,
-      message: login.message,
-    };
+  listDeliveries(
+    userId: string,
+    credentials: SenditCredentials,
+    query: Record<string, string | number | undefined>,
+  ) {
+    return this.request(userId, credentials, 'GET', '/deliveries', { query });
   }
 
-  listDeliveries(query: Record<string, string | number | undefined>) {
-    return this.request('GET', '/deliveries', { query });
-  }
-
-  createDelivery(payload: unknown) {
-    return this.request('POST', '/deliveries', { body: payload });
-  }
-
-  getDelivery(code: string) {
-    return this.request('GET', `/deliveries/${encodeURIComponent(code)}`);
-  }
-
-  updateDelivery(code: string, payload: unknown) {
-    return this.request('PUT', `/deliveries/${encodeURIComponent(code)}`, {
+  createDelivery(
+    userId: string,
+    credentials: SenditCredentials,
+    payload: unknown,
+  ) {
+    return this.request(userId, credentials, 'POST', '/deliveries', {
       body: payload,
     });
   }
 
-  deleteDelivery(code: string) {
-    return this.request('DELETE', `/deliveries/${encodeURIComponent(code)}`);
+  getDelivery(userId: string, credentials: SenditCredentials, code: string) {
+    return this.request(
+      userId,
+      credentials,
+      'GET',
+      `/deliveries/${encodeURIComponent(code)}`,
+    );
   }
 
-  printDeliveryLabels(payload: unknown) {
-    return this.request('POST', '/deliveries/getlabels', { body: payload });
+  updateDelivery(
+    userId: string,
+    credentials: SenditCredentials,
+    code: string,
+    payload: unknown,
+  ) {
+    return this.request(
+      userId,
+      credentials,
+      'PUT',
+      `/deliveries/${encodeURIComponent(code)}`,
+      {
+        body: payload,
+      },
+    );
   }
 
-  listDeliveryStatuses() {
-    return this.request('GET', '/all-status-deliveries');
+  deleteDelivery(userId: string, credentials: SenditCredentials, code: string) {
+    return this.request(
+      userId,
+      credentials,
+      'DELETE',
+      `/deliveries/${encodeURIComponent(code)}`,
+    );
   }
 
-  listDistricts(query: Record<string, string | number | undefined>) {
-    return this.request('GET', '/districts', { query });
-  }
-
-  listPickupCities() {
-    return this.request('GET', '/districts/pickup-cities');
-  }
-
-  getDistrict(id: number) {
-    return this.request('GET', `/districts/${id}`);
-  }
-
-  listPickups(query: Record<string, string | number | undefined>) {
-    return this.request('GET', '/pickups', { query });
-  }
-
-  createPickup(payload: unknown) {
-    return this.request('POST', '/pickups', { body: payload });
-  }
-
-  getPickup(code: string) {
-    return this.request('GET', `/pickups/${encodeURIComponent(code)}`);
-  }
-
-  updatePickup(code: string, payload: unknown) {
-    return this.request('PUT', `/pickups/${encodeURIComponent(code)}`, {
+  printDeliveryLabels(
+    userId: string,
+    credentials: SenditCredentials,
+    payload: unknown,
+  ) {
+    return this.request(userId, credentials, 'POST', '/deliveries/getlabels', {
       body: payload,
     });
   }
 
-  deletePickup(code: string) {
-    return this.request('DELETE', `/pickups/${encodeURIComponent(code)}`);
+  listDeliveryStatuses(userId: string, credentials: SenditCredentials) {
+    return this.request(userId, credentials, 'GET', '/all-status-deliveries');
   }
 
-  listReturns(query: Record<string, string | number | undefined>) {
-    return this.request('GET', '/returns', { query });
+  listDistricts(
+    userId: string,
+    credentials: SenditCredentials,
+    query: Record<string, string | number | undefined>,
+  ) {
+    return this.request(userId, credentials, 'GET', '/districts', { query });
   }
 
-  createReturn(payload: unknown) {
-    return this.request('POST', '/returns', { body: payload });
+  listPickupCities(userId: string, credentials: SenditCredentials) {
+    return this.request(userId, credentials, 'GET', '/districts/pickup-cities');
   }
 
-  getReturn(code: string) {
-    return this.request('GET', `/returns/${encodeURIComponent(code)}`);
+  getDistrict(userId: string, credentials: SenditCredentials, id: number) {
+    return this.request(userId, credentials, 'GET', `/districts/${id}`);
   }
 
-  updateReturn(code: string, payload: unknown) {
-    return this.request('PUT', `/returns/${encodeURIComponent(code)}`, {
+  listPickups(
+    userId: string,
+    credentials: SenditCredentials,
+    query: Record<string, string | number | undefined>,
+  ) {
+    return this.request(userId, credentials, 'GET', '/pickups', { query });
+  }
+
+  createPickup(
+    userId: string,
+    credentials: SenditCredentials,
+    payload: unknown,
+  ) {
+    return this.request(userId, credentials, 'POST', '/pickups', {
       body: payload,
     });
   }
 
-  deleteReturn(code: string) {
-    return this.request('DELETE', `/returns/${encodeURIComponent(code)}`);
+  getPickup(userId: string, credentials: SenditCredentials, code: string) {
+    return this.request(
+      userId,
+      credentials,
+      'GET',
+      `/pickups/${encodeURIComponent(code)}`,
+    );
   }
 
-  async getAccessToken(): Promise<string> {
-    if (this.token && Date.now() < this.tokenExpiresAt) {
-      return this.token;
+  updatePickup(
+    userId: string,
+    credentials: SenditCredentials,
+    code: string,
+    payload: unknown,
+  ) {
+    return this.request(
+      userId,
+      credentials,
+      'PUT',
+      `/pickups/${encodeURIComponent(code)}`,
+      {
+        body: payload,
+      },
+    );
+  }
+
+  deletePickup(userId: string, credentials: SenditCredentials, code: string) {
+    return this.request(
+      userId,
+      credentials,
+      'DELETE',
+      `/pickups/${encodeURIComponent(code)}`,
+    );
+  }
+
+  listReturns(
+    userId: string,
+    credentials: SenditCredentials,
+    query: Record<string, string | number | undefined>,
+  ) {
+    return this.request(userId, credentials, 'GET', '/returns', { query });
+  }
+
+  createReturn(
+    userId: string,
+    credentials: SenditCredentials,
+    payload: unknown,
+  ) {
+    return this.request(userId, credentials, 'POST', '/returns', {
+      body: payload,
+    });
+  }
+
+  getReturn(userId: string, credentials: SenditCredentials, code: string) {
+    return this.request(
+      userId,
+      credentials,
+      'GET',
+      `/returns/${encodeURIComponent(code)}`,
+    );
+  }
+
+  updateReturn(
+    userId: string,
+    credentials: SenditCredentials,
+    code: string,
+    payload: unknown,
+  ) {
+    return this.request(
+      userId,
+      credentials,
+      'PUT',
+      `/returns/${encodeURIComponent(code)}`,
+      {
+        body: payload,
+      },
+    );
+  }
+
+  deleteReturn(userId: string, credentials: SenditCredentials, code: string) {
+    return this.request(
+      userId,
+      credentials,
+      'DELETE',
+      `/returns/${encodeURIComponent(code)}`,
+    );
+  }
+
+  async getAccessToken(
+    userId: string,
+    credentials: SenditCredentials,
+  ): Promise<string> {
+    const cached = this.tokens.get(userId);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.token;
     }
 
-    const login = await this.login();
+    const login = await this.authenticate(credentials);
     const token = login.data?.token;
 
     if (!token) {
       throw new BadGatewayException('Sendit did not return an access token');
     }
 
+    this.cacheLogin(userId, login);
     return token;
   }
 
-  private async login(): Promise<SenditLoginResponse> {
-    const publicKey = this.configService.get<string>('SENDIT_PUBLIC_KEY');
-    const secretKey = this.configService.get<string>('SENDIT_SECRET_KEY');
-
-    if (!publicKey || !secretKey) {
-      throw new ServiceUnavailableException(
-        'Sendit credentials are not configured',
-      );
-    }
-
+  async authenticate(
+    credentials: SenditCredentials,
+  ): Promise<SenditLoginResponse> {
     const response = await fetch(this.buildUrl('/login'), {
       method: 'POST',
       headers: {
@@ -146,8 +236,8 @@ export class SenditClient {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        public_key: publicKey,
-        secret_key: secretKey,
+        public_key: credentials.publicKey,
+        secret_key: credentials.secretKey,
       }),
     });
 
@@ -171,20 +261,25 @@ export class SenditClient {
       throw new BadGatewayException(body.message || 'Sendit login failed');
     }
 
-    this.token = token;
-    this.accountName = body.data?.name ?? null;
-    this.tokenExpiresAt = Date.now() + this.getTokenTtlMs();
+    return body;
+  }
 
-    return {
-      ...body,
-      data: {
-        ...body.data,
-        name: this.accountName ?? undefined,
-      },
-    };
+  cacheLogin(userId: string, login: SenditLoginResponse) {
+    const token = login.data?.token;
+    if (token)
+      this.tokens.set(userId, {
+        token,
+        expiresAt: Date.now() + this.getTokenTtlMs(),
+      });
+  }
+
+  clearUserToken(userId: string) {
+    this.tokens.delete(userId);
   }
 
   private async request<T = unknown>(
+    userId: string,
+    credentials: SenditCredentials,
     method: string,
     path: string,
     options: {
@@ -192,7 +287,7 @@ export class SenditClient {
       body?: unknown;
     } = {},
   ): Promise<T> {
-    const token = await this.getAccessToken();
+    const token = await this.getAccessToken(userId, credentials);
     const response = await fetch(this.buildUrl(path, options.query), {
       method,
       headers: {
@@ -204,7 +299,7 @@ export class SenditClient {
     });
 
     if (response.status === 401 || response.status === 403) {
-      this.clearToken();
+      this.clearUserToken(userId);
       throw new UnauthorizedException('Sendit request was not authorized');
     }
 
@@ -248,11 +343,5 @@ export class SenditClient {
     );
 
     return ttlSeconds * 1000;
-  }
-
-  private clearToken() {
-    this.token = null;
-    this.accountName = null;
-    this.tokenExpiresAt = 0;
   }
 }

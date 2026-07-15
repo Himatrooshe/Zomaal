@@ -8,11 +8,17 @@ import {
   Req,
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExcludeController,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Request } from 'express';
 import { ShippingService } from './shipping.service';
 
 @ApiTags('Webhooks')
+@ApiExcludeController()
 @Controller('shipping/quicklivraison/webhook')
 export class QuickLivraisonWebhookController {
   constructor(private readonly shippingService: ShippingService) {}

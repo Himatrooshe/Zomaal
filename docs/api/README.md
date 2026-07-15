@@ -4,7 +4,7 @@ This folder contains standalone API documentation for frontend development.
 
 ## Files
 
-- `openapi.yaml` - OpenAPI 3.0 specification for the current Zomaal backend.
+- `openapi.yaml` - OpenAPI 3.0 specification for the verified public API surface.
 
 ## How To Use
 
@@ -16,7 +16,8 @@ Open `openapi.yaml` with one of these tools:
 
 ## Notes
 
-- This documentation is intentionally separate from the NestJS source code.
+- The static file mirrors the verified endpoints shown by the live NestJS Swagger UI.
+- Runtime endpoints still undergoing integration testing are intentionally omitted.
 - Protected endpoints require `Authorization: Bearer <accessToken>`.
-- Sendit webhook endpoint is public because Sendit calls it directly.
-- Sendit responses are proxied from Sendit.ma, so exact nested response fields may change with their API.
+- Provider API keys and secrets are write-only request fields and are never returned.
+- Live Swagger is available at `/docs` when `SWAGGER_ENABLED=true`.

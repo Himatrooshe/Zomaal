@@ -58,12 +58,35 @@ async function bootstrap() {
   if (swaggerEnabled) {
     const config = new DocumentBuilder()
       .setTitle('Zomaal API')
-      .setDescription('The Zomaal MVP API description')
-      .setVersion('1.0')
+      .setDescription(
+        'Verified Zomaal API surface. Runtime endpoints still under integration testing are intentionally hidden.',
+      )
+      .setVersion('1.0.0')
+      .addTag('Auth', 'Phone OTP authentication and token rotation.')
+      .addTag('Users', 'Authenticated user profile.')
+      .addTag('Stores', 'Store onboarding and profile management.')
+      .addTag(
+        'Shipping - Sendit',
+        'Per-user Sendit account connection management.',
+      )
+      .addTag(
+        'Shipping - QuickLivraison',
+        'Per-user QuickLivraison account connection management.',
+      )
+      .addTag(
+        'Shipping - ForceLog',
+        'Per-user ForceLog account connection management.',
+      )
+      .addTag(
+        'Shipping - OzoneExpress',
+        'Per-user OzoneExpress account connection management.',
+      )
       .addBearerAuth()
       .build();
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('docs', app, document);
+    SwaggerModule.setup('docs', app, document, {
+      swaggerOptions: { persistAuthorization: true },
+    });
   }
 
   await app.listen(configService.get<number>('PORT', 3000));

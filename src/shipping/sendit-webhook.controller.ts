@@ -6,10 +6,16 @@ import {
   HttpStatus,
   Post,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExcludeController,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ShippingService } from './shipping.service';
 
 @ApiTags('Shipping')
+@ApiExcludeController()
 @Controller('shipping/sendit/webhook')
 export class SenditWebhookController {
   constructor(private readonly shippingService: ShippingService) {}

@@ -3,56 +3,115 @@ info:
   title: Zomaal API
   version: 1.0.0
   description: |
-    Standalone API documentation for the Zomaal backend.
+    Verified API surface for Zomaal authentication, profile/store onboarding,
+    and per-user Sendit, QuickLivraison, ForceLog, and OzoneExpress account connections.
 
     Protected endpoints require `Authorization: Bearer <accessToken>`.
+    The access token expires after 15 minutes. Provider credentials are
+    validated before being encrypted and stored, and are never returned.
+
+    Runtime endpoints that have not completed integration testing are
+    intentionally omitted from this specification.
 servers:
-  - url: http://localhost:3001
+  - url: http://localhost:{port}
     description: Local development
+    variables:
+      port:
+        default: '3001'
+        description: Value configured by the backend PORT environment variable.
 tags:
   - name: Auth
+    description: Phone OTP authentication and token rotation.
   - name: Users
+    description: Authenticated user profile.
   - name: Stores
+    description: Store onboarding and profile management.
   - name: Shipping - Sendit
+    description: Per-user Sendit account connection management.
   - name: Shipping - QuickLivraison
+    description: Per-user QuickLivraison account connection management.
   - name: Shipping - ForceLog
+    description: Per-user ForceLog account connection management.
   - name: Shipping - OzoneExpress
-  - name: Webhooks
+    description: Per-user OzoneExpress account connection management.
 paths:
   /auth/send-otp:
     post:
       tags: [Auth]
-      summary: Send OTP to a phone number
+      summary: Send an OTP to a phone number
+      description: In development OTP mode no message is sent; use the configured DEV_OTP_CODE.
       security: []
       requestBody:
-        $ref: '#/components/requestBodies/SendOtp'
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendOtpRequest'
+            example:
+              phone: '+212612345678'
+              channel: sms
       responses:
         '200':
-          description: OTP sent
+          description: OTP request accepted.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          description: More than 3 OTP requests in 10 minutes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: OTP provider is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /auth/verify-otp:
     post:
       tags: [Auth]
-      summary: Verify OTP and login/register
+      summary: Verify OTP and log in or register
+      description: Creates a user on first successful verification and returns a 15-minute access token and 7-day refresh token.
       security: []
       requestBody:
-        $ref: '#/components/requestBodies/VerifyOtp'
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpRequest'
+            example:
+              phone: '+212612345678'
+              otp: '123456'
       responses:
         '200':
-          description: Auth tokens
+          description: Authentication succeeded.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokensResponse'
+        '400':
+          description: Invalid input or invalid/expired OTP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: More than 5 verification attempts in 10 minutes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /auth/refresh:
     post:
       tags: [Auth]
-      summary: Refresh access token
+      summary: Rotate refresh token and issue a new token pair
+      description: The supplied refresh token is single-use after rotation. Store the newly returned refresh token.
       security: []
       requestBody:
         required: true
@@ -62,684 +121,375 @@ paths:
               $ref: '#/components/schemas/RefreshTokenRequest'
       responses:
         '200':
-          description: New token pair
+          description: New access and refresh tokens.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenPair'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Refresh token is invalid, expired, revoked, or not a refresh token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /users/me:
     get:
       tags: [Users]
       summary: Get current user profile
+      description: Returns the user identified by the access token, including their store when one exists. Refresh-token hashes are never returned.
       responses:
         '200':
-          description: Current user profile
+          description: Current user profile.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: User no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /stores:
     post:
       tags: [Stores]
-      summary: Create current user's store
+      summary: Create the current user's store
+      description: Creates one store for the authenticated user and marks onboarding as complete.
       requestBody:
-        $ref: '#/components/requestBodies/CreateStore'
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStoreRequest'
       responses:
         '201':
-          description: Store created
+          description: Store created.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Store'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: The authenticated user already has a store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /stores/me:
     get:
       tags: [Stores]
-      summary: Get current user's store
+      summary: Get the current user's store
       responses:
         '200':
-          description: Store
+          description: Current user's store.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Store'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: The authenticated user has not created a store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       tags: [Stores]
-      summary: Update current user's store
+      summary: Update the current user's store
+      description: All request fields are optional; only supplied fields are changed.
       requestBody:
-        $ref: '#/components/requestBodies/UpdateStore'
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStoreRequest'
       responses:
         '200':
-          description: Updated store
+          description: Updated store.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Store'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: The authenticated user has not created a store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /shipping/sendit/connection:
     get:
       tags: [Shipping - Sendit]
       summary: Check Sendit account connection
+      description: Reads connection status from Zomaal without calling Sendit.
       responses:
         '200':
-          description: Connection status
+          description: Current user's Sendit connection status.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProviderConnectionStatus'
-
-  /shipping/sendit/deliveries:
-    get:
-      tags: [Shipping - Sendit]
-      summary: List Sendit deliveries
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/QueryString'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
+                $ref: '#/components/schemas/SenditConnectionStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       tags: [Shipping - Sendit]
-      summary: Create Sendit delivery
-      requestBody:
-        $ref: '#/components/requestBodies/SenditDelivery'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/sendit/deliveries/statuses:
-    get:
-      tags: [Shipping - Sendit]
-      summary: List Sendit delivery statuses
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/sendit/deliveries/labels:
-    post:
-      tags: [Shipping - Sendit]
-      summary: Print Sendit delivery labels
+      summary: Connect or replace the current user's Sendit account
+      description: Validates the credentials with Sendit, then encrypts and stores them for the authenticated user. Credentials are never returned.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SenditLabelsRequest'
+              $ref: '#/components/schemas/SenditConnectionRequest'
       responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/sendit/deliveries/{code}:
-    get:
-      tags: [Shipping - Sendit]
-      summary: Get Sendit delivery details/tracking
-      parameters:
-        - $ref: '#/components/parameters/Code'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-    put:
-      tags: [Shipping - Sendit]
-      summary: Update Sendit delivery
-      parameters:
-        - $ref: '#/components/parameters/Code'
-      requestBody:
-        $ref: '#/components/requestBodies/SenditDelivery'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
+        '201':
+          description: Sendit account connected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditConnectionStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Zomaal token is invalid or Sendit rejected the credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Sendit returned an invalid or failed response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Credential encryption is not configured correctly.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       tags: [Shipping - Sendit]
-      summary: Delete Sendit delivery
-      parameters:
-        - $ref: '#/components/parameters/Code'
+      summary: Disconnect the current user's Sendit account
+      description: Deletes stored credentials and the cached provider token. This operation is idempotent.
       responses:
         '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/sendit/districts:
-    get:
-      tags: [Shipping - Sendit]
-      summary: List Sendit districts/cities
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/QueryString'
-        - name: pickup-district
-          in: query
-          schema:
-            type: integer
-            enum: [0, 1]
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/sendit/districts/pickup-cities:
-    get:
-      tags: [Shipping - Sendit]
-      summary: List Sendit pickup cities
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/sendit/districts/{id}:
-    get:
-      tags: [Shipping - Sendit]
-      summary: Get Sendit district details
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/sendit/pickups:
-    get:
-      tags: [Shipping - Sendit]
-      summary: List Sendit pickups
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/QueryString'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-    post:
-      tags: [Shipping - Sendit]
-      summary: Create Sendit pickup
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SenditPickupRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/sendit/pickups/{code}:
-    get:
-      tags: [Shipping - Sendit]
-      summary: Get Sendit pickup details
-      parameters:
-        - $ref: '#/components/parameters/Code'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-    put:
-      tags: [Shipping - Sendit]
-      summary: Update Sendit pickup
-      parameters:
-        - $ref: '#/components/parameters/Code'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SenditUpdatePickupRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-    delete:
-      tags: [Shipping - Sendit]
-      summary: Delete Sendit pickup
-      parameters:
-        - $ref: '#/components/parameters/Code'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/sendit/returns:
-    get:
-      tags: [Shipping - Sendit]
-      summary: List Sendit returns
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/QueryString'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-    post:
-      tags: [Shipping - Sendit]
-      summary: Create Sendit return request
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SenditReturnRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/sendit/returns/{code}:
-    get:
-      tags: [Shipping - Sendit]
-      summary: Get Sendit return details
-      parameters:
-        - $ref: '#/components/parameters/Code'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-    put:
-      tags: [Shipping - Sendit]
-      summary: Update Sendit return
-      parameters:
-        - $ref: '#/components/parameters/Code'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SenditUpdateReturnRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-    delete:
-      tags: [Shipping - Sendit]
-      summary: Delete Sendit return
-      parameters:
-        - $ref: '#/components/parameters/Code'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
+          description: Sendit account disconnected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditConnectionStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /shipping/quicklivraison/connection:
     get:
       tags: [Shipping - QuickLivraison]
       summary: Check QuickLivraison account connection
+      description: Reads connection status from Zomaal without calling QuickLivraison.
       responses:
         '200':
-          description: Connection status
+          description: Current user's QuickLivraison connection status.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProviderConnectionStatus'
-
-  /shipping/quicklivraison/deliveries:
-    get:
-      tags: [Shipping - QuickLivraison]
-      summary: List QuickLivraison deliveries
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
+                $ref: '#/components/schemas/QuickLivraisonConnectionStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       tags: [Shipping - QuickLivraison]
-      summary: Create QuickLivraison delivery
+      summary: Connect or replace the current user's QuickLivraison account
+      description: Validates a primary or subuser API key through QuickLivraison's product endpoint, then encrypts and stores it. The key is never returned.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/QuickLivraisonDeliveryRequest'
+              $ref: '#/components/schemas/QuickLivraisonConnectionRequest'
+            example:
+              apiKey: sub_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       responses:
-        '200':
-          description: Delivery created
+        '201':
+          description: QuickLivraison account connected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/QuickLivraisonCreateDeliveryResponse'
-
-  /shipping/quicklivraison/deliveries/bulk:
-    post:
+                $ref: '#/components/schemas/QuickLivraisonConnectionStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          description: QuickLivraison rejected the API key or returned an invalid response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderErrorResponse'
+        '503':
+          description: QuickLivraison is unreachable or credential encryption is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
       tags: [Shipping - QuickLivraison]
-      summary: Create QuickLivraison deliveries in bulk
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/QuickLivraisonBulkDeliveryRequest'
+      summary: Disconnect the current user's QuickLivraison account
+      description: Deletes the encrypted API key. This operation is idempotent.
       responses:
         '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/quicklivraison/deliveries/{trackingNumber}:
-    get:
-      tags: [Shipping - QuickLivraison]
-      summary: Track QuickLivraison delivery
-      parameters:
-        - name: trackingNumber
-          in: path
-          required: true
-          schema:
-            type: string
-          example: PARCEL_12345678
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/quicklivraison/products:
-    get:
-      tags: [Shipping - QuickLivraison]
-      summary: List QuickLivraison products
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/quicklivraison/cities:
-    get:
-      tags: [Shipping - QuickLivraison]
-      summary: List QuickLivraison cities
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/quicklivraison/cities/fees-delays:
-    get:
-      tags: [Shipping - QuickLivraison]
-      summary: List QuickLivraison cities with fees and delays
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/sendit/webhook:
-    post:
-      tags: [Webhooks]
-      summary: Receive Sendit webhook events
-      security: []
-      requestBody:
-        $ref: '#/components/requestBodies/AnyJson'
-      responses:
-        '200':
-          description: Webhook accepted
-
-  /shipping/quicklivraison/webhook:
-    post:
-      tags: [Webhooks]
-      summary: Receive QuickLivraison webhook events
-      description: Verifies `X-Webhook-Signature` when `QUICKLIVRAISON_WEBHOOK_SECRET` is configured.
-      security: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/QuickLivraisonWebhookPayload'
-      responses:
-        '200':
-          description: Webhook accepted
-
-  /shipping/sendit/webhook/latest:
-    get:
-      tags: [Webhooks]
-      summary: Latest Sendit webhook payload
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/quicklivraison/webhook/latest:
-    get:
-      tags: [Webhooks]
-      summary: Latest QuickLivraison webhook payload
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
+          description: QuickLivraison account disconnected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuickLivraisonConnectionStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /shipping/forcelog/connection:
     get:
       tags: [Shipping - ForceLog]
       summary: Check ForceLog account connection
+      description: Reads connection status from Zomaal without calling ForceLog.
       responses:
         '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/forcelog/parcels:
-    post:
-      tags: [Shipping - ForceLog]
-      summary: Add a ForceLog parcel
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ForceLogParcelRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/forcelog/parcels/{code}:
-    get:
-      tags: [Shipping - ForceLog]
-      summary: Get ForceLog parcel details
-      parameters:
-        - $ref: '#/components/parameters/Code'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-    delete:
-      tags: [Shipping - ForceLog]
-      summary: Delete ForceLog parcel with NEW_PARCEL status
-      parameters:
-        - $ref: '#/components/parameters/Code'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/forcelog/parcels/{code}/sticker:
-    get:
-      tags: [Shipping - ForceLog]
-      summary: Get ForceLog parcel sticker as base64 PDF
-      parameters:
-        - $ref: '#/components/parameters/Code'
-      responses:
-        '200':
-          description: Base64 encoded PDF
+          description: Current user's ForceLog connection status.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Base64FileResponse'
-
-  /shipping/forcelog/parcels/relaunch:
+                $ref: '#/components/schemas/ForceLogConnectionStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       tags: [Shipping - ForceLog]
-      summary: Relaunch ForceLog parcel to a new customer
+      summary: Connect or replace the current user's ForceLog account
+      description: Validates the API key against ForceLog's authenticated cities endpoint, then encrypts and stores it. The key is never returned.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ForceLogRelaunchRequest'
+              $ref: '#/components/schemas/ForceLogConnectionRequest'
+            example:
+              apiKey: your-forcelog-api-key
       responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/forcelog/parcels/relaunch-zone:
-    post:
+        '201':
+          description: ForceLog account connected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForceLogConnectionStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          description: ForceLog rejected the API key or returned an invalid response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: ForceLog is unreachable or credential encryption is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
       tags: [Shipping - ForceLog]
-      summary: Relaunch ForceLog parcel to a new city
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ForceLogRelaunchZoneRequest'
+      summary: Disconnect the current user's ForceLog account
+      description: Deletes the encrypted API key. This operation is idempotent.
       responses:
         '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/forcelog/pickups:
-    post:
-      tags: [Shipping - ForceLog]
-      summary: Create ForceLog pickup request
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ForceLogPickupRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/forcelog/cities:
-    get:
-      tags: [Shipping - ForceLog]
-      summary: List ForceLog cities
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/forcelog/stock:
-    get:
-      tags: [Shipping - ForceLog]
-      summary: List ForceLog stock products
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/forcelog/stock/products:
-    post:
-      tags: [Shipping - ForceLog]
-      summary: Add ForceLog stock product
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ForceLogProductRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/forcelog/returns/eligible:
-    post:
-      tags: [Shipping - ForceLog]
-      summary: Get ForceLog parcels eligible for return
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/forcelog/returns:
-    post:
-      tags: [Shipping - ForceLog]
-      summary: Request ForceLog parcel return
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ForceLogReturnRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
+          description: ForceLog account disconnected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForceLogConnectionStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /shipping/ozoneexpress/connection:
     get:
       tags: [Shipping - OzoneExpress]
       summary: Check OzoneExpress account connection
+      description: Reads connection status from Zomaal without calling OzoneExpress.
       responses:
         '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/ozoneexpress/parcels:
-    post:
-      tags: [Shipping - OzoneExpress]
-      summary: Add an OzoneExpress parcel
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OzoneExpressParcelRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/ozoneexpress/parcels/{trackingNumber}:
-    get:
-      tags: [Shipping - OzoneExpress]
-      summary: Get OzoneExpress parcel information
-      parameters:
-        - name: trackingNumber
-          in: path
-          required: true
-          schema:
-            type: string
-          example: OZE123456789
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/ozoneexpress/tracking:
-    post:
-      tags: [Shipping - OzoneExpress]
-      summary: Track one or more OzoneExpress parcels
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OzoneExpressTrackingRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/ozoneexpress/delivery-notes:
-    post:
-      tags: [Shipping - OzoneExpress]
-      summary: Create an OzoneExpress delivery note
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/ozoneexpress/delivery-notes/parcels:
-    post:
-      tags: [Shipping - OzoneExpress]
-      summary: Add parcels to an OzoneExpress delivery note
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OzoneExpressDeliveryNoteParcelsRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/ozoneexpress/delivery-notes/save:
-    post:
-      tags: [Shipping - OzoneExpress]
-      summary: Save an OzoneExpress delivery note
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OzoneExpressDeliveryNoteRefRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/ProviderResponse'
-
-  /shipping/ozoneexpress/delivery-notes/{ref}/pdf-links:
-    get:
-      tags: [Shipping - OzoneExpress]
-      summary: Get OzoneExpress delivery note PDF links
-      parameters:
-        - name: ref
-          in: path
-          required: true
-          schema:
-            type: string
-          example: BL240115001
-      responses:
-        '200':
-          description: Delivery note PDF links
+          description: Current user's OzoneExpress connection status.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OzoneExpressDeliveryNotePdfLinks'
-
-  /shipping/ozoneexpress/cities:
-    get:
+                $ref: '#/components/schemas/OzoneExpressConnectionStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
       tags: [Shipping - OzoneExpress]
-      summary: List OzoneExpress cities
+      summary: Connect or replace the current user's OzoneExpress account
+      description: Validates the customer ID and API key using the read-only parcel-info endpoint and its CHECK_API result, then encrypts and stores both values. Credentials are never returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OzoneExpressConnectionRequest'
+            example:
+              customerId: '12345'
+              apiKey: your-ozoneexpress-api-key
+      responses:
+        '201':
+          description: OzoneExpress account connected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OzoneExpressConnectionStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Zomaal token is invalid or OzoneExpress rejected the credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: OzoneExpress returned an invalid or failed response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: OzoneExpress is unreachable or credential encryption is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Shipping - OzoneExpress]
+      summary: Disconnect the current user's OzoneExpress account
+      description: Deletes the encrypted customer ID and API key. This operation is idempotent.
       responses:
         '200':
-          $ref: '#/components/responses/ProviderResponse'
+          description: OzoneExpress account disconnected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OzoneExpressConnectionStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
 components:
   securitySchemes:
@@ -747,75 +497,53 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-  parameters:
-    Page:
-      name: page
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 1
-    QueryString:
-      name: querystring
-      in: query
-      required: false
-      schema:
-        type: string
-    Code:
-      name: code
-      in: path
-      required: true
-      schema:
-        type: string
-  requestBodies:
-    AnyJson:
-      required: false
-      content:
-        application/json:
-          schema:
-            type: object
-            additionalProperties: true
-    SendOtp:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/SendOtpRequest'
-    VerifyOtp:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/VerifyOtpRequest'
-    CreateStore:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CreateStoreRequest'
-    UpdateStore:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/UpdateStoreRequest'
-    SenditDelivery:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/SenditDeliveryRequest'
+      description: Access token returned by POST /auth/verify-otp or POST /auth/refresh.
   responses:
-    ProviderResponse:
-      description: Provider response proxied by Zomaal
+    BadRequest:
+      description: Invalid, missing, empty, or unexpected request field.
       content:
         application/json:
           schema:
-            type: object
-            additionalProperties: true
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing, invalid, expired, or non-access bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    ErrorResponse:
+      type: object
+      required: [message, error, statusCode]
+      properties:
+        message:
+          oneOf:
+            - type: string
+              example: Invalid or expired OTP
+            - type: array
+              items:
+                type: string
+              example: [phone must be a valid phone number]
+        error:
+          type: string
+          example: Bad Request
+        statusCode:
+          type: integer
+          example: 400
+    ProviderErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          properties:
+            quicklivraison:
+              type: object
+              additionalProperties: true
+              example:
+                error: Invalid API key
+                error_code: 401
     MessageResponse:
       type: object
+      required: [message]
       properties:
         message:
           type: string
@@ -823,51 +551,137 @@ components:
     SendOtpRequest:
       type: object
       required: [phone, channel]
+      additionalProperties: false
       properties:
         phone:
           type: string
-          example: '+14155551234'
+          description: International E.164 phone number.
+          example: '+212612345678'
         channel:
           type: string
           enum: [sms, whatsapp]
+          example: sms
     VerifyOtpRequest:
       type: object
       required: [phone, otp]
+      additionalProperties: false
       properties:
         phone:
           type: string
-          example: '+14155551234'
+          description: Same phone number used to request the OTP.
+          example: '+212612345678'
         otp:
           type: string
           minLength: 6
           maxLength: 6
+          pattern: '^.{6}$'
           example: '123456'
     RefreshTokenRequest:
       type: object
       required: [refreshToken]
+      additionalProperties: false
       properties:
         refreshToken:
           type: string
+          description: Refresh token returned by verify-otp or the previous refresh call.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
     TokenPair:
       type: object
+      required: [accessToken, refreshToken]
       properties:
         accessToken:
           type: string
+          description: Bearer token that expires after 15 minutes.
         refreshToken:
           type: string
+          description: Refresh token that expires after 7 days.
     AuthTokensResponse:
       allOf:
         - $ref: '#/components/schemas/TokenPair'
         - type: object
+          required: [isProfileCompleted]
           properties:
             isProfileCompleted:
               type: boolean
-    UserProfile:
+              example: false
+    Store:
       type: object
-      additionalProperties: true
+      required:
+        [
+          id,
+          ownerName,
+          businessName,
+          address,
+          city,
+          country,
+          logoUrl,
+          isActive,
+          createdAt,
+          updatedAt,
+          userId,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerName:
+          type: string
+          example: Ahmed Alaoui
+        businessName:
+          type: string
+          example: Atlas Market
+        address:
+          type: string
+          example: 123 Rue Hassan II
+        city:
+          type: string
+          example: Casablanca
+        country:
+          type: string
+          example: Morocco
+        logoUrl:
+          type: string
+          format: uri
+          nullable: true
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        userId:
+          type: string
+          format: uuid
     CreateStoreRequest:
       type: object
       required: [ownerName, businessName, address, city, country]
+      additionalProperties: false
+      properties:
+        ownerName:
+          type: string
+          example: Ahmed Alaoui
+        businessName:
+          type: string
+          example: Atlas Market
+        address:
+          type: string
+          example: 123 Rue Hassan II
+        city:
+          type: string
+          example: Casablanca
+        country:
+          type: string
+          example: Morocco
+        logoUrl:
+          type: string
+          format: uri
+          example: https://example.com/logo.png
+    UpdateStoreRequest:
+      type: object
+      additionalProperties: false
       properties:
         ownerName:
           type: string
@@ -882,424 +696,169 @@ components:
         logoUrl:
           type: string
           format: uri
-    UpdateStoreRequest:
-      allOf:
-        - $ref: '#/components/schemas/CreateStoreRequest'
-    Store:
-      allOf:
-        - $ref: '#/components/schemas/CreateStoreRequest'
-        - type: object
-          properties:
-            id:
-              type: string
-            userId:
-              type: string
-            isActive:
-              type: boolean
-    ProviderConnectionStatus:
+    UserProfile:
       type: object
+      required:
+        [
+          id,
+          phone,
+          isPhoneVerified,
+          onboardingComplete,
+          createdAt,
+          updatedAt,
+          store,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        phone:
+          type: string
+          example: '+212612345678'
+        isPhoneVerified:
+          type: boolean
+          example: true
+        onboardingComplete:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        store:
+          allOf:
+            - $ref: '#/components/schemas/Store'
+          nullable: true
+    SenditConnectionRequest:
+      type: object
+      required: [public_key, secret_key]
+      additionalProperties: false
+      properties:
+        public_key:
+          type: string
+          description: Public API key from the customer's Sendit account.
+          example: sendit-public-key
+        secret_key:
+          type: string
+          format: password
+          writeOnly: true
+          description: Secret API key from the customer's Sendit account.
+          example: sendit-secret-key
+    SenditConnectionStatus:
+      type: object
+      required: [connected, provider, accountName, connectedAt, message]
       properties:
         connected:
           type: boolean
+          example: true
         provider:
           type: string
+          enum: [sendit.ma]
         accountName:
           type: string
           nullable: true
+          example: Example Store
+        connectedAt:
+          type: string
+          format: date-time
+          nullable: true
         message:
           type: string
-    SenditDeliveryRequest:
+          example: Sendit account is connected
+    QuickLivraisonConnectionRequest:
       type: object
-      required: [pickup_district_id, district_id, name, amount, address, phone]
+      required: [apiKey]
+      additionalProperties: false
       properties:
-        pickup_district_id:
-          type: integer
-        district_id:
-          type: integer
-        name:
+        apiKey:
           type: string
-        amount:
-          type: number
-        address:
-          type: string
-        phone:
-          type: string
-        comment:
-          type: string
-        reference:
-          type: string
-        allow_open:
-          type: integer
-          enum: [0, 1]
-        allow_try:
-          type: integer
-          enum: [0, 1]
-        products_from_stock:
-          type: integer
-          enum: [0, 1]
-        products:
-          type: string
-        packaging_id:
-          type: integer
-        option_exchange:
-          type: integer
-          enum: [0, 1]
-        delivery_exchange_id:
-          type: string
-    SenditLabelsRequest:
+          format: password
+          writeOnly: true
+          description: Primary or subuser API key generated in the QuickLivraison customer dashboard.
+          example: sub_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    QuickLivraisonConnectionStatus:
       type: object
-      required: [codesToPrint, printFormat]
+      required: [connected, provider, keyType, connectedAt, message]
       properties:
-        codesToPrint:
-          type: string
-          example: DH1,DH2,DH3
-        printFormat:
-          type: integer
-          enum: [0, 1]
-    SenditPickupRequest:
-      type: object
-      required: [district_id, name, phone, address, note]
-      properties:
-        district_id:
-          type: integer
-        name:
-          type: string
-        phone:
-          type: string
-        address:
-          type: string
-        note:
-          type: string
-        deliveries:
-          type: string
-        movements:
-          type: string
-    SenditUpdatePickupRequest:
-      allOf:
-        - $ref: '#/components/schemas/SenditPickupRequest'
-    SenditReturnRequest:
-      type: object
-      required: [type, district_id, name, phone, note, deliveries]
-      properties:
-        type:
-          type: string
-          enum: [WAREHOUSE, HOME]
-        district_id:
-          type: integer
-        name:
-          type: string
-        phone:
-          type: string
-        address:
-          type: string
-        note:
-          type: string
-        deliveries:
-          type: string
-    SenditUpdateReturnRequest:
-      allOf:
-        - $ref: '#/components/schemas/SenditReturnRequest'
-    QuickLivraisonDeliveryRequest:
-      type: object
-      required: [district_id, name, amount, phone, address]
-      properties:
-        district_id:
-          type: integer
-          example: 123
-        name:
-          type: string
-          example: Jean Dupont
-        amount:
-          type: number
-          example: 250
-        phone:
-          type: string
-          example: '0612345678'
-        address:
-          type: string
-          example: 123 Rue Principale
-        code:
-          type: string
-        note:
-          type: string
-        open:
+        connected:
           type: boolean
-        try:
+          example: true
+        provider:
+          type: string
+          enum: [quicklivraison.ma]
+        keyType:
+          type: string
+          enum: [primary, subuser]
+          nullable: true
+          example: subuser
+        connectedAt:
+          type: string
+          format: date-time
+          nullable: true
+        message:
+          type: string
+          example: QuickLivraison account is connected
+    ForceLogConnectionRequest:
+      type: object
+      required: [apiKey]
+      additionalProperties: false
+      properties:
+        apiKey:
+          type: string
+          format: password
+          writeOnly: true
+          description: Customer API key obtained from the ForceLog account.
+          example: your-forcelog-api-key
+    ForceLogConnectionStatus:
+      type: object
+      required: [connected, provider, connectedAt, message]
+      properties:
+        connected:
           type: boolean
-        echange:
+          example: true
+        provider:
+          type: string
+          enum: [forcelog.ma]
+        connectedAt:
+          type: string
+          format: date-time
+          nullable: true
+        message:
+          type: string
+          example: ForceLog account is connected
+    OzoneExpressConnectionRequest:
+      type: object
+      required: [customerId, apiKey]
+      additionalProperties: false
+      properties:
+        customerId:
+          type: string
+          description: Customer identifier from the OzoneExpress account/API page.
+          example: '12345'
+        apiKey:
+          type: string
+          format: password
+          writeOnly: true
+          description: API key from the OzoneExpress account/API page.
+          example: your-ozoneexpress-api-key
+    OzoneExpressConnectionStatus:
+      type: object
+      required: [connected, provider, connectedAt, message]
+      properties:
+        connected:
           type: boolean
-        echange_colis:
+          example: true
+        provider:
           type: string
-        vendeur_name:
+          enum: [ozoneexpress.ma]
+        connectedAt:
           type: string
-        vendeur_phone:
+          format: date-time
+          nullable: true
+        message:
           type: string
-        store_name:
-          type: string
-        prd_name:
-          type: string
-        qte_prd:
-          type: integer
-        received_quantity:
-          type: object
-          additionalProperties:
-            type: integer
-    QuickLivraisonBulkDeliveryRequest:
-      type: object
-      required: [parcels]
-      properties:
-        parcels:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/QuickLivraisonDeliveryRequest'
-    QuickLivraisonCreateDeliveryResponse:
-      type: object
-      properties:
-        success:
-          type: string
-          example: Colis ajouté avec succès.
-        tracking_number:
-          type: string
-          example: PARCEL_12345678
-    QuickLivraisonWebhookPayload:
-      type: object
-      properties:
-        event:
-          type: string
-          example: status_changed
-        timestamp:
-          type: string
-          example: '2026-05-22T15:00:00+01:00'
-        data:
-          type: object
-          additionalProperties: true
-    ForceLogParcelRequest:
-      type: object
-      required: [ORDER_NUM, RECEIVE, PHONE, CITY, ADDRESS]
-      properties:
-        ORDER_NUM:
-          type: string
-          maxLength: 20
-        RECEIVE:
-          type: string
-          maxLength: 50
-        PHONE:
-          type: string
-          maxLength: 14
-        CITY:
-          type: string
-          maxLength: 50
-        ADDRESS:
-          type: string
-          maxLength: 100
-        HOW:
-          type: string
-          maxLength: 100
-        PRODUCT_NATURE:
-          type: string
-          maxLength: 100
-        COD:
-          type: number
-        CAN_OPEN:
-          type: boolean
-        STOCK:
-          type: string
-          example: REF1:2,REF2
-        FRAGILE:
-          type: boolean
-        CARTON:
-          type: string
-    ForceLogRelaunchRequest:
-      type: object
-      required: [CODE, RECEIVER, PHONE, ADDRESS, COD]
-      properties:
-        CODE:
-          type: string
-        RECEIVER:
-          type: string
-        PHONE:
-          type: string
-        ADDRESS:
-          type: string
-        COD:
-          type: number
-        COMMENT:
-          type: string
-    ForceLogRelaunchZoneRequest:
-      allOf:
-        - $ref: '#/components/schemas/ForceLogRelaunchRequest'
-        - type: object
-          required: [CITY]
-          properties:
-            CITY:
-              type: string
-    ForceLogPickupRequest:
-      type: object
-      required: [PHONE, CITY, ADDRESS]
-      properties:
-        PHONE:
-          type: string
-        CITY:
-          type: string
-        ADDRESS:
-          type: string
-        HOW:
-          type: string
-        STICKERS:
-          type: boolean
-    ForceLogProductRequest:
-      type: object
-      required: [PRODUCT_NAME]
-      properties:
-        PRODUCT_NAME:
-          type: string
-        QUANTITY:
-          type: integer
-        BARCODE:
-          type: string
-        CATEGORY_ID:
-          type: integer
-        VARIANTS:
-          type: array
-          items:
-            type: object
-            required: [NAME, QUANTITY]
-            properties:
-              NAME:
-                type: string
-              QUANTITY:
-                type: integer
-              BARCODE:
-                type: string
-    ForceLogReturnRequest:
-      type: object
-      required: [PARCELS, PHONE, QUARTER, CITY]
-      properties:
-        PARCELS:
-          type: array
-          items:
-            type: string
-        PHONE:
-          type: string
-        QUARTER:
-          type: string
-          minLength: 5
-        CITY:
-          type: string
-        NOTE:
-          type: string
-    Base64FileResponse:
-      type: object
-      properties:
-        contentType:
-          type: string
-          example: application/pdf
-        data:
-          type: string
-          description: Base64 encoded file contents.
-        encoding:
-          type: string
-          example: base64
-    OzoneExpressProductItem:
-      type: object
-      required: [ref, qnty]
-      properties:
-        ref:
-          type: string
-          example: PROD001
-        qnty:
-          type: number
-          example: 2
-    OzoneExpressParcelRequest:
-      type: object
-      required: [receiver, phone, city, address, price, stock]
-      properties:
-        trackingNumber:
-          type: string
-          description: Optional personalized tracking number.
-        receiver:
-          type: string
-          example: Mohammed Alami
-        phone:
-          type: string
-          example: '0612345678'
-        city:
-          type: string
-          description: OzoneExpress city ID.
-          example: '1'
-        address:
-          type: string
-          example: 123 Rue Hassan II
-        price:
-          type: number
-          example: 250
-        stock:
-          type: integer
-          enum: [0, 1]
-          description: 1 = stock, 0 = pickup.
-        note:
-          type: string
-        nature:
-          type: string
-        open:
-          type: integer
-          enum: [1, 2]
-          description: 1 = open package, 2 = do not open.
-        fragile:
-          type: integer
-          enum: [0, 1]
-        replace:
-          type: integer
-          enum: [0, 1]
-        products:
-          type: array
-          items:
-            $ref: '#/components/schemas/OzoneExpressProductItem'
-    OzoneExpressTrackingRequest:
-      type: object
-      required: [trackingNumber]
-      properties:
-        trackingNumber:
-          oneOf:
-            - type: string
-              example: OZE123456789
-            - type: array
-              items:
-                type: string
-              example: [OZE123456789, OZE987654321]
-    OzoneExpressDeliveryNoteParcelsRequest:
-      type: object
-      required: [ref, codes]
-      properties:
-        ref:
-          type: string
-          example: BL240115001
-        codes:
-          type: array
-          items:
-            type: string
-          example: [OZE123456789, OZE987654321]
-    OzoneExpressDeliveryNoteRefRequest:
-      type: object
-      required: [ref]
-      properties:
-        ref:
-          type: string
-          example: BL240115001
-    OzoneExpressDeliveryNotePdfLinks:
-      type: object
-      properties:
-        ref:
-          type: string
-        pdfStandard:
-          type: string
-          format: uri
-        labelsA4:
-          type: string
-          format: uri
-        labels10x10:
-          type: string
-          format: uri
+          example: OzoneExpress account is connected
 security:
   - bearerAuth: []

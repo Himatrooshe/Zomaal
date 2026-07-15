@@ -18,7 +18,55 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  store Store?
+  store                    Store?
+  senditConnection         SenditConnection?
+  quickLivraisonConnection QuickLivraisonConnection?
+  forceLogConnection       ForceLogConnection?
+  ozoneExpressConnection   OzoneExpressConnection?
+}
+
+model QuickLivraisonConnection {
+  id              String   @id @default(uuid())
+  encryptedApiKey String
+  keyType         String
+  connectedAt     DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ForceLogConnection {
+  id              String   @id @default(uuid())
+  encryptedApiKey String
+  connectedAt     DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OzoneExpressConnection {
+  id                  String   @id @default(uuid())
+  encryptedCustomerId String
+  encryptedApiKey     String
+  connectedAt         DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SenditConnection {
+  id                 String   @id @default(uuid())
+  encryptedPublicKey String
+  encryptedSecretKey String
+  accountName        String?
+  connectedAt        DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Store {

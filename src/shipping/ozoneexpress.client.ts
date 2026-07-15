@@ -2,6 +2,7 @@ import {
   BadGatewayException,
   Injectable,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {
@@ -10,41 +11,80 @@ import type {
 } from './dto/ozoneexpress-parcel.dto';
 import { parseProviderJson } from './utils/provider-response';
 
+export interface OzoneExpressCredentials {
+  customerId: string;
+  apiKey: string;
+}
+
+type OzoneExpressAuthResponse = {
+  CHECK_API?: {
+    RESULT?: string;
+    MESSAGE?: string;
+  };
+};
+
 @Injectable()
 export class OzoneExpressClient {
   constructor(private readonly configService: ConfigService) {}
 
-  checkConnection() {
-    return this.getCities();
+  async checkConnection(credentials: OzoneExpressCredentials) {
+    const response = await this.getParcelInfo(
+      credentials,
+      'ZOMAAL_CONNECTION_TEST_DO_NOT_EXIST',
+    );
+
+    if (response.CHECK_API?.RESULT !== 'SUCCESS') {
+      throw new UnauthorizedException(
+        response.CHECK_API?.MESSAGE || 'OzoneExpress credentials were rejected',
+      );
+    }
+
+    return { authenticated: true };
   }
 
-  addParcel(payload: OzoneExpressParcelDto) {
-    return this.postForm('/add-parcel', this.mapParcelPayload(payload));
+  addParcel(
+    credentials: OzoneExpressCredentials,
+    payload: OzoneExpressParcelDto,
+  ) {
+    return this.postForm(
+      credentials,
+      '/add-parcel',
+      this.mapParcelPayload(payload),
+    );
   }
 
-  getParcelInfo(trackingNumber: string) {
-    return this.postForm('/parcel-info', {
+  getParcelInfo(
+    credentials: OzoneExpressCredentials,
+    trackingNumber: string,
+  ): Promise<OzoneExpressAuthResponse> {
+    return this.postForm(credentials, '/parcel-info', {
       'tracking-number': trackingNumber,
     });
   }
 
-  track(trackingNumber: string | string[]) {
+  track(
+    credentials: OzoneExpressCredentials,
+    trackingNumber: string | string[],
+  ) {
     if (Array.isArray(trackingNumber)) {
-      return this.postJson('/tracking', {
+      return this.postJson(credentials, '/tracking', {
         'tracking-number': trackingNumber,
       });
     }
 
-    return this.postForm('/tracking', {
+    return this.postForm(credentials, '/tracking', {
       'tracking-number': trackingNumber,
     });
   }
 
-  createDeliveryNote() {
-    return this.postForm('/add-delivery-note');
+  createDeliveryNote(credentials: OzoneExpressCredentials) {
+    return this.postForm(credentials, '/add-delivery-note');
   }
 
-  addParcelsToDeliveryNote(payload: OzoneExpressDeliveryNoteParcelsDto) {
+  addParcelsToDeliveryNote(
+    credentials: OzoneExpressCredentials,
+    payload: OzoneExpressDeliveryNoteParcelsDto,
+  ) {
     const fields: Record<string, string> = {
       Ref: payload.ref,
     };
@@ -53,11 +93,11 @@ export class OzoneExpressClient {
       fields[`Codes[${index}]`] = code;
     });
 
-    return this.postForm('/add-parcel-to-delivery-note', fields);
+    return this.postForm(credentials, '/add-parcel-to-delivery-note', fields);
   }
 
-  saveDeliveryNote(ref: string) {
-    return this.postForm('/save-delivery-note', {
+  saveDeliveryNote(credentials: OzoneExpressCredentials, ref: string) {
+    return this.postForm(credentials, '/save-delivery-note', {
       Ref: ref,
     });
   }
@@ -77,7 +117,11 @@ export class OzoneExpressClient {
     return this.request('GET', `${this.getApiBaseUrl()}/cities`);
   }
 
-  private async postForm(path: string, fields: Record<string, unknown> = {}) {
+  private async postForm<T = unknown>(
+    credentials: OzoneExpressCredentials,
+    path: string,
+    fields: Record<string, unknown> = {},
+  ): Promise<T> {
     const formData = new FormData();
 
     for (const [key, value] of Object.entries(fields)) {
@@ -86,13 +130,17 @@ export class OzoneExpressClient {
       }
     }
 
-    return this.request('POST', this.buildCustomerUrl(path), {
+    return this.request('POST', this.buildCustomerUrl(path, credentials), {
       body: formData,
     });
   }
 
-  private postJson(path: string, body: unknown) {
-    return this.request('POST', this.buildCustomerUrl(path), {
+  private postJson(
+    credentials: OzoneExpressCredentials,
+    path: string,
+    body: unknown,
+  ) {
+    return this.request('POST', this.buildCustomerUrl(path, credentials), {
       body: JSON.stringify(body),
       headers: {
         'Content-Type': 'application/json',
@@ -120,14 +168,22 @@ export class OzoneExpressClient {
       headers?: Record<string, string>;
     } = {},
   ): Promise<T> {
-    const response = await fetch(url, {
-      method,
-      headers: {
-        Accept: 'application/json',
-        ...options.headers,
-      },
-      body: options.body,
-    });
+    let response: Response;
+
+    try {
+      response = await fetch(url, {
+        method,
+        headers: {
+          Accept: 'application/json',
+          ...options.headers,
+        },
+        body: options.body,
+      });
+    } catch {
+      throw new ServiceUnavailableException(
+        'OzoneExpress is currently unreachable',
+      );
+    }
 
     const body = await parseProviderJson<T>(response, 'OzoneExpress');
 
@@ -159,12 +215,12 @@ export class OzoneExpressClient {
     };
   }
 
-  private buildCustomerUrl(path: string) {
+  private buildCustomerUrl(path: string, credentials: OzoneExpressCredentials) {
     const normalizedPath = path.replace(/^\/+/, '');
 
     return `${this.getApiBaseUrl()}/customers/${encodeURIComponent(
-      this.getCustomerId(),
-    )}/${encodeURIComponent(this.getApiKey())}/${normalizedPath}`;
+      credentials.customerId,
+    )}/${encodeURIComponent(credentials.apiKey)}/${normalizedPath}`;
   }
 
   private getApiBaseUrl() {
@@ -180,31 +236,5 @@ export class OzoneExpressClient {
         'https://client.ozoneexpress.ma',
       )
       .replace(/\/+$/, '');
-  }
-
-  private getCustomerId(): string {
-    const customerId = this.configService.get<string>(
-      'OZONEEXPRESS_CUSTOMER_ID',
-    );
-
-    if (!customerId) {
-      throw new ServiceUnavailableException(
-        'OzoneExpress customer ID is not configured',
-      );
-    }
-
-    return customerId;
-  }
-
-  private getApiKey(): string {
-    const apiKey = this.configService.get<string>('OZONEEXPRESS_API_KEY');
-
-    if (!apiKey) {
-      throw new ServiceUnavailableException(
-        'OzoneExpress API key is not configured',
-      );
-    }
-
-    return apiKey;
   }
 }
