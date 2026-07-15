@@ -54,6 +54,7 @@ export class ShippingController {
   constructor(private readonly shippingService: ShippingService) {}
 
   @Get('sendit/connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: 'Check Sendit account connection',
     description:
@@ -72,6 +73,7 @@ export class ShippingController {
   }
 
   @Post('sendit/connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Connect or replace the current user's Sendit account",
     description:
@@ -106,6 +108,7 @@ export class ShippingController {
   }
 
   @Delete('sendit/connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Disconnect the current user's Sendit account",
     description:

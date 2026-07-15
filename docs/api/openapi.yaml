@@ -26,14 +26,8 @@ tags:
     description: Authenticated user profile.
   - name: Stores
     description: Store onboarding and profile management.
-  - name: Shipping - Sendit
-    description: Per-user Sendit account connection management.
-  - name: Shipping - QuickLivraison
-    description: Per-user QuickLivraison account connection management.
-  - name: Shipping - ForceLog
-    description: Per-user ForceLog account connection management.
-  - name: Shipping - OzoneExpress
-    description: Per-user OzoneExpress account connection management.
+  - name: Shipping Integrations
+    description: Frontend catalog and generic shipping-company connection management.
 paths:
   /auth/send-otp:
     post:
@@ -232,265 +226,135 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /shipping/sendit/connection:
+  /shipping/integrations:
     get:
-      tags: [Shipping - Sendit]
-      summary: Check Sendit account connection
-      description: Reads connection status from Zomaal without calling Sendit.
+      tags: [Shipping Integrations]
+      summary: Load the complete shipping integration catalog
+      description: |
+        Frontend bootstrap endpoint. Returns countries, available companies,
+        the current user's connection state, instructions, and the exact fields
+        needed to build each credentials form.
+
+        No credential values are returned. Load this endpoint once, then handle
+        country navigation, company search, and form rendering locally.
       responses:
         '200':
-          description: Current user's Sendit connection status.
+          description: Complete frontend shipping catalog.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SenditConnectionStatus'
+                $ref: '#/components/schemas/ShippingIntegrationsResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /shipping/integrations/{companyCode}/connection:
+    parameters:
+      - name: companyCode
+        in: path
+        required: true
+        description: Stable shipping company identifier returned by the catalog.
+        schema:
+          type: string
+          enum: [sendit, quicklivraison, forcelog, ozoneexpress]
+        example: forcelog
     post:
-      tags: [Shipping - Sendit]
-      summary: Connect or replace the current user's Sendit account
-      description: Validates the credentials with Sendit, then encrypts and stores them for the authenticated user. Credentials are never returned.
+      tags: [Shipping Integrations]
+      summary: Connect or replace a shipping company account
+      description: |
+        Submit only the credential fields declared in authFields for the
+        selected company. Values with inputType=secure_text must be masked by
+        the frontend and excluded from logs and analytics.
+
+        In Swagger UI, the companyCode path dropdown and request example
+        dropdown are independent. Select the matching named request example.
+
+        Credentials are validated with the selected provider before encrypted
+        storage. Credential values are never returned.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SenditConnectionRequest'
+              $ref: '#/components/schemas/ShippingIntegrationConnectionRequest'
+            examples:
+              sendit:
+                summary: Sendit
+                value:
+                  credentials:
+                    public_key: sendit-public-key
+                    secret_key: sendit-secret-key
+              quicklivraison:
+                summary: QuickLivraison
+                value:
+                  credentials:
+                    apiKey: sub_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+              forcelog:
+                summary: ForceLog
+                value:
+                  credentials:
+                    apiKey: your-forcelog-api-key
+              ozoneexpress:
+                summary: OzoneExpress
+                value:
+                  credentials:
+                    customerId: '12345'
+                    apiKey: your-ozoneexpress-api-key
       responses:
         '201':
-          description: Sendit account connected.
+          description: Provider credentials verified and connection saved.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SenditConnectionStatus'
+                $ref: '#/components/schemas/ShippingIntegrationConnectionResponse'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Missing, empty, unexpected, or provider-inappropriate credential field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Zomaal token is invalid or Sendit rejected the credentials.
+          description: Zomaal token is invalid or the selected provider rejected the credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Unknown or unsupported shipping company code.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '502':
-          description: Sendit returned an invalid or failed response.
+          description: The selected provider returned an invalid or failed response.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '503':
-          description: Credential encryption is not configured correctly.
+          description: The selected provider is unreachable or credential encryption is unavailable.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     delete:
-      tags: [Shipping - Sendit]
-      summary: Disconnect the current user's Sendit account
-      description: Deletes stored credentials and the cached provider token. This operation is idempotent.
+      tags: [Shipping Integrations]
+      summary: Disconnect a shipping company account
+      description: Deletes the authenticated user's encrypted credentials for the selected company. This operation is idempotent.
       responses:
         '200':
-          description: Sendit account disconnected.
+          description: Shipping company account disconnected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SenditConnectionStatus'
+                $ref: '#/components/schemas/ShippingIntegrationConnectionResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
-  /shipping/quicklivraison/connection:
-    get:
-      tags: [Shipping - QuickLivraison]
-      summary: Check QuickLivraison account connection
-      description: Reads connection status from Zomaal without calling QuickLivraison.
-      responses:
-        '200':
-          description: Current user's QuickLivraison connection status.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QuickLivraisonConnectionStatus'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-    post:
-      tags: [Shipping - QuickLivraison]
-      summary: Connect or replace the current user's QuickLivraison account
-      description: Validates a primary or subuser API key through QuickLivraison's product endpoint, then encrypts and stores it. The key is never returned.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/QuickLivraisonConnectionRequest'
-            example:
-              apiKey: sub_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      responses:
-        '201':
-          description: QuickLivraison account connected.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QuickLivraisonConnectionStatus'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '502':
-          description: QuickLivraison rejected the API key or returned an invalid response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProviderErrorResponse'
-        '503':
-          description: QuickLivraison is unreachable or credential encryption is unavailable.
+        '404':
+          description: Unknown or unsupported shipping company code.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags: [Shipping - QuickLivraison]
-      summary: Disconnect the current user's QuickLivraison account
-      description: Deletes the encrypted API key. This operation is idempotent.
-      responses:
-        '200':
-          description: QuickLivraison account disconnected.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QuickLivraisonConnectionStatus'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /shipping/forcelog/connection:
-    get:
-      tags: [Shipping - ForceLog]
-      summary: Check ForceLog account connection
-      description: Reads connection status from Zomaal without calling ForceLog.
-      responses:
-        '200':
-          description: Current user's ForceLog connection status.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ForceLogConnectionStatus'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-    post:
-      tags: [Shipping - ForceLog]
-      summary: Connect or replace the current user's ForceLog account
-      description: Validates the API key against ForceLog's authenticated cities endpoint, then encrypts and stores it. The key is never returned.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ForceLogConnectionRequest'
-            example:
-              apiKey: your-forcelog-api-key
-      responses:
-        '201':
-          description: ForceLog account connected.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ForceLogConnectionStatus'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '502':
-          description: ForceLog rejected the API key or returned an invalid response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: ForceLog is unreachable or credential encryption is unavailable.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags: [Shipping - ForceLog]
-      summary: Disconnect the current user's ForceLog account
-      description: Deletes the encrypted API key. This operation is idempotent.
-      responses:
-        '200':
-          description: ForceLog account disconnected.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ForceLogConnectionStatus'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /shipping/ozoneexpress/connection:
-    get:
-      tags: [Shipping - OzoneExpress]
-      summary: Check OzoneExpress account connection
-      description: Reads connection status from Zomaal without calling OzoneExpress.
-      responses:
-        '200':
-          description: Current user's OzoneExpress connection status.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OzoneExpressConnectionStatus'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-    post:
-      tags: [Shipping - OzoneExpress]
-      summary: Connect or replace the current user's OzoneExpress account
-      description: Validates the customer ID and API key using the read-only parcel-info endpoint and its CHECK_API result, then encrypts and stores both values. Credentials are never returned.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OzoneExpressConnectionRequest'
-            example:
-              customerId: '12345'
-              apiKey: your-ozoneexpress-api-key
-      responses:
-        '201':
-          description: OzoneExpress account connected.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OzoneExpressConnectionStatus'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          description: Zomaal token is invalid or OzoneExpress rejected the credentials.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '502':
-          description: OzoneExpress returned an invalid or failed response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: OzoneExpress is unreachable or credential encryption is unavailable.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags: [Shipping - OzoneExpress]
-      summary: Disconnect the current user's OzoneExpress account
-      description: Deletes the encrypted customer ID and API key. This operation is idempotent.
-      responses:
-        '200':
-          description: OzoneExpress account disconnected.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OzoneExpressConnectionStatus'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
 components:
   securitySchemes:
     bearerAuth:
@@ -530,17 +394,6 @@ components:
         statusCode:
           type: integer
           example: 400
-    ProviderErrorResponse:
-      allOf:
-        - $ref: '#/components/schemas/ErrorResponse'
-        - type: object
-          properties:
-            quicklivraison:
-              type: object
-              additionalProperties: true
-              example:
-                error: Invalid API key
-                error_code: 401
     MessageResponse:
       type: object
       required: [message]
@@ -731,96 +584,170 @@ components:
           allOf:
             - $ref: '#/components/schemas/Store'
           nullable: true
-    SenditConnectionRequest:
+    ShippingAuthField:
       type: object
-      required: [public_key, secret_key]
-      additionalProperties: false
+      required: [key, label, placeholder, inputType, required, sensitive]
       properties:
-        public_key:
+        key:
           type: string
-          description: Public API key from the customer's Sendit account.
-          example: sendit-public-key
-        secret_key:
+          example: apiKey
+        label:
           type: string
-          format: password
-          writeOnly: true
-          description: Secret API key from the customer's Sendit account.
-          example: sendit-secret-key
-    SenditConnectionStatus:
-      type: object
-      required: [connected, provider, accountName, connectedAt, message]
-      properties:
-        connected:
+          example: API key
+        placeholder:
+          type: string
+          example: Enter your API key
+        inputType:
+          type: string
+          enum: [text, secure_text]
+          description: Frontend rendering hint. secure_text means the value should be masked because it is sensitive; it is not a separate credential kind.
+          example: secure_text
+        required:
           type: boolean
           example: true
-        provider:
+        sensitive:
+          type: boolean
+          description: Sensitive values must be excluded from logs, analytics, and local plaintext persistence.
+          example: true
+    ShippingCompany:
+      type: object
+      required:
+        [
+          code,
+          name,
+          description,
+          logoUrl,
+          status,
+          connected,
+          connectedAt,
+          instructions,
+          authFields,
+        ]
+      properties:
+        code:
           type: string
-          enum: [sendit.ma]
-        accountName:
+          enum: [sendit, quicklivraison, forcelog, ozoneexpress]
+          example: forcelog
+        name:
           type: string
+          example: ForceLog
+        description:
+          type: string
+          example: Moroccan delivery and COD service
+        logoUrl:
+          type: string
+          format: uri
           nullable: true
-          example: Example Store
+        status:
+          type: string
+          enum: [available]
+        connected:
+          type: boolean
+          example: false
         connectedAt:
           type: string
           format: date-time
           nullable: true
-        message:
+        instructions:
           type: string
-          example: Sendit account is connected
-    QuickLivraisonConnectionRequest:
+          example: Enter the API key from your ForceLog account.
+        authFields:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShippingAuthField'
+    ShippingCountry:
       type: object
-      required: [apiKey]
+      required: [code, name, status, availableCompanyCount, companies]
+      properties:
+        code:
+          type: string
+          example: MA
+        name:
+          type: string
+          example: Morocco
+        status:
+          type: string
+          enum: [available, coming_soon]
+        availableCompanyCount:
+          type: integer
+          example: 4
+        companies:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShippingCompany'
+    ShippingIntegrationsResponse:
+      type: object
+      required: [countries]
+      properties:
+        countries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShippingCountry'
+    SenditIntegrationConnectionRequest:
+      type: object
+      required: [credentials]
       additionalProperties: false
       properties:
-        apiKey:
-          type: string
-          format: password
-          writeOnly: true
-          description: Primary or subuser API key generated in the QuickLivraison customer dashboard.
-          example: sub_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    QuickLivraisonConnectionStatus:
+        credentials:
+          type: object
+          required: [public_key, secret_key]
+          additionalProperties: false
+          properties:
+            public_key:
+              type: string
+              example: sendit-public-key
+            secret_key:
+              type: string
+              writeOnly: true
+              example: sendit-secret-key
+    ApiKeyIntegrationConnectionRequest:
       type: object
-      required: [connected, provider, keyType, connectedAt, message]
+      required: [credentials]
+      additionalProperties: false
       properties:
+        credentials:
+          type: object
+          required: [apiKey]
+          additionalProperties: false
+          properties:
+            apiKey:
+              type: string
+              writeOnly: true
+              example: your-provider-api-key
+    OzoneExpressIntegrationConnectionRequest:
+      type: object
+      required: [credentials]
+      additionalProperties: false
+      properties:
+        credentials:
+          type: object
+          required: [customerId, apiKey]
+          additionalProperties: false
+          properties:
+            customerId:
+              type: string
+              example: '12345'
+            apiKey:
+              type: string
+              writeOnly: true
+              example: your-ozoneexpress-api-key
+    ShippingIntegrationConnectionRequest:
+      oneOf:
+        - $ref: '#/components/schemas/SenditIntegrationConnectionRequest'
+        - $ref: '#/components/schemas/ApiKeyIntegrationConnectionRequest'
+        - $ref: '#/components/schemas/OzoneExpressIntegrationConnectionRequest'
+      description: Use only the credentials schema required by the company selected in companyCode.
+    ShippingIntegrationConnectionResponse:
+      type: object
+      required: [companyCode, connected, connectedAt, message]
+      properties:
+        companyCode:
+          type: string
+          enum: [sendit, quicklivraison, forcelog, ozoneexpress]
+          example: forcelog
         connected:
           type: boolean
           example: true
-        provider:
-          type: string
-          enum: [quicklivraison.ma]
-        keyType:
-          type: string
-          enum: [primary, subuser]
-          nullable: true
-          example: subuser
-        connectedAt:
-          type: string
-          format: date-time
-          nullable: true
-        message:
-          type: string
-          example: QuickLivraison account is connected
-    ForceLogConnectionRequest:
-      type: object
-      required: [apiKey]
-      additionalProperties: false
-      properties:
-        apiKey:
-          type: string
-          format: password
-          writeOnly: true
-          description: Customer API key obtained from the ForceLog account.
-          example: your-forcelog-api-key
-    ForceLogConnectionStatus:
-      type: object
-      required: [connected, provider, connectedAt, message]
-      properties:
-        connected:
-          type: boolean
-          example: true
-        provider:
-          type: string
-          enum: [forcelog.ma]
         connectedAt:
           type: string
           format: date-time
@@ -828,37 +755,5 @@ components:
         message:
           type: string
           example: ForceLog account is connected
-    OzoneExpressConnectionRequest:
-      type: object
-      required: [customerId, apiKey]
-      additionalProperties: false
-      properties:
-        customerId:
-          type: string
-          description: Customer identifier from the OzoneExpress account/API page.
-          example: '12345'
-        apiKey:
-          type: string
-          format: password
-          writeOnly: true
-          description: API key from the OzoneExpress account/API page.
-          example: your-ozoneexpress-api-key
-    OzoneExpressConnectionStatus:
-      type: object
-      required: [connected, provider, connectedAt, message]
-      properties:
-        connected:
-          type: boolean
-          example: true
-        provider:
-          type: string
-          enum: [ozoneexpress.ma]
-        connectedAt:
-          type: string
-          format: date-time
-          nullable: true
-        message:
-          type: string
-          example: OzoneExpress account is connected
 security:
   - bearerAuth: []

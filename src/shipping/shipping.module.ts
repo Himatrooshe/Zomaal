@@ -12,6 +12,8 @@ import { QuickLivraisonConnectionService } from './quicklivraison-connection.ser
 import { SenditWebhookController } from './sendit-webhook.controller';
 import { ShippingController } from './shipping.controller';
 import { ShippingService } from './shipping.service';
+import { ShippingIntegrationsController } from './shipping-integrations.controller';
+import { ShippingIntegrationsService } from './shipping-integrations.service';
 import { SenditClient } from './sendit.client';
 import { SenditConnectionService } from './sendit-connection.service';
 
@@ -23,6 +25,7 @@ import { SenditConnectionService } from './sendit-connection.service';
     QuickLivraisonWebhookController,
     ForceLogController,
     OzoneExpressController,
+    ShippingIntegrationsController,
   ],
   providers: [
     ShippingService,
@@ -34,6 +37,7 @@ import { SenditConnectionService } from './sendit-connection.service';
     ForceLogConnectionService,
     OzoneExpressClient,
     OzoneExpressConnectionService,
+    ShippingIntegrationsService,
   ],
   exports: [
     ShippingService,

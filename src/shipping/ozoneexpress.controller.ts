@@ -48,6 +48,7 @@ export class OzoneExpressController {
   constructor(private readonly shippingService: ShippingService) {}
 
   @Get('connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: 'Check OzoneExpress account connection',
     description:
@@ -62,6 +63,7 @@ export class OzoneExpressController {
   }
 
   @Post('connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Connect or replace the current user's OzoneExpress account",
     description:
@@ -97,6 +99,7 @@ export class OzoneExpressController {
   }
 
   @Delete('connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Disconnect the current user's OzoneExpress account",
     description:

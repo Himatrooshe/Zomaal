@@ -50,6 +50,7 @@ export class ForceLogController {
   constructor(private readonly shippingService: ShippingService) {}
 
   @Get('connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: 'Check ForceLog account connection',
     description:
@@ -64,6 +65,7 @@ export class ForceLogController {
   }
 
   @Post('connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Connect or replace the current user's ForceLog account",
     description:
@@ -96,6 +98,7 @@ export class ForceLogController {
   }
 
   @Delete('connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Disconnect the current user's ForceLog account",
     description:

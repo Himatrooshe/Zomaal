@@ -20,4 +20,8 @@ Open `openapi.yaml` with one of these tools:
 - Runtime endpoints still undergoing integration testing are intentionally omitted.
 - Protected endpoints require `Authorization: Bearer <accessToken>`.
 - Provider API keys and secrets are write-only request fields and are never returned.
+- `GET /shipping/integrations` is the frontend bootstrap endpoint for countries,
+  companies, connection state, and dynamic credential-form metadata.
+- In `authFields`, `inputType: secure_text` is a UI masking instruction for a
+  sensitive API value; it is not an additional credential field.
 - Live Swagger is available at `/docs` when `SWAGGER_ENABLED=true`.

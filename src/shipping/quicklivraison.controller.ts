@@ -47,6 +47,7 @@ export class QuickLivraisonController {
   constructor(private readonly shippingService: ShippingService) {}
 
   @Get('connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: 'Check QuickLivraison account connection',
     description:
@@ -61,6 +62,7 @@ export class QuickLivraisonController {
   }
 
   @Post('connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Connect or replace the current user's QuickLivraison account",
     description:
@@ -92,6 +94,7 @@ export class QuickLivraisonController {
   }
 
   @Delete('connection')
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Disconnect the current user's QuickLivraison account",
     description:

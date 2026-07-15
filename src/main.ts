@@ -66,20 +66,8 @@ async function bootstrap() {
       .addTag('Users', 'Authenticated user profile.')
       .addTag('Stores', 'Store onboarding and profile management.')
       .addTag(
-        'Shipping - Sendit',
-        'Per-user Sendit account connection management.',
-      )
-      .addTag(
-        'Shipping - QuickLivraison',
-        'Per-user QuickLivraison account connection management.',
-      )
-      .addTag(
-        'Shipping - ForceLog',
-        'Per-user ForceLog account connection management.',
-      )
-      .addTag(
-        'Shipping - OzoneExpress',
-        'Per-user OzoneExpress account connection management.',
+        'Shipping Integrations',
+        'Frontend catalog and generic shipping-company connection management.',
       )
       .addBearerAuth()
       .build();
