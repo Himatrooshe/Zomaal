@@ -24,8 +24,9 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./prisma.config.ts
+COPY --from=build /app/docker-entrypoint.sh ./docker-entrypoint.sh
 
 USER node
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && exec node dist/main"]
+CMD ["sh", "docker-entrypoint.sh"]
