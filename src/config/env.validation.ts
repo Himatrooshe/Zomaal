@@ -44,6 +44,18 @@ export function validateEnvironment(
     errors.push('DEV_OTP_CODE must contain exactly 6 digits');
   }
 
+  const loggerPhone =
+    typeof config.LOGGER_PHONE === 'string' ? config.LOGGER_PHONE : '';
+  const loggerPassword =
+    typeof config.LOGGER_PASSWORD === 'string' ? config.LOGGER_PASSWORD : '';
+
+  if ((loggerPhone && !loggerPassword) || (!loggerPhone && loggerPassword)) {
+    errors.push('LOGGER_PHONE and LOGGER_PASSWORD must be configured together');
+  }
+  if (loggerPassword && loggerPassword.length < 8) {
+    errors.push('LOGGER_PASSWORD must be at least 8 characters long');
+  }
+
   if (errors.length > 0) {
     throw new Error(`Invalid environment configuration: ${errors.join(', ')}`);
   }

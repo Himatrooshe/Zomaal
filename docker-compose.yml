@@ -25,6 +25,8 @@ services:
       - PORT=${PORT:-3000}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-zomaal}
       - JWT_SECRET=${JWT_SECRET:-local-development-jwt-secret-change-before-production}
+      - LOGGER_PHONE=${LOGGER_PHONE:-+212600000001}
+      - LOGGER_PASSWORD=${LOGGER_PASSWORD:-ZomaalDemo#2026}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_REQUIRED=true

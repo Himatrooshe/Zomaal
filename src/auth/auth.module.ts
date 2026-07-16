@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TwilioOtpProvider } from '../providers/twilio-otp.provider';
 import { DevelopmentOtpProvider } from '../providers/development-otp.provider';
+import { LoggerUserBootstrapService } from './logger-user-bootstrap.service';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { DevelopmentOtpProvider } from '../providers/development-otp.provider';
     JwtStrategy,
     TwilioOtpProvider,
     DevelopmentOtpProvider,
+    LoggerUserBootstrapService,
     {
       provide: 'OtpProvider',
       inject: [ConfigService, TwilioOtpProvider, DevelopmentOtpProvider],

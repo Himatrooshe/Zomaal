@@ -16,8 +16,9 @@ Open `openapi.yaml` with one of these tools:
 
 ## Notes
 
-- The static file mirrors the verified endpoints shown by the live NestJS Swagger UI.
-- Runtime endpoints still undergoing integration testing are intentionally omitted.
+- The static file is generated from and mirrors the live NestJS Swagger document.
+- All public authentication, store, shipping integration, provider, and webhook
+  operations are included. Internal webhook-debug routes remain intentionally hidden.
 - Protected endpoints require `Authorization: Bearer <accessToken>`.
 - Provider API keys and secrets are write-only request fields and are never returned.
 - `GET /shipping/integrations` is the frontend bootstrap endpoint for countries,

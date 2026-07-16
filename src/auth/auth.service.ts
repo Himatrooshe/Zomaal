@@ -16,6 +16,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import type { RedisClientType } from 'redis';
 import type { JwtTokenPayload } from './interfaces/jwt-payload.interface';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
@@ -77,6 +78,34 @@ export class AuthService {
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      isProfileCompleted: user.onboardingComplete,
+    };
+  }
+
+  async login(loginDto: LoginDto) {
+    const { phone, password } = loginDto;
+
+    await this.assertRateLimit(
+      `auth:login:${phone}`,
+      5,
+      15 * 60,
+      'Too many login attempts. Please try again later.',
+    );
+
+    const user = await this.prisma.user.findUnique({ where: { phone } });
+    const passwordMatches =
+      user?.passwordHash && (await bcrypt.compare(password, user.passwordHash));
+
+    if (!user || !passwordMatches) {
+      throw new UnauthorizedException('Invalid phone number or password');
+    }
+
+    const tokens = await this.generateTokens(user.id, user.phone);
+    await this.updateRefreshToken(user.id, tokens.refreshToken);
+    await this.clearRateLimit(`auth:login:${phone}`);
+
+    return {
+      ...tokens,
       isProfileCompleted: user.onboardingComplete,
     };
   }

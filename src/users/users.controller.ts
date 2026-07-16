@@ -4,6 +4,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -16,6 +17,7 @@ import { UserProfileDto } from './dto/user-profile.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
+@ApiProduces('application/json')
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {

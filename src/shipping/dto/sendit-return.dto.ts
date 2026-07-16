@@ -2,63 +2,107 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsInt, IsOptional, IsString } from 'class-validator';
 
 export class SenditReturnDto {
-  @ApiProperty({ enum: ['WAREHOUSE', 'HOME'] })
+  @ApiProperty({
+    description:
+      'Return destination. WAREHOUSE sends parcels to Sendit storage; HOME sends them to the supplied merchant address.',
+    enum: ['WAREHOUSE', 'HOME'],
+    example: 'HOME',
+  })
   @IsIn(['WAREHOUSE', 'HOME'])
   type: 'WAREHOUSE' | 'HOME';
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'Sendit destination district ID for the return. Required by the provider for both return types.',
+    example: 1,
+  })
   @IsInt()
   district_id: number;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Return contact or business name.',
+    example: 'Zomaal Store',
+  })
   @IsString()
   name: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Return contact telephone number.',
+    example: '0612345678',
+  })
   @IsString()
   phone: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Return destination address, normally supplied for HOME returns.',
+    example: '45 Boulevard Zerktouni, Casablanca',
+  })
   @IsOptional()
   @IsString()
   address?: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Instructions for handling the returned parcels.',
+    example: 'Return sealed parcels to reception.',
+  })
   @IsString()
   note: string;
 
-  @ApiProperty({ example: 'DX1,DX2,DX3' })
+  @ApiProperty({
+    description: 'Comma-separated Sendit delivery codes to return.',
+    example: 'DH000123456MA,DH000123457MA',
+  })
   @IsString()
   deliveries: string;
 }
 
 export class SenditUpdateReturnDto {
-  @ApiPropertyOptional({ enum: ['WAREHOUSE', 'HOME'] })
+  @ApiPropertyOptional({
+    description: 'Updated return destination type.',
+    enum: ['WAREHOUSE', 'HOME'],
+    example: 'HOME',
+  })
   @IsOptional()
   @IsIn(['WAREHOUSE', 'HOME'])
   type?: 'WAREHOUSE' | 'HOME';
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Updated return contact or business name.',
+    example: 'Zomaal Store',
+  })
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Updated return contact telephone number.',
+    example: '0612345678',
+  })
   @IsOptional()
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Updated return destination address.',
+    example: '45 Boulevard Zerktouni, Casablanca',
+  })
   @IsOptional()
   @IsString()
   address?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Updated return instructions.',
+    example: 'Return sealed parcels to reception.',
+  })
   @IsOptional()
   @IsString()
   note?: string;
 
-  @ApiPropertyOptional({ example: 'DX1,DX2,DX3' })
+  @ApiPropertyOptional({
+    description: 'Replacement comma-separated delivery-code list.',
+    example: 'DH000123456MA,DH000123457MA',
+  })
   @IsOptional()
   @IsString()
   deliveries?: string;

@@ -13,13 +13,17 @@ import {
 export class QuickLivraisonDeliveryDto {
   @ApiProperty({
     description:
-      'QuickLivraison destination city/district ID. Obtain it from GET /shipping/quicklivraison/cities.',
+      'QuickLivraison destination city/district identifier. Resolve the identifier with GET /shipping/quicklivraison/cities before creating the delivery.',
     example: 123,
+    type: Number,
   })
   @IsInt()
   district_id: number;
 
-  @ApiProperty({ description: 'Recipient full name.', example: 'Jean Dupont' })
+  @ApiProperty({
+    description: 'Full name of the person receiving the parcel.',
+    example: 'Sara El Amrani',
+  })
   @IsString()
   @IsNotEmpty()
   name: string;
@@ -29,13 +33,15 @@ export class QuickLivraisonDeliveryDto {
       'Cash-on-delivery amount in Moroccan dirhams (MAD). Use 0 for a prepaid parcel.',
     example: 250,
     minimum: 0,
+    type: Number,
   })
   @IsNumber()
   @Min(0)
   amount: number;
 
   @ApiProperty({
-    description: 'Recipient phone number.',
+    description:
+      'Recipient phone number as accepted by QuickLivraison. A Moroccan national-format number is shown in the example.',
     example: '0612345678',
   })
   @IsString()
@@ -43,15 +49,17 @@ export class QuickLivraisonDeliveryDto {
   phone: string;
 
   @ApiProperty({
-    description: 'Complete delivery address.',
-    example: '123 Rue Principale, Casablanca',
+    description:
+      'Complete street address used by the courier for the final delivery.',
+    example: '123 Rue Al Massira, Maarif, Casablanca',
   })
   @IsString()
   @IsNotEmpty()
   address: string;
 
   @ApiPropertyOptional({
-    description: 'Your unique parcel/order reference.',
+    description:
+      'Merchant-defined parcel or order reference used to reconcile the provider parcel with your order.',
     example: 'ORDER-1001',
   })
   @IsOptional()
@@ -59,8 +67,8 @@ export class QuickLivraisonDeliveryDto {
   code?: string;
 
   @ApiPropertyOptional({
-    description: 'Delivery instructions or internal note.',
-    example: 'Call before delivery',
+    description: 'Instructions forwarded to the delivery operation.',
+    example: 'Call the recipient before delivery',
   })
   @IsOptional()
   @IsString()
@@ -69,29 +77,39 @@ export class QuickLivraisonDeliveryDto {
   @ApiPropertyOptional({
     description: 'Allow the recipient to open the parcel before accepting it.',
     default: false,
+    example: false,
+    type: Boolean,
   })
   @IsOptional()
   @IsBoolean()
   open?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Allow the recipient to try the product.',
+    description:
+      'Allow the recipient to try the product before accepting the parcel.',
     default: false,
+    example: false,
+    type: Boolean,
   })
   @IsOptional()
   @IsBoolean()
   try?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Marks this delivery as an exchange.',
+    description:
+      'Marks the delivery as an exchange. When true, provide echange_colis with the original parcel tracking number.',
     default: false,
+    example: false,
+    type: Boolean,
   })
   @IsOptional()
   @IsBoolean()
   echange?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Tracking/reference of the parcel being exchanged.',
+    description:
+      'QuickLivraison tracking number of the original parcel being exchanged. Used when echange is true.',
+    example: 'PARCEL_87654321',
   })
   @IsOptional()
   @IsString()
@@ -99,18 +117,23 @@ export class QuickLivraisonDeliveryDto {
 
   @ApiPropertyOptional({
     description: 'Seller/contact name shown for the parcel.',
+    example: 'Zomaal Store',
   })
   @IsOptional()
   @IsString()
   vendeur_name?: string;
 
-  @ApiPropertyOptional({ description: 'Seller/contact phone number.' })
+  @ApiPropertyOptional({
+    description: 'Seller/contact phone number shown for the parcel.',
+    example: '0600000000',
+  })
   @IsOptional()
   @IsString()
   vendeur_phone?: string;
 
   @ApiPropertyOptional({
     description: 'Store name associated with the parcel.',
+    example: 'Zomaal Store',
   })
   @IsOptional()
   @IsString()
@@ -118,7 +141,7 @@ export class QuickLivraisonDeliveryDto {
 
   @ApiPropertyOptional({
     description:
-      'Product name when not using QuickLivraison stock product IDs.',
+      'Human-readable product name for non-stock deliveries. For stock fulfillment, use received_quantity instead.',
     example: 'Running shoes',
   })
   @IsOptional()
@@ -126,9 +149,11 @@ export class QuickLivraisonDeliveryDto {
   prd_name?: string;
 
   @ApiPropertyOptional({
-    description: 'Product quantity for non-stock mode.',
+    description:
+      'Product quantity for a non-stock delivery. Pair it with prd_name.',
     example: 1,
     minimum: 1,
+    type: Number,
   })
   @IsOptional()
   @IsInt()
@@ -137,7 +162,7 @@ export class QuickLivraisonDeliveryDto {
 
   @ApiPropertyOptional({
     description:
-      'Stock mode quantities keyed by QuickLivraison product ID. Obtain IDs from GET /shipping/quicklivraison/products.',
+      'Stock-fulfillment quantities keyed by QuickLivraison product ID. Resolve product IDs with GET /shipping/quicklivraison/products. Do not send this field for a non-stock delivery.',
     example: { '42': 2 },
     type: 'object',
     additionalProperties: { type: 'integer', minimum: 1 },

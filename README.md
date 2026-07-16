@@ -44,6 +44,34 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Logger user
+
+Configure the single logger account in the deployment environment:
+
+```bash
+LOGGER_PHONE=+212600000001
+LOGGER_PASSWORD=replace-with-a-strong-password
+```
+
+The application creates or updates this user automatically at startup and stores
+only a bcrypt hash in PostgreSQL. After applying migrations, local development
+can also create it manually:
+
+```bash
+npx prisma migrate deploy
+npm run db:seed
+```
+
+Then call `POST /auth/login` using `LOGGER_PHONE` and `LOGGER_PASSWORD`.
+
+To expose Swagger on a production deployment such as Render, configure
+`SWAGGER_ENABLED=true` and open `/docs`. Use Swagger's **Authorize** button with
+the access token; JSON request bodies automatically send
+`Content-Type: application/json`.
+
+Machine-readable specifications are available from `/docs/openapi.json` and
+`/docs/openapi.yaml` for Postman, SDK generation, and CI contract checks.
+
 ## Run tests
 
 ```bash

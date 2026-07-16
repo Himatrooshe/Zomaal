@@ -13,11 +13,13 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
+  ApiConsumes,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiServiceUnavailableResponse,
+  ApiProduces,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -41,6 +43,8 @@ const companyCodes = [
 
 @ApiTags('Shipping Integrations')
 @ApiBearerAuth()
+@ApiConsumes('application/json')
+@ApiProduces('application/json')
 @UseGuards(JwtAuthGuard)
 @Controller('shipping/integrations')
 @ApiUnauthorizedResponse({

@@ -2,11 +2,14 @@ import { Controller, Get, Post, Body, Put, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBadRequestResponse,
+  ApiBody,
+  ApiConsumes,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -21,6 +24,8 @@ import { StoreResponseDto } from './dto/store-response.dto';
 
 @ApiTags('Stores')
 @ApiBearerAuth()
+@ApiConsumes('application/json')
+@ApiProduces('application/json')
 @UseGuards(JwtAuthGuard)
 @Controller('stores')
 export class StoresController {
@@ -31,6 +36,23 @@ export class StoresController {
     summary: 'Create the current user’s store',
     description:
       'Creates one store for the authenticated user and marks onboarding as complete.',
+  })
+  @ApiBody({
+    type: CreateStoreDto,
+    description: 'Store profile and pickup address for the current user.',
+    examples: {
+      moroccoStore: {
+        summary: 'Moroccan online store',
+        value: {
+          ownerName: 'Ahmed Alaoui',
+          businessName: 'Atlas Market',
+          address: '123 Rue Hassan II',
+          city: 'Casablanca',
+          country: 'Morocco',
+          logoUrl: 'https://example.com/logo.png',
+        },
+      },
+    },
   })
   @ApiCreatedResponse({ description: 'Store created.', type: StoreResponseDto })
   @ApiBadRequestResponse({
@@ -53,7 +75,11 @@ export class StoresController {
   }
 
   @Get('me')
-  @ApiOperation({ summary: 'Get the current user’s store' })
+  @ApiOperation({
+    summary: 'Get the current user’s store',
+    description:
+      'Requires `Authorization: Bearer <accessToken>`. Returns the single store owned by the authenticated user.',
+  })
   @ApiOkResponse({
     description: 'Current user’s store.',
     type: StoreResponseDto,
@@ -75,6 +101,28 @@ export class StoresController {
     summary: 'Update the current user’s store',
     description:
       'All request fields are optional; only supplied fields are changed.',
+  })
+  @ApiBody({
+    type: UpdateStoreDto,
+    description:
+      'Partial update. Include at least one field; omitted fields remain unchanged.',
+    examples: {
+      renameStore: {
+        summary: 'Update business name and logo',
+        value: {
+          businessName: 'Atlas Market Pro',
+          logoUrl: 'https://example.com/new-logo.png',
+        },
+      },
+      updateAddress: {
+        summary: 'Update pickup address',
+        value: {
+          address: '45 Boulevard Zerktouni',
+          city: 'Casablanca',
+          country: 'Morocco',
+        },
+      },
+    },
   })
   @ApiOkResponse({ description: 'Updated store.', type: StoreResponseDto })
   @ApiBadRequestResponse({

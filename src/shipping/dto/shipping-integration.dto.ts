@@ -6,7 +6,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export type ShippingCompanyCode =
   | 'sendit'
@@ -15,21 +15,39 @@ export type ShippingCompanyCode =
   | 'ozoneexpress';
 
 export class ShippingIntegrationCredentialsDto {
+  @ApiPropertyOptional({
+    description: 'Sendit public key.',
+    example: 'sendit-public-key',
+  })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   public_key?: string;
 
+  @ApiPropertyOptional({
+    description: 'Sendit secret key.',
+    example: 'sendit-secret-key',
+    writeOnly: true,
+  })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   secret_key?: string;
 
+  @ApiPropertyOptional({
+    description: 'OzoneExpress customer identifier.',
+    example: '12345',
+  })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   customerId?: string;
 
+  @ApiPropertyOptional({
+    description: 'QuickLivraison, ForceLog, or OzoneExpress API key.',
+    example: 'provider-api-key',
+    writeOnly: true,
+  })
   @IsOptional()
   @IsString()
   @IsNotEmpty()

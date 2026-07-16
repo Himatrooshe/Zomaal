@@ -2,6 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class ApiErrorDto {
   @ApiProperty({
+    description:
+      'Human-readable error detail. Validation failures return one or more messages.',
     oneOf: [
       { type: 'string', example: 'Invalid or expired OTP' },
       {
@@ -13,9 +15,12 @@ export class ApiErrorDto {
   })
   message: string | string[];
 
-  @ApiProperty({ example: 'Bad Request' })
+  @ApiProperty({
+    description: 'HTTP error reason phrase.',
+    example: 'Bad Request',
+  })
   error: string;
 
-  @ApiProperty({ example: 400 })
+  @ApiProperty({ description: 'HTTP status code.', example: 400 })
   statusCode: number;
 }

@@ -5,6 +5,7 @@ export class VerifyOtpDto {
   @ApiProperty({
     description: 'The same E.164 phone number used to request the OTP.',
     example: '+212612345678',
+    pattern: '^\\+[1-9]\\d{7,14}$',
   })
   @IsString()
   @IsNotEmpty()
@@ -16,6 +17,7 @@ export class VerifyOtpDto {
     example: '123456',
     minLength: 6,
     maxLength: 6,
+    pattern: '^\\d{6}$',
   })
   @IsString()
   @IsNotEmpty()

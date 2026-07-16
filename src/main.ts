@@ -59,21 +59,81 @@ async function bootstrap() {
     const config = new DocumentBuilder()
       .setTitle('Zomaal API')
       .setDescription(
-        'Verified Zomaal API surface. Runtime endpoints still under integration testing are intentionally hidden.',
+        [
+          'Production API reference for Zomaal authentication, stores, and shipping providers.',
+          '',
+          '### Required headers',
+          '- Requests with a JSON body: `Content-Type: application/json`',
+          '- JSON responses: `Accept: application/json` (recommended)',
+          '- Protected endpoints: `Authorization: Bearer <accessToken>`',
+          '- Provider webhook signature headers are documented on each webhook operation.',
+          '',
+          '### Authentication',
+          'Use `POST /auth/login` or `POST /auth/verify-otp` to receive an access token and refresh token. Click **Authorize** and paste the access token only; Swagger UI adds the `Bearer` prefix. Send refresh tokens only in the JSON body of `POST /auth/refresh`.',
+          '',
+          '### Response format',
+          'Success responses use the schema shown per operation. Errors use `{ message, error, statusCode }`; validation errors can return an array in `message`.',
+        ].join('\n'),
       )
       .setVersion('1.0.0')
-      .addTag('Auth', 'Phone OTP authentication and token rotation.')
+      .addTag(
+        'Auth',
+        'Phone/password login, OTP authentication, and refresh-token rotation.',
+      )
       .addTag('Users', 'Authenticated user profile.')
       .addTag('Stores', 'Store onboarding and profile management.')
       .addTag(
         'Shipping Integrations',
         'Frontend catalog and generic shipping-company connection management.',
       )
-      .addBearerAuth()
+      .addTag(
+        'Shipping - Sendit',
+        'Sendit account connection, deliveries, districts, pickups, returns, and labels.',
+      )
+      .addTag(
+        'Shipping - QuickLivraison',
+        'QuickLivraison account connection, deliveries, tracking, products, and cities.',
+      )
+      .addTag(
+        'Shipping - ForceLog',
+        'ForceLog account connection, parcels, pickups, stock, returns, and stickers.',
+      )
+      .addTag(
+        'Shipping - OzoneExpress',
+        'OzoneExpress account connection, parcels, tracking, delivery notes, and cities.',
+      )
+      .addTag(
+        'Provider Webhooks',
+        'Public callbacks invoked by shipping providers. These endpoints do not use a Zomaal bearer token.',
+      )
+      .addBearerAuth({
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description:
+          'Paste the access token only. Do not paste the refresh token or include the word Bearer.',
+      })
       .build();
-    const document = SwaggerModule.createDocument(app, config);
+    const document = SwaggerModule.createDocument(app, config, {
+      deepScanRoutes: true,
+      autoTagControllers: false,
+      operationIdFactory: (controllerKey, methodKey) =>
+        `${controllerKey.replace(/Controller$/, '')}_${methodKey}`,
+    });
     SwaggerModule.setup('docs', app, document, {
-      swaggerOptions: { persistAuthorization: true },
+      jsonDocumentUrl: 'docs/openapi.json',
+      yamlDocumentUrl: 'docs/openapi.yaml',
+      customSiteTitle: 'Zomaal API Documentation',
+      swaggerOptions: {
+        persistAuthorization: true,
+        displayOperationId: true,
+        displayRequestDuration: true,
+        filter: true,
+        tryItOutEnabled: true,
+        docExpansion: 'list',
+        defaultModelExpandDepth: 3,
+        defaultModelsExpandDepth: 2,
+      },
     });
   }
 
