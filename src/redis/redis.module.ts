@@ -13,6 +13,14 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
       useFactory: async (configService: ConfigService) => {
         const host = configService.get<string>('REDIS_HOST', 'localhost');
         const port = configService.get<number>('REDIS_PORT', 6379);
+        const configuredConnectTimeout = Number(
+          configService.get<string>('REDIS_CONNECT_TIMEOUT_MS', '5000'),
+        );
+        const connectTimeout =
+          Number.isFinite(configuredConnectTimeout) &&
+          configuredConnectTimeout > 0
+            ? configuredConnectTimeout
+            : 5000;
         let redisUrl = configService.get<string>('REDIS_URL');
 
         // If REDIS_HOST accidentally contains the full URL (common when pasting cloud URLs)
@@ -25,11 +33,27 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
 
         const client = createClient({
           url: redisUrl || `redis://${host}:${port}`,
+          socket: {
+            connectTimeout,
+            reconnectStrategy: false,
+          },
+        });
+
+        client.on('error', (error: unknown) => {
+          if (client.isReady) {
+            console.error(
+              `Redis client error: ${error instanceof Error ? error.message : 'unknown error'}`,
+            );
+          }
         });
 
         try {
           await client.connect();
         } catch (error) {
+          if (client.isOpen) {
+            client.destroy();
+          }
+
           const redisRequired =
             configService.get<string>('REDIS_REQUIRED', 'false') === 'true';
 
@@ -38,7 +62,7 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           }
 
           console.warn(
-            'Redis connection failed; continuing because REDIS_REQUIRED is not true.',
+            `Redis connection failed (${error instanceof Error ? error.message : 'unknown error'}); continuing because REDIS_REQUIRED is not true.`,
           );
         }
 
