@@ -72,6 +72,21 @@ the access token; JSON request bodies automatically send
 Machine-readable specifications are available from `/docs/openapi.json` and
 `/docs/openapi.yaml` for Postman, SDK generation, and CI contract checks.
 
+## One-time migration recovery
+
+Databases that recorded the old
+`20260714000000_add_sendit_connection` migration as failed must run the
+following once before returning to the normal Docker command:
+
+```bash
+npx prisma db execute --file prisma/recovery/20260717_repair_failed_sendit.sql
+npx prisma migrate resolve --applied 20260714000000_add_sendit_connection
+npx prisma migrate deploy
+```
+
+The recovery SQL is idempotent and preserves existing rows. Fresh databases do
+not require this recovery; the normal Docker startup applies all migrations.
+
 ## Run tests
 
 ```bash
