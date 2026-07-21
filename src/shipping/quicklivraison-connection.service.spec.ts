@@ -4,14 +4,13 @@ import { QuickLivraisonClient } from './quicklivraison.client';
 
 describe('QuickLivraisonConnectionService', () => {
   const encryptionKey = Buffer.alloc(32, 7).toString('base64');
-  let storedConnection:
-    | {
-        userId: string;
-        encryptedApiKey: string;
-        keyType: string;
-        connectedAt: Date;
-      }
-    | undefined;
+  type StoredConnection = {
+    userId: string;
+    encryptedApiKey: string;
+    keyType: string;
+    connectedAt: Date;
+  };
+  let storedConnection: StoredConnection | undefined;
   let prisma: {
     quickLivraisonConnection: {
       upsert: jest.Mock;
@@ -26,22 +25,47 @@ describe('QuickLivraisonConnectionService', () => {
     storedConnection = undefined;
     prisma = {
       quickLivraisonConnection: {
-        upsert: jest.fn(({ create, update }) => {
-          storedConnection = storedConnection
-            ? { ...storedConnection, ...update }
-            : { ...create, connectedAt: new Date('2026-07-15T10:30:00.000Z') };
-          return storedConnection;
-        }),
-        findUnique: jest.fn(({ select }) => {
-          if (!storedConnection) return null;
-          if (!select) return storedConnection;
-          return Object.fromEntries(
-            Object.keys(select).map((key) => [
-              key,
-              storedConnection?.[key as keyof typeof storedConnection],
-            ]),
-          );
-        }),
+        upsert: jest.fn(
+          ({
+            create,
+            update,
+          }: {
+            create: Omit<StoredConnection, 'connectedAt'>;
+            update: Pick<
+              StoredConnection,
+              'encryptedApiKey' | 'keyType' | 'connectedAt'
+            >;
+          }) => {
+            storedConnection = storedConnection
+              ? { ...storedConnection, ...update }
+              : {
+                  ...create,
+                  connectedAt: new Date('2026-07-15T10:30:00.000Z'),
+                };
+            return storedConnection;
+          },
+        ),
+        findUnique: jest.fn(
+          ({
+            select,
+          }: {
+            select?: {
+              encryptedApiKey?: boolean;
+              keyType?: boolean;
+              connectedAt?: boolean;
+            };
+          }) => {
+            if (!storedConnection) return null;
+            if (!select) return storedConnection;
+            if (select.encryptedApiKey) {
+              return { encryptedApiKey: storedConnection.encryptedApiKey };
+            }
+            return {
+              keyType: storedConnection.keyType,
+              connectedAt: storedConnection.connectedAt,
+            };
+          },
+        ),
         deleteMany: jest.fn(() => {
           storedConnection = undefined;
           return { count: 1 };

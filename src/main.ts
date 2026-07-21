@@ -106,6 +106,26 @@ async function bootstrap() {
         'Provider Webhooks',
         'Public callbacks invoked by shipping providers. These endpoints do not use a Zomaal bearer token.',
       )
+      .addTag(
+        'Shopify',
+        'Protected connection lifecycle for the current Zomaal store. Shopify access and refresh tokens are never returned by this API.',
+      )
+      .addTag(
+        'Shopify Data',
+        'Live, bearer-protected Shopify store, product, order, and customer reads with cursor pagination. Responses are not persisted by Zomaal.',
+      )
+      .addTag(
+        'E-commerce Revenue',
+        'Provider-neutral account synchronization and combined revenue reporting. Monetary values remain separated by currency.',
+      )
+      .addTag(
+        'Shopify OAuth',
+        'Public Shopify authorization callback. The frontend starts OAuth through the protected Shopify endpoint.',
+      )
+      .addTag(
+        'Shopify Webhooks',
+        'HMAC-verified Shopify uninstall and mandatory privacy callbacks. These endpoints do not use a Zomaal bearer token.',
+      )
       .addBearerAuth({
         type: 'http',
         scheme: 'bearer',

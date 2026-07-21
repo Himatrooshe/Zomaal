@@ -24,6 +24,7 @@ model User {
   quickLivraisonConnection QuickLivraisonConnection?
   forceLogConnection       ForceLogConnection?
   ozoneExpressConnection   OzoneExpressConnection?
+  shopifyOAuthStates       ShopifyOAuthState[]
 }
 
 model QuickLivraisonConnection {
@@ -84,4 +85,152 @@ model Store {
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])
+
+  shopifyConnection    ShopifyConnection?
+  shopifyOAuthStates   ShopifyOAuthState[]
+  ecommerceConnections EcommerceConnection[]
+}
+
+enum EcommercePlatform {
+  SHOPIFY
+}
+
+enum EcommerceConnectionStatus {
+  ACTIVE
+  DISCONNECTED
+  REAUTHORIZATION_REQUIRED
+}
+
+enum EcommerceOrderStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+  UNKNOWN
+}
+
+enum EcommercePaymentStatus {
+  PENDING
+  AUTHORIZED
+  PARTIALLY_PAID
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  VOIDED
+  EXPIRED
+  UNKNOWN
+}
+
+model EcommerceConnection {
+  id                String                    @id @default(uuid())
+  platform          EcommercePlatform
+  externalAccountId String
+  displayName       String?
+  status            EcommerceConnectionStatus @default(ACTIVE)
+  includeInRevenue  Boolean                   @default(true)
+  syncCursor        String?
+  syncFrom          DateTime?
+  syncStartedAt     DateTime?
+  lastSyncedAt      DateTime?
+  lastSyncError     String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  shopifyConnection ShopifyConnection?
+  orders            EcommerceOrder[]
+
+  @@unique([storeId, platform])
+  @@unique([platform, externalAccountId])
+  @@index([storeId, status])
+  @@index([platform, status])
+}
+
+model EcommerceOrder {
+  id                String                 @id @default(uuid())
+  externalOrderId   String
+  orderName         String?
+  status            EcommerceOrderStatus
+  financialStatus   EcommercePaymentStatus
+  fulfillmentStatus String?
+  currency          String
+  itemCount         Int                    @default(0)
+  grossSales        Decimal                @db.Decimal(20, 4)
+  discounts         Decimal                @db.Decimal(20, 4)
+  refunds           Decimal                @db.Decimal(20, 4)
+  netSales          Decimal                @db.Decimal(20, 4)
+  shipping          Decimal                @db.Decimal(20, 4)
+  tax               Decimal                @db.Decimal(20, 4)
+  totalCollected    Decimal                @db.Decimal(20, 4)
+  providerCreatedAt DateTime
+  processedAt       DateTime
+  cancelledAt       DateTime?
+  providerUpdatedAt DateTime
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  connectionId String
+  connection   EcommerceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, externalOrderId])
+  @@index([connectionId, processedAt])
+  @@index([connectionId, providerUpdatedAt])
+  @@index([financialStatus, processedAt])
+}
+
+enum ShopifyConnectionStatus {
+  ACTIVE
+  DISCONNECTED
+  REAUTHORIZATION_REQUIRED
+}
+
+model ShopifyConnection {
+  id                    String                  @id @default(uuid())
+  shopDomain            String                  @unique
+  status                ShopifyConnectionStatus @default(ACTIVE)
+  encryptedAccessToken  String?
+  encryptedRefreshToken String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  grantedScopes         String
+  installedAt           DateTime                @default(now())
+  disconnectedAt        DateTime?
+  lastVerifiedAt        DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  storeId String @unique
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  ecommerceConnectionId String?              @unique
+  ecommerceConnection   EcommerceConnection? @relation(fields: [ecommerceConnectionId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model ShopifyOAuthState {
+  id         String   @id @default(uuid())
+  stateHash  String   @unique
+  shopDomain String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([userId, storeId])
+}
+
+model ShopifyWebhookReceipt {
+  webhookId   String   @id
+  topic       String
+  shopDomain  String
+  processedAt DateTime @default(now())
+
+  @@index([shopDomain])
+  @@index([processedAt])
 }

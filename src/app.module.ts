@@ -9,6 +9,8 @@ import { UsersModule } from './users/users.module';
 import { StoresModule } from './stores/stores.module';
 import { ShippingModule } from './shipping/shipping.module';
 import { validateEnvironment } from './config/env.validation';
+import { ShopifyModule } from './shopify/shopify.module';
+import { EcommerceModule } from './ecommerce/ecommerce.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { validateEnvironment } from './config/env.validation';
     UsersModule,
     StoresModule,
     ShippingModule,
+    ShopifyModule,
+    EcommerceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

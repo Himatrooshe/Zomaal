@@ -1,0 +1,35 @@
+# Run `shopify app config link` from this repository to create the real
+# shopify.app.toml for the Shopify app selected in your Developer Dashboard.
+name = "Zomaal Development"
+client_id = "replace-with-client-id-from-shopify"
+application_url = "https://example.invalid"
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = true
+
+[access_scopes]
+# `shopify app config link` pulls the scopes selected for the linked app.
+# Keep this TOML value as the source of truth and use only scopes Zomaal needs.
+scopes = "read_products,write_products,read_orders,write_orders,read_customers,read_inventory,write_inventory,read_locations,read_fulfillments,write_fulfillments,read_assigned_fulfillment_orders,write_assigned_fulfillment_orders,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders,read_third_party_fulfillment_orders,write_third_party_fulfillment_orders,read_returns,write_returns"
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://example.invalid/auth/shopify/callback"
+]
+
+[webhooks]
+api_version = "2026-07"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "/webhooks/shopify"
+
+[[webhooks.subscriptions]]
+compliance_topics = [
+  "customers/data_request",
+  "customers/redact",
+  "shop/redact"
+]
+uri = "/webhooks/shopify"
