@@ -7,10 +7,13 @@ import {
 import { EcommerceConnectionStatus, EcommercePlatform } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { EcommerceSyncResponseDto } from './dto/ecommerce-response.dto';
-import {
-  ShopifyRevenueAdapter,
-  type NormalizedEcommerceOrder,
-} from './shopify-revenue.adapter';
+import type {
+  EcommerceRevenueAdapter,
+  NormalizedEcommerceOrder,
+} from './interfaces/ecommerce-revenue-adapter.interface';
+import { LightfunnelsRevenueAdapter } from './lightfunnels-revenue.adapter';
+import { ShopifyRevenueAdapter } from './shopify-revenue.adapter';
+import { YouCanRevenueAdapter } from './youcan-revenue.adapter';
 
 const MAX_PAGES_PER_REQUEST = 5;
 
@@ -23,7 +26,9 @@ export class EcommerceSyncService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly lightfunnelsAdapter: LightfunnelsRevenueAdapter,
     private readonly shopifyAdapter: ShopifyRevenueAdapter,
+    private readonly youCanAdapter: YouCanRevenueAdapter,
   ) {}
 
   async syncConnection(
@@ -35,7 +40,11 @@ export class EcommerceSyncService {
         id: connectionId,
         store: { userId },
       },
-      include: { shopifyConnection: true },
+      include: {
+        shopifyConnection: true,
+        youCanConnection: true,
+        lightfunnelsConnection: true,
+      },
     });
 
     if (!connection) {
@@ -44,7 +53,11 @@ export class EcommerceSyncService {
     if (
       connection.status !== EcommerceConnectionStatus.ACTIVE ||
       (connection.platform === EcommercePlatform.SHOPIFY &&
-        !connection.shopifyConnection)
+        !connection.shopifyConnection) ||
+      (connection.platform === EcommercePlatform.YOUCAN &&
+        !connection.youCanConnection) ||
+      (connection.platform === EcommercePlatform.LIGHTFUNNELS &&
+        !connection.lightfunnelsConnection)
     ) {
       throw new ConflictException(
         'Reconnect this e-commerce account before synchronizing it',
@@ -56,14 +69,14 @@ export class EcommerceSyncService {
       return running;
     }
 
-    const sync = this.runShopifySync(userId, connection).finally(() => {
+    const sync = this.runSync(userId, connection).finally(() => {
       this.runningSyncs.delete(connection.id);
     });
     this.runningSyncs.set(connection.id, sync);
     return sync;
   }
 
-  private async runShopifySync(
+  private async runSync(
     userId: string,
     connection: {
       id: string;
@@ -74,11 +87,7 @@ export class EcommerceSyncService {
       lastSyncedAt: Date | null;
     },
   ): Promise<EcommerceSyncResponseDto> {
-    if (connection.platform !== EcommercePlatform.SHOPIFY) {
-      throw new ConflictException(
-        'Synchronization is not supported for this e-commerce platform',
-      );
-    }
+    const adapter = this.adapterFor(connection.platform);
 
     let cursor = connection.syncCursor;
     const syncFrom =
@@ -103,7 +112,7 @@ export class EcommerceSyncService {
         pageNumber < MAX_PAGES_PER_REQUEST;
         pageNumber++
       ) {
-        const page = await this.shopifyAdapter.fetchOrdersPage(
+        const page = await adapter.fetchOrdersPage(
           userId,
           cursor,
           syncFrom,
@@ -121,6 +130,7 @@ export class EcommerceSyncService {
               syncStartedAt: null,
               lastSyncedAt: syncStartedAt,
               lastSyncError: null,
+              includeInRevenue: true,
             },
           });
           return {
@@ -134,7 +144,7 @@ export class EcommerceSyncService {
 
         if (!page.endCursor) {
           throw new BadGatewayException(
-            'Shopify returned an invalid pagination cursor',
+            `${connection.platform} returned an invalid pagination cursor`,
           );
         }
         cursor = page.endCursor;
@@ -157,6 +167,21 @@ export class EcommerceSyncService {
         data: { lastSyncError: safeErrorMessage(error) },
       });
       throw error;
+    }
+  }
+
+  private adapterFor(platform: EcommercePlatform): EcommerceRevenueAdapter {
+    switch (platform) {
+      case EcommercePlatform.SHOPIFY:
+        return this.shopifyAdapter;
+      case EcommercePlatform.YOUCAN:
+        return this.youCanAdapter;
+      case EcommercePlatform.LIGHTFUNNELS:
+        return this.lightfunnelsAdapter;
+      default:
+        throw new ConflictException(
+          'Synchronization is not supported for this e-commerce platform',
+        );
     }
   }
 

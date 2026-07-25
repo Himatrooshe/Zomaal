@@ -1,0 +1,37 @@
+import { EcommerceOrderStatus, EcommercePaymentStatus } from '@prisma/client';
+
+export interface NormalizedEcommerceOrder {
+  externalOrderId: string;
+  orderName: string;
+  status: EcommerceOrderStatus;
+  financialStatus: EcommercePaymentStatus;
+  fulfillmentStatus: string;
+  currency: string;
+  itemCount: number;
+  grossSales: string;
+  discounts: string;
+  refunds: string;
+  netSales: string;
+  shipping: string;
+  tax: string;
+  totalCollected: string;
+  providerCreatedAt: Date;
+  processedAt: Date;
+  cancelledAt: Date | null;
+  providerUpdatedAt: Date;
+}
+
+export interface EcommerceOrderPage {
+  orders: NormalizedEcommerceOrder[];
+  hasNextPage: boolean;
+  endCursor: string | null;
+}
+
+export interface EcommerceRevenueAdapter {
+  fetchOrdersPage(
+    userId: string,
+    cursor: string | null,
+    updatedSince: Date | null,
+    updatedThrough: Date,
+  ): Promise<EcommerceOrderPage>;
+}

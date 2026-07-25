@@ -1,5 +1,7 @@
 const REQUIRED_ENV_KEYS = ['DATABASE_URL', 'JWT_SECRET'] as const;
 const SHOPIFY_CALLBACK_PATH = '/auth/shopify/callback';
+const YOUCAN_CALLBACK_PATH = '/auth/youcan/callback';
+const LIGHTFUNNELS_CALLBACK_PATH = '/auth/lightfunnels/callback';
 
 export function validateEnvironment(
   config: Record<string, unknown>,
@@ -136,6 +138,163 @@ export function validateEnvironment(
     }
   }
 
+  // CLIENT_ID and CLIENT_SECRET are retained as migration aliases because
+  // early YouCan installations used those generic names. Namespaced values
+  // always win and should be used for new deployments.
+  const youCanClientId =
+    asString(config.YOUCAN_CLIENT_ID) || asString(config.CLIENT_ID);
+  const youCanClientSecret =
+    asString(config.YOUCAN_CLIENT_SECRET) || asString(config.CLIENT_SECRET);
+  const youCanEnabled =
+    config.YOUCAN_ENABLED === 'true' ||
+    Boolean(youCanClientId || youCanClientSecret);
+  const youCanAppUrl =
+    normalizeUrl(asString(config.YOUCAN_APP_URL)) ||
+    normalizeUrl(asString(config.APP_URL)) ||
+    normalizeUrl(asString(config.HOST));
+  const youCanRedirectUri =
+    normalizeUrl(asString(config.YOUCAN_REDIRECT_URI)) ||
+    (youCanAppUrl
+      ? new URL(YOUCAN_CALLBACK_PATH, youCanAppUrl).toString()
+      : '');
+  const youCanTokenEncryptionKey = decodeBase64Key(
+    asString(config.YOUCAN_TOKEN_ENCRYPTION_KEY),
+  );
+  const youCanScopes = normalizeCsv(asString(config.YOUCAN_SCOPES) || '*');
+  const youCanOauthStateTtlSeconds = positiveInteger(
+    config.YOUCAN_OAUTH_STATE_TTL_SECONDS,
+    600,
+  );
+  const youCanTokenRefreshSkewSeconds = positiveInteger(
+    config.YOUCAN_TOKEN_REFRESH_SKEW_SECONDS,
+    300,
+  );
+  const youCanHttpTimeoutMs = positiveInteger(
+    config.YOUCAN_HTTP_TIMEOUT_MS,
+    15000,
+  );
+
+  if (youCanEnabled) {
+    if (!youCanClientId) {
+      errors.push('YOUCAN_CLIENT_ID is required when YouCan is enabled');
+    }
+    if (!youCanClientSecret) {
+      errors.push('YOUCAN_CLIENT_SECRET is required when YouCan is enabled');
+    }
+    if (!youCanRedirectUri) {
+      errors.push(
+        'YOUCAN_REDIRECT_URI or YOUCAN_APP_URL is required when YouCan is enabled',
+      );
+    }
+    if (youCanTokenEncryptionKey.length !== 32) {
+      errors.push(
+        'YOUCAN_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key',
+      );
+    }
+    if (youCanScopes.includes('*') && youCanScopes.length !== 1) {
+      errors.push('YOUCAN_SCOPES must use * alone');
+    } else if (
+      !youCanScopes.includes('*') &&
+      !youCanScopes.includes('view-store-info')
+    ) {
+      errors.push(
+        'YOUCAN_SCOPES must be * or include view-store-info so the connected store can be identified',
+      );
+    }
+  }
+
+  for (const [key, value] of [
+    [
+      'YOUCAN_AUTH_SUCCESS_REDIRECT_URL',
+      config.YOUCAN_AUTH_SUCCESS_REDIRECT_URL,
+    ],
+    [
+      'YOUCAN_AUTH_FAILURE_REDIRECT_URL',
+      config.YOUCAN_AUTH_FAILURE_REDIRECT_URL,
+    ],
+  ] as const) {
+    if (asString(value) && !normalizeUrl(asString(value))) {
+      errors.push(`${key} must be an absolute HTTP or HTTPS URL`);
+    }
+  }
+
+  const lightfunnelsClientId = asString(config.LIGHTFUNNELS_CLIENT_ID);
+  const lightfunnelsClientSecret = asString(config.LIGHTFUNNELS_CLIENT_SECRET);
+  const lightfunnelsEnabled =
+    config.LIGHTFUNNELS_ENABLED === 'true' ||
+    Boolean(lightfunnelsClientId || lightfunnelsClientSecret);
+  const lightfunnelsAppUrl =
+    normalizeUrl(asString(config.LIGHTFUNNELS_APP_URL)) ||
+    normalizeUrl(asString(config.APP_URL)) ||
+    normalizeUrl(asString(config.HOST));
+  const lightfunnelsRedirectUri =
+    normalizeUrl(asString(config.LIGHTFUNNELS_REDIRECT_URI)) ||
+    (lightfunnelsAppUrl
+      ? new URL(LIGHTFUNNELS_CALLBACK_PATH, lightfunnelsAppUrl).toString()
+      : '');
+  const lightfunnelsScopes = normalizeCsv(
+    asString(config.LIGHTFUNNELS_SCOPES) || 'orders,funnels',
+  );
+  const lightfunnelsTokenEncryptionKey = decodeBase64Key(
+    asString(config.LIGHTFUNNELS_TOKEN_ENCRYPTION_KEY),
+  );
+  const lightfunnelsOauthStateTtlSeconds = positiveInteger(
+    config.LIGHTFUNNELS_OAUTH_STATE_TTL_SECONDS,
+    600,
+  );
+  const lightfunnelsHttpTimeoutMs = positiveInteger(
+    config.LIGHTFUNNELS_HTTP_TIMEOUT_MS,
+    15000,
+  );
+
+  if (lightfunnelsEnabled) {
+    if (!lightfunnelsClientId) {
+      errors.push(
+        'LIGHTFUNNELS_CLIENT_ID is required when Lightfunnels is enabled',
+      );
+    }
+    if (!lightfunnelsClientSecret) {
+      errors.push(
+        'LIGHTFUNNELS_CLIENT_SECRET is required when Lightfunnels is enabled',
+      );
+    }
+    if (!lightfunnelsRedirectUri) {
+      errors.push(
+        'LIGHTFUNNELS_REDIRECT_URI or LIGHTFUNNELS_APP_URL is required when Lightfunnels is enabled',
+      );
+    }
+    if (lightfunnelsTokenEncryptionKey.length !== 32) {
+      errors.push(
+        'LIGHTFUNNELS_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key',
+      );
+    }
+    if (!lightfunnelsScopes.includes('orders')) {
+      errors.push(
+        'LIGHTFUNNELS_SCOPES must include orders for revenue synchronization',
+      );
+    }
+    if (!lightfunnelsScopes.includes('funnels')) {
+      errors.push(
+        'LIGHTFUNNELS_SCOPES must include funnels so the connected account can be identified',
+      );
+    }
+  }
+
+  for (const [key, value] of [
+    [
+      'LIGHTFUNNELS_AUTH_SUCCESS_REDIRECT_URL',
+      config.LIGHTFUNNELS_AUTH_SUCCESS_REDIRECT_URL,
+    ],
+    [
+      'LIGHTFUNNELS_AUTH_FAILURE_REDIRECT_URL',
+      config.LIGHTFUNNELS_AUTH_FAILURE_REDIRECT_URL,
+    ],
+  ] as const) {
+    if (asString(value) && !normalizeUrl(asString(value))) {
+      errors.push(`${key} must be an absolute HTTP or HTTPS URL`);
+    }
+  }
+
   if (errors.length > 0) {
     throw new Error(`Invalid environment configuration: ${errors.join(', ')}`);
   }
@@ -150,6 +309,23 @@ export function validateEnvironment(
     SHOPIFY_OAUTH_STATE_TTL_SECONDS: oauthStateTtlSeconds,
     SHOPIFY_TOKEN_REFRESH_SKEW_SECONDS: refreshSkewSeconds,
     SHOPIFY_HTTP_TIMEOUT_MS: shopifyHttpTimeoutMs,
+    YOUCAN_ENABLED: youCanEnabled,
+    YOUCAN_CLIENT_ID: youCanClientId,
+    YOUCAN_CLIENT_SECRET: youCanClientSecret,
+    YOUCAN_APP_URL: youCanAppUrl,
+    YOUCAN_REDIRECT_URI: youCanRedirectUri,
+    YOUCAN_SCOPES: youCanScopes.join(','),
+    YOUCAN_OAUTH_STATE_TTL_SECONDS: youCanOauthStateTtlSeconds,
+    YOUCAN_TOKEN_REFRESH_SKEW_SECONDS: youCanTokenRefreshSkewSeconds,
+    YOUCAN_HTTP_TIMEOUT_MS: youCanHttpTimeoutMs,
+    LIGHTFUNNELS_ENABLED: lightfunnelsEnabled,
+    LIGHTFUNNELS_CLIENT_ID: lightfunnelsClientId,
+    LIGHTFUNNELS_CLIENT_SECRET: lightfunnelsClientSecret,
+    LIGHTFUNNELS_APP_URL: lightfunnelsAppUrl,
+    LIGHTFUNNELS_REDIRECT_URI: lightfunnelsRedirectUri,
+    LIGHTFUNNELS_SCOPES: lightfunnelsScopes.join(','),
+    LIGHTFUNNELS_OAUTH_STATE_TTL_SECONDS: lightfunnelsOauthStateTtlSeconds,
+    LIGHTFUNNELS_HTTP_TIMEOUT_MS: lightfunnelsHttpTimeoutMs,
   };
 }
 
@@ -186,4 +362,15 @@ function decodeBase64Key(value: string): Buffer {
 function positiveInteger(value: unknown, fallback: number): number {
   const parsed = Number(value ?? fallback);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function normalizeCsv(value: string): string[] {
+  return [
+    ...new Set(
+      value
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    ),
+  ].sort();
 }

@@ -5,6 +5,11 @@ import {
   Prisma,
 } from '@prisma/client';
 import { ShopifyConnectionService } from '../shopify/shopify-connection.service';
+import type {
+  EcommerceOrderPage,
+  EcommerceRevenueAdapter,
+  NormalizedEcommerceOrder,
+} from './interfaces/ecommerce-revenue-adapter.interface';
 
 const SHOPIFY_SYNC_PAGE_SIZE = 50;
 
@@ -76,33 +81,6 @@ const SHOPIFY_REVENUE_ORDERS_QUERY = `#graphql
   }
 `;
 
-export interface NormalizedEcommerceOrder {
-  externalOrderId: string;
-  orderName: string;
-  status: EcommerceOrderStatus;
-  financialStatus: EcommercePaymentStatus;
-  fulfillmentStatus: string;
-  currency: string;
-  itemCount: number;
-  grossSales: string;
-  discounts: string;
-  refunds: string;
-  netSales: string;
-  shipping: string;
-  tax: string;
-  totalCollected: string;
-  providerCreatedAt: Date;
-  processedAt: Date;
-  cancelledAt: Date | null;
-  providerUpdatedAt: Date;
-}
-
-export interface EcommerceOrderPage {
-  orders: NormalizedEcommerceOrder[];
-  hasNextPage: boolean;
-  endCursor: string | null;
-}
-
 interface RawMoney {
   amount: string;
   currencyCode: string;
@@ -142,7 +120,7 @@ interface RawShopifyOrdersResponse {
 }
 
 @Injectable()
-export class ShopifyRevenueAdapter {
+export class ShopifyRevenueAdapter implements EcommerceRevenueAdapter {
   constructor(
     private readonly shopifyConnectionService: ShopifyConnectionService,
   ) {}

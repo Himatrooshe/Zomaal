@@ -16,6 +16,7 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -83,7 +84,7 @@ export class EcommerceController {
   @ApiOperation({
     summary: 'Synchronize order revenue from one account',
     description:
-      'Fetches at most five Shopify pages and upserts normalized, non-PII order financials. If `hasMore` is true, call this operation again; synchronization resumes from the saved cursor.',
+      'Fetches at most five Shopify, YouCan, or Lightfunnels pages and upserts normalized, non-PII order financials. If `hasMore` is true, call this operation again; synchronization resumes from the saved provider cursor.',
   })
   @ApiParam({
     name: 'connectionId',
@@ -112,12 +113,19 @@ export class EcommerceController {
     description: 'The provider account must be reconnected before syncing.',
     type: ApiErrorDto,
   })
+  @ApiForbiddenResponse({
+    description:
+      'The provider token is missing a required order-read permission. Reconnect with the documented scopes.',
+    type: ApiErrorDto,
+  })
   @ApiBadGatewayResponse({
-    description: 'Shopify returned malformed order or pagination data.',
+    description:
+      'Shopify, YouCan, or Lightfunnels returned malformed order, monetary, or pagination data.',
     type: ApiErrorDto,
   })
   @ApiServiceUnavailableResponse({
-    description: 'Shopify is throttled or temporarily unavailable.',
+    description:
+      'The selected provider is throttled or temporarily unavailable.',
     type: ApiErrorDto,
   })
   syncConnection(
@@ -132,7 +140,7 @@ export class EcommerceController {
   @ApiOperation({
     summary: 'Get combined revenue totals',
     description:
-      'Combines synced accounts by platform and currency. Different currencies are never added together. Date boundaries are inclusive and evaluated in the requested timezone.',
+      'Dynamically combines synchronized Shopify, YouCan, and Lightfunnels accounts by platform and currency. Different currencies are never added together. Date boundaries are inclusive and evaluated in the requested timezone.',
   })
   @ApiOkResponse({
     description: 'Revenue totals and data freshness watermark.',
@@ -157,7 +165,7 @@ export class EcommerceController {
   @ApiOperation({
     summary: 'Get daily combined revenue',
     description:
-      'Returns daily totals grouped by currency. Defaults to the latest 30 calendar days and accepts at most 366 days per request.',
+      'Returns daily totals across synchronized Shopify, YouCan, and Lightfunnels accounts, grouped by currency. Defaults to the latest 30 calendar days and accepts at most 366 days per request.',
   })
   @ApiOkResponse({
     description: 'Daily revenue totals. Dates with no orders are omitted.',

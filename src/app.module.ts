@@ -11,6 +11,8 @@ import { ShippingModule } from './shipping/shipping.module';
 import { validateEnvironment } from './config/env.validation';
 import { ShopifyModule } from './shopify/shopify.module';
 import { EcommerceModule } from './ecommerce/ecommerce.module';
+import { YouCanModule } from './youcan/youcan.module';
+import { LightfunnelsModule } from './lightfunnels/lightfunnels.module';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { EcommerceModule } from './ecommerce/ecommerce.module';
     ShippingModule,
     ShopifyModule,
     EcommerceModule,
+    YouCanModule,
+    LightfunnelsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -25,6 +25,8 @@ model User {
   forceLogConnection       ForceLogConnection?
   ozoneExpressConnection   OzoneExpressConnection?
   shopifyOAuthStates       ShopifyOAuthState[]
+  youCanOAuthStates        YouCanOAuthState[]
+  lightfunnelsOAuthStates  LightfunnelsOAuthState[]
 }
 
 model QuickLivraisonConnection {
@@ -86,13 +88,19 @@ model Store {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
-  shopifyConnection    ShopifyConnection?
-  shopifyOAuthStates   ShopifyOAuthState[]
-  ecommerceConnections EcommerceConnection[]
+  shopifyConnection       ShopifyConnection?
+  shopifyOAuthStates      ShopifyOAuthState[]
+  youCanConnection        YouCanConnection?
+  youCanOAuthStates       YouCanOAuthState[]
+  lightfunnelsConnection  LightfunnelsConnection?
+  lightfunnelsOAuthStates LightfunnelsOAuthState[]
+  ecommerceConnections    EcommerceConnection[]
 }
 
 enum EcommercePlatform {
   SHOPIFY
+  YOUCAN
+  LIGHTFUNNELS
 }
 
 enum EcommerceConnectionStatus {
@@ -138,8 +146,10 @@ model EcommerceConnection {
   storeId String
   store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
-  shopifyConnection ShopifyConnection?
-  orders            EcommerceOrder[]
+  shopifyConnection      ShopifyConnection?
+  youCanConnection       YouCanConnection?
+  lightfunnelsConnection LightfunnelsConnection?
+  orders                 EcommerceOrder[]
 
   @@unique([storeId, platform])
   @@unique([platform, externalAccountId])
@@ -233,4 +243,98 @@ model ShopifyWebhookReceipt {
 
   @@index([shopDomain])
   @@index([processedAt])
+}
+
+enum YouCanConnectionStatus {
+  ACTIVE
+  DISCONNECTED
+  REAUTHORIZATION_REQUIRED
+}
+
+model YouCanConnection {
+  id                    String                 @id @default(uuid())
+  externalStoreId       String                 @unique
+  storeDomain           String?
+  displayName           String?
+  currencyCode          String?
+  status                YouCanConnectionStatus @default(ACTIVE)
+  encryptedAccessToken  String?
+  encryptedRefreshToken String?
+  accessTokenExpiresAt  DateTime?
+  tokenType             String                 @default("Bearer")
+  grantedScopes         String
+  installedAt           DateTime               @default(now())
+  disconnectedAt        DateTime?
+  lastVerifiedAt        DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  storeId String @unique
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  ecommerceConnectionId String              @unique
+  ecommerceConnection   EcommerceConnection @relation(fields: [ecommerceConnectionId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model YouCanOAuthState {
+  id              String   @id @default(uuid())
+  stateHash       String   @unique
+  requestedScopes String
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([userId, storeId])
+}
+
+enum LightfunnelsConnectionStatus {
+  ACTIVE
+  DISCONNECTED
+  REAUTHORIZATION_REQUIRED
+}
+
+model LightfunnelsConnection {
+  id                   String                       @id @default(uuid())
+  externalAccountId    String                       @unique
+  displayName          String?
+  storeDomain          String?
+  status               LightfunnelsConnectionStatus @default(ACTIVE)
+  encryptedAccessToken String?
+  grantedScopes        String
+  installedAt          DateTime                     @default(now())
+  disconnectedAt       DateTime?
+  lastVerifiedAt       DateTime?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+
+  storeId String @unique
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  ecommerceConnectionId String              @unique
+  ecommerceConnection   EcommerceConnection @relation(fields: [ecommerceConnectionId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model LightfunnelsOAuthState {
+  id              String   @id @default(uuid())
+  stateHash       String   @unique
+  requestedScopes String
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([userId, storeId])
 }

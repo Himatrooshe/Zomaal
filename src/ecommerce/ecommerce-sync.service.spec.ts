@@ -7,7 +7,9 @@ import {
 import { NotFoundException } from '@nestjs/common';
 import type { PrismaService } from '../prisma/prisma.service';
 import { EcommerceSyncService } from './ecommerce-sync.service';
+import type { LightfunnelsRevenueAdapter } from './lightfunnels-revenue.adapter';
 import type { ShopifyRevenueAdapter } from './shopify-revenue.adapter';
+import type { YouCanRevenueAdapter } from './youcan-revenue.adapter';
 
 describe('EcommerceSyncService', () => {
   const order = {
@@ -41,6 +43,8 @@ describe('EcommerceSyncService', () => {
       syncStartedAt: null,
       lastSyncedAt: null,
       shopifyConnection: { id: 'shopify-id' },
+      youCanConnection: null,
+      lightfunnelsConnection: null,
     };
     const update = jest.fn().mockResolvedValue(connection);
     const upsert = jest.fn().mockResolvedValue({});
@@ -62,7 +66,12 @@ describe('EcommerceSyncService', () => {
         endCursor: null,
       }),
     } as unknown as ShopifyRevenueAdapter;
-    const service = new EcommerceSyncService(prisma, adapter);
+    const service = new EcommerceSyncService(
+      prisma,
+      {} as LightfunnelsRevenueAdapter,
+      adapter,
+      {} as YouCanRevenueAdapter,
+    );
 
     const result = await service.syncConnection('user-id', 'connection-id');
 
@@ -95,11 +104,111 @@ describe('EcommerceSyncService', () => {
     } as unknown as PrismaService;
     const service = new EcommerceSyncService(
       prisma,
+      {} as LightfunnelsRevenueAdapter,
       {} as ShopifyRevenueAdapter,
+      {} as YouCanRevenueAdapter,
     );
 
     await expect(
       service.syncConnection('user-id', 'unknown-id'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('dispatches YouCan connections to the YouCan adapter', async () => {
+    const connection = {
+      id: 'youcan-connection-id',
+      platform: EcommercePlatform.YOUCAN,
+      status: EcommerceConnectionStatus.ACTIVE,
+      syncCursor: null,
+      syncFrom: null,
+      syncStartedAt: null,
+      lastSyncedAt: null,
+      shopifyConnection: null,
+      youCanConnection: { id: 'youcan-id' },
+      lightfunnelsConnection: null,
+    };
+    const update = jest.fn().mockResolvedValue(connection);
+    const prisma = {
+      ecommerceConnection: {
+        findFirst: jest.fn().mockResolvedValue(connection),
+        update,
+        updateMany: jest.fn(),
+      },
+      ecommerceOrder: { upsert: jest.fn() },
+      $transaction: jest.fn(),
+    } as unknown as PrismaService;
+    const fetchOrdersPage = jest.fn().mockResolvedValue({
+      orders: [],
+      hasNextPage: false,
+      endCursor: null,
+    });
+    const youCanAdapter = {
+      fetchOrdersPage,
+    } as unknown as YouCanRevenueAdapter;
+    const service = new EcommerceSyncService(
+      prisma,
+      {} as LightfunnelsRevenueAdapter,
+      {} as ShopifyRevenueAdapter,
+      youCanAdapter,
+    );
+
+    const result = await service.syncConnection(
+      'user-id',
+      'youcan-connection-id',
+    );
+
+    expect(fetchOrdersPage).toHaveBeenCalled();
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(result.platform).toBe(EcommercePlatform.YOUCAN);
+    expect(result.hasMore).toBe(false);
+  });
+
+  it('dispatches Lightfunnels connections to the Lightfunnels adapter', async () => {
+    const connection = {
+      id: 'lightfunnels-connection-id',
+      platform: EcommercePlatform.LIGHTFUNNELS,
+      status: EcommerceConnectionStatus.ACTIVE,
+      syncCursor: null,
+      syncFrom: null,
+      syncStartedAt: null,
+      lastSyncedAt: null,
+      shopifyConnection: null,
+      youCanConnection: null,
+      lightfunnelsConnection: { id: 'lightfunnels-id' },
+    };
+    const update = jest.fn().mockResolvedValue(connection);
+    const prisma = {
+      ecommerceConnection: {
+        findFirst: jest.fn().mockResolvedValue(connection),
+        update,
+        updateMany: jest.fn(),
+      },
+      ecommerceOrder: { upsert: jest.fn() },
+      $transaction: jest.fn(),
+    } as unknown as PrismaService;
+    const fetchOrdersPage = jest.fn().mockResolvedValue({
+      orders: [],
+      hasNextPage: false,
+      endCursor: null,
+    });
+    const lightfunnelsAdapter = {
+      fetchOrdersPage,
+    } as unknown as LightfunnelsRevenueAdapter;
+    const service = new EcommerceSyncService(
+      prisma,
+      lightfunnelsAdapter,
+      {} as ShopifyRevenueAdapter,
+      {} as YouCanRevenueAdapter,
+    );
+
+    const result = await service.syncConnection(
+      'user-id',
+      'lightfunnels-connection-id',
+    );
+
+    expect(fetchOrdersPage).toHaveBeenCalled();
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(result.platform).toBe(EcommercePlatform.LIGHTFUNNELS);
+    expect(result.hasMore).toBe(false);
   });
 });

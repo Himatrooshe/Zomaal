@@ -116,7 +116,7 @@ async function bootstrap() {
       )
       .addTag(
         'E-commerce Revenue',
-        'Provider-neutral account synchronization and combined revenue reporting. Monetary values remain separated by currency.',
+        'Shopify, YouCan, and Lightfunnels order synchronization with provider-neutral combined revenue reporting. Monetary values remain separated by currency.',
       )
       .addTag(
         'Shopify OAuth',
@@ -125,6 +125,22 @@ async function bootstrap() {
       .addTag(
         'Shopify Webhooks',
         'HMAC-verified Shopify uninstall and mandatory privacy callbacks. These endpoints do not use a Zomaal bearer token.',
+      )
+      .addTag(
+        'YouCan',
+        'Protected YouCan connection lifecycle for the current Zomaal store. YouCan access and refresh tokens are encrypted and never returned.',
+      )
+      .addTag(
+        'YouCan OAuth',
+        'Public YouCan authorization callback. Start OAuth through the protected YouCan endpoint.',
+      )
+      .addTag(
+        'Lightfunnels',
+        'Protected Lightfunnels connection lifecycle for the current Zomaal store. Permanent access tokens are encrypted and never returned.',
+      )
+      .addTag(
+        'Lightfunnels OAuth',
+        'Public Lightfunnels authorization callback. Start OAuth through the protected Lightfunnels endpoint.',
       )
       .addBearerAuth({
         type: 'http',

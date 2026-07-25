@@ -1,0 +1,241 @@
+{
+  "info": {
+    "_postman_id": "e84058b7-dcd0-4de8-9017-f446fd6d3228",
+    "name": "Zomaal - Lightfunnels OAuth and Revenue",
+    "description": "Connect a Lightfunnels account, synchronize its orders, and test the combined Shopify + YouCan + Lightfunnels overview APIs. Run requests 1 and 2, open the authorization URL in a browser, then continue from request 3.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "phone",
+      "value": "+212600000001"
+    },
+    {
+      "key": "password",
+      "value": "replace-with-your-password",
+      "type": "secret"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "lightfunnelsAuthorizationUrl",
+      "value": ""
+    },
+    {
+      "key": "lightfunnelsConnectionId",
+      "value": ""
+    },
+    {
+      "key": "timezone",
+      "value": "Asia/Dhaka"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Login to Zomaal",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": "{{baseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Login succeeded', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('accessToken', body.accessToken);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Start Lightfunnels OAuth",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/lightfunnels/auth/start"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Authorization URL created', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.expect(body.requestedScopes).to.include('orders');",
+              "pm.expect(body.requestedScopes).to.include('funnels');",
+              "pm.collectionVariables.set('lightfunnelsAuthorizationUrl', body.authorizationUrl);",
+              "console.log('Open this URL in a browser:', body.authorizationUrl);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Get Lightfunnels connection status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/lightfunnels/connection"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Lightfunnels is connected', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().connected).to.eql(true);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Verify Lightfunnels credentials",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/lightfunnels/connection/verify"
+      }
+    },
+    {
+      "name": "5. List all e-commerce connections",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/ecommerce/connections"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Connections returned', function () { pm.response.to.have.status(200); });",
+              "const connection = pm.response.json().data.find(item => item.platform === 'LIGHTFUNNELS');",
+              "pm.expect(connection, 'LIGHTFUNNELS connection').to.exist;",
+              "pm.collectionVariables.set('lightfunnelsConnectionId', connection.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Sync Lightfunnels orders",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/ecommerce/connections/{{lightfunnelsConnectionId}}/sync"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Sync chunk succeeded', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "console.log(body.hasMore ? 'Run this request again to continue the backfill.' : 'Lightfunnels sync is complete.');"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Test overview revenue summary",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/ecommerce/revenue/summary?from=2026-07-01&to=2026-07-31&timezone={{timezone}}"
+      }
+    },
+    {
+      "name": "8. Test overview revenue timeseries",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/ecommerce/revenue/timeseries?from=2026-07-01&to=2026-07-31&timezone={{timezone}}"
+      }
+    },
+    {
+      "name": "9. Disconnect Lightfunnels (optional)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/lightfunnels/connection"
+      }
+    }
+  ]
+}

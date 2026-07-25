@@ -7,7 +7,7 @@ export class EcommerceConnectionDto {
   @ApiProperty({
     description:
       'Provider identifier. Additional values will be introduced as integrations are added.',
-    enum: ['SHOPIFY'],
+    enum: ['SHOPIFY', 'YOUCAN', 'LIGHTFUNNELS'],
     example: 'SHOPIFY',
   })
   platform!: string;
@@ -15,7 +15,11 @@ export class EcommerceConnectionDto {
   @ApiProperty({ example: 'atlas-market.myshopify.com' })
   externalAccountId!: string;
 
-  @ApiPropertyOptional({ nullable: true, example: 'Atlas Market' })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'Atlas Market',
+  })
   displayName!: string | null;
 
   @ApiProperty({
@@ -47,6 +51,7 @@ export class EcommerceConnectionDto {
   syncPending!: boolean;
 
   @ApiPropertyOptional({
+    type: String,
     nullable: true,
     description: 'Last safe synchronization error message.',
     example: null,
@@ -63,7 +68,10 @@ export class EcommerceSyncResponseDto {
   @ApiProperty({ example: '7cf83ca3-497c-44a7-bc11-ae0c7cfdba1f' })
   connectionId!: string;
 
-  @ApiProperty({ enum: ['SHOPIFY'], example: 'SHOPIFY' })
+  @ApiProperty({
+    enum: ['SHOPIFY', 'YOUCAN', 'LIGHTFUNNELS'],
+    example: 'LIGHTFUNNELS',
+  })
   platform!: string;
 
   @ApiProperty({
@@ -92,10 +100,20 @@ export class EcommerceSyncResponseDto {
 }
 
 export class RevenuePeriodDto {
-  @ApiPropertyOptional({ nullable: true, example: '2026-07-01' })
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date',
+    nullable: true,
+    example: '2026-07-01',
+  })
   from!: string | null;
 
-  @ApiPropertyOptional({ nullable: true, example: '2026-07-31' })
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date',
+    nullable: true,
+    example: '2026-07-31',
+  })
   to!: string | null;
 
   @ApiProperty({ example: 'Africa/Casablanca' })
@@ -144,7 +162,10 @@ export class RevenueCurrencyTotalDto extends RevenueAmountsDto {
 }
 
 export class RevenuePlatformTotalDto extends RevenueCurrencyTotalDto {
-  @ApiProperty({ enum: ['SHOPIFY'], example: 'SHOPIFY' })
+  @ApiProperty({
+    enum: ['SHOPIFY', 'YOUCAN', 'LIGHTFUNNELS'],
+    example: 'SHOPIFY',
+  })
   platform!: string;
 }
 

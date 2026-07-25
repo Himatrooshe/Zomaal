@@ -4730,6 +4730,1425 @@ paths:
       summary: Disconnect a shipping company account
       tags:
         - Shipping Integrations
+  /shopify/auth/start:
+    post:
+      description: >-
+        Requires a Zomaal access token and an existing Zomaal store. Returns a
+        short-lived Shopify authorization URL. The frontend must navigate the
+        browser to that URL; it must not call the URL server-to-server.
+      operationId: Shopify_begin
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartShopifyAuthDto'
+            examples:
+              permanentDomain:
+                summary: Permanent Shopify domain
+                value:
+                  shopDomain: atlas-market.myshopify.com
+              handle:
+                summary: Shop handle
+                value:
+                  shopDomain: atlas-market
+      responses:
+        '200':
+          description: Single-use authorization URL created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyAuthorizationResponseDto'
+        '400':
+          description: Invalid or unexpected request field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The Shopify shop is already connected to a different Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: Shopify integration or token encryption is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Start connecting a Shopify store
+      tags:
+        - Shopify
+  /shopify/connection:
+    get:
+      operationId: Shopify_getStatus
+      parameters: []
+      responses:
+        '200':
+          description: >-
+            Connection state. A missing connection is returned as
+            `not_connected`, not as 404.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnectionStatusDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get the current store’s Shopify connection status
+      tags:
+        - Shopify
+    delete:
+      description: >-
+        Deletes the locally stored access and refresh tokens. The merchant must
+        also uninstall the app in Shopify Admin to revoke the Shopify
+        installation.
+      operationId: Shopify_disconnect
+      parameters: []
+      responses:
+        '200':
+          description: Local Shopify credentials removed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyDisconnectResponseDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Zomaal store or Shopify connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Remove Shopify credentials from Zomaal
+      tags:
+        - Shopify
+  /shopify/connection/verify:
+    post:
+      description: >-
+        Refreshes the offline access token when necessary, calls the GraphQL
+        Admin API, and returns non-secret shop identity fields.
+      operationId: Shopify_verify
+      parameters: []
+      responses:
+        '200':
+          description: Shopify accepted the stored credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyShopVerificationDto'
+        '401':
+          description: >-
+            Invalid Zomaal token or Shopify must be reauthorized after its
+            refresh token expired/revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Shopify is not connected for the current store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: Shopify returned an invalid response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: Shopify is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Verify the connection against Shopify
+      tags:
+        - Shopify
+  /shopify/store:
+    get:
+      description: >-
+        Reads current store identity, domain, plan, currency, timezone, and
+        address data directly from Shopify. Zomaal never returns the Shopify
+        access token.
+      operationId: ShopifyData_getStore
+      parameters: []
+      responses:
+        '200':
+          description: Current Shopify store overview.
+          headers:
+            Cache-Control:
+              description: >-
+                Store data can contain protected customer information and must
+                not be stored by shared caches.
+              schema:
+                type: string
+                example: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyShopOverviewDto'
+        '401':
+          description: >-
+            Missing/invalid Zomaal access token, or Shopify authorization has
+            expired and the store must be reconnected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: >-
+            The Shopify installation lacks a required scope or protected
+            customer data approval.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: >-
+            The Zomaal store has no active Shopify connection. Complete Shopify
+            OAuth first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: >-
+            Shopify returned an empty, malformed, or schema-invalid GraphQL
+            response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: >-
+            Shopify timed out, throttled the request after retries, or is
+            temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get the connected Shopify store overview
+      tags:
+        - Shopify Data
+  /shopify/products:
+    get:
+      description: >-
+        Returns lightweight product summaries ordered by most recently updated.
+        Requires Shopify `read_products` (or the corresponding write scope). Use
+        `pageInfo.endCursor` as `after` to fetch the next page.
+      operationId: ShopifyData_getProducts
+      parameters:
+        - name: first
+          required: false
+          in: query
+          description: >-
+            Page size. Defaults to 20 and is capped at 100 to control Shopify
+            query cost and mobile payload size.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: after
+          required: false
+          in: query
+          description: >-
+            Opaque `pageInfo.endCursor` from the previous response. Omit for the
+            first page; an empty value is treated as omitted.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 2048
+        - name: query
+          required: false
+          in: query
+          description: >-
+            Shopify search-syntax filter for this resource. The value is sent
+            through a GraphQL variable; an empty value is treated as omitted.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 500
+      responses:
+        '200':
+          description: >-
+            Cursor-paginated products. An empty store returns `data: []` with
+            HTTP 200.
+          headers:
+            Cache-Control:
+              description: >-
+                Store data can contain protected customer information and must
+                not be stored by shared caches.
+              schema:
+                type: string
+                example: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyProductListResponseDto'
+        '400':
+          description: Invalid `first`, `after`, `query`, or an unexpected query parameter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: >-
+            Missing/invalid Zomaal access token, or Shopify authorization has
+            expired and the store must be reconnected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: >-
+            The Shopify installation lacks a required scope or protected
+            customer data approval.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: >-
+            The Zomaal store has no active Shopify connection. Complete Shopify
+            OAuth first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: >-
+            Shopify returned an empty, malformed, or schema-invalid GraphQL
+            response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: >-
+            Shopify timed out, throttled the request after retries, or is
+            temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List products from the connected Shopify store
+      tags:
+        - Shopify Data
+  /shopify/orders:
+    get:
+      description: >-
+        Returns order summaries ordered by most recently processed. Requires
+        Shopify `read_orders` and protected customer data access. Shopify
+        exposes only the latest 60 days by default; older orders require
+        approved `read_all_orders` access. Use `pageInfo.endCursor` as `after`
+        for the next page.
+      operationId: ShopifyData_getOrders
+      parameters:
+        - name: first
+          required: false
+          in: query
+          description: >-
+            Page size. Defaults to 20 and is capped at 100 to control Shopify
+            query cost and mobile payload size.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: after
+          required: false
+          in: query
+          description: >-
+            Opaque `pageInfo.endCursor` from the previous response. Omit for the
+            first page; an empty value is treated as omitted.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 2048
+        - name: query
+          required: false
+          in: query
+          description: >-
+            Shopify search-syntax filter for this resource. The value is sent
+            through a GraphQL variable; an empty value is treated as omitted.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 500
+      responses:
+        '200':
+          description: >-
+            Cursor-paginated order summaries. Customer contact details,
+            addresses, and line items are intentionally excluded from this list.
+          headers:
+            Cache-Control:
+              description: >-
+                Store data can contain protected customer information and must
+                not be stored by shared caches.
+              schema:
+                type: string
+                example: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyOrderListResponseDto'
+        '400':
+          description: Invalid `first`, `after`, `query`, or an unexpected query parameter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: >-
+            Missing/invalid Zomaal access token, or Shopify authorization has
+            expired and the store must be reconnected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: >-
+            The Shopify installation lacks a required scope or protected
+            customer data approval.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: >-
+            The Zomaal store has no active Shopify connection. Complete Shopify
+            OAuth first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: >-
+            Shopify returned an empty, malformed, or schema-invalid GraphQL
+            response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: >-
+            Shopify timed out, throttled the request after retries, or is
+            temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List orders from the connected Shopify store
+      tags:
+        - Shopify Data
+  /shopify/customers:
+    get:
+      description: >-
+        Returns customer summaries ordered by most recently updated. Requires
+        Shopify `read_customers`. Names, email addresses, and phone numbers are
+        protected customer data and require the relevant Shopify production
+        approval. Use `pageInfo.endCursor` as `after` for the next page.
+      operationId: ShopifyData_getCustomers
+      parameters:
+        - name: first
+          required: false
+          in: query
+          description: >-
+            Page size. Defaults to 20 and is capped at 100 to control Shopify
+            query cost and mobile payload size.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: after
+          required: false
+          in: query
+          description: >-
+            Opaque `pageInfo.endCursor` from the previous response. Omit for the
+            first page; an empty value is treated as omitted.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 2048
+        - name: query
+          required: false
+          in: query
+          description: >-
+            Shopify search-syntax filter for this resource. The value is sent
+            through a GraphQL variable; an empty value is treated as omitted.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 500
+      responses:
+        '200':
+          description: >-
+            Cursor-paginated customer summaries. Decimal money and 64-bit order
+            counts are returned as strings.
+          headers:
+            Cache-Control:
+              description: >-
+                Store data can contain protected customer information and must
+                not be stored by shared caches.
+              schema:
+                type: string
+                example: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyCustomerListResponseDto'
+        '400':
+          description: Invalid `first`, `after`, `query`, or an unexpected query parameter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: >-
+            Missing/invalid Zomaal access token, or Shopify authorization has
+            expired and the store must be reconnected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: >-
+            The Shopify installation lacks a required scope or protected
+            customer data approval.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: >-
+            The Zomaal store has no active Shopify connection. Complete Shopify
+            OAuth first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: >-
+            Shopify returned an empty, malformed, or schema-invalid GraphQL
+            response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: >-
+            Shopify timed out, throttled the request after retries, or is
+            temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List customers from the connected Shopify store
+      tags:
+        - Shopify Data
+  /auth/shopify/callback:
+    get:
+      description: >-
+        Public browser callback invoked by Shopify. It validates the timestamp,
+        HMAC, permanent shop domain, and single-use OAuth state before
+        exchanging the code for encrypted expiring offline tokens. Do not add a
+        Zomaal bearer token.
+      operationId: ShopifyOAuth_callback
+      parameters:
+        - name: timestamp
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: state
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: shop
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: host
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: hmac
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: code
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connection status when no frontend success redirect is configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyConnectionStatusDto'
+        '302':
+          description: >-
+            Redirects to SHOPIFY_AUTH_SUCCESS_REDIRECT_URL with
+            `shopify=connected`.
+          headers:
+            Location:
+              description: Configured frontend integration settings page.
+              schema:
+                type: string
+                example: >-
+                  http://localhost:5173/settings/integrations/shopify?shopify=connected
+        '400':
+          description: Required callback parameter is missing or malformed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: >-
+            Invalid HMAC, stale timestamp, invalid/reused state, invalid shop,
+            or rejected authorization code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The Shopify store is already connected to another Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Complete Shopify authorization
+      tags:
+        - Shopify OAuth
+  /webhooks/shopify:
+    post:
+      description: >-
+        Public endpoint for app/uninstalled and mandatory privacy topics. The
+        HMAC is verified against the exact raw request body before processing.
+        Duplicate webhook IDs are acknowledged idempotently.
+      operationId: ShopifyWebhook_handle
+      parameters:
+        - name: X-Shopify-Webhook-Id
+          in: header
+          required: true
+          schema:
+            type: string
+            example: b54557e4-bdd9-4b37-8a5f-bf7d70bcd043
+        - name: X-Shopify-API-Version
+          in: header
+          required: true
+          schema:
+            type: string
+            example: 2026-07
+        - name: X-Shopify-Shop-Domain
+          in: header
+          required: true
+          schema:
+            type: string
+            example: atlas-market.myshopify.com
+        - name: X-Shopify-Topic
+          in: header
+          required: true
+          schema:
+            type: string
+            example: app/uninstalled
+        - name: X-Shopify-Hmac-Sha256
+          in: header
+          description: Base64 HMAC-SHA256 signature generated by Shopify.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Webhook verified and acknowledged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopifyWebhookReceiptDto'
+        '400':
+          description: Missing raw body or malformed JSON.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing/invalid Shopify HMAC or required webhook headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Receive a Shopify webhook
+      tags:
+        - Shopify Webhooks
+  /ecommerce/connections:
+    get:
+      description: >-
+        Returns provider-neutral connection and synchronization state for the
+        current Zomaal store. Provider credentials are never exposed.
+      operationId: Ecommerce_listConnections
+      parameters: []
+      responses:
+        '200':
+          description: Connected accounts, including disconnected history.
+          headers:
+            Cache-Control:
+              description: >-
+                Revenue and connection data is private to the authenticated
+                store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EcommerceConnectionListDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List connected e-commerce accounts
+      tags:
+        - E-commerce Revenue
+  /ecommerce/connections/{connectionId}/sync:
+    post:
+      description: >-
+        Fetches at most five Shopify, YouCan, or Lightfunnels pages and upserts
+        normalized, non-PII order financials. If `hasMore` is true, call this
+        operation again; synchronization resumes from the saved provider cursor.
+      operationId: Ecommerce_syncConnection
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          description: ID returned by `GET /ecommerce/connections`.
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: Synchronization chunk completed.
+          headers:
+            Cache-Control:
+              description: >-
+                Revenue and connection data is private to the authenticated
+                store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EcommerceSyncResponseDto'
+        '400':
+          description: '`connectionId` is not a valid UUID.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: >-
+            The provider token is missing a required order-read permission.
+            Reconnect with the documented scopes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: >-
+            The connection does not exist or does not belong to the current
+            user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The provider account must be reconnected before syncing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: >-
+            Shopify, YouCan, or Lightfunnels returned malformed order, monetary,
+            or pagination data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: The selected provider is throttled or temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Synchronize order revenue from one account
+      tags:
+        - E-commerce Revenue
+  /ecommerce/revenue/summary:
+    get:
+      description: >-
+        Dynamically combines synchronized Shopify, YouCan, and Lightfunnels
+        accounts by platform and currency. Different currencies are never added
+        together. Date boundaries are inclusive and evaluated in the requested
+        timezone.
+      operationId: Ecommerce_getSummary
+      parameters:
+        - name: from
+          required: false
+          in: query
+          description: >-
+            Inclusive first reporting date in the requested timezone. Omit for
+            an all-time summary.
+          schema:
+            pattern: ^\d{4}-\d{2}-\d{2}$
+            example: '2026-07-01'
+            type: string
+        - name: to
+          required: false
+          in: query
+          description: >-
+            Inclusive last reporting date in the requested timezone. Omit for an
+            all-time summary.
+          schema:
+            pattern: ^\d{4}-\d{2}-\d{2}$
+            example: '2026-07-31'
+            type: string
+        - name: timezone
+          required: false
+          in: query
+          description: >-
+            IANA timezone used for date boundaries and daily grouping. Times are
+            stored in UTC.
+          schema:
+            maxLength: 64
+            default: UTC
+            example: Africa/Casablanca
+            type: string
+      responses:
+        '200':
+          description: Revenue totals and data freshness watermark.
+          headers:
+            Cache-Control:
+              description: >-
+                Revenue and connection data is private to the authenticated
+                store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevenueSummaryDto'
+        '400':
+          description: >-
+            Invalid calendar date, date order, timezone, or unexpected query
+            parameter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get combined revenue totals
+      tags:
+        - E-commerce Revenue
+  /ecommerce/revenue/timeseries:
+    get:
+      description: >-
+        Returns daily totals across synchronized Shopify, YouCan, and
+        Lightfunnels accounts, grouped by currency. Defaults to the latest 30
+        calendar days and accepts at most 366 days per request.
+      operationId: Ecommerce_getTimeseries
+      parameters:
+        - name: from
+          required: false
+          in: query
+          description: >-
+            Inclusive first reporting date in the requested timezone. Omit for
+            an all-time summary.
+          schema:
+            pattern: ^\d{4}-\d{2}-\d{2}$
+            example: '2026-07-01'
+            type: string
+        - name: to
+          required: false
+          in: query
+          description: >-
+            Inclusive last reporting date in the requested timezone. Omit for an
+            all-time summary.
+          schema:
+            pattern: ^\d{4}-\d{2}-\d{2}$
+            example: '2026-07-31'
+            type: string
+        - name: timezone
+          required: false
+          in: query
+          description: >-
+            IANA timezone used for date boundaries and daily grouping. Times are
+            stored in UTC.
+          schema:
+            maxLength: 64
+            default: UTC
+            example: Africa/Casablanca
+            type: string
+      responses:
+        '200':
+          description: Daily revenue totals. Dates with no orders are omitted.
+          headers:
+            Cache-Control:
+              description: >-
+                Revenue and connection data is private to the authenticated
+                store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevenueTimeseriesDto'
+        '400':
+          description: >-
+            Invalid calendar date, date order, timezone, range over 366 days, or
+            unexpected query parameter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get daily combined revenue
+      tags:
+        - E-commerce Revenue
+  /youcan/auth/start:
+    post:
+      description: >-
+        Returns a short-lived authorization URL. Open it in the seller’s
+        browser; do not request it server-to-server.
+      operationId: YouCan_begin
+      parameters: []
+      responses:
+        '200':
+          description: Single-use YouCan authorization URL created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YouCanAuthorizationResponseDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: YouCan OAuth or token encryption is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Start connecting a YouCan seller account
+      tags:
+        - YouCan
+  /youcan/connection:
+    get:
+      operationId: YouCan_getStatus
+      parameters: []
+      responses:
+        '200':
+          description: >-
+            Connection state. A missing connection is represented as
+            not_connected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YouCanConnectionStatusDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get the current store’s YouCan connection status
+      tags:
+        - YouCan
+    delete:
+      operationId: YouCan_disconnect
+      parameters: []
+      responses:
+        '200':
+          description: Local YouCan credentials removed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YouCanConnectionStatusDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Zomaal store or YouCan connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Remove locally stored YouCan credentials
+      tags:
+        - YouCan
+  /youcan/connection/verify:
+    post:
+      description: >-
+        Refreshes the access token when needed and calls YouCan GET /me. Secret
+        token fields are never returned.
+      operationId: YouCan_verify
+      parameters: []
+      responses:
+        '200':
+          description: YouCan accepted the stored credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YouCanStoreVerificationDto'
+        '401':
+          description: Invalid Zomaal token or the YouCan account must be reauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: YouCan is not connected for the current store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: YouCan returned an invalid response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: YouCan is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Verify the stored credentials with YouCan
+      tags:
+        - YouCan
+  /auth/youcan/callback:
+    get:
+      description: >-
+        Public browser callback invoked by YouCan. It validates and consumes the
+        single-use OAuth state, exchanges the authorization code, verifies the
+        store through GET /me, and encrypts the tokens. Do not add a Zomaal
+        bearer token.
+      operationId: YouCanOAuth_callback
+      parameters:
+        - name: error
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: state
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: code
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connection status when no frontend success redirect is configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YouCanConnectionStatusDto'
+        '302':
+          description: Redirects to YOUCAN_AUTH_SUCCESS_REDIRECT_URL with youcan=connected.
+        '400':
+          description: A required callback parameter is missing or malformed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: >-
+            Authorization was rejected or OAuth state is invalid, expired, or
+            reused.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The YouCan store is already connected to another Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Complete YouCan OAuth authorization
+      tags:
+        - YouCan OAuth
+  /lightfunnels/auth/start:
+    post:
+      description: Returns a short-lived consent URL. Open it in the merchant browser.
+      operationId: Lightfunnels_begin
+      parameters: []
+      responses:
+        '200':
+          description: Single-use Lightfunnels authorization URL created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LightfunnelsAuthorizationResponseDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: Lightfunnels OAuth or token encryption is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Start connecting a Lightfunnels account
+      tags:
+        - Lightfunnels
+  /lightfunnels/connection:
+    get:
+      operationId: Lightfunnels_getStatus
+      parameters: []
+      responses:
+        '200':
+          description: >-
+            Connection state. A missing connection is represented as
+            not_connected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LightfunnelsConnectionStatusDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get the current store’s Lightfunnels connection status
+      tags:
+        - Lightfunnels
+    delete:
+      operationId: Lightfunnels_disconnect
+      parameters: []
+      responses:
+        '200':
+          description: Local Lightfunnels credentials removed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LightfunnelsConnectionStatusDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Zomaal store or Lightfunnels connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Remove locally stored Lightfunnels credentials
+      tags:
+        - Lightfunnels
+  /lightfunnels/connection/verify:
+    post:
+      description: >-
+        Calls the Lightfunnels GraphQL account/stores query. Secret token fields
+        are never returned.
+      operationId: Lightfunnels_verify
+      parameters: []
+      responses:
+        '200':
+          description: Lightfunnels accepted the stored credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LightfunnelsVerificationDto'
+        '401':
+          description: Invalid Zomaal token or Lightfunnels must be reauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: The token is missing the funnels scope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Lightfunnels is not connected for the current store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: Lightfunnels returned an invalid GraphQL response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: Lightfunnels is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Verify stored credentials with Lightfunnels
+      tags:
+        - Lightfunnels
+  /auth/lightfunnels/callback:
+    get:
+      description: >-
+        Public callback invoked by Lightfunnels. It consumes the single-use
+        state, exchanges the code, verifies the account through GraphQL, and
+        encrypts the permanent access token. Do not add a Zomaal bearer token.
+      operationId: LightfunnelsOAuth_callback
+      parameters:
+        - name: error
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: state
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: code
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connection status when no frontend success redirect is configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LightfunnelsConnectionStatusDto'
+        '302':
+          description: >-
+            Redirects to LIGHTFUNNELS_AUTH_SUCCESS_REDIRECT_URL with
+            lightfunnels=connected.
+        '400':
+          description: A required callback parameter is missing or malformed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: >-
+            Authorization was rejected or OAuth state/code is invalid, expired,
+            or reused.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: The token is missing a required Lightfunnels account scope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: >-
+            The Lightfunnels account is already connected to another Zomaal
+            store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: Lightfunnels returned an invalid response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: Lightfunnels is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Complete Lightfunnels OAuth authorization
+      tags:
+        - Lightfunnels OAuth
 info:
   title: Zomaal API
   description: >-
@@ -4792,6 +6211,43 @@ tags:
     description: >-
       Public callbacks invoked by shipping providers. These endpoints do not use
       a Zomaal bearer token.
+  - name: Shopify
+    description: >-
+      Protected connection lifecycle for the current Zomaal store. Shopify
+      access and refresh tokens are never returned by this API.
+  - name: Shopify Data
+    description: >-
+      Live, bearer-protected Shopify store, product, order, and customer reads
+      with cursor pagination. Responses are not persisted by Zomaal.
+  - name: E-commerce Revenue
+    description: >-
+      Shopify, YouCan, and Lightfunnels order synchronization with
+      provider-neutral combined revenue reporting. Monetary values remain
+      separated by currency.
+  - name: Shopify OAuth
+    description: >-
+      Public Shopify authorization callback. The frontend starts OAuth through
+      the protected Shopify endpoint.
+  - name: Shopify Webhooks
+    description: >-
+      HMAC-verified Shopify uninstall and mandatory privacy callbacks. These
+      endpoints do not use a Zomaal bearer token.
+  - name: YouCan
+    description: >-
+      Protected YouCan connection lifecycle for the current Zomaal store. YouCan
+      access and refresh tokens are encrypted and never returned.
+  - name: YouCan OAuth
+    description: >-
+      Public YouCan authorization callback. Start OAuth through the protected
+      YouCan endpoint.
+  - name: Lightfunnels
+    description: >-
+      Protected Lightfunnels connection lifecycle for the current Zomaal store.
+      Permanent access tokens are encrypted and never returned.
+  - name: Lightfunnels OAuth
+    description: >-
+      Public Lightfunnels authorization callback. Start OAuth through the
+      protected Lightfunnels endpoint.
 servers: []
 components:
   securitySchemes:
@@ -6956,3 +8412,1208 @@ components:
         - connected
         - connectedAt
         - message
+    StartShopifyAuthDto:
+      type: object
+      properties:
+        shopDomain:
+          type: string
+          description: >-
+            The permanent Shopify shop domain or shop handle. Custom storefront
+            domains are not accepted.
+          examples:
+            - atlas-market.myshopify.com
+            - atlas-market
+          maxLength: 255
+      required:
+        - shopDomain
+    ShopifyAuthorizationResponseDto:
+      type: object
+      properties:
+        authorizationUrl:
+          type: string
+          description: >-
+            Send the browser to this URL to let the merchant approve the Shopify
+            connection.
+          example: >-
+            https://atlas-market.myshopify.com/admin/oauth/authorize?client_id=abc&redirect_uri=https%3A%2F%2Fapi.example.com%2Fauth%2Fshopify%2Fcallback&state=...
+        shopDomain:
+          type: string
+          example: atlas-market.myshopify.com
+          description: Normalized permanent Shopify shop domain.
+        expiresAt:
+          type: string
+          example: '2026-07-19T12:10:00.000Z'
+          description: Expiration of the single-use OAuth authorization request.
+      required:
+        - authorizationUrl
+        - shopDomain
+        - expiresAt
+    ShopifyConnectionStatusDto:
+      type: object
+      properties:
+        connected:
+          type: boolean
+          example: true
+        shopDomain:
+          type: object
+          nullable: true
+          example: atlas-market.myshopify.com
+        status:
+          type: string
+          enum:
+            - not_connected
+            - active
+            - disconnected
+            - reauthorization_required
+          example: active
+        grantedScopes:
+          example:
+            - read_orders
+            - write_orders
+            - read_products
+          type: array
+          items:
+            type: string
+        installedAt:
+          type: object
+          nullable: true
+          example: '2026-07-19T12:00:00.000Z'
+        lastVerifiedAt:
+          type: object
+          nullable: true
+          example: '2026-07-19T12:05:00.000Z'
+        scopeUpdateRequired:
+          type: boolean
+          example: false
+          description: >-
+            True when the configured scope list contains scopes missing from the
+            granted token.
+        message:
+          type: string
+          example: Shopify store is connected
+      required:
+        - connected
+        - status
+        - grantedScopes
+        - scopeUpdateRequired
+        - message
+    ShopifyShopVerificationDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: gid://shopify/Shop/123456789
+        name:
+          type: string
+          example: Atlas Market
+        myshopifyDomain:
+          type: string
+          example: atlas-market.myshopify.com
+        currencyCode:
+          type: string
+          example: USD
+        verified:
+          type: boolean
+          example: true
+      required:
+        - id
+        - name
+        - myshopifyDomain
+        - currencyCode
+        - verified
+    ShopifyDisconnectResponseDto:
+      type: object
+      properties:
+        connected:
+          type: boolean
+          example: true
+        shopDomain:
+          type: object
+          nullable: true
+          example: atlas-market.myshopify.com
+        status:
+          type: string
+          enum:
+            - not_connected
+            - active
+            - disconnected
+            - reauthorization_required
+          example: active
+        grantedScopes:
+          example:
+            - read_orders
+            - write_orders
+            - read_products
+          type: array
+          items:
+            type: string
+        installedAt:
+          type: object
+          nullable: true
+          example: '2026-07-19T12:00:00.000Z'
+        lastVerifiedAt:
+          type: object
+          nullable: true
+          example: '2026-07-19T12:05:00.000Z'
+        scopeUpdateRequired:
+          type: boolean
+          example: false
+          description: >-
+            True when the configured scope list contains scopes missing from the
+            granted token.
+        message:
+          type: string
+          example: >-
+            Shopify credentials removed from Zomaal. Uninstall the app in
+            Shopify Admin to revoke the installation.
+      required:
+        - connected
+        - status
+        - grantedScopes
+        - scopeUpdateRequired
+        - message
+    ShopifyDomainDto:
+      type: object
+      properties:
+        host:
+          type: string
+          example: atlas-market.com
+        url:
+          type: string
+          example: https://atlas-market.com
+        sslEnabled:
+          type: boolean
+          description: Whether SSL is enabled for the Shopify primary domain.
+          example: true
+      required:
+        - host
+        - url
+        - sslEnabled
+    ShopifyPlanDto:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Basic
+        shopifyPlus:
+          type: boolean
+          example: false
+        partnerDevelopment:
+          type: boolean
+          description: Whether this is a Shopify development store.
+          example: false
+      required:
+        - displayName
+        - shopifyPlus
+        - partnerDevelopment
+    ShopifyAddressDto:
+      type: object
+      properties:
+        address1:
+          type: object
+          nullable: true
+          example: 12 Rue Al Massira
+        address2:
+          type: object
+          nullable: true
+          example: Maarif
+        city:
+          type: object
+          nullable: true
+          example: Casablanca
+        province:
+          type: object
+          nullable: true
+          example: Casablanca-Settat
+        provinceCode:
+          type: object
+          nullable: true
+          example: CAS
+        country:
+          type: object
+          nullable: true
+          example: Morocco
+        countryCode:
+          type: object
+          nullable: true
+          description: ISO 3166-1 alpha-2 country code.
+          example: MA
+        zip:
+          type: object
+          nullable: true
+          example: '20000'
+        phone:
+          type: object
+          nullable: true
+          description: Shop contact phone in the format supplied by Shopify.
+          example: '+212612345678'
+    ShopifyShopOverviewDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: gid://shopify/Shop/123456789
+        name:
+          type: string
+          example: Atlas Market
+        myshopifyDomain:
+          type: string
+          example: atlas-market.myshopify.com
+        onlineStoreUrl:
+          type: string
+          example: https://atlas-market.com
+        contactEmail:
+          type: string
+          example: hello@atlas-market.com
+        currencyCode:
+          type: string
+          example: MAD
+        timezone:
+          type: string
+          example: Africa/Casablanca
+        createdAt:
+          type: string
+          format: date-time
+          example: '2024-10-08T12:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-07-19T08:30:00.000Z'
+        primaryDomain:
+          $ref: '#/components/schemas/ShopifyDomainDto'
+        plan:
+          $ref: '#/components/schemas/ShopifyPlanDto'
+        address:
+          $ref: '#/components/schemas/ShopifyAddressDto'
+      required:
+        - id
+        - name
+        - myshopifyDomain
+        - onlineStoreUrl
+        - contactEmail
+        - currencyCode
+        - timezone
+        - createdAt
+        - updatedAt
+        - primaryDomain
+        - plan
+        - address
+    ShopifyMoneyDto:
+      type: object
+      properties:
+        amount:
+          type: string
+          description: >-
+            Decimal monetary value represented as a string to avoid
+            floating-point precision loss.
+          example: '349.90'
+        currencyCode:
+          type: string
+          description: ISO 4217 currency code.
+          example: MAD
+      required:
+        - amount
+        - currencyCode
+    ShopifyProductPriceRangeDto:
+      type: object
+      properties:
+        minimum:
+          $ref: '#/components/schemas/ShopifyMoneyDto'
+        maximum:
+          $ref: '#/components/schemas/ShopifyMoneyDto'
+      required:
+        - minimum
+        - maximum
+    ShopifyProductImageDto:
+      type: object
+      properties:
+        url:
+          type: string
+          example: https://cdn.shopify.com/s/files/product.jpg
+        altText:
+          type: object
+          nullable: true
+          example: Black leather handbag
+        width:
+          type: object
+          nullable: true
+          example: 1200
+        height:
+          type: object
+          nullable: true
+          example: 1200
+      required:
+        - url
+    ShopifyProductDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: gid://shopify/Product/6321395219
+        title:
+          type: string
+          example: Leather Handbag
+        handle:
+          type: string
+          example: leather-handbag
+        status:
+          type: string
+          description: >-
+            Shopify product status. Clients should tolerate new enum values in
+            future API versions.
+          enum:
+            - ACTIVE
+            - ARCHIVED
+            - DRAFT
+            - UNLISTED
+          example: ACTIVE
+        vendor:
+          type: string
+          example: Atlas
+        productType:
+          type: string
+          example: Handbags
+        tags:
+          example:
+            - leather
+            - women
+          type: array
+          items:
+            type: string
+        totalInventory:
+          type: number
+          description: >-
+            Inventory summed across variants. Negative values can represent
+            oversold inventory.
+          example: 18
+        tracksInventory:
+          type: boolean
+          description: Whether at least one product variant has inventory tracking enabled.
+          example: true
+        priceRange:
+          $ref: '#/components/schemas/ShopifyProductPriceRangeDto'
+        featuredImage:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/ShopifyProductImageDto'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-07-01T10:30:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-07-18T15:40:00.000Z'
+      required:
+        - id
+        - title
+        - handle
+        - status
+        - vendor
+        - productType
+        - tags
+        - totalInventory
+        - tracksInventory
+        - priceRange
+        - createdAt
+        - updatedAt
+    ShopifyPageInfoDto:
+      type: object
+      properties:
+        hasNextPage:
+          type: boolean
+          description: Whether another page exists after this response.
+          example: true
+        hasPreviousPage:
+          type: boolean
+          description: Whether a page exists before this response.
+          example: false
+        startCursor:
+          type: object
+          description: Cursor for the first returned record.
+          nullable: true
+          example: eyJsYXN0X2lkIjo2MzIxMzk1MjE5LCJsYXN0X3ZhbHVlIjoiNjMyMTM5NTIxOSJ9
+        endCursor:
+          type: object
+          description: >-
+            Cursor to send as `after` when requesting the next page. Treat it as
+            an opaque value.
+          nullable: true
+          example: eyJsYXN0X2lkIjo2MzIxMzk1MjIwLCJsYXN0X3ZhbHVlIjoiNjMyMTM5NTIyMCJ9
+      required:
+        - hasNextPage
+        - hasPreviousPage
+    ShopifyProductListResponseDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShopifyProductDto'
+        pageInfo:
+          $ref: '#/components/schemas/ShopifyPageInfoDto'
+      required:
+        - data
+        - pageInfo
+    ShopifyOrderCustomerDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: gid://shopify/Customer/7321395219
+        displayName:
+          type: string
+          example: Sara Amrani
+      required:
+        - id
+        - displayName
+    ShopifyOrderDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: gid://shopify/Order/8321395219
+        name:
+          type: string
+          example: '#1042'
+        financialStatus:
+          type: string
+          nullable: true
+          enum:
+            - AUTHORIZED
+            - EXPIRED
+            - PAID
+            - PARTIALLY_PAID
+            - PARTIALLY_REFUNDED
+            - PENDING
+            - REFUNDED
+            - VOIDED
+          example: PAID
+        fulfillmentStatus:
+          type: string
+          enum:
+            - FULFILLED
+            - IN_PROGRESS
+            - ON_HOLD
+            - OPEN
+            - PARTIALLY_FULFILLED
+            - PENDING_FULFILLMENT
+            - REQUEST_DECLINED
+            - RESTOCKED
+            - SCHEDULED
+            - UNFULFILLED
+          example: UNFULFILLED
+        totalPrice:
+          $ref: '#/components/schemas/ShopifyMoneyDto'
+        itemCount:
+          type: number
+          description: >-
+            Current quantity of subtotal-contributing items after returns,
+            refunds, edits, and cancellations.
+          example: 3
+        customer:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/ShopifyOrderCustomerDto'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-07-18T15:40:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-07-18T15:45:00.000Z'
+        processedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            When the order was processed. Can be null for orders that have not
+            been processed.
+          example: '2026-07-18T15:41:00.000Z'
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+      required:
+        - id
+        - name
+        - fulfillmentStatus
+        - totalPrice
+        - itemCount
+        - createdAt
+        - updatedAt
+    ShopifyOrderListResponseDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShopifyOrderDto'
+        pageInfo:
+          $ref: '#/components/schemas/ShopifyPageInfoDto'
+      required:
+        - data
+        - pageInfo
+    ShopifyCustomerLocationDto:
+      type: object
+      properties:
+        city:
+          type: object
+          nullable: true
+          example: Casablanca
+        provinceCode:
+          type: object
+          nullable: true
+          example: CAS
+        countryCode:
+          type: object
+          nullable: true
+          description: ISO 3166-1 alpha-2 country code.
+          example: MA
+    ShopifyCustomerDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: gid://shopify/Customer/7321395219
+        displayName:
+          type: string
+          example: Sara Amrani
+        firstName:
+          type: object
+          nullable: true
+          example: Sara
+        lastName:
+          type: object
+          nullable: true
+          example: Amrani
+        email:
+          type: object
+          nullable: true
+          example: sara@example.com
+        phone:
+          type: object
+          nullable: true
+          example: '+212612345678'
+        orderCount:
+          type: string
+          description: >-
+            Order count represented as a string because Shopify returns an
+            unsigned 64-bit integer.
+          example: '4'
+        amountSpent:
+          $ref: '#/components/schemas/ShopifyMoneyDto'
+        state:
+          type: string
+          enum:
+            - DECLINED
+            - DISABLED
+            - ENABLED
+            - INVITED
+          example: ENABLED
+        verifiedEmail:
+          type: boolean
+          example: true
+        tags:
+          example:
+            - VIP
+            - repeat-customer
+          type: array
+          items:
+            type: string
+        defaultLocation:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/ShopifyCustomerLocationDto'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2025-11-12T09:15:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-07-18T15:40:00.000Z'
+      required:
+        - id
+        - displayName
+        - orderCount
+        - amountSpent
+        - state
+        - verifiedEmail
+        - tags
+        - createdAt
+        - updatedAt
+    ShopifyCustomerListResponseDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShopifyCustomerDto'
+        pageInfo:
+          $ref: '#/components/schemas/ShopifyPageInfoDto'
+      required:
+        - data
+        - pageInfo
+    ShopifyWebhookReceiptDto:
+      type: object
+      properties:
+        received:
+          type: boolean
+          example: true
+        duplicate:
+          type: boolean
+          example: false
+        topic:
+          type: string
+          example: APP_UNINSTALLED
+        webhookId:
+          type: string
+          example: b54557e4-bdd9-4b37-8a5f-bf7d70bcd043
+      required:
+        - received
+        - duplicate
+        - topic
+        - webhookId
+    EcommerceConnectionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 7cf83ca3-497c-44a7-bc11-ae0c7cfdba1f
+        platform:
+          type: string
+          description: >-
+            Provider identifier. Additional values will be introduced as
+            integrations are added.
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+          example: SHOPIFY
+        externalAccountId:
+          type: string
+          example: atlas-market.myshopify.com
+        displayName:
+          type: string
+          nullable: true
+          example: Atlas Market
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISCONNECTED
+            - REAUTHORIZATION_REQUIRED
+          example: ACTIVE
+        includeInRevenue:
+          type: boolean
+          description: >-
+            Whether this connection contributes to combined revenue
+            calculations.
+          example: true
+        lastSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-07-19T08:30:00.000Z'
+        syncPending:
+          type: boolean
+          description: >-
+            Whether a subsequent sync request is required to finish the current
+            backfill.
+          example: false
+        lastSyncError:
+          type: string
+          nullable: true
+          description: Last safe synchronization error message.
+          example: null
+      required:
+        - id
+        - platform
+        - externalAccountId
+        - status
+        - includeInRevenue
+        - syncPending
+    EcommerceConnectionListDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EcommerceConnectionDto'
+      required:
+        - data
+    EcommerceSyncResponseDto:
+      type: object
+      properties:
+        connectionId:
+          type: string
+          example: 7cf83ca3-497c-44a7-bc11-ae0c7cfdba1f
+        platform:
+          type: string
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+          example: LIGHTFUNNELS
+        processedOrders:
+          type: number
+          description: Orders inserted or refreshed during this synchronization run.
+          example: 87
+        hasMore:
+          type: boolean
+          description: >-
+            Whether more provider pages remain. Call this endpoint again when
+            true.
+          example: false
+        lastSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Completed synchronization watermark. Null while a paginated backfill
+            remains.
+          example: '2026-07-19T08:30:00.000Z'
+      required:
+        - connectionId
+        - platform
+        - processedOrders
+        - hasMore
+    RevenuePeriodDto:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-07-01'
+        to:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-07-31'
+        timezone:
+          type: string
+          example: Africa/Casablanca
+      required:
+        - timezone
+    RevenueCurrencyTotalDto:
+      type: object
+      properties:
+        grossSales:
+          type: string
+          description: Order subtotal before discounts and refunds.
+          example: '24000.0000'
+        discounts:
+          type: string
+          example: '1000.0000'
+        refunds:
+          type: string
+          example: '500.0000'
+        netSales:
+          type: string
+          description: Gross sales minus discounts and product refunds.
+          example: '22500.0000'
+        shipping:
+          type: string
+          example: '700.0000'
+        tax:
+          type: string
+          example: '0.0000'
+        totalCollected:
+          type: string
+          description: >-
+            Net captured payments after refunds. This is the primary income
+            metric.
+          example: '23200.0000'
+        currency:
+          type: string
+          description: ISO 4217 currency code.
+          example: MAD
+        orderCount:
+          type: number
+          example: 42
+      required:
+        - grossSales
+        - discounts
+        - refunds
+        - netSales
+        - shipping
+        - tax
+        - totalCollected
+        - currency
+        - orderCount
+    RevenuePlatformTotalDto:
+      type: object
+      properties:
+        grossSales:
+          type: string
+          description: Order subtotal before discounts and refunds.
+          example: '24000.0000'
+        discounts:
+          type: string
+          example: '1000.0000'
+        refunds:
+          type: string
+          example: '500.0000'
+        netSales:
+          type: string
+          description: Gross sales minus discounts and product refunds.
+          example: '22500.0000'
+        shipping:
+          type: string
+          example: '700.0000'
+        tax:
+          type: string
+          example: '0.0000'
+        totalCollected:
+          type: string
+          description: >-
+            Net captured payments after refunds. This is the primary income
+            metric.
+          example: '23200.0000'
+        currency:
+          type: string
+          description: ISO 4217 currency code.
+          example: MAD
+        orderCount:
+          type: number
+          example: 42
+        platform:
+          type: string
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+          example: SHOPIFY
+      required:
+        - grossSales
+        - discounts
+        - refunds
+        - netSales
+        - shipping
+        - tax
+        - totalCollected
+        - currency
+        - orderCount
+        - platform
+    RevenueSummaryDto:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/RevenuePeriodDto'
+        totalsByCurrency:
+          type: array
+          items:
+            $ref: '#/components/schemas/RevenueCurrencyTotalDto'
+        byPlatform:
+          type: array
+          items:
+            $ref: '#/components/schemas/RevenuePlatformTotalDto'
+        dataFreshAsOf:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Oldest last-sync timestamp among included connections. Null when no
+            connection has completed a sync.
+          example: '2026-07-19T08:30:00.000Z'
+      required:
+        - period
+        - totalsByCurrency
+        - byPlatform
+    RevenueDailyTotalDto:
+      type: object
+      properties:
+        grossSales:
+          type: string
+          description: Order subtotal before discounts and refunds.
+          example: '24000.0000'
+        discounts:
+          type: string
+          example: '1000.0000'
+        refunds:
+          type: string
+          example: '500.0000'
+        netSales:
+          type: string
+          description: Gross sales minus discounts and product refunds.
+          example: '22500.0000'
+        shipping:
+          type: string
+          example: '700.0000'
+        tax:
+          type: string
+          example: '0.0000'
+        totalCollected:
+          type: string
+          description: >-
+            Net captured payments after refunds. This is the primary income
+            metric.
+          example: '23200.0000'
+        currency:
+          type: string
+          description: ISO 4217 currency code.
+          example: MAD
+        orderCount:
+          type: number
+          example: 42
+        date:
+          type: string
+          format: date
+          example: '2026-07-19'
+      required:
+        - grossSales
+        - discounts
+        - refunds
+        - netSales
+        - shipping
+        - tax
+        - totalCollected
+        - currency
+        - orderCount
+        - date
+    RevenueTimeseriesDto:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/RevenuePeriodDto'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RevenueDailyTotalDto'
+      required:
+        - period
+        - data
+    YouCanAuthorizationResponseDto:
+      type: object
+      properties:
+        authorizationUrl:
+          type: string
+          description: >-
+            Open this URL in a browser so the seller can authorize the YouCan
+            connection.
+          example: >-
+            https://seller-area.youcan.shop/admin/oauth/authorize?client_id=abc&redirect_uri=https%3A%2F%2Fapi.example.com%2Fauth%2Fyoucan%2Fcallback&response_type=code&state=...&scope=*
+        requestedScopes:
+          example:
+            - '*'
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          example: '2026-07-25T12:10:00.000Z'
+          description: Expiration of this single-use OAuth request.
+      required:
+        - authorizationUrl
+        - requestedScopes
+        - expiresAt
+    YouCanConnectionStatusDto:
+      type: object
+      properties:
+        connected:
+          type: boolean
+          example: true
+        storeId:
+          type: string
+          nullable: true
+          example: 5a58178a-1142-450e-bfc6-6f9d8ba32656
+        displayName:
+          type: string
+          nullable: true
+          example: Atlas Market
+        storeDomain:
+          type: string
+          nullable: true
+          example: atlas-market.youcan.store
+        status:
+          type: string
+          enum:
+            - not_connected
+            - active
+            - disconnected
+            - reauthorization_required
+          example: active
+        grantedScopes:
+          example:
+            - '*'
+          type: array
+          items:
+            type: string
+        installedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastVerifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        scopeUpdateRequired:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: YouCan store is connected
+      required:
+        - connected
+        - status
+        - grantedScopes
+        - scopeUpdateRequired
+        - message
+    YouCanStoreVerificationDto:
+      type: object
+      properties:
+        storeId:
+          type: string
+          example: 5a58178a-1142-450e-bfc6-6f9d8ba32656
+        slug:
+          type: string
+          nullable: true
+          example: atlas-market
+        name:
+          type: string
+          nullable: true
+          example: Atlas Market
+        domain:
+          type: string
+          nullable: true
+          example: atlas-market.youcan.store
+        currencyCode:
+          type: string
+          nullable: true
+          example: USD
+        isActive:
+          type: boolean
+          nullable: true
+          example: true
+        verified:
+          type: boolean
+          example: true
+      required:
+        - storeId
+        - verified
+    LightfunnelsAuthorizationResponseDto:
+      type: object
+      properties:
+        authorizationUrl:
+          type: string
+          description: >-
+            Open this URL in the browser so the merchant can authorize
+            Lightfunnels.
+          example: >-
+            https://app.lightfunnels.com/admin/oauth?client_id=abc&redirect_uri=https%3A%2F%2Fapi.example.com%2Fauth%2Flightfunnels%2Fcallback&scope=orders%2Cfunnels&state=...
+        requestedScopes:
+          example:
+            - funnels
+            - orders
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+          example: '2026-07-26T12:10:00.000Z'
+      required:
+        - authorizationUrl
+        - requestedScopes
+        - expiresAt
+    LightfunnelsConnectionStatusDto:
+      type: object
+      properties:
+        connected:
+          type: boolean
+          example: true
+        accountId:
+          type: string
+          nullable: true
+          example: QWNjb3VudDoxMjM0
+        displayName:
+          type: string
+          nullable: true
+          example: Atlas Market
+        storeDomain:
+          type: string
+          nullable: true
+          example: atlas.lightfunnels.com
+        status:
+          type: string
+          enum:
+            - not_connected
+            - active
+            - disconnected
+            - reauthorization_required
+          example: active
+        grantedScopes:
+          example:
+            - funnels
+            - orders
+          type: array
+          items:
+            type: string
+        installedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastVerifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        scopeUpdateRequired:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Lightfunnels account is connected
+      required:
+        - connected
+        - status
+        - grantedScopes
+        - scopeUpdateRequired
+        - message
+    LightfunnelsStoreDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: U3RvcmU6MTIzNA==
+        uid:
+          type: string
+          nullable: true
+          example: '1234'
+        name:
+          type: string
+          nullable: true
+          example: Atlas Market
+        slug:
+          type: string
+          nullable: true
+          example: atlas-market
+        domain:
+          type: string
+          nullable: true
+          example: atlas.lightfunnels.com
+      required:
+        - id
+    LightfunnelsVerificationDto:
+      type: object
+      properties:
+        accountId:
+          type: string
+          example: QWNjb3VudDoxMjM0
+        stores:
+          type: array
+          items:
+            $ref: '#/components/schemas/LightfunnelsStoreDto'
+        verified:
+          type: boolean
+          example: true
+      required:
+        - accountId
+        - stores
+        - verified

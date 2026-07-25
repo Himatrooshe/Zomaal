@@ -7,6 +7,8 @@ describe('EcommerceService', () => {
   it('combines platforms by currency without mixing currencies', async () => {
     const rows = [
       aggregateRow('SHOPIFY', 'MAD', '100.0000'),
+      aggregateRow('YOUCAN', 'MAD', '50.0000'),
+      aggregateRow('LIGHTFUNNELS', 'MAD', '25.0000'),
       aggregateRow('SHOPIFY', 'USD', '20.0000'),
     ];
     const prisma = {
@@ -33,11 +35,30 @@ describe('EcommerceService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           currency: 'MAD',
-          totalCollected: '100.0000',
+          totalCollected: '175.0000',
         }),
         expect.objectContaining({
           currency: 'USD',
           totalCollected: '20.0000',
+        }),
+      ]),
+    );
+    expect(result.byPlatform).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          platform: 'SHOPIFY',
+          currency: 'MAD',
+          totalCollected: '100.0000',
+        }),
+        expect.objectContaining({
+          platform: 'YOUCAN',
+          currency: 'MAD',
+          totalCollected: '50.0000',
+        }),
+        expect.objectContaining({
+          platform: 'LIGHTFUNNELS',
+          currency: 'MAD',
+          totalCollected: '25.0000',
         }),
       ]),
     );

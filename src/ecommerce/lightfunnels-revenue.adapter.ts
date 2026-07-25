@@ -1,0 +1,266 @@
+import { BadGatewayException, Injectable } from '@nestjs/common';
+import {
+  EcommerceOrderStatus,
+  EcommercePaymentStatus,
+  Prisma,
+} from '@prisma/client';
+import { LightfunnelsConnectionService } from '../lightfunnels/lightfunnels-connection.service';
+import type {
+  EcommerceOrderPage,
+  EcommerceRevenueAdapter,
+  NormalizedEcommerceOrder,
+} from './interfaces/ecommerce-revenue-adapter.interface';
+
+const PAGE_SIZE = 25;
+const ORDERS_QUERY = `
+  query ZomaalLightfunnelsOrders(
+    $first: Int!
+    $after: String
+    $query: String!
+  ) {
+    orders(first: $first, after: $after, query: $query) {
+      edges {
+        cursor
+        node {
+          id
+          name
+          created_at
+          updated_at
+          cancelled_at
+          financial_status
+          fulfillment_status
+          discount_value
+          subtotal
+          shipping
+          total
+          refunded_amount
+          net_payment
+          currency
+          test
+          items {
+            __typename
+          }
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+`;
+
+interface OrdersQueryData {
+  orders?: unknown;
+  pagination?: unknown;
+}
+
+@Injectable()
+export class LightfunnelsRevenueAdapter implements EcommerceRevenueAdapter {
+  constructor(
+    private readonly connectionService: LightfunnelsConnectionService,
+  ) {}
+
+  async fetchOrdersPage(
+    userId: string,
+    cursor: string | null,
+  ): Promise<EcommerceOrderPage> {
+    const data = await this.connectionService.graphqlForUser<OrdersQueryData>(
+      userId,
+      ORDERS_QUERY,
+      {
+        first: PAGE_SIZE,
+        after: cursor,
+        query: 'order_by:id order_dir:asc',
+      },
+    );
+    const connection = asRecord(data.orders ?? data.pagination, 'orders');
+    const edges = asArray(connection.edges, 'orders.edges');
+    const pageInfo = asRecord(connection.pageInfo, 'orders.pageInfo');
+    const hasNextPage = asBoolean(
+      pageInfo.hasNextPage,
+      'orders.pageInfo.hasNextPage',
+    );
+    const endCursor = optionalString(pageInfo.endCursor);
+    if (hasNextPage && !endCursor) {
+      throw new BadGatewayException(
+        'Lightfunnels pagination did not include an end cursor',
+      );
+    }
+
+    const orders: NormalizedEcommerceOrder[] = [];
+    for (const edgeValue of edges) {
+      const edge = asRecord(edgeValue, 'orders.edge');
+      const order = asRecord(edge.node, 'orders.edge.node');
+      if (order.test === true) {
+        continue;
+      }
+      orders.push(normalizeOrder(order));
+    }
+    return {
+      orders,
+      hasNextPage,
+      endCursor: hasNextPage ? endCursor : null,
+    };
+  }
+}
+
+function normalizeOrder(
+  order: Record<string, unknown>,
+): NormalizedEcommerceOrder {
+  const externalOrderId = requiredString(order.id, 'order.id');
+  const currency = requiredString(
+    order.currency,
+    'order.currency',
+  ).toUpperCase();
+  const grossSales = decimal(order.subtotal, 'order.subtotal');
+  const discounts = decimal(order.discount_value, 'order.discount_value');
+  const refunds = decimal(order.refunded_amount, 'order.refunded_amount');
+  const shipping = decimal(order.shipping, 'order.shipping');
+  const total = decimal(order.total, 'order.total');
+  const netSales = Prisma.Decimal.max(
+    grossSales.minus(discounts).minus(refunds),
+    0,
+  );
+  const tax = Prisma.Decimal.max(
+    total.minus(grossSales.minus(discounts)).minus(shipping),
+    0,
+  );
+  const financialStatus = mapFinancialStatus(
+    requiredString(order.financial_status, 'order.financial_status'),
+  );
+  const totalCollected = isCollectedStatus(financialStatus)
+    ? decimal(order.net_payment, 'order.net_payment')
+    : new Prisma.Decimal(0);
+  const providerCreatedAt = timestamp(order.created_at, 'order.created_at');
+  const providerUpdatedAt = timestamp(order.updated_at, 'order.updated_at');
+  const cancelledAt =
+    order.cancelled_at === null || order.cancelled_at === undefined
+      ? null
+      : timestamp(order.cancelled_at, 'order.cancelled_at');
+  const items = Array.isArray(order.items) ? order.items : [];
+
+  return {
+    externalOrderId,
+    orderName: optionalString(order.name) ?? '',
+    status: cancelledAt
+      ? EcommerceOrderStatus.CANCELLED
+      : EcommerceOrderStatus.OPEN,
+    financialStatus,
+    fulfillmentStatus: optionalString(order.fulfillment_status) ?? '',
+    currency,
+    itemCount: items.length,
+    grossSales: grossSales.toFixed(4),
+    discounts: discounts.toFixed(4),
+    refunds: refunds.toFixed(4),
+    netSales: netSales.toFixed(4),
+    shipping: shipping.toFixed(4),
+    tax: tax.toFixed(4),
+    totalCollected: totalCollected.toFixed(4),
+    providerCreatedAt,
+    processedAt: providerCreatedAt,
+    cancelledAt,
+    providerUpdatedAt,
+  };
+}
+
+function mapFinancialStatus(value: string): EcommercePaymentStatus {
+  switch (value.trim().toLowerCase()) {
+    case 'paid':
+      return EcommercePaymentStatus.PAID;
+    case 'partially_refunded':
+      return EcommercePaymentStatus.PARTIALLY_REFUNDED;
+    case 'refunded':
+      return EcommercePaymentStatus.REFUNDED;
+    case 'pending':
+      return EcommercePaymentStatus.PENDING;
+    default:
+      return EcommercePaymentStatus.UNKNOWN;
+  }
+}
+
+function isCollectedStatus(value: EcommercePaymentStatus): boolean {
+  return (
+    value === EcommercePaymentStatus.PAID ||
+    value === EcommercePaymentStatus.PARTIALLY_REFUNDED ||
+    value === EcommercePaymentStatus.REFUNDED
+  );
+}
+
+function decimal(value: unknown, field: string): Prisma.Decimal {
+  try {
+    const parsed = new Prisma.Decimal(value as Prisma.Decimal.Value);
+    if (!parsed.isFinite() || parsed.isNegative()) {
+      throw new Error('invalid decimal');
+    }
+    return parsed;
+  } catch {
+    throw new BadGatewayException(
+      `Lightfunnels returned an invalid ${field} value`,
+    );
+  }
+}
+
+function timestamp(value: unknown, field: string): Date {
+  let parsed: Date;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    parsed = new Date(value < 10_000_000_000 ? value * 1000 : value);
+  } else if (typeof value === 'string' && value.trim()) {
+    const numeric = Number(value);
+    parsed =
+      Number.isFinite(numeric) && /^\d+$/.test(value.trim())
+        ? new Date(numeric < 10_000_000_000 ? numeric * 1000 : numeric)
+        : new Date(value);
+  } else {
+    throw new BadGatewayException(
+      `Lightfunnels returned an invalid ${field} timestamp`,
+    );
+  }
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadGatewayException(
+      `Lightfunnels returned an invalid ${field} timestamp`,
+    );
+  }
+  return parsed;
+}
+
+function requiredString(value: unknown, field: string): string {
+  const parsed = optionalString(value);
+  if (!parsed) {
+    throw new BadGatewayException(
+      `Lightfunnels response did not include ${field}`,
+    );
+  }
+  return parsed;
+}
+
+function optionalString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function asRecord(value: unknown, field: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new BadGatewayException(
+      `Lightfunnels returned an invalid ${field} response`,
+    );
+  }
+  return value as Record<string, unknown>;
+}
+
+function asArray(value: unknown, field: string): unknown[] {
+  if (!Array.isArray(value)) {
+    throw new BadGatewayException(
+      `Lightfunnels returned an invalid ${field} response`,
+    );
+  }
+  return value;
+}
+
+function asBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new BadGatewayException(
+      `Lightfunnels returned an invalid ${field} response`,
+    );
+  }
+  return value;
+}

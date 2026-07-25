@@ -1,0 +1,134 @@
+{
+  "info": {
+    "_postman_id": "9cc6d61f-40e2-4b51-b0fc-247791bf81a0",
+    "name": "Zomaal - YouCan OAuth",
+    "description": "Connect and verify a YouCan seller account through Zomaal. Run the requests in order and open the returned authorizationUrl in a browser.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "phone",
+      "value": "+212600000001"
+    },
+    {
+      "key": "password",
+      "value": "replace-with-your-password",
+      "type": "secret"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "youCanAuthorizationUrl",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Login to Zomaal",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": "{{baseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Login succeeded', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('accessToken', body.accessToken);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Start YouCan OAuth",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/youcan/auth/start"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Authorization URL created', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('youCanAuthorizationUrl', body.authorizationUrl);",
+              "console.log('Open this URL in a browser:', body.authorizationUrl);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Get YouCan connection status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/youcan/connection"
+      }
+    },
+    {
+      "name": "4. Verify YouCan credentials",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/youcan/connection/verify"
+      }
+    },
+    {
+      "name": "5. Disconnect YouCan (optional)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{baseUrl}}/youcan/connection"
+      }
+    }
+  ]
+}
