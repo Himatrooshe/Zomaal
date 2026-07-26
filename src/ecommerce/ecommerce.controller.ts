@@ -203,6 +203,10 @@ export class EcommerceController {
       'Returns orders synchronized from all connected platforms. Cancelled and refunded orders are excluded by default.',
   })
   @ApiOkResponse({ type: EcommerceOrderListDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid query parameters.',
+    type: ApiErrorDto,
+  })
   @ApiRevenueReadErrors()
   listOrders(
     @CurrentUser() user: JwtPayload,
@@ -218,9 +222,18 @@ export class EcommerceController {
     description:
       'Fetches live recipient, address, and unfulfilled line item details from the source platform.',
   })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Zomaal internal order ID',
+    format: 'uuid',
+  })
   @ApiOkResponse({
     type: EcommerceFulfillmentPreviewDto,
     headers: PRIVATE_NO_STORE_HEADERS,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid order ID format.',
+    type: ApiErrorDto,
   })
   @ApiRevenueReadErrors()
   getFulfillmentPreview(
@@ -237,7 +250,16 @@ export class EcommerceController {
     description:
       'Creates a parcel for the order using the selected shipping provider. This operation is idempotent.',
   })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Zomaal internal order ID',
+    format: 'uuid',
+  })
   @ApiOkResponse({ type: EcommerceDispatchResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid order ID format or invalid dispatch payload.',
+    type: ApiErrorDto,
+  })
   @ApiRevenueReadErrors()
   dispatchOrder(
     @CurrentUser() user: JwtPayload,
