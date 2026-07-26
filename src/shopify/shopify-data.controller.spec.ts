@@ -6,7 +6,10 @@ import {
 import { Test } from '@nestjs/testing';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ShopifyDataPageQueryDto } from './dto/shopify-data-query.dto';
+import {
+  ShopifyDataPageQueryDto,
+  ShopifyOrderDetailsQueryDto,
+} from './dto/shopify-data-query.dto';
 import { ShopifyDataController } from './shopify-data.controller';
 import { ShopifyDataService } from './shopify-data.service';
 
@@ -31,6 +34,7 @@ describe('ShopifyDataController OpenAPI contract', () => {
               },
             }),
             listOrders: jest.fn(),
+            getOrderDetails: jest.fn(),
             listCustomers: jest.fn(),
           },
         },
@@ -70,6 +74,7 @@ describe('ShopifyDataController OpenAPI contract', () => {
     '/shopify/store',
     '/shopify/products',
     '/shopify/orders',
+    '/shopify/orders/{orderId}',
     '/shopify/customers',
   ])(
     'documents bearer security and complete upstream failures for %s',
@@ -152,6 +157,40 @@ describe('ShopifyDataController OpenAPI contract', () => {
     expect(result).toMatchObject({ first: 20 });
     expect(result.after).toBeUndefined();
     expect(result.query).toBeUndefined();
+  });
+
+  it('documents and validates the order-detail parameters', async () => {
+    const operation =
+      createDocument(app).paths['/shopify/orders/{orderId}']?.get;
+    const orderId = operation?.parameters?.find(
+      (parameter) => 'name' in parameter && parameter.name === 'orderId',
+    );
+
+    expect(operation?.responses).toHaveProperty('400');
+    expect(orderId).toMatchObject({
+      name: 'orderId',
+      required: true,
+      schema: {
+        type: 'string',
+        pattern: '^[1-9]\\d{0,19}$',
+      },
+    });
+
+    const pipe = new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    });
+    const query = (await pipe.transform(
+      { lineItemsAfter: '' },
+      { type: 'query', metatype: ShopifyOrderDetailsQueryDto },
+    )) as ShopifyOrderDetailsQueryDto;
+
+    expect(query).toMatchObject({
+      lineItemsFirst: 50,
+      fulfillmentsFirst: 20,
+    });
+    expect(query.lineItemsAfter).toBeUndefined();
   });
 });
 

@@ -33,11 +33,14 @@ async function bootstrap() {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+  const allowAllCorsOrigins = corsOrigins.includes('*');
 
   if (corsOrigins.length > 0) {
     app.enableCors({
-      origin: corsOrigins,
-      credentials: true,
+      origin: allowAllCorsOrigins ? '*' : corsOrigins,
+      credentials: !allowAllCorsOrigins,
+      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Accept', 'Authorization', 'Content-Type'],
     });
   }
 

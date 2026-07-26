@@ -85,11 +85,24 @@ connection. Responses are read live from Shopify, use
 ```http
 GET /shopify/store
 GET /shopify/products?first=20&query=status%3Aactive
+GET /shopify/products/9172411547890?variantsFirst=50&mediaFirst=20
 GET /shopify/orders?first=20&query=financial_status%3Apaid
+GET /shopify/orders/6632134869234?lineItemsFirst=50&fulfillmentsFirst=20
 GET /shopify/customers?first=20
 Authorization: Bearer <zomaalAccessToken>
 Accept: application/json
 ```
+
+The product-details route accepts the numeric suffix from the GraphQL product
+ID returned by the product list. For example,
+`gid://shopify/Product/9172411547890` becomes
+`GET /shopify/products/9172411547890`. Variant and media collections paginate
+independently through `variantsAfter` and `mediaAfter`.
+
+The order-details route accepts the numeric suffix from the GraphQL order ID
+returned by the order list. It includes totals, status, discounts, line items,
+and fulfillment tracking while intentionally excluding customer contact details
+and addresses. Line items paginate through `lineItemsAfter`.
 
 The three list endpoints return:
 

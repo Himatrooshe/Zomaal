@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Header,
+  Param,
   Query,
   UseGuards,
   applyDecorators,
@@ -15,6 +16,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiProduces,
   ApiQuery,
   ApiServiceUnavailableResponse,
@@ -25,10 +27,18 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
-import { ShopifyDataPageQueryDto } from './dto/shopify-data-query.dto';
+import {
+  ShopifyDataPageQueryDto,
+  ShopifyOrderDetailsQueryDto,
+  ShopifyOrderIdParamDto,
+  ShopifyProductDetailsQueryDto,
+  ShopifyProductIdParamDto,
+} from './dto/shopify-data-query.dto';
 import {
   ShopifyCustomerListResponseDto,
+  ShopifyOrderDetailsDto,
   ShopifyOrderListResponseDto,
+  ShopifyProductDetailsDto,
   ShopifyProductListResponseDto,
   ShopifyShopOverviewDto,
 } from './dto/shopify-data-response.dto';
@@ -97,6 +107,48 @@ export class ShopifyDataController {
     return this.dataService.listProducts(user.userId, query);
   }
 
+  @Get('products/:productId')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Get complete details for one Shopify product',
+    description:
+      'Returns the product description, SEO, media, options, and cursor-paginated variants directly from Shopify. Use the numeric suffix of the GraphQL product ID returned by the product list.',
+  })
+  @ApiParam({
+    name: 'productId',
+    description:
+      'Numeric suffix from a Shopify product GID, for example `9172411547890` from `gid://shopify/Product/9172411547890`.',
+    example: '9172411547890',
+    schema: {
+      type: 'string',
+      pattern: '^[1-9]\\d{0,19}$',
+    },
+  })
+  @ApiOkResponse({
+    description: 'Complete Shopify product details.',
+    type: ShopifyProductDetailsDto,
+    headers: PRIVATE_NO_STORE_HEADERS,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Invalid numeric product ID, pagination value, cursor, or unexpected query parameter.',
+    type: ApiErrorDto,
+  })
+  @ApiShopifyReadErrors(
+    'The current user has no Zomaal store, or the Shopify product does not exist.',
+  )
+  getProduct(
+    @CurrentUser() user: JwtPayload,
+    @Param() params: ShopifyProductIdParamDto,
+    @Query() query: ShopifyProductDetailsQueryDto,
+  ): Promise<ShopifyProductDetailsDto> {
+    return this.dataService.getProductDetails(
+      user.userId,
+      params.productId,
+      query,
+    );
+  }
+
   @Get('orders')
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
@@ -122,6 +174,44 @@ export class ShopifyDataController {
     @Query() query: ShopifyDataPageQueryDto,
   ): Promise<ShopifyOrderListResponseDto> {
     return this.dataService.listOrders(user.userId, query);
+  }
+
+  @Get('orders/:orderId')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Get complete details for one Shopify order',
+    description:
+      'Returns order totals, status, discounts, cursor-paginated line items, and fulfillment tracking. Customer contact details and addresses are intentionally excluded. Use the numeric suffix of the GraphQL order ID returned by the order list.',
+  })
+  @ApiParam({
+    name: 'orderId',
+    description:
+      'Numeric suffix from a Shopify order GID, for example `6632134869234` from `gid://shopify/Order/6632134869234`.',
+    example: '6632134869234',
+    schema: {
+      type: 'string',
+      pattern: '^[1-9]\\d{0,19}$',
+    },
+  })
+  @ApiOkResponse({
+    description: 'Complete Shopify order details.',
+    type: ShopifyOrderDetailsDto,
+    headers: PRIVATE_NO_STORE_HEADERS,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Invalid numeric order ID, pagination value, cursor, or unexpected query parameter.',
+    type: ApiErrorDto,
+  })
+  @ApiShopifyReadErrors(
+    'The current user has no Zomaal store, or the Shopify order does not exist or is outside the installation’s accessible order window.',
+  )
+  getOrder(
+    @CurrentUser() user: JwtPayload,
+    @Param() params: ShopifyOrderIdParamDto,
+    @Query() query: ShopifyOrderDetailsQueryDto,
+  ): Promise<ShopifyOrderDetailsDto> {
+    return this.dataService.getOrderDetails(user.userId, params.orderId, query);
   }
 
   @Get('customers')
@@ -198,7 +288,9 @@ function ApiShopifyPageQuery(searchExample: string) {
   );
 }
 
-function ApiShopifyReadErrors() {
+function ApiShopifyReadErrors(
+  notFoundDescription = 'The current user has not created a Zomaal store.',
+) {
   return applyDecorators(
     ApiUnauthorizedResponse({
       description:
@@ -211,7 +303,7 @@ function ApiShopifyReadErrors() {
       type: ApiErrorDto,
     }),
     ApiNotFoundResponse({
-      description: 'The current user has not created a Zomaal store.',
+      description: notFoundDescription,
       type: ApiErrorDto,
     }),
     ApiConflictResponse({

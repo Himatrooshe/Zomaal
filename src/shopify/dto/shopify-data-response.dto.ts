@@ -253,6 +253,217 @@ export class ShopifyProductListResponseDto {
   pageInfo!: ShopifyPageInfoDto;
 }
 
+export class ShopifyProductSeoDto {
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'The Collection Snowboard: Hydrogen',
+  })
+  title!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'A responsive, all-mountain snowboard.',
+  })
+  description!: string | null;
+}
+
+export class ShopifyProductOptionDto {
+  @ApiProperty({ example: 'gid://shopify/ProductOption/123456789' })
+  id!: string;
+
+  @ApiProperty({ example: 'Size' })
+  name!: string;
+
+  @ApiProperty({ example: 1 })
+  position!: number;
+
+  @ApiProperty({ type: [String], example: ['154 cm', '158 cm'] })
+  values!: string[];
+}
+
+export class ShopifyProductSelectedOptionDto {
+  @ApiProperty({ example: 'Size' })
+  name!: string;
+
+  @ApiProperty({ example: '154 cm' })
+  value!: string;
+}
+
+export class ShopifyProductMediaDto {
+  @ApiProperty({ example: 'gid://shopify/MediaImage/123456789' })
+  id!: string;
+
+  @ApiPropertyOptional({ nullable: true, example: 'Hydrogen snowboard' })
+  altText!: string | null;
+
+  @ApiProperty({
+    enum: ['EXTERNAL_VIDEO', 'IMAGE', 'MODEL_3D', 'VIDEO'],
+    example: 'IMAGE',
+  })
+  mediaContentType!: string;
+
+  @ApiProperty({
+    enum: ['FAILED', 'PROCESSING', 'READY', 'UPLOADED'],
+    example: 'READY',
+  })
+  status!: string;
+
+  @ApiPropertyOptional({ type: ShopifyProductImageDto, nullable: true })
+  previewImage!: ShopifyProductImageDto | null;
+}
+
+export class ShopifyProductMediaConnectionDto {
+  @ApiProperty({ type: [ShopifyProductMediaDto] })
+  data!: ShopifyProductMediaDto[];
+
+  @ApiProperty({ type: ShopifyPageInfoDto })
+  pageInfo!: ShopifyPageInfoDto;
+}
+
+export class ShopifyProductVariantDto {
+  @ApiProperty({ example: 'gid://shopify/ProductVariant/123456789' })
+  id!: string;
+
+  @ApiProperty({
+    description:
+      'Numeric REST-compatible Shopify variant ID represented as a string.',
+    example: '123456789',
+  })
+  legacyResourceId!: string;
+
+  @ApiProperty({ example: '154 cm' })
+  title!: string;
+
+  @ApiProperty({ example: 'The Collection Snowboard: Hydrogen - 154 cm' })
+  displayName!: string;
+
+  @ApiPropertyOptional({ nullable: true, example: 'HYDROGEN-154' })
+  sku!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: '0123456789012' })
+  barcode!: string | null;
+
+  @ApiProperty({
+    description: 'Decimal price in the shop currency, represented as a string.',
+    example: '600.00',
+  })
+  price!: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Decimal compare-at price in the shop currency, represented as a string.',
+    example: '650.00',
+  })
+  compareAtPrice!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Aggregate inventory across locations. Null when Shopify does not expose a quantity.',
+    example: 12,
+  })
+  inventoryQuantity!: number | null;
+
+  @ApiProperty({ example: true })
+  availableForSale!: boolean;
+
+  @ApiProperty({ example: true })
+  taxable!: boolean;
+
+  @ApiProperty({
+    enum: ['CONTINUE', 'DENY'],
+    description: 'Behavior when inventory reaches zero.',
+    example: 'DENY',
+  })
+  inventoryPolicy!: string;
+
+  @ApiProperty({ example: 1 })
+  position!: number;
+
+  @ApiProperty({ type: [ShopifyProductSelectedOptionDto] })
+  selectedOptions!: ShopifyProductSelectedOptionDto[];
+
+  @ApiPropertyOptional({ type: ShopifyProductImageDto, nullable: true })
+  image!: ShopifyProductImageDto | null;
+
+  @ApiProperty({
+    type: String,
+    format: 'date-time',
+    example: '2026-07-01T10:30:00.000Z',
+  })
+  createdAt!: string;
+
+  @ApiProperty({
+    type: String,
+    format: 'date-time',
+    example: '2026-07-18T15:40:00.000Z',
+  })
+  updatedAt!: string;
+}
+
+export class ShopifyProductVariantConnectionDto {
+  @ApiProperty({ type: [ShopifyProductVariantDto] })
+  data!: ShopifyProductVariantDto[];
+
+  @ApiProperty({ type: ShopifyPageInfoDto })
+  pageInfo!: ShopifyPageInfoDto;
+}
+
+export class ShopifyProductDetailsDto extends ShopifyProductDto {
+  @ApiProperty({
+    description:
+      'Numeric REST-compatible Shopify product ID represented as a string.',
+    example: '9172411547890',
+  })
+  legacyResourceId!: string;
+
+  @ApiProperty({
+    example: 'A responsive, all-mountain snowboard.',
+  })
+  description!: string;
+
+  @ApiProperty({
+    description:
+      'Merchant-authored HTML. Treat as untrusted content and sanitize before rendering.',
+    example: '<p>A responsive, all-mountain snowboard.</p>',
+  })
+  descriptionHtml!: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example:
+      'https://zomaal-dev.myshopify.com/products/the-collection-snowboard-hydrogen',
+  })
+  onlineStoreUrl!: string | null;
+
+  @ApiProperty({ example: false })
+  isGiftCard!: boolean;
+
+  @ApiProperty({ example: false })
+  hasOnlyDefaultVariant!: boolean;
+
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date-time',
+    nullable: true,
+    example: '2026-07-01T10:30:00.000Z',
+  })
+  publishedAt!: string | null;
+
+  @ApiProperty({ type: ShopifyProductSeoDto })
+  seo!: ShopifyProductSeoDto;
+
+  @ApiProperty({ type: [ShopifyProductOptionDto] })
+  options!: ShopifyProductOptionDto[];
+
+  @ApiProperty({ type: ShopifyProductMediaConnectionDto })
+  media!: ShopifyProductMediaConnectionDto;
+
+  @ApiProperty({ type: ShopifyProductVariantConnectionDto })
+  variants!: ShopifyProductVariantConnectionDto;
+}
+
 export class ShopifyOrderCustomerDto {
   @ApiProperty({ example: 'gid://shopify/Customer/7321395219' })
   id!: string;
@@ -353,6 +564,218 @@ export class ShopifyOrderListResponseDto {
 
   @ApiProperty({ type: ShopifyPageInfoDto })
   pageInfo!: ShopifyPageInfoDto;
+}
+
+export class ShopifyOrderTotalsDto {
+  @ApiProperty({ type: ShopifyMoneyDto })
+  subtotal!: ShopifyMoneyDto;
+
+  @ApiProperty({ type: ShopifyMoneyDto })
+  discounts!: ShopifyMoneyDto;
+
+  @ApiProperty({ type: ShopifyMoneyDto })
+  shipping!: ShopifyMoneyDto;
+
+  @ApiProperty({ type: ShopifyMoneyDto })
+  tax!: ShopifyMoneyDto;
+
+  @ApiProperty({ type: ShopifyMoneyDto })
+  total!: ShopifyMoneyDto;
+
+  @ApiProperty({ type: ShopifyMoneyDto })
+  refunded!: ShopifyMoneyDto;
+
+  @ApiProperty({ type: ShopifyMoneyDto })
+  outstanding!: ShopifyMoneyDto;
+}
+
+export class ShopifyOrderLineItemVariantDto {
+  @ApiProperty({ example: 'gid://shopify/ProductVariant/43729072111858' })
+  id!: string;
+
+  @ApiProperty({
+    description:
+      'REST-compatible numeric Shopify variant ID represented as a string.',
+    example: '43729072111858',
+  })
+  legacyResourceId!: string;
+}
+
+export class ShopifyOrderLineItemDto {
+  @ApiProperty({ example: 'gid://shopify/LineItem/14028667248882' })
+  id!: string;
+
+  @ApiProperty({ example: 'Hydrogen Snowboard - 154 cm' })
+  name!: string;
+
+  @ApiProperty({ example: 'Hydrogen Snowboard' })
+  title!: string;
+
+  @ApiPropertyOptional({ nullable: true, example: '154 cm' })
+  variantTitle!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 'HYDROGEN-154' })
+  sku!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 'Hydrogen Vendor' })
+  vendor!: string | null;
+
+  @ApiProperty({ example: 2 })
+  quantity!: number;
+
+  @ApiProperty({ example: 2 })
+  currentQuantity!: number;
+
+  @ApiProperty({ example: 2 })
+  refundableQuantity!: number;
+
+  @ApiProperty({ example: 2 })
+  unfulfilledQuantity!: number;
+
+  @ApiProperty({ example: true })
+  requiresShipping!: boolean;
+
+  @ApiProperty({ example: true })
+  taxable!: boolean;
+
+  @ApiProperty({ example: false })
+  isGiftCard!: boolean;
+
+  @ApiProperty({ type: ShopifyMoneyDto })
+  originalUnitPrice!: ShopifyMoneyDto;
+
+  @ApiProperty({ type: ShopifyMoneyDto })
+  discountedUnitPrice!: ShopifyMoneyDto;
+
+  @ApiProperty({ type: ShopifyMoneyDto })
+  originalTotal!: ShopifyMoneyDto;
+
+  @ApiProperty({ type: ShopifyMoneyDto })
+  discountedTotal!: ShopifyMoneyDto;
+
+  @ApiProperty({ type: ShopifyMoneyDto })
+  totalDiscount!: ShopifyMoneyDto;
+
+  @ApiPropertyOptional({
+    type: ShopifyProductImageDto,
+    nullable: true,
+  })
+  image!: ShopifyProductImageDto | null;
+
+  @ApiPropertyOptional({
+    type: ShopifyOrderLineItemVariantDto,
+    nullable: true,
+  })
+  variant!: ShopifyOrderLineItemVariantDto | null;
+}
+
+export class ShopifyOrderLineItemConnectionDto {
+  @ApiProperty({ type: [ShopifyOrderLineItemDto] })
+  data!: ShopifyOrderLineItemDto[];
+
+  @ApiProperty({ type: ShopifyPageInfoDto })
+  pageInfo!: ShopifyPageInfoDto;
+}
+
+export class ShopifyFulfillmentTrackingInfoDto {
+  @ApiPropertyOptional({ nullable: true, example: 'DHL Express' })
+  company!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 'JD0146000062812345' })
+  number!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'https://www.dhl.com/global-en/home/tracking.html',
+  })
+  url!: string | null;
+}
+
+export class ShopifyOrderFulfillmentDto {
+  @ApiProperty({ example: 'gid://shopify/Fulfillment/5180048834802' })
+  id!: string;
+
+  @ApiProperty({
+    description:
+      'REST-compatible numeric Shopify fulfillment ID represented as a string.',
+    example: '5180048834802',
+  })
+  legacyResourceId!: string;
+
+  @ApiProperty({ example: '#1042.1' })
+  name!: string;
+
+  @ApiProperty({ example: 'SUCCESS' })
+  status!: string;
+
+  @ApiPropertyOptional({ nullable: true, example: 'IN_TRANSIT' })
+  displayStatus!: string | null;
+
+  @ApiProperty({ example: 2 })
+  totalQuantity!: number;
+
+  @ApiProperty({ type: [ShopifyFulfillmentTrackingInfoDto] })
+  trackingInfo!: ShopifyFulfillmentTrackingInfoDto[];
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  createdAt!: string;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  updatedAt!: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date-time', nullable: true })
+  deliveredAt!: string | null;
+
+  @ApiPropertyOptional({ type: String, format: 'date-time', nullable: true })
+  estimatedDeliveryAt!: string | null;
+
+  @ApiPropertyOptional({ type: String, format: 'date-time', nullable: true })
+  inTransitAt!: string | null;
+}
+
+export class ShopifyOrderDetailsDto extends ShopifyOrderDto {
+  @ApiProperty({
+    description:
+      'REST-compatible numeric Shopify order ID represented as a string.',
+    example: '6632134869234',
+  })
+  legacyResourceId!: string;
+
+  @ApiPropertyOptional({ nullable: true, example: 'ABC123XYZ' })
+  confirmationNumber!: string | null;
+
+  @ApiProperty({ example: 'MAD' })
+  currencyCode!: string;
+
+  @ApiProperty({ example: true })
+  fullyPaid!: boolean;
+
+  @ApiProperty({ example: false })
+  taxesIncluded!: boolean;
+
+  @ApiProperty({ example: false })
+  test!: boolean;
+
+  @ApiProperty({ type: ShopifyOrderTotalsDto })
+  totals!: ShopifyOrderTotalsDto;
+
+  @ApiProperty({ type: [String], example: ['SUMMER10'] })
+  discountCodes!: string[];
+
+  @ApiProperty({ type: [String], example: ['mobile', 'priority'] })
+  tags!: string[];
+
+  @ApiProperty({ type: ShopifyOrderLineItemConnectionDto })
+  lineItems!: ShopifyOrderLineItemConnectionDto;
+
+  @ApiProperty({ type: [ShopifyOrderFulfillmentDto] })
+  fulfillments!: ShopifyOrderFulfillmentDto[];
+
+  @ApiPropertyOptional({ nullable: true, example: null })
+  cancelReason!: string | null;
+
+  @ApiPropertyOptional({ type: String, format: 'date-time', nullable: true })
+  closedAt!: string | null;
 }
 
 export class ShopifyCustomerLocationDto {
