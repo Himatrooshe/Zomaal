@@ -1,5 +1,51 @@
 import { validateEnvironment } from './env.validation';
 
+describe('validateEnvironment OAuth completion redirects', () => {
+  const encryptionKey = Buffer.alloc(32, 4).toString('base64');
+  const base = {
+    DATABASE_URL: 'postgresql://postgres:password@localhost:5434/zomaal',
+    JWT_SECRET: 'a-secure-test-jwt-secret-with-32-characters',
+    SHIPPING_CREDENTIAL_ENCRYPTION_KEY: encryptionKey,
+  };
+
+  it('accepts an explicitly allowlisted mobile deep-link scheme', () => {
+    const result = validateEnvironment({
+      ...base,
+      OAUTH_MOBILE_REDIRECT_SCHEMES: 'zomaal',
+      SHOPIFY_AUTH_SUCCESS_REDIRECT_URL:
+        'zomaal://settings/integrations/shopify',
+      YOUCAN_AUTH_FAILURE_REDIRECT_URL: 'zomaal://settings/integrations/youcan',
+      LIGHTFUNNELS_AUTH_SUCCESS_REDIRECT_URL:
+        'zomaal://settings/integrations/lightfunnels',
+    });
+
+    expect(result.OAUTH_MOBILE_REDIRECT_SCHEMES).toBe('zomaal');
+  });
+
+  it('rejects custom schemes that are not explicitly allowlisted', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        OAUTH_MOBILE_REDIRECT_SCHEMES: 'zomaal',
+        LIGHTFUNNELS_AUTH_SUCCESS_REDIRECT_URL:
+          'untrusted://settings/integrations/lightfunnels',
+      }),
+    ).toThrow(
+      'LIGHTFUNNELS_AUTH_SUCCESS_REDIRECT_URL must be an absolute HTTP or HTTPS URL or use an allowed mobile scheme (zomaal://)',
+    );
+  });
+
+  it('rejects executable URL schemes', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        OAUTH_MOBILE_REDIRECT_SCHEMES: 'zomaal',
+        SHOPIFY_AUTH_FAILURE_REDIRECT_URL: 'javascript:alert(1)',
+      }),
+    ).toThrow('SHOPIFY_AUTH_FAILURE_REDIRECT_URL');
+  });
+});
+
 describe('validateEnvironment Shopify configuration', () => {
   const encryptionKey = Buffer.alloc(32, 1).toString('base64');
   const base = {

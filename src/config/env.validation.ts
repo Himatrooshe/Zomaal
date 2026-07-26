@@ -39,6 +39,9 @@ export function validateEnvironment(
   const nodeEnv = typeof config.NODE_ENV === 'string' ? config.NODE_ENV : '';
   const developmentOtpCode =
     typeof config.DEV_OTP_CODE === 'string' ? config.DEV_OTP_CODE : '123456';
+  const oauthMobileRedirectSchemes = normalizeCsv(
+    asString(config.OAUTH_MOBILE_REDIRECT_SCHEMES),
+  ).map((scheme) => scheme.replace(/:$/, '').toLowerCase());
 
   if (developmentOtpEnabled && nodeEnv === 'production') {
     errors.push('DEV_OTP_ENABLED must never be true in production');
@@ -133,8 +136,11 @@ export function validateEnvironment(
       config.SHOPIFY_AUTH_FAILURE_REDIRECT_URL,
     ],
   ] as const) {
-    if (asString(value) && !normalizeUrl(asString(value))) {
-      errors.push(`${key} must be an absolute HTTP or HTTPS URL`);
+    if (
+      asString(value) &&
+      !isValidOAuthCompletionUrl(asString(value), oauthMobileRedirectSchemes)
+    ) {
+      errors.push(oauthCompletionUrlError(key, oauthMobileRedirectSchemes));
     }
   }
 
@@ -213,8 +219,11 @@ export function validateEnvironment(
       config.YOUCAN_AUTH_FAILURE_REDIRECT_URL,
     ],
   ] as const) {
-    if (asString(value) && !normalizeUrl(asString(value))) {
-      errors.push(`${key} must be an absolute HTTP or HTTPS URL`);
+    if (
+      asString(value) &&
+      !isValidOAuthCompletionUrl(asString(value), oauthMobileRedirectSchemes)
+    ) {
+      errors.push(oauthCompletionUrlError(key, oauthMobileRedirectSchemes));
     }
   }
 
@@ -290,8 +299,11 @@ export function validateEnvironment(
       config.LIGHTFUNNELS_AUTH_FAILURE_REDIRECT_URL,
     ],
   ] as const) {
-    if (asString(value) && !normalizeUrl(asString(value))) {
-      errors.push(`${key} must be an absolute HTTP or HTTPS URL`);
+    if (
+      asString(value) &&
+      !isValidOAuthCompletionUrl(asString(value), oauthMobileRedirectSchemes)
+    ) {
+      errors.push(oauthCompletionUrlError(key, oauthMobileRedirectSchemes));
     }
   }
 
@@ -302,6 +314,7 @@ export function validateEnvironment(
   return {
     ...config,
     PORT: port,
+    OAUTH_MOBILE_REDIRECT_SCHEMES: oauthMobileRedirectSchemes.join(','),
     SHOPIFY_ENABLED: shopifyEnabled,
     SHOPIFY_APP_URL: shopifyAppUrl,
     SHOPIFY_REDIRECT_URI: shopifyRedirectUri,
@@ -349,6 +362,38 @@ function normalizeUrl(value: string): string {
   } catch {
     return '';
   }
+}
+
+function isValidOAuthCompletionUrl(
+  value: string,
+  allowedMobileSchemes: string[],
+): boolean {
+  try {
+    const url = new URL(value);
+    const scheme = url.protocol.replace(/:$/, '').toLowerCase();
+    if (scheme === 'http' || scheme === 'https') {
+      return Boolean(normalizeUrl(value));
+    }
+    return (
+      allowedMobileSchemes.includes(scheme) &&
+      Boolean(url.hostname || url.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function oauthCompletionUrlError(
+  key: string,
+  allowedMobileSchemes: string[],
+): string {
+  const mobileHint =
+    allowedMobileSchemes.length > 0
+      ? ` or use an allowed mobile scheme (${allowedMobileSchemes
+          .map((scheme) => `${scheme}://`)
+          .join(', ')})`
+      : '';
+  return `${key} must be an absolute HTTP or HTTPS URL${mobileHint}`;
 }
 
 function decodeBase64Key(value: string): Buffer {

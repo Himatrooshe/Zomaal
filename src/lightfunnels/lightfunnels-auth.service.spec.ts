@@ -98,7 +98,7 @@ describe('LightfunnelsAuthService', () => {
       encryption as unknown as LightfunnelsTokenEncryptionService,
     );
 
-    return { service, prisma, transaction, api, connection };
+    return { service, prisma, transaction, api, connection, config };
   }
 
   it('stores only a hash of the single-use state when OAuth starts', async () => {
@@ -165,5 +165,18 @@ describe('LightfunnelsAuthService', () => {
     );
     expect(JSON.stringify(upsert)).not.toContain('"plain-access-token"');
     expect(connection.getStatus).toHaveBeenCalledWith('user-id');
+  });
+
+  it('builds a mobile deep link with the OAuth result', () => {
+    const { service, config } = setup();
+    config.get.mockImplementation((key: string, fallback?: unknown) =>
+      key === 'LIGHTFUNNELS_AUTH_SUCCESS_REDIRECT_URL'
+        ? 'zomaal://settings/integrations/lightfunnels'
+        : fallback,
+    );
+
+    expect(service.getSuccessRedirectUrl()).toBe(
+      'zomaal://settings/integrations/lightfunnels?lightfunnels=connected',
+    );
   });
 });
