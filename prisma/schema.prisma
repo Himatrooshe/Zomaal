@@ -82,6 +82,7 @@ model Store {
   country      String
   logoUrl      String?
   isActive     Boolean  @default(true)
+  baseCurrency String   @default("MAD")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -95,6 +96,7 @@ model Store {
   lightfunnelsConnection  LightfunnelsConnection?
   lightfunnelsOAuthStates LightfunnelsOAuthState[]
   ecommerceConnections    EcommerceConnection[]
+  products                Product[]
 }
 
 enum EcommercePlatform {
@@ -150,6 +152,7 @@ model EcommerceConnection {
   youCanConnection       YouCanConnection?
   lightfunnelsConnection LightfunnelsConnection?
   orders                 EcommerceOrder[]
+  productListings        ProductListing[]
 
   @@unique([storeId, platform])
   @@unique([platform, externalAccountId])
@@ -182,11 +185,28 @@ model EcommerceOrder {
 
   connectionId String
   connection   EcommerceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  dispatch     EcommerceOrderDispatch?
 
   @@unique([connectionId, externalOrderId])
   @@index([connectionId, processedAt])
   @@index([connectionId, providerUpdatedAt])
   @@index([financialStatus, processedAt])
+}
+
+model EcommerceOrderDispatch {
+  id               String   @id @default(uuid())
+  provider         String   // e.g., 'SENDIT', 'QUICKLIVRAISON', 'FORCELOG', 'OZONEEXPRESS'
+  merchantTracking String   // stable merchant reference
+  providerTracking String?  // returned by courier
+  status           String   @default("PENDING") // PENDING, DISPATCHED, FAILED
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  orderId String @unique
+  order   EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([provider, status])
 }
 
 enum ShopifyConnectionStatus {
@@ -337,4 +357,63 @@ model LightfunnelsOAuthState {
 
   @@index([expiresAt])
   @@index([userId, storeId])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  vendor      String?
+  status      String   @default("ACTIVE") // ACTIVE, DRAFT
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  variants ProductVariant[]
+  images   ProductImage[]
+  listings ProductListing[]
+
+  @@index([storeId, status])
+}
+
+model ProductVariant {
+  id               String   @id @default(uuid())
+  title            String?  // e.g., "Large / Red"
+  sku              String?
+  price            Decimal  @db.Decimal(20, 4)
+  compareAtPrice   Decimal? @db.Decimal(20, 4)
+  inventoryQty     Int      @default(0)
+  
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model ProductImage {
+  id        String @id @default(uuid())
+  url       String
+  position  Int    @default(0)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model ProductListing {
+  id                String   @id @default(uuid())
+  externalProductId String
+  status            String   @default("PUBLISHED") // PUBLISHED, FAILED
+  errorMessage      String?
+
+  productId    String
+  product      Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  connectionId String
+  connection   EcommerceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, connectionId])
+  @@index([connectionId, status])
 }

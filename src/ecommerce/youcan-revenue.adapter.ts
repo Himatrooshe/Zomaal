@@ -47,6 +47,8 @@ export class YouCanRevenueAdapter implements EcommerceRevenueAdapter {
   async fetchOrdersPage(
     userId: string,
     cursor: string | null,
+    updatedSince?: Date | null,
+    updatedThrough?: Date,
   ): Promise<EcommerceOrderPage> {
     const page = parsePage(cursor);
     const [response, storeCurrency] = await Promise.all([

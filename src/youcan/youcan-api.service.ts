@@ -163,6 +163,41 @@ export class YouCanApiService {
     return (await parseJson(response)) as T;
   }
 
+  async postJson<T>(
+    pathOrUrl: string,
+    accessToken: string,
+    body: Record<string, unknown>,
+  ): Promise<T> {
+    this.assertConfigured();
+    const url = new URL(pathOrUrl, API_ORIGIN);
+    if (url.origin !== API_ORIGIN) {
+      throw new ServiceUnavailableException('Invalid YouCan API endpoint');
+    }
+
+    const response = await this.fetchWithTimeout(url.toString(), {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (response.status === 401) {
+      throw new UnauthorizedException(
+        'YouCan access token is no longer authorized',
+      );
+    }
+    if (response.status === 403) {
+      throw new ForbiddenException(
+        'YouCan denied this operation. Reconnect the store with the required scopes.',
+      );
+    }
+    this.assertSuccessful(response, 'YouCan API request failed');
+    return (await parseJson(response)) as T;
+  }
+
   isUnauthorizedError(error: unknown): boolean {
     return error instanceof UnauthorizedException;
   }

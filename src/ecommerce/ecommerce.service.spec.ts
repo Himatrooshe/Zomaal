@@ -24,7 +24,13 @@ describe('EcommerceService', () => {
       },
       $queryRaw: jest.fn().mockResolvedValue(rows),
     } as unknown as PrismaService;
-    const service = new EcommerceService(prisma);
+    const service = new EcommerceService(
+      prisma,
+      {} as any,
+      {} as any,
+      {} as any,
+      { convertCurrency: jest.fn() } as any,
+    );
 
     const result = await service.getRevenueSummary('user-id', {
       timezone: 'Africa/Casablanca',
@@ -73,7 +79,13 @@ describe('EcommerceService', () => {
       },
       $queryRaw: queryRaw,
     } as unknown as PrismaService;
-    const service = new EcommerceService(prisma);
+    const service = new EcommerceService(
+      prisma,
+      {} as any,
+      {} as any,
+      {} as any,
+      { convertCurrency: jest.fn() } as any,
+    );
 
     await expect(
       service.getRevenueSummary('user-id', {

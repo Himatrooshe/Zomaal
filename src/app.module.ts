@@ -13,6 +13,7 @@ import { ShopifyModule } from './shopify/shopify.module';
 import { EcommerceModule } from './ecommerce/ecommerce.module';
 import { YouCanModule } from './youcan/youcan.module';
 import { LightfunnelsModule } from './lightfunnels/lightfunnels.module';
+import { CurrencyModule } from './currency/currency.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { LightfunnelsModule } from './lightfunnels/lightfunnels.module';
     EcommerceModule,
     YouCanModule,
     LightfunnelsModule,
+    CurrencyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

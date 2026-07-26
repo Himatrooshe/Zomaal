@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Header,
@@ -37,6 +38,15 @@ import {
   RevenueTimeseriesDto,
 } from './dto/ecommerce-response.dto';
 import { RevenueRangeQueryDto } from './dto/revenue-query.dto';
+import { EcommerceOrderQueryDto } from './dto/ecommerce-order-query.dto';
+import {
+  EcommerceOrderListDto,
+  EcommerceFulfillmentPreviewDto,
+} from './dto/ecommerce-order-response.dto';
+import {
+  EcommerceDispatchDto,
+  EcommerceDispatchResponseDto,
+} from './dto/ecommerce-dispatch.dto';
 import { EcommerceSyncService } from './ecommerce-sync.service';
 import { EcommerceService } from './ecommerce.service';
 
@@ -183,6 +193,58 @@ export class EcommerceController {
     @Query() query: RevenueRangeQueryDto,
   ): Promise<RevenueTimeseriesDto> {
     return this.ecommerceService.getRevenueTimeseries(user.userId, query);
+  }
+
+  @Get('orders')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'List synchronized e-commerce orders',
+    description:
+      'Returns orders synchronized from all connected platforms. Cancelled and refunded orders are excluded by default.',
+  })
+  @ApiOkResponse({ type: EcommerceOrderListDto })
+  @ApiRevenueReadErrors()
+  listOrders(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: EcommerceOrderQueryDto,
+  ): Promise<EcommerceOrderListDto> {
+    return this.ecommerceService.listOrders(user.userId, query);
+  }
+
+  @Get('orders/:orderId/fulfillment-preview')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Fetch live fulfillment details',
+    description:
+      'Fetches live recipient, address, and unfulfilled line item details from the source platform.',
+  })
+  @ApiOkResponse({
+    type: EcommerceFulfillmentPreviewDto,
+    headers: PRIVATE_NO_STORE_HEADERS,
+  })
+  @ApiRevenueReadErrors()
+  getFulfillmentPreview(
+    @CurrentUser() user: JwtPayload,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+  ): Promise<EcommerceFulfillmentPreviewDto> {
+    return this.ecommerceService.getFulfillmentPreview(user.userId, orderId);
+  }
+
+  @Post('orders/:orderId/dispatch')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Dispatch an order to a courier',
+    description:
+      'Creates a parcel for the order using the selected shipping provider. This operation is idempotent.',
+  })
+  @ApiOkResponse({ type: EcommerceDispatchResponseDto })
+  @ApiRevenueReadErrors()
+  dispatchOrder(
+    @CurrentUser() user: JwtPayload,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Body() payload: EcommerceDispatchDto,
+  ): Promise<EcommerceDispatchResponseDto> {
+    return this.ecommerceService.dispatchOrder(user.userId, orderId, payload);
   }
 }
 

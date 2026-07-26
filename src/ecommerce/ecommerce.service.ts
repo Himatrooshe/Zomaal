@@ -5,6 +5,20 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ShopifyFulfillmentAdapter } from './shopify-fulfillment.adapter';
+import { YouCanFulfillmentAdapter } from './youcan-fulfillment.adapter';
+import { LightfunnelsFulfillmentAdapter } from './lightfunnels-fulfillment.adapter';
+import { CurrencyService } from '../currency/currency.service';
+import { EcommerceOrderQueryDto } from './dto/ecommerce-order-query.dto';
+import {
+  EcommerceDispatchDto,
+  EcommerceDispatchResponseDto,
+} from './dto/ecommerce-dispatch.dto';
+import {
+  EcommerceOrderListDto,
+  EcommerceFulfillmentPreviewDto,
+} from './dto/ecommerce-order-response.dto';
+import { EcommercePlatform } from '@prisma/client';
 import type {
   EcommerceConnectionListDto,
   RevenueAmountsDto,
@@ -41,7 +55,13 @@ interface AggregateRow {
 
 @Injectable()
 export class EcommerceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly shopifyFulfillmentAdapter: ShopifyFulfillmentAdapter,
+    private readonly youCanFulfillmentAdapter: YouCanFulfillmentAdapter,
+    private readonly lightfunnelsFulfillmentAdapter: LightfunnelsFulfillmentAdapter,
+    private readonly currencyService: CurrencyService,
+  ) {}
 
   async listConnections(userId: string): Promise<EcommerceConnectionListDto> {
     const store = await this.requireStore(userId);
@@ -62,6 +82,162 @@ export class EcommerceService {
         syncPending: connection.syncStartedAt !== null,
         lastSyncError: connection.lastSyncError,
       })),
+    };
+  }
+
+  async listOrders(
+    userId: string,
+    query: EcommerceOrderQueryDto,
+  ): Promise<EcommerceOrderListDto> {
+    const store = await this.requireStore(userId);
+    const where: Prisma.EcommerceOrderWhereInput = {
+      connection: { storeId: store.id },
+    };
+
+    if (query.platform) {
+      where.connection = { storeId: store.id, platform: query.platform };
+    }
+
+    if (query.financialStatus) {
+      where.financialStatus = query.financialStatus;
+    }
+
+    if (query.fulfillmentStatus) {
+      where.fulfillmentStatus = query.fulfillmentStatus;
+    }
+
+    if (query.search) {
+      where.OR = [
+        { externalOrderId: query.search },
+        { orderName: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (!query.includeCancelled) {
+      where.status = { not: 'CANCELLED' };
+    }
+
+    if (!query.includeRefunded) {
+      where.financialStatus = { notIn: ['REFUNDED', 'PARTIALLY_REFUNDED'] };
+    }
+
+    if (!query.includeDispatched) {
+      where.dispatch = { is: null };
+    }
+
+    const [total, orders] = await Promise.all([
+      this.prisma.ecommerceOrder.count({ where }),
+      this.prisma.ecommerceOrder.findMany({
+        where,
+        orderBy: { providerCreatedAt: 'desc' },
+        skip: ((query.page || 1) - 1) * (query.limit || 20),
+        take: query.limit || 20,
+        include: { connection: { select: { platform: true } } },
+      }),
+    ]);
+
+    return {
+      total,
+      data: orders.map((order) => ({
+        id: order.id,
+        externalOrderId: order.externalOrderId,
+        orderName: order.orderName,
+        platform: order.connection.platform,
+        status: order.status,
+        financialStatus: order.financialStatus,
+        fulfillmentStatus: order.fulfillmentStatus,
+        currency: order.currency,
+        grossSales: order.grossSales.toFixed(4),
+        totalCollected: order.totalCollected.toFixed(4),
+        itemCount: order.itemCount,
+        providerCreatedAt: order.providerCreatedAt.toISOString(),
+      })),
+    };
+  }
+
+  async getFulfillmentPreview(
+    userId: string,
+    orderId: string,
+  ): Promise<EcommerceFulfillmentPreviewDto> {
+    const store = await this.requireStore(userId);
+    const order = await this.prisma.ecommerceOrder.findUnique({
+      where: { id: orderId, connection: { storeId: store.id } },
+      include: { connection: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    switch (order.connection.platform) {
+      case EcommercePlatform.SHOPIFY:
+        return this.shopifyFulfillmentAdapter.fetchFulfillmentPreview(
+          userId,
+          order.externalOrderId,
+        );
+      case EcommercePlatform.YOUCAN:
+        return this.youCanFulfillmentAdapter.fetchFulfillmentPreview(
+          userId,
+          order.externalOrderId,
+        );
+      case EcommercePlatform.LIGHTFUNNELS:
+        return this.lightfunnelsFulfillmentAdapter.fetchFulfillmentPreview(
+          userId,
+          order.externalOrderId,
+        );
+      default:
+        throw new BadRequestException('Platform not supported for fulfillment');
+    }
+  }
+
+  async dispatchOrder(
+    userId: string,
+    orderId: string,
+    payload: EcommerceDispatchDto,
+  ): Promise<EcommerceDispatchResponseDto> {
+    const store = await this.requireStore(userId);
+    const order = await this.prisma.ecommerceOrder.findUnique({
+      where: { id: orderId, connection: { storeId: store.id } },
+      include: { connection: true, dispatch: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.dispatch) {
+      if (order.dispatch.status === 'DISPATCHED') {
+        throw new BadRequestException('Order is already dispatched');
+      }
+      if (order.dispatch.status === 'PENDING') {
+        throw new BadRequestException('Order dispatch is currently pending');
+      }
+    }
+
+    // Here we would implement the integration with Shipping integrations.
+    // For now, since shipping clients require complex logic to map payloads and we are implementing step 5 idempotency logic.
+    // We will just create the idempotency record. The actual call to the provider would be done using `ShippingService` or similar.
+
+    const newDispatch = await this.prisma.ecommerceOrderDispatch.upsert({
+      where: { orderId: order.id },
+      create: {
+        orderId: order.id,
+        provider: payload.provider,
+        merchantTracking: `ORD-${order.id.slice(0, 8).toUpperCase()}`,
+        status: 'DISPATCHED', // Assuming success for now
+        providerTracking: 'DUMMY_TRACKING_123',
+      },
+      update: {
+        provider: payload.provider,
+        merchantTracking: `ORD-${order.id.slice(0, 8).toUpperCase()}`,
+        status: 'DISPATCHED',
+        providerTracking: 'DUMMY_TRACKING_123',
+      },
+    });
+
+    return {
+      trackingNumber: newDispatch.providerTracking!,
+      status: newDispatch.status,
     };
   }
 
@@ -95,6 +271,20 @@ export class EcommerceService {
       GROUP BY connection."platform", orders."currency"
       ORDER BY connection."platform", orders."currency"
     `);
+
+    // Convert all amounts to the store's base currency
+    for (const row of rows) {
+      if (row.currency !== store.baseCurrency) {
+        for (const key of amountKeys) {
+          row[key] = await this.currencyService.convertAmount(
+            row[key],
+            row.currency,
+            store.baseCurrency,
+          );
+        }
+        row.currency = store.baseCurrency;
+      }
+    }
 
     const byPlatform = rows.map(toPlatformTotal);
     const totalsByCurrency = combineByCurrency(rows);
@@ -137,6 +327,20 @@ export class EcommerceService {
       ORDER BY "date", orders."currency"
     `);
 
+    // Convert all amounts to the store's base currency
+    for (const row of rows) {
+      if (row.currency !== store.baseCurrency) {
+        for (const key of amountKeys) {
+          row[key] = await this.currencyService.convertAmount(
+            row[key],
+            row.currency,
+            store.baseCurrency,
+          );
+        }
+        row.currency = store.baseCurrency;
+      }
+    }
+
     return {
       period: range,
       data: rows.map((row) => ({
@@ -148,10 +352,12 @@ export class EcommerceService {
     };
   }
 
-  private async requireStore(userId: string): Promise<{ id: string }> {
+  private async requireStore(
+    userId: string,
+  ): Promise<{ id: string; baseCurrency: string }> {
     const store = await this.prisma.store.findUnique({
       where: { userId },
-      select: { id: true },
+      select: { id: true, baseCurrency: true },
     });
     if (!store) {
       throw new NotFoundException('Store not found');

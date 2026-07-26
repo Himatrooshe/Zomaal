@@ -210,6 +210,10 @@ export class LightfunnelsApiService {
           'Lightfunnels denied this operation. Reconnect with the required scopes.',
         );
       }
+      console.error(
+        'Lightfunnels GraphQL Errors:',
+        JSON.stringify(envelope.errors, null, 2),
+      );
       throw new BadGatewayException(
         'Lightfunnels returned a GraphQL operation error',
       );

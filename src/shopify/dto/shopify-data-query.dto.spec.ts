@@ -29,7 +29,7 @@ describe('ShopifyDataPageQueryDto', () => {
     [{ after: 'x'.repeat(2049) }, 'cursor over maximum length'],
     [{ query: 'x'.repeat(501) }, 'query over maximum length'],
     [{ unexpected: 'value' }, 'unexpected query parameter'],
-  ])('rejects %s (%s)', (input) => {
+  ])('rejects %s (%s)', (input, _description) => {
     expect(errorsFor(toDto(input))).not.toHaveLength(0);
   });
 

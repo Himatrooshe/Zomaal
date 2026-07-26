@@ -103,8 +103,37 @@ export class YouCanConnectionService {
       if (!this.youCanApi.isUnauthorizedError(error)) {
         throw error;
       }
-      credentials = await this.getAccessCredentials(userId, true);
-      return this.youCanApi.getJson<T>(path, credentials.accessToken, query);
+      credentials = await this.performRefresh(credentials);
+      return await this.youCanApi.getJson<T>(
+        path,
+        credentials.accessToken,
+        query,
+      );
+    }
+  }
+
+  async postJsonForUser<T>(
+    userId: string,
+    path: string,
+    body: Record<string, any>,
+  ): Promise<T> {
+    let credentials = await this.getAccessCredentials(userId);
+    try {
+      return await this.youCanApi.postJson<T>(
+        path,
+        credentials.accessToken,
+        body,
+      );
+    } catch (error) {
+      if (!this.youCanApi.isUnauthorizedError(error)) {
+        throw error;
+      }
+      credentials = await this.performRefresh(credentials);
+      return await this.youCanApi.postJson<T>(
+        path,
+        credentials.accessToken,
+        body,
+      );
     }
   }
 
@@ -267,10 +296,17 @@ export class YouCanConnectionService {
   }
 
   private async performRefresh(
-    initialConnection: YouCanConnection,
+    initialConnection: YouCanConnection | YouCanAccessCredentials,
   ): Promise<YouCanAccessCredentials> {
-    const connection = await this.prisma.youCanConnection.findUnique({
-      where: { id: initialConnection.id },
+    const connectionId =
+      'id' in initialConnection ? initialConnection.id : undefined;
+    const externalStoreId =
+      'externalStoreId' in initialConnection
+        ? initialConnection.externalStoreId
+        : undefined;
+
+    const connection = await this.prisma.youCanConnection.findFirst({
+      where: connectionId ? { id: connectionId } : { externalStoreId },
     });
     if (
       !connection ||

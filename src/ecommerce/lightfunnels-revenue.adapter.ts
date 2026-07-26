@@ -64,6 +64,8 @@ export class LightfunnelsRevenueAdapter implements EcommerceRevenueAdapter {
   async fetchOrdersPage(
     userId: string,
     cursor: string | null,
+    updatedSince?: Date | null,
+    updatedThrough?: Date,
   ): Promise<EcommerceOrderPage> {
     const data = await this.connectionService.graphqlForUser<OrdersQueryData>(
       userId,
