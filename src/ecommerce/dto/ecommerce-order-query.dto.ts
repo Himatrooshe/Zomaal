@@ -1,6 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  EcommerceOrderStatus,
   EcommercePaymentStatus,
   EcommercePlatform,
 } from '@prisma/client';
@@ -64,6 +63,14 @@ export class EcommerceOrderQueryDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   includeDispatched?: boolean = false;
+
+  @ApiPropertyOptional({
+    description: 'Filter by connection revenue inclusion',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeInRevenue?: boolean;
 
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()

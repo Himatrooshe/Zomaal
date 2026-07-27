@@ -90,13 +90,21 @@ export class EcommerceService {
     query: EcommerceOrderQueryDto,
   ): Promise<EcommerceOrderListDto> {
     const store = await this.requireStore(userId);
-    const where: Prisma.EcommerceOrderWhereInput = {
-      connection: { storeId: store.id },
+    const connectionFilter: Prisma.EcommerceConnectionWhereInput = {
+      storeId: store.id,
     };
 
     if (query.platform) {
-      where.connection = { storeId: store.id, platform: query.platform };
+      connectionFilter.platform = query.platform;
     }
+
+    if (query.includeInRevenue !== undefined) {
+      connectionFilter.includeInRevenue = query.includeInRevenue;
+    }
+
+    const where: Prisma.EcommerceOrderWhereInput = {
+      connection: connectionFilter,
+    };
 
     if (query.financialStatus) {
       where.financialStatus = query.financialStatus;
@@ -125,19 +133,21 @@ export class EcommerceService {
       where.dispatch = { is: null };
     }
 
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+
     const [total, orders] = await Promise.all([
       this.prisma.ecommerceOrder.count({ where }),
       this.prisma.ecommerceOrder.findMany({
         where,
-        orderBy: { providerCreatedAt: 'desc' },
-        skip: ((query.page || 1) - 1) * (query.limit || 20),
-        take: query.limit || 20,
+        orderBy: { processedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
         include: { connection: { select: { platform: true } } },
       }),
     ]);
 
     return {
-      total,
       data: orders.map((order) => ({
         id: order.id,
         externalOrderId: order.externalOrderId,
@@ -150,8 +160,41 @@ export class EcommerceService {
         grossSales: order.grossSales.toFixed(4),
         totalCollected: order.totalCollected.toFixed(4),
         itemCount: order.itemCount,
-        providerCreatedAt: order.providerCreatedAt.toISOString(),
+        processedAt: order.processedAt.toISOString(),
       })),
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getOrder(userId: string, orderId: string) {
+    const store = await this.requireStore(userId);
+    const order = await this.prisma.ecommerceOrder.findUnique({
+      where: { id: orderId, connection: { storeId: store.id } },
+      include: { connection: { select: { platform: true } } },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return {
+      id: order.id,
+      externalOrderId: order.externalOrderId,
+      orderName: order.orderName,
+      platform: order.connection.platform,
+      status: order.status,
+      financialStatus: order.financialStatus,
+      fulfillmentStatus: order.fulfillmentStatus,
+      currency: order.currency,
+      grossSales: order.grossSales.toFixed(4),
+      totalCollected: order.totalCollected.toFixed(4),
+      itemCount: order.itemCount,
+      processedAt: order.processedAt.toISOString(),
     };
   }
 

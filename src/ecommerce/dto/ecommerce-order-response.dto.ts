@@ -126,8 +126,22 @@ export class EcommerceOrderDto {
   @ApiProperty({ description: 'Number of items' })
   itemCount: number;
 
-  @ApiProperty({ description: 'When the order was created on the platform' })
-  providerCreatedAt: string;
+  @ApiProperty({ description: 'When the order was processed' })
+  processedAt: string;
+}
+
+export class PaginationDto {
+  @ApiProperty({ description: 'Total number of items' })
+  total: number;
+
+  @ApiProperty({ description: 'Current page number' })
+  page: number;
+
+  @ApiProperty({ description: 'Number of items per page' })
+  limit: number;
+
+  @ApiProperty({ description: 'Total number of pages' })
+  totalPages: number;
 }
 
 export class EcommerceOrderListDto {
@@ -137,6 +151,6 @@ export class EcommerceOrderListDto {
   })
   data: EcommerceOrderDto[];
 
-  @ApiProperty({ description: 'Total number of orders matching the filter' })
-  total: number;
+  @ApiProperty({ type: PaginationDto, description: 'Pagination metadata' })
+  pagination: PaginationDto;
 }

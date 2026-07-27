@@ -40,6 +40,7 @@ import {
 import { RevenueRangeQueryDto } from './dto/revenue-query.dto';
 import { EcommerceOrderQueryDto } from './dto/ecommerce-order-query.dto';
 import {
+  EcommerceOrderDto,
   EcommerceOrderListDto,
   EcommerceFulfillmentPreviewDto,
 } from './dto/ecommerce-order-response.dto';
@@ -213,6 +214,35 @@ export class EcommerceController {
     @Query() query: EcommerceOrderQueryDto,
   ): Promise<EcommerceOrderListDto> {
     return this.ecommerceService.listOrders(user.userId, query);
+  }
+
+  @Get('orders/:orderId')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Get details of a synchronized e-commerce order',
+    description:
+      'Returns the details of a specific order synchronized from connected platforms.',
+  })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Zomaal internal order ID',
+    format: 'uuid',
+  })
+  @ApiOkResponse({
+    description: 'Order details.',
+    type: EcommerceOrderDto,
+    headers: PRIVATE_NO_STORE_HEADERS,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid order ID format.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  getOrder(
+    @CurrentUser() user: JwtPayload,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+  ): Promise<EcommerceOrderDto> {
+    return this.ecommerceService.getOrder(user.userId, orderId);
   }
 
   @Get('orders/:orderId/fulfillment-preview')
