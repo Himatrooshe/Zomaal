@@ -205,22 +205,30 @@ function decimal(value: unknown, field: string): Prisma.Decimal {
 
 function timestamp(value: unknown, field: string): Date {
   let parsed: Date;
+  
+  // Handle PHP/Carbon object serialization if Lightfunnels returns that
+  if (value && typeof value === 'object' && 'date' in value && typeof (value as any).date === 'string') {
+    value = (value as any).date;
+  }
+
   if (typeof value === 'number' && Number.isFinite(value)) {
     parsed = new Date(value < 10_000_000_000 ? value * 1000 : value);
   } else if (typeof value === 'string' && value.trim()) {
+    // Some timestamps might have a space instead of T, replace for strict ISO compliance
+    const normalized = value.trim().replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})$/, '$1T$2Z');
     const numeric = Number(value);
     parsed =
       Number.isFinite(numeric) && /^\d+$/.test(value.trim())
         ? new Date(numeric < 10_000_000_000 ? numeric * 1000 : numeric)
-        : new Date(value);
+        : new Date(normalized);
   } else {
     throw new BadGatewayException(
-      `Lightfunnels returned an invalid ${field} timestamp`,
+      `Lightfunnels returned an invalid ${field} timestamp. Received type ${typeof value}: ${JSON.stringify(value)}`,
     );
   }
   if (Number.isNaN(parsed.getTime())) {
     throw new BadGatewayException(
-      `Lightfunnels returned an invalid ${field} timestamp`,
+      `Lightfunnels returned an invalid ${field} timestamp. Could not parse: ${JSON.stringify(value)}`,
     );
   }
   return parsed;
