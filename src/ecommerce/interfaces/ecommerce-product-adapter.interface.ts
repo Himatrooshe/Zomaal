@@ -12,6 +12,7 @@ export interface ProductImageData {
 }
 
 export interface ProductData {
+  idempotencyKey: string;
   title: string;
   description?: string;
   vendor?: string;

@@ -115,6 +115,43 @@ describe('YouCanApiService', () => {
     });
   });
 
+  it('uploads product images as multipart data without exposing the token', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            name: 'stores/store/products/image.jpeg',
+            link: 'https://cdn.youcan.shop/stores/store/products/image.jpeg',
+          },
+        ]),
+        { status: 201, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    const file = {
+      buffer: Buffer.from([0xff, 0xd8, 0xff]),
+      originalname: 'phone image.jpg',
+      mimetype: 'image/jpeg',
+    };
+
+    await expect(
+      service.postImages(
+        '/media/product/upload-image',
+        'private-access-token',
+        [file],
+      ),
+    ).resolves.toHaveLength(1);
+
+    const [url, request] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://api.youcan.shop/media/product/upload-image');
+    expect(request?.method).toBe('POST');
+    expect(request?.headers).toEqual({
+      Accept: 'application/json',
+      Authorization: 'Bearer private-access-token',
+    });
+    expect(request?.body).toBeInstanceOf(FormData);
+    expect((request?.body as FormData).getAll('images')).toHaveLength(1);
+  });
+
   it.each([
     [401, UnauthorizedException],
     [429, ServiceUnavailableException],

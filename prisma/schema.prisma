@@ -184,7 +184,7 @@ model EcommerceOrder {
   updatedAt         DateTime               @updatedAt
 
   connectionId String
-  connection   EcommerceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connection   EcommerceConnection     @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   dispatch     EcommerceOrderDispatch?
 
   @@unique([connectionId, externalOrderId])
@@ -195,15 +195,15 @@ model EcommerceOrder {
 
 model EcommerceOrderDispatch {
   id               String   @id @default(uuid())
-  provider         String   // e.g., 'SENDIT', 'QUICKLIVRAISON', 'FORCELOG', 'OZONEEXPRESS'
-  merchantTracking String   // stable merchant reference
-  providerTracking String?  // returned by courier
+  provider         String // e.g., 'SENDIT', 'QUICKLIVRAISON', 'FORCELOG', 'OZONEEXPRESS'
+  merchantTracking String // stable merchant reference
+  providerTracking String? // returned by courier
   status           String   @default("PENDING") // PENDING, DISPATCHED, FAILED
   errorMessage     String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  orderId String @unique
+  orderId String         @unique
   order   EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([provider, status])
@@ -360,13 +360,14 @@ model LightfunnelsOAuthState {
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  vendor      String?
-  status      String   @default("ACTIVE") // ACTIVE, DRAFT
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(uuid())
+  title          String
+  description    String?
+  vendor         String?
+  status         String   @default("ACTIVE") // ACTIVE, DRAFT
+  idempotencyKey String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   storeId String
   store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -375,17 +376,18 @@ model Product {
   images   ProductImage[]
   listings ProductListing[]
 
+  @@unique([storeId, idempotencyKey])
   @@index([storeId, status])
 }
 
 model ProductVariant {
-  id               String   @id @default(uuid())
-  title            String?  // e.g., "Large / Red"
-  sku              String?
-  price            Decimal  @db.Decimal(20, 4)
-  compareAtPrice   Decimal? @db.Decimal(20, 4)
-  inventoryQty     Int      @default(0)
-  
+  id             String   @id @default(uuid())
+  title          String? // e.g., "Large / Red"
+  sku            String?
+  price          Decimal  @db.Decimal(20, 4)
+  compareAtPrice Decimal? @db.Decimal(20, 4)
+  inventoryQty   Int      @default(0)
+
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -393,9 +395,9 @@ model ProductVariant {
 }
 
 model ProductImage {
-  id        String @id @default(uuid())
-  url       String
-  position  Int    @default(0)
+  id       String @id @default(uuid())
+  url      String
+  position Int    @default(0)
 
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -405,9 +407,11 @@ model ProductImage {
 
 model ProductListing {
   id                String   @id @default(uuid())
-  externalProductId String
-  status            String   @default("PUBLISHED") // PUBLISHED, FAILED
+  externalProductId String?
+  status            String   @default("PENDING") // PENDING, PUBLISHING, PUBLISHED, FAILED
   errorMessage      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   productId    String
   product      Product             @relation(fields: [productId], references: [id], onDelete: Cascade)

@@ -8,7 +8,7 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:3001"
+      "value": "https://zomaal-backend-828793303867.us-central1.run.app"
     },
     {
       "key": "phone",

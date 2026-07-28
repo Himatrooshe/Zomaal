@@ -1,7 +1,7 @@
 client_id = "bb2d05d7742822b671c834ef936ff055"
 
 name = "zomaal"
-application_url = "https://zomaal.onrender.com"
+application_url = "https://zomaal-backend-828793303867.us-central1.run.app/"
 embedded = false
 
 [build]
@@ -11,12 +11,12 @@ automatically_update_urls_on_dev = true
 api_version = "2026-07"
 
 [access_scopes]
-scopes = "read_products,read_orders,read_customers"
+scopes = "read_products,write_products,read_orders,read_customers,read_locations,write_inventory"
 optional_scopes = []
 use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [
   "http://localhost:3001/auth/shopify/callback",
-  "https://zomaal.onrender.com/auth/shopify/callback"
+  "https://zomaal-backend-828793303867.us-central1.run.app/auth/shopify/callback"
 ]

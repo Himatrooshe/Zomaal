@@ -44,13 +44,15 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+Production API: `https://zomaal-backend-828793303867.us-central1.run.app`
+
 ## Logger user
 
 Configure the single logger account in the deployment environment:
 
 ```bash
-LOGGER_PHONE=+212600000001
-LOGGER_PASSWORD=replace-with-a-strong-password
+LOGGER_PHONE=+8801781818181
+LOGGER_PASSWORD=12345678
 ```
 
 The application creates or updates this user automatically at startup and stores
@@ -64,7 +66,7 @@ npm run db:seed
 
 Then call `POST /auth/login` using `LOGGER_PHONE` and `LOGGER_PASSWORD`.
 
-To expose Swagger on a production deployment such as Render, configure
+To expose Swagger on the Cloud Run production deployment, configure
 `SWAGGER_ENABLED=true` and open `/docs`. Use Swagger's **Authorize** button with
 the access token; JSON request bodies automatically send
 `Content-Type: application/json`.

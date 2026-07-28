@@ -2,8 +2,10 @@ import {
   BadGatewayException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { EcommerceConnectionStatus, EcommercePlatform } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { EcommerceSyncResponseDto } from './dto/ecommerce-response.dto';
@@ -17,8 +19,26 @@ import { YouCanRevenueAdapter } from './youcan-revenue.adapter';
 
 const MAX_PAGES_PER_REQUEST = 5;
 
+export interface ScheduledEcommerceSyncFailure {
+  connectionId: string;
+  platform: EcommercePlatform;
+  message: string;
+}
+
+export interface ScheduledEcommerceSyncResponse {
+  selectedConnections: number;
+  succeededConnections: number;
+  failedConnections: number;
+  pendingConnections: number;
+  processedOrders: number;
+  startedAt: string;
+  finishedAt: string;
+  failures: ScheduledEcommerceSyncFailure[];
+}
+
 @Injectable()
 export class EcommerceSyncService {
+  private readonly logger = new Logger(EcommerceSyncService.name);
   private readonly runningSyncs = new Map<
     string,
     Promise<EcommerceSyncResponseDto>
@@ -29,6 +49,7 @@ export class EcommerceSyncService {
     private readonly lightfunnelsAdapter: LightfunnelsRevenueAdapter,
     private readonly shopifyAdapter: ShopifyRevenueAdapter,
     private readonly youCanAdapter: YouCanRevenueAdapter,
+    private readonly configService: ConfigService,
   ) {}
 
   async syncConnection(
@@ -74,6 +95,102 @@ export class EcommerceSyncService {
     });
     this.runningSyncs.set(connection.id, sync);
     return sync;
+  }
+
+  async syncAllActiveConnections(): Promise<ScheduledEcommerceSyncResponse> {
+    const startedAt = new Date();
+    const maxConnections = this.configService.get<number>(
+      'ECOMMERCE_SYNC_MAX_CONNECTIONS',
+      100,
+    );
+    const concurrency = this.configService.get<number>(
+      'ECOMMERCE_SYNC_CONCURRENCY',
+      2,
+    );
+    const minIntervalMinutes = this.configService.get<number>(
+      'ECOMMERCE_SYNC_MIN_INTERVAL_MINUTES',
+      15,
+    );
+    const staleBefore = new Date(
+      startedAt.getTime() - minIntervalMinutes * 60_000,
+    );
+
+    const connections = await this.prisma.ecommerceConnection.findMany({
+      where: {
+        status: EcommerceConnectionStatus.ACTIVE,
+        OR: [
+          { syncStartedAt: { not: null } },
+          { lastSyncedAt: null },
+          { lastSyncedAt: { lte: staleBefore } },
+        ],
+      },
+      select: {
+        id: true,
+        platform: true,
+        store: { select: { userId: true } },
+      },
+      orderBy: [{ lastSyncedAt: 'asc' }, { createdAt: 'asc' }],
+      take: maxConnections,
+    });
+
+    const failures: ScheduledEcommerceSyncFailure[] = [];
+    let nextIndex = 0;
+    let succeededConnections = 0;
+    let pendingConnections = 0;
+    let processedOrders = 0;
+
+    const worker = async () => {
+      while (true) {
+        const index = nextIndex++;
+        const connection = connections[index];
+        if (!connection) {
+          return;
+        }
+
+        try {
+          const result = await this.syncConnection(
+            connection.store.userId,
+            connection.id,
+          );
+          succeededConnections++;
+          processedOrders += result.processedOrders;
+          if (result.hasMore) {
+            pendingConnections++;
+          }
+        } catch (error) {
+          const message = safeErrorMessage(error);
+          failures.push({
+            connectionId: connection.id,
+            platform: connection.platform,
+            message,
+          });
+          this.logger.warn(
+            `Scheduled ${connection.platform} sync failed for connection ${connection.id}: ${message}`,
+          );
+        }
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, connections.length) }, worker),
+    );
+
+    const result: ScheduledEcommerceSyncResponse = {
+      selectedConnections: connections.length,
+      succeededConnections,
+      failedConnections: failures.length,
+      pendingConnections,
+      processedOrders,
+      startedAt: startedAt.toISOString(),
+      finishedAt: new Date().toISOString(),
+      failures,
+    };
+
+    this.logger.log(
+      `Scheduled e-commerce sync finished: ${result.succeededConnections} succeeded, ${result.failedConnections} failed, ${result.processedOrders} orders processed`,
+    );
+
+    return result;
   }
 
   private async runSync(

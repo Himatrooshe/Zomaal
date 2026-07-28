@@ -225,12 +225,12 @@ JWT, shipping encryption, and `SHOPIFY_TOKEN_ENCRYPTION_KEY` values in `.env`.
 
 ## Production
 
-Render deploys the Docker backend. Shopify CLI deploys Shopify configuration;
+Cloud Run deploys the Docker backend. Shopify CLI deploys Shopify configuration;
 `shopify app deploy` does not deploy the NestJS application.
 
-1. Deploy the backend and migration to Render.
-2. Confirm the Render health endpoint is reachable.
-3. Configure the production TOML with the Render HTTPS origin, callback
+1. Deploy the backend and migration to Cloud Run.
+2. Confirm `https://zomaal-backend-828793303867.us-central1.run.app` is reachable.
+3. Configure the production TOML with the Cloud Run HTTPS origin, callback
    `/auth/shopify/callback`, and webhook `/webhooks/shopify`.
 4. Set `[build].automatically_update_urls_on_dev = false`.
 5. Run:

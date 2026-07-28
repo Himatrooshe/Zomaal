@@ -1,19 +1,12 @@
+# Files excluded from Cloud Run source uploads.
+.gcloudignore
 .git
-.gitignore
 .github
-.env
-.env.*
-!.env.example
 node_modules
 dist
-build
 coverage
-.nyc_output
-.DS_Store
-*.log
+.env
+.env.*
 gha-creds-*.json
 CODEX_NOTES.md
 CLOUD_RUN_DEPLOYMENT_AUDIT.md
-docs
-test
-*.md

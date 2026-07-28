@@ -5,6 +5,7 @@ import {
   EcommercePlatform,
 } from '@prisma/client';
 import { NotFoundException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import type { PrismaService } from '../prisma/prisma.service';
 import { EcommerceSyncService } from './ecommerce-sync.service';
 import type { LightfunnelsRevenueAdapter } from './lightfunnels-revenue.adapter';
@@ -12,6 +13,10 @@ import type { ShopifyRevenueAdapter } from './shopify-revenue.adapter';
 import type { YouCanRevenueAdapter } from './youcan-revenue.adapter';
 
 describe('EcommerceSyncService', () => {
+  const config = {
+    get: jest.fn((_key: string, fallback: unknown) => fallback),
+  } as unknown as ConfigService;
+
   const order = {
     externalOrderId: 'gid://shopify/Order/1',
     orderName: '#1001',
@@ -71,6 +76,7 @@ describe('EcommerceSyncService', () => {
       {} as LightfunnelsRevenueAdapter,
       adapter,
       {} as YouCanRevenueAdapter,
+      config,
     );
 
     const result = await service.syncConnection('user-id', 'connection-id');
@@ -107,6 +113,7 @@ describe('EcommerceSyncService', () => {
       {} as LightfunnelsRevenueAdapter,
       {} as ShopifyRevenueAdapter,
       {} as YouCanRevenueAdapter,
+      config,
     );
 
     await expect(
@@ -150,6 +157,7 @@ describe('EcommerceSyncService', () => {
       {} as LightfunnelsRevenueAdapter,
       {} as ShopifyRevenueAdapter,
       youCanAdapter,
+      config,
     );
 
     const result = await service.syncConnection(
@@ -199,6 +207,7 @@ describe('EcommerceSyncService', () => {
       lightfunnelsAdapter,
       {} as ShopifyRevenueAdapter,
       {} as YouCanRevenueAdapter,
+      config,
     );
 
     const result = await service.syncConnection(
@@ -210,5 +219,88 @@ describe('EcommerceSyncService', () => {
     expect(update).toHaveBeenCalledTimes(2);
     expect(result.platform).toBe(EcommercePlatform.LIGHTFUNNELS);
     expect(result.hasMore).toBe(false);
+  });
+
+  it('synchronizes due active connections and isolates provider failures', async () => {
+    let capturedQuery: Record<string, unknown> | undefined;
+    const findMany = jest
+      .fn<
+        (query: Record<string, unknown>) => Promise<
+          Array<{
+            id: string;
+            platform: EcommercePlatform;
+            store: { userId: string };
+          }>
+        >
+      >()
+      .mockImplementation((query: Record<string, unknown>) => {
+        capturedQuery = query;
+        return Promise.resolve([
+          {
+            id: 'shopify-connection-id',
+            platform: EcommercePlatform.SHOPIFY,
+            store: { userId: 'shopify-user-id' },
+          },
+          {
+            id: 'youcan-connection-id',
+            platform: EcommercePlatform.YOUCAN,
+            store: { userId: 'youcan-user-id' },
+          },
+        ]);
+      });
+    const prisma = {
+      ecommerceConnection: {
+        findMany,
+      },
+    } as unknown as PrismaService;
+    const schedulerConfig = {
+      get: jest.fn((key: string, fallback: unknown) => {
+        const values: Record<string, number> = {
+          ECOMMERCE_SYNC_MAX_CONNECTIONS: 50,
+          ECOMMERCE_SYNC_CONCURRENCY: 2,
+          ECOMMERCE_SYNC_MIN_INTERVAL_MINUTES: 30,
+        };
+        return values[key] ?? fallback;
+      }),
+    } as unknown as ConfigService;
+    const service = new EcommerceSyncService(
+      prisma,
+      {} as LightfunnelsRevenueAdapter,
+      {} as ShopifyRevenueAdapter,
+      {} as YouCanRevenueAdapter,
+      schedulerConfig,
+    );
+    jest
+      .spyOn(service, 'syncConnection')
+      .mockResolvedValueOnce({
+        connectionId: 'shopify-connection-id',
+        platform: EcommercePlatform.SHOPIFY,
+        processedOrders: 4,
+        hasMore: true,
+        lastSyncedAt: null,
+      })
+      .mockRejectedValueOnce(new Error('provider unavailable'));
+
+    const result = await service.syncAllActiveConnections();
+
+    expect(result).toMatchObject({
+      selectedConnections: 2,
+      succeededConnections: 1,
+      failedConnections: 1,
+      pendingConnections: 1,
+      processedOrders: 4,
+      failures: [
+        {
+          connectionId: 'youcan-connection-id',
+          platform: EcommercePlatform.YOUCAN,
+          message: 'provider unavailable',
+        },
+      ],
+    });
+    expect(findMany).toHaveBeenCalled();
+    expect(capturedQuery).toMatchObject({
+      take: 50,
+      where: { status: EcommerceConnectionStatus.ACTIVE },
+    });
   });
 });

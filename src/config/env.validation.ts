@@ -62,6 +62,42 @@ export function validateEnvironment(
     errors.push('LOGGER_PASSWORD must be at least 8 characters long');
   }
 
+  const ecommerceSyncSchedulerEnabled =
+    config.ECOMMERCE_SYNC_SCHEDULER_ENABLED === 'true';
+  const ecommerceSyncSchedulerSecret = asString(
+    config.ECOMMERCE_SYNC_SCHEDULER_SECRET,
+  );
+  const ecommerceSyncConcurrency = boundedPositiveInteger(
+    'ECOMMERCE_SYNC_CONCURRENCY',
+    config.ECOMMERCE_SYNC_CONCURRENCY,
+    2,
+    10,
+    errors,
+  );
+  const ecommerceSyncMaxConnections = boundedPositiveInteger(
+    'ECOMMERCE_SYNC_MAX_CONNECTIONS',
+    config.ECOMMERCE_SYNC_MAX_CONNECTIONS,
+    100,
+    1000,
+    errors,
+  );
+  const ecommerceSyncMinIntervalMinutes = boundedPositiveInteger(
+    'ECOMMERCE_SYNC_MIN_INTERVAL_MINUTES',
+    config.ECOMMERCE_SYNC_MIN_INTERVAL_MINUTES,
+    15,
+    1440,
+    errors,
+  );
+
+  if (
+    ecommerceSyncSchedulerEnabled &&
+    ecommerceSyncSchedulerSecret.length < 32
+  ) {
+    errors.push(
+      'ECOMMERCE_SYNC_SCHEDULER_SECRET must be at least 32 characters when scheduled synchronization is enabled',
+    );
+  }
+
   const shopifyApiKey = asString(config.SHOPIFY_API_KEY);
   const shopifyApiSecret = asString(config.SHOPIFY_API_SECRET);
   const shopifyEnabled =
@@ -81,6 +117,11 @@ export function validateEnvironment(
       ? new URL(SHOPIFY_CALLBACK_PATH, shopifyAppUrl).toString()
       : '');
   const shopifyApiVersion = asString(config.SHOPIFY_API_VERSION) || '2026-07';
+  const shopifyScopes = normalizeCsv(
+    asString(config.SHOPIFY_SCOPES) ||
+      asString(config.SCOPES) ||
+      'read_products,write_products,read_orders,read_customers,read_locations,write_inventory',
+  );
   const shopifyTokenEncryptionKey = decodeBase64Key(
     asString(config.SHOPIFY_TOKEN_ENCRYPTION_KEY),
   );
@@ -123,6 +164,18 @@ export function validateEnvironment(
       errors.push(
         'SHOPIFY_API_VERSION must be a quarterly version such as 2026-07',
       );
+    }
+    for (const requiredScope of [
+      'read_products',
+      'write_products',
+      'read_locations',
+      'write_inventory',
+    ]) {
+      if (!shopifyScopes.includes(requiredScope)) {
+        errors.push(
+          `SHOPIFY_SCOPES must include ${requiredScope} for product publishing`,
+        );
+      }
     }
   }
 
@@ -205,6 +258,20 @@ export function validateEnvironment(
     ) {
       errors.push(
         'YOUCAN_SCOPES must be * or include view-store-info so the connected store can be identified',
+      );
+    } else if (
+      !youCanScopes.includes('*') &&
+      !youCanScopes.includes('edit-products')
+    ) {
+      errors.push(
+        'YOUCAN_SCOPES must be * or include edit-products for product publishing',
+      );
+    } else if (
+      !youCanScopes.includes('*') &&
+      !youCanScopes.includes('upload-media')
+    ) {
+      errors.push(
+        'YOUCAN_SCOPES must be * or include upload-media for product image uploads',
       );
     }
   }
@@ -315,10 +382,16 @@ export function validateEnvironment(
     ...config,
     PORT: port,
     OAUTH_MOBILE_REDIRECT_SCHEMES: oauthMobileRedirectSchemes.join(','),
+    ECOMMERCE_SYNC_SCHEDULER_ENABLED: ecommerceSyncSchedulerEnabled,
+    ECOMMERCE_SYNC_SCHEDULER_SECRET: ecommerceSyncSchedulerSecret,
+    ECOMMERCE_SYNC_CONCURRENCY: ecommerceSyncConcurrency,
+    ECOMMERCE_SYNC_MAX_CONNECTIONS: ecommerceSyncMaxConnections,
+    ECOMMERCE_SYNC_MIN_INTERVAL_MINUTES: ecommerceSyncMinIntervalMinutes,
     SHOPIFY_ENABLED: shopifyEnabled,
     SHOPIFY_APP_URL: shopifyAppUrl,
     SHOPIFY_REDIRECT_URI: shopifyRedirectUri,
     SHOPIFY_API_VERSION: shopifyApiVersion,
+    SHOPIFY_SCOPES: shopifyScopes.join(','),
     SHOPIFY_OAUTH_STATE_TTL_SECONDS: oauthStateTtlSeconds,
     SHOPIFY_TOKEN_REFRESH_SKEW_SECONDS: refreshSkewSeconds,
     SHOPIFY_HTTP_TIMEOUT_MS: shopifyHttpTimeoutMs,
@@ -407,6 +480,26 @@ function decodeBase64Key(value: string): Buffer {
 function positiveInteger(value: unknown, fallback: number): number {
   const parsed = Number(value ?? fallback);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function boundedPositiveInteger(
+  key: string,
+  value: unknown,
+  fallback: number,
+  maximum: number,
+  errors: string[],
+): number {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > maximum) {
+    errors.push(`${key} must be an integer between 1 and ${maximum}`);
+    return fallback;
+  }
+
+  return parsed;
 }
 
 function normalizeCsv(value: string): string[] {

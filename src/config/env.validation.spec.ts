@@ -46,6 +46,50 @@ describe('validateEnvironment OAuth completion redirects', () => {
   });
 });
 
+describe('validateEnvironment scheduled e-commerce synchronization', () => {
+  const encryptionKey = Buffer.alloc(32, 5).toString('base64');
+  const base = {
+    DATABASE_URL: 'postgresql://postgres:password@localhost:5434/zomaal',
+    JWT_SECRET: 'a-secure-test-jwt-secret-with-32-characters',
+    SHIPPING_CREDENTIAL_ENCRYPTION_KEY: encryptionKey,
+  };
+
+  it('requires a strong secret when the scheduler is enabled', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        ECOMMERCE_SYNC_SCHEDULER_ENABLED: 'true',
+        ECOMMERCE_SYNC_SCHEDULER_SECRET: 'too-short',
+      }),
+    ).toThrow('ECOMMERCE_SYNC_SCHEDULER_SECRET must be at least 32 characters');
+  });
+
+  it('normalizes safe scheduler limits', () => {
+    const result = validateEnvironment({
+      ...base,
+      ECOMMERCE_SYNC_SCHEDULER_ENABLED: 'true',
+      ECOMMERCE_SYNC_SCHEDULER_SECRET: 'a'.repeat(32),
+      ECOMMERCE_SYNC_CONCURRENCY: '4',
+      ECOMMERCE_SYNC_MAX_CONNECTIONS: '250',
+      ECOMMERCE_SYNC_MIN_INTERVAL_MINUTES: '30',
+    });
+
+    expect(result.ECOMMERCE_SYNC_SCHEDULER_ENABLED).toBe(true);
+    expect(result.ECOMMERCE_SYNC_CONCURRENCY).toBe(4);
+    expect(result.ECOMMERCE_SYNC_MAX_CONNECTIONS).toBe(250);
+    expect(result.ECOMMERCE_SYNC_MIN_INTERVAL_MINUTES).toBe(30);
+  });
+
+  it('rejects unsafe scheduler limits', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        ECOMMERCE_SYNC_CONCURRENCY: '11',
+      }),
+    ).toThrow('ECOMMERCE_SYNC_CONCURRENCY');
+  });
+});
+
 describe('validateEnvironment Shopify configuration', () => {
   const encryptionKey = Buffer.alloc(32, 1).toString('base64');
   const base = {
@@ -83,6 +127,19 @@ describe('validateEnvironment Shopify configuration', () => {
         SHOPIFY_APP_URL: 'https://api.example.com',
       }),
     ).toThrow('SHOPIFY_TOKEN_ENCRYPTION_KEY');
+  });
+
+  it('requires product and inventory write scopes when enabled', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        SHOPIFY_API_KEY: 'client-id',
+        SHOPIFY_API_SECRET: 'client-secret',
+        SHOPIFY_APP_URL: 'https://api.example.com',
+        SHOPIFY_TOKEN_ENCRYPTION_KEY: encryptionKey,
+        SHOPIFY_SCOPES: 'read_products,read_locations',
+      }),
+    ).toThrow('write_products');
   });
 });
 
@@ -160,6 +217,32 @@ describe('validateEnvironment YouCan configuration', () => {
         YOUCAN_SCOPES: '*,read-orders',
       }),
     ).toThrow('YOUCAN_SCOPES must use * alone');
+  });
+
+  it('requires edit-products when using explicit scopes', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        YOUCAN_CLIENT_ID: 'client-id',
+        YOUCAN_CLIENT_SECRET: 'client-secret',
+        YOUCAN_APP_URL: 'https://api.example.com',
+        YOUCAN_TOKEN_ENCRYPTION_KEY: encryptionKey,
+        YOUCAN_SCOPES: 'view-store-info,read-orders',
+      }),
+    ).toThrow('edit-products');
+  });
+
+  it('requires upload-media when using explicit scopes', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        YOUCAN_CLIENT_ID: 'client-id',
+        YOUCAN_CLIENT_SECRET: 'client-secret',
+        YOUCAN_APP_URL: 'https://api.example.com',
+        YOUCAN_TOKEN_ENCRYPTION_KEY: encryptionKey,
+        YOUCAN_SCOPES: 'view-store-info,edit-products',
+      }),
+    ).toThrow('upload-media');
   });
 });
 

@@ -1,0 +1,126 @@
+name: CI and production deployment
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  quality:
+    name: Test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the exact commit
+        uses: actions/checkout@v6
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          package-manager-cache: false
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Generate the Prisma client
+        run: npx prisma generate
+
+      - name: Reject destructive production migrations
+        shell: bash
+        run: |
+          if grep -ERni \
+            'DROP[[:space:]]+(DATABASE|SCHEMA|TABLE|COLUMN)|TRUNCATE([[:space:]]+TABLE)?|DELETE[[:space:]]+FROM' \
+            prisma/migrations; then
+            echo "::error::A destructive Prisma migration requires an explicitly reviewed deployment procedure."
+            exit 1
+          fi
+
+      - name: Test
+        run: npm test -- --runInBand
+
+      - name: Build
+        run: npm run build
+
+      - name: Check whitespace
+        run: git diff --check
+
+  deploy:
+    name: Deploy production
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@v6
+
+      - name: Validate deployment variables
+        shell: bash
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_CLOUD_RUN_SERVICE: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+        run: |
+          missing=0
+          for name in \
+            GCP_PROJECT_ID \
+            GCP_REGION \
+            GCP_CLOUD_RUN_SERVICE \
+            GCP_WORKLOAD_IDENTITY_PROVIDER \
+            GCP_DEPLOY_SERVICE_ACCOUNT
+          do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing GitHub Actions variable: ${name}"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - id: auth
+        name: Authenticate to Google Cloud without a key
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - id: deploy
+        name: Build from the Dockerfile and deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          region: ${{ vars.GCP_REGION }}
+          service: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
+          source: .
+
+      - name: Smoke-test the deployed revision
+        shell: bash
+        env:
+          SERVICE_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          response="$(curl --fail --silent --show-error "${SERVICE_URL}/")"
+          if [ "$response" != "Hello World!" ]; then
+            echo "::error::Unexpected health response from ${SERVICE_URL}/"
+            exit 1
+          fi

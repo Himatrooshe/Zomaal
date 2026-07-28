@@ -21,6 +21,14 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           configuredConnectTimeout > 0
             ? configuredConnectTimeout
             : 5000;
+        const reconnectMaxAttempts = positiveInteger(
+          configService.get<string>('REDIS_RECONNECT_MAX_ATTEMPTS', '20'),
+          20,
+        );
+        const reconnectMaxDelayMs = positiveInteger(
+          configService.get<string>('REDIS_RECONNECT_MAX_DELAY_MS', '5000'),
+          5000,
+        );
         let redisUrl = configService.get<string>('REDIS_URL');
 
         // If REDIS_HOST accidentally contains the full URL (common when pasting cloud URLs)
@@ -35,7 +43,10 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           url: redisUrl || `redis://${host}:${port}`,
           socket: {
             connectTimeout,
-            reconnectStrategy: false,
+            reconnectStrategy: createRedisReconnectStrategy(
+              reconnectMaxAttempts,
+              reconnectMaxDelayMs,
+            ),
           },
         });
 
@@ -74,3 +85,23 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
   exports: [REDIS_CLIENT],
 })
 export class RedisModule {}
+
+export function createRedisReconnectStrategy(
+  maxAttempts: number,
+  maxDelayMs: number,
+): (retries: number) => number | Error {
+  return (retries: number) => {
+    if (retries >= maxAttempts) {
+      return new Error(
+        `Redis reconnect attempts exhausted after ${maxAttempts} attempts`,
+      );
+    }
+
+    return Math.min(100 * 2 ** Math.min(retries, 10), maxDelayMs);
+  };
+}
+
+function positiveInteger(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}

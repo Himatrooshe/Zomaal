@@ -151,6 +151,32 @@ describe('ShopifyApiService', () => {
         target.graphqlRequest('atlas.myshopify.com', 'secret', 'query Test {}'),
       ).rejects.toBeInstanceOf(BadGatewayException);
     });
+
+    it('preserves Shopify GraphQL validation details in a safe 502', async () => {
+      const target = serviceWithGraphqlFailure(
+        new GraphqlQueryError({
+          message: 'GraphQL request failed',
+          response: {},
+          body: {
+            errors: {
+              graphQLErrors: [
+                {
+                  message:
+                    'Variable $input was provided invalid value for variants.',
+                  extensions: { code: 'GRAPHQL_VALIDATION_FAILED' },
+                },
+              ],
+            },
+          },
+        }),
+      );
+
+      await expect(
+        target.graphqlRequest('atlas.myshopify.com', 'secret', 'query Test {}'),
+      ).rejects.toThrow(
+        'Shopify rejected the GraphQL operation: Variable $input was provided invalid value for variants.',
+      );
+    });
   });
 });
 

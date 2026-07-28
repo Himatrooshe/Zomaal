@@ -265,7 +265,12 @@ export class ShopifyApiService {
           'Shopify Admin API is temporarily throttling requests',
         );
       }
-      return new BadGatewayException('Shopify rejected the GraphQL operation');
+      const detail = shopifyGraphqlErrorMessages(error).join('; ');
+      return new BadGatewayException(
+        detail
+          ? `Shopify rejected the GraphQL operation: ${detail}`
+          : 'Shopify rejected the GraphQL operation',
+      );
     }
 
     const status = shopifyHttpStatus(error);
@@ -411,19 +416,43 @@ function shopifyHttpStatus(error: unknown): number | undefined {
 }
 
 function shopifyGraphqlErrorCodes(error: GraphqlQueryError): string[] {
+  return shopifyGraphqlErrors(error).flatMap((graphQLError) => {
+    if (!isRecord(graphQLError.extensions)) {
+      return [];
+    }
+    const code = graphQLError.extensions.code;
+    return typeof code === 'string' ? [code.toUpperCase()] : [];
+  });
+}
+
+function shopifyGraphqlErrorMessages(error: GraphqlQueryError): string[] {
+  const messages = shopifyGraphqlErrors(error).flatMap((graphQLError) =>
+    typeof graphQLError.message === 'string' ? [graphQLError.message] : [],
+  );
+  const source = messages.length > 0 ? messages : [error.message];
+  return source
+    .map((message) =>
+      Array.from(message, (character) => {
+        const code = character.charCodeAt(0);
+        return code <= 31 || code === 127 ? ' ' : character;
+      })
+        .join('')
+        .trim(),
+    )
+    .filter(Boolean)
+    .map((message) => message.slice(0, 500));
+}
+
+function shopifyGraphqlErrors(
+  error: GraphqlQueryError,
+): Array<Record<string, unknown>> {
   const body: unknown = error.body;
   const errors: unknown = isRecord(body) ? body.errors : undefined;
   if (!isRecord(errors) || !Array.isArray(errors.graphQLErrors)) {
     return [];
   }
 
-  return errors.graphQLErrors.flatMap((graphQLError: unknown) => {
-    if (!isRecord(graphQLError) || !isRecord(graphQLError.extensions)) {
-      return [];
-    }
-    const code = graphQLError.extensions.code;
-    return typeof code === 'string' ? [code.toUpperCase()] : [];
-  });
+  return errors.graphQLErrors.filter(isRecord);
 }
 
 function isAbortError(error: unknown): boolean {

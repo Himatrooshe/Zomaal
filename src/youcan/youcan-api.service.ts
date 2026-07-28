@@ -38,6 +38,12 @@ export interface YouCanStoreDetails {
   isActive: boolean | null;
 }
 
+export interface YouCanImageUploadFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+}
+
 @Injectable()
 export class YouCanApiService {
   constructor(private readonly configService: ConfigService) {}
@@ -198,6 +204,48 @@ export class YouCanApiService {
     return (await parseJson(response)) as T;
   }
 
+  async postImages<T>(
+    pathOrUrl: string,
+    accessToken: string,
+    files: YouCanImageUploadFile[],
+  ): Promise<T> {
+    this.assertConfigured();
+    const url = new URL(pathOrUrl, API_ORIGIN);
+    if (url.origin !== API_ORIGIN) {
+      throw new ServiceUnavailableException('Invalid YouCan API endpoint');
+    }
+
+    const body = new FormData();
+    for (const file of files) {
+      body.append(
+        'images',
+        new Blob([new Uint8Array(file.buffer)], { type: file.mimetype }),
+        safeFileName(file.originalname),
+      );
+    }
+    const response = await this.fetchWithTimeout(url.toString(), {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body,
+    });
+
+    if (response.status === 401) {
+      throw new UnauthorizedException(
+        'YouCan access token is no longer authorized',
+      );
+    }
+    if (response.status === 403) {
+      throw new ForbiddenException(
+        'YouCan denied image upload. Reconnect the store with the upload-media scope.',
+      );
+    }
+    this.assertSuccessful(response, 'YouCan image upload failed');
+    return (await parseJson(response)) as T;
+  }
+
   isUnauthorizedError(error: unknown): boolean {
     return error instanceof UnauthorizedException;
   }
@@ -296,6 +344,12 @@ function normalizeScopes(value: string): string[] {
         .filter(Boolean),
     ),
   ].sort();
+}
+
+function safeFileName(value: string): string {
+  const leaf = value.replace(/\\/g, '/').split('/').pop() || 'image';
+  const sanitized = leaf.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+  return sanitized || 'image';
 }
 
 async function parseJson(response: Response): Promise<unknown> {

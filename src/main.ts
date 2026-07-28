@@ -122,6 +122,10 @@ async function bootstrap() {
         'Shopify, YouCan, and Lightfunnels order synchronization with provider-neutral combined revenue reporting. Monetary values remain separated by currency.',
       )
       .addTag(
+        'Products (Cross-Listing)',
+        'Create a central Zomaal product and publish it to a selected active Shopify, YouCan, or Lightfunnels connection with retry-safe status tracking.',
+      )
+      .addTag(
         'Shopify OAuth',
         'Public Shopify authorization callback. The frontend starts OAuth through the protected Shopify endpoint.',
       )
