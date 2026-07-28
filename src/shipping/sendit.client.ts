@@ -241,8 +241,9 @@ export class SenditClient {
       }),
     });
 
-    if (response.status === 401) {
-      throw new UnauthorizedException('Sendit credentials were rejected');
+    if (response.status === 401 || response.status === 422) {
+      const errorText = await response.text();
+      throw new UnauthorizedException(`Sendit credentials were rejected. Provider says: ${errorText.substring(0, 200)}`);
     }
 
     if (!response.ok) {
