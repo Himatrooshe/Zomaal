@@ -214,13 +214,38 @@ function timestamp(value: unknown, field: string): Date {
   if (typeof value === 'number' && Number.isFinite(value)) {
     parsed = new Date(value < 10_000_000_000 ? value * 1000 : value);
   } else if (typeof value === 'string' && value.trim()) {
+    const trimmed = value.trim();
     // Some timestamps might have a space instead of T, replace for strict ISO compliance
-    const normalized = value.trim().replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})$/, '$1T$2Z');
+    const normalized = trimmed.replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})$/, '$1T$2Z');
     const numeric = Number(value);
-    parsed =
-      Number.isFinite(numeric) && /^\d+$/.test(value.trim())
-        ? new Date(numeric < 10_000_000_000 ? numeric * 1000 : numeric)
-        : new Date(normalized);
+    
+    // Lightfunnels apparently returns relative human-readable times for their TimeStamp scalar!
+    if (trimmed === 'just now') {
+      parsed = new Date();
+    } else if (trimmed.endsWith(' ago')) {
+      const parts = trimmed.split(' ');
+      const amount = parseInt(parts[0], 10);
+      const unit = parts[1]?.toLowerCase();
+      let multiplier = 0;
+      if (unit.startsWith('sec')) multiplier = 1000;
+      else if (unit.startsWith('min')) multiplier = 60 * 1000;
+      else if (unit.startsWith('hour')) multiplier = 60 * 60 * 1000;
+      else if (unit.startsWith('day')) multiplier = 24 * 60 * 60 * 1000;
+      else if (unit.startsWith('week')) multiplier = 7 * 24 * 60 * 60 * 1000;
+      else if (unit.startsWith('month')) multiplier = 30 * 24 * 60 * 60 * 1000; // Approximation
+      else if (unit.startsWith('year')) multiplier = 365 * 24 * 60 * 60 * 1000;
+      
+      if (multiplier > 0 && !isNaN(amount)) {
+        parsed = new Date(Date.now() - amount * multiplier);
+      } else {
+        parsed = new Date(NaN);
+      }
+    } else {
+      parsed =
+        Number.isFinite(numeric) && /^\d+$/.test(trimmed)
+          ? new Date(numeric < 10_000_000_000 ? numeric * 1000 : numeric)
+          : new Date(normalized);
+    }
   } else {
     throw new BadGatewayException(
       `Lightfunnels returned an invalid ${field} timestamp. Received type ${typeof value}: ${JSON.stringify(value)}`,
