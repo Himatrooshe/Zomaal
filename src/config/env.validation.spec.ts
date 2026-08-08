@@ -1,5 +1,40 @@
 import { validateEnvironment } from './env.validation';
 
+describe('validateEnvironment warehouse image storage', () => {
+  const base = {
+    DATABASE_URL: 'postgresql://postgres:password@localhost:5434/zomaal',
+    JWT_SECRET: 'a-secure-test-jwt-secret-with-32-characters',
+    SHIPPING_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 6).toString('base64'),
+  };
+
+  it('requires a product image bucket in production', () => {
+    expect(() =>
+      validateEnvironment({ ...base, NODE_ENV: 'production' }),
+    ).toThrow('PRODUCT_IMAGE_BUCKET is required in production');
+  });
+
+  it('accepts and normalizes the configured product image bucket', () => {
+    const result = validateEnvironment({
+      ...base,
+      NODE_ENV: 'production',
+      PRODUCT_IMAGE_BUCKET: ' zomaal-product-images-prod-zomaal ',
+    });
+
+    expect(result.PRODUCT_IMAGE_BUCKET).toBe(
+      'zomaal-product-images-prod-zomaal',
+    );
+  });
+
+  it('rejects invalid Cloud Storage bucket names', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        PRODUCT_IMAGE_BUCKET: 'Invalid Bucket Name',
+      }),
+    ).toThrow('not a valid Cloud Storage bucket name');
+  });
+});
+
 describe('validateEnvironment OAuth completion redirects', () => {
   const encryptionKey = Buffer.alloc(32, 4).toString('base64');
   const base = {
@@ -128,19 +163,6 @@ describe('validateEnvironment Shopify configuration', () => {
       }),
     ).toThrow('SHOPIFY_TOKEN_ENCRYPTION_KEY');
   });
-
-  it('requires product and inventory write scopes when enabled', () => {
-    expect(() =>
-      validateEnvironment({
-        ...base,
-        SHOPIFY_API_KEY: 'client-id',
-        SHOPIFY_API_SECRET: 'client-secret',
-        SHOPIFY_APP_URL: 'https://api.example.com',
-        SHOPIFY_TOKEN_ENCRYPTION_KEY: encryptionKey,
-        SHOPIFY_SCOPES: 'read_products,read_locations',
-      }),
-    ).toThrow('write_products');
-  });
 });
 
 describe('validateEnvironment YouCan configuration', () => {
@@ -217,32 +239,6 @@ describe('validateEnvironment YouCan configuration', () => {
         YOUCAN_SCOPES: '*,read-orders',
       }),
     ).toThrow('YOUCAN_SCOPES must use * alone');
-  });
-
-  it('requires edit-products when using explicit scopes', () => {
-    expect(() =>
-      validateEnvironment({
-        ...base,
-        YOUCAN_CLIENT_ID: 'client-id',
-        YOUCAN_CLIENT_SECRET: 'client-secret',
-        YOUCAN_APP_URL: 'https://api.example.com',
-        YOUCAN_TOKEN_ENCRYPTION_KEY: encryptionKey,
-        YOUCAN_SCOPES: 'view-store-info,read-orders',
-      }),
-    ).toThrow('edit-products');
-  });
-
-  it('requires upload-media when using explicit scopes', () => {
-    expect(() =>
-      validateEnvironment({
-        ...base,
-        YOUCAN_CLIENT_ID: 'client-id',
-        YOUCAN_CLIENT_SECRET: 'client-secret',
-        YOUCAN_APP_URL: 'https://api.example.com',
-        YOUCAN_TOKEN_ENCRYPTION_KEY: encryptionKey,
-        YOUCAN_SCOPES: 'view-store-info,edit-products',
-      }),
-    ).toThrow('upload-media');
   });
 });
 

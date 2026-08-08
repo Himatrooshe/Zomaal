@@ -17,7 +17,6 @@ import type {
 } from './dto/youcan-response.dto';
 import {
   YouCanApiService,
-  type YouCanImageUploadFile,
   type YouCanStoreDetails,
   type YouCanTokenSet,
 } from './youcan-api.service';
@@ -109,56 +108,6 @@ export class YouCanConnectionService {
         path,
         credentials.accessToken,
         query,
-      );
-    }
-  }
-
-  async postJsonForUser<T>(
-    userId: string,
-    path: string,
-    body: Record<string, any>,
-  ): Promise<T> {
-    let credentials = await this.getAccessCredentials(userId);
-    try {
-      return await this.youCanApi.postJson<T>(
-        path,
-        credentials.accessToken,
-        body,
-      );
-    } catch (error) {
-      if (!this.youCanApi.isUnauthorizedError(error)) {
-        throw error;
-      }
-      credentials = await this.performRefresh(credentials);
-      return await this.youCanApi.postJson<T>(
-        path,
-        credentials.accessToken,
-        body,
-      );
-    }
-  }
-
-  async postImagesForUser<T>(
-    userId: string,
-    path: string,
-    files: YouCanImageUploadFile[],
-  ): Promise<T> {
-    let credentials = await this.getAccessCredentials(userId);
-    try {
-      return await this.youCanApi.postImages<T>(
-        path,
-        credentials.accessToken,
-        files,
-      );
-    } catch (error) {
-      if (!this.youCanApi.isUnauthorizedError(error)) {
-        throw error;
-      }
-      credentials = await this.performRefresh(credentials);
-      return await this.youCanApi.postImages<T>(
-        path,
-        credentials.accessToken,
-        files,
       );
     }
   }

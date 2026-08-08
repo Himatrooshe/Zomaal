@@ -14,6 +14,7 @@ import { EcommerceModule } from './ecommerce/ecommerce.module';
 import { YouCanModule } from './youcan/youcan.module';
 import { LightfunnelsModule } from './lightfunnels/lightfunnels.module';
 import { CurrencyModule } from './currency/currency.module';
+import { WarehouseModule } from './warehouse/warehouse.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { CurrencyModule } from './currency/currency.module';
     YouCanModule,
     LightfunnelsModule,
     CurrencyModule,
+    WarehouseModule,
   ],
   controllers: [AppController],
   providers: [AppService],

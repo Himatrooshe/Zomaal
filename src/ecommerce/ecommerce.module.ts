@@ -12,22 +12,12 @@ import { YouCanRevenueAdapter } from './youcan-revenue.adapter';
 import { ShopifyFulfillmentAdapter } from './shopify-fulfillment.adapter';
 import { YouCanFulfillmentAdapter } from './youcan-fulfillment.adapter';
 import { LightfunnelsFulfillmentAdapter } from './lightfunnels-fulfillment.adapter';
-import { ShopifyProductAdapter } from './shopify-product.adapter';
-import { YouCanProductAdapter } from './youcan-product.adapter';
-import { LightfunnelsProductAdapter } from './lightfunnels-product.adapter';
-import { ProductService } from './product.service';
-import { ProductController } from './product.controller';
 import { EcommerceSchedulerController } from './ecommerce-scheduler.controller';
 import { EcommerceSchedulerGuard } from './ecommerce-scheduler.guard';
-import { ProductImageUploadService } from './product-image-upload.service';
 
 @Module({
   imports: [ShopifyModule, YouCanModule, LightfunnelsModule, CurrencyModule],
-  controllers: [
-    EcommerceController,
-    ProductController,
-    EcommerceSchedulerController,
-  ],
+  controllers: [EcommerceController, EcommerceSchedulerController],
   providers: [
     EcommerceService,
     EcommerceSyncService,
@@ -38,11 +28,6 @@ import { ProductImageUploadService } from './product-image-upload.service';
     ShopifyFulfillmentAdapter,
     YouCanFulfillmentAdapter,
     LightfunnelsFulfillmentAdapter,
-    ShopifyProductAdapter,
-    YouCanProductAdapter,
-    LightfunnelsProductAdapter,
-    ProductService,
-    ProductImageUploadService,
   ],
 })
 export class EcommerceModule {}

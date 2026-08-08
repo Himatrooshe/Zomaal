@@ -96,7 +96,14 @@ model Store {
   lightfunnelsConnection  LightfunnelsConnection?
   lightfunnelsOAuthStates LightfunnelsOAuthState[]
   ecommerceConnections    EcommerceConnection[]
-  products                Product[]
+  warehouseCategories     ProductCategory[]
+  warehouseProducts       WarehouseProduct[]
+  warehouseVariants       WarehouseVariant[]
+  warehouseLocations      WarehouseLocation[]
+  inventoryItems          InventoryItem[]
+  inventoryBarcodes       InventoryBarcode[]
+  mediaAssets             MediaAsset[]
+  packagingMaterials      PackagingMaterial[]
 }
 
 enum EcommercePlatform {
@@ -152,7 +159,6 @@ model EcommerceConnection {
   youCanConnection       YouCanConnection?
   lightfunnelsConnection LightfunnelsConnection?
   orders                 EcommerceOrder[]
-  productListings        ProductListing[]
 
   @@unique([storeId, platform])
   @@unique([platform, externalAccountId])
@@ -359,65 +365,341 @@ model LightfunnelsOAuthState {
   @@index([userId, storeId])
 }
 
-model Product {
-  id             String   @id @default(uuid())
-  title          String
-  description    String?
-  vendor         String?
-  status         String   @default("ACTIVE") // ACTIVE, DRAFT
-  idempotencyKey String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+enum WarehouseProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum InventoryItemKind {
+  PRODUCT_VARIANT
+  PACKAGING_MATERIAL
+}
+
+enum InventoryBarcodeType {
+  INTERNAL_CODE_128
+  GTIN
+  EAN_13
+  UPC_A
+  OTHER
+}
+
+enum InventoryBucket {
+  ON_HAND
+  RESERVED
+  DAMAGED
+  INCOMING
+}
+
+enum InventoryMovementType {
+  OPENING_BALANCE
+  MANUAL_ADJUSTMENT
+  ORDER_RESERVED
+  ORDER_RELEASED
+  ORDER_SHIPPED
+  RETURN_GOOD
+  RETURN_DAMAGED
+  PACKAGING_RECEIVED
+  PACKAGING_CONSUMED
+}
+
+enum MediaAssetStatus {
+  TEMPORARY
+  ATTACHED
+}
+
+enum MediaAssetPurpose {
+  PRODUCT_MAIN
+  PRODUCT_GALLERY
+  VARIANT
+}
+
+model ProductCategory {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  position    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   storeId String
   store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
-  variants ProductVariant[]
-  images   ProductImage[]
-  listings ProductListing[]
+  parentId String?
+  parent   ProductCategory?   @relation("ProductCategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children ProductCategory[]  @relation("ProductCategoryTree")
+  products WarehouseProduct[]
+
+  @@unique([storeId, slug])
+  @@index([storeId, isActive, position])
+  @@index([parentId])
+}
+
+model WarehouseProduct {
+  id                     String                 @id @default(uuid())
+  name                   String
+  description            String?
+  status                 WarehouseProductStatus @default(DRAFT)
+  idempotencyKey         String?
+  idempotencyFingerprint String?
+  version                Int                    @default(1)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  archivedAt             DateTime?
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  categoryId String?
+  category   ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  options               ProductOption[]
+  variants              WarehouseVariant[]
+  media                 MediaAsset[]
+  gift                  ProductGift?                  @relation("ProductGiftOwner")
+  packagingRequirements ProductPackagingRequirement[]
 
   @@unique([storeId, idempotencyKey])
-  @@index([storeId, status])
+  @@index([storeId, status, createdAt])
+  @@index([categoryId])
 }
 
-model ProductVariant {
-  id             String   @id @default(uuid())
-  title          String? // e.g., "Large / Red"
-  sku            String?
-  price          Decimal  @db.Decimal(20, 4)
-  compareAtPrice Decimal? @db.Decimal(20, 4)
-  inventoryQty   Int      @default(0)
-
+model ProductOption {
+  id        String               @id @default(uuid())
+  name      String
+  position  Int
   productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   WarehouseProduct     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values    ProductOptionValue[]
 
-  @@index([productId])
+  @@unique([productId, position])
+  @@unique([productId, name])
 }
 
-model ProductImage {
-  id       String @id @default(uuid())
-  url      String
-  position Int    @default(0)
+model ProductOptionValue {
+  id       String                        @id @default(uuid())
+  value    String
+  position Int
+  optionId String
+  option   ProductOption                 @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  variants WarehouseVariantOptionValue[]
 
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([productId])
+  @@unique([optionId, value])
+  @@unique([optionId, position])
 }
 
-model ProductListing {
+model WarehouseVariant {
   id                String   @id @default(uuid())
-  externalProductId String?
-  status            String   @default("PENDING") // PENDING, PUBLISHING, PUBLISHED, FAILED
-  errorMessage      String?
+  title             String
+  sku               String?
+  price             Decimal  @db.Decimal(20, 4)
+  costPrice         Decimal  @db.Decimal(20, 4)
+  lowStockThreshold Int      @default(5)
+  isDefault         Boolean  @default(false)
+  position          Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  productId    String
-  product      Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
-  connectionId String
-  connection   EcommerceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  productId String
+  product   WarehouseProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@unique([productId, connectionId])
-  @@index([connectionId, status])
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  optionValues       WarehouseVariantOptionValue[]
+  inventoryItem      InventoryItem?
+  media              MediaAsset[]
+  usedAsGift         ProductGift[]                 @relation("GiftVariant")
+  packagingOverrides ProductPackagingRequirement[]
+
+  @@unique([storeId, sku])
+  @@index([productId, position])
+}
+
+model WarehouseVariantOptionValue {
+  variantId String
+  variant   WarehouseVariant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  valueId   String
+  value     ProductOptionValue @relation(fields: [valueId], references: [id], onDelete: Cascade)
+
+  @@id([variantId, valueId])
+  @@index([valueId])
+}
+
+model InventoryItem {
+  id        String            @id @default(uuid())
+  kind      InventoryItemKind
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  variantId String?           @unique
+  variant   WarehouseVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  packagingMaterialId String?            @unique
+  packagingMaterial   PackagingMaterial? @relation(fields: [packagingMaterialId], references: [id], onDelete: Cascade)
+
+  barcodes  InventoryBarcode[]
+  balances  InventoryBalance[]
+  movements InventoryMovement[]
+
+  @@index([storeId, kind])
+}
+
+model InventoryBarcode {
+  id        String               @id @default(uuid())
+  value     String
+  type      InventoryBarcodeType
+  isPrimary Boolean              @default(false)
+  source    String               @default("ZOMAAL")
+  createdAt DateTime             @default(now())
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, value])
+  @@index([inventoryItemId, isPrimary])
+}
+
+model WarehouseLocation {
+  id        String   @id @default(uuid())
+  name      String
+  code      String
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  balances  InventoryBalance[]
+  movements InventoryMovement[]
+
+  @@unique([storeId, code])
+  @@index([storeId, isDefault])
+}
+
+model InventoryBalance {
+  id       String @id @default(uuid())
+  onHand   Int    @default(0)
+  reserved Int    @default(0)
+  damaged  Int    @default(0)
+  incoming Int    @default(0)
+  version  Int    @default(1)
+
+  inventoryItemId String
+  inventoryItem   InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  locationId      String
+  location        WarehouseLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([inventoryItemId, locationId])
+  @@index([locationId])
+}
+
+model InventoryMovement {
+  id                String                @id @default(uuid())
+  type              InventoryMovementType
+  bucket            InventoryBucket
+  quantityDelta     Int
+  resultingQuantity Int
+  reason            String?
+  referenceType     String?
+  referenceId       String?
+  idempotencyKey    String?
+  createdAt         DateTime              @default(now())
+
+  inventoryItemId String
+  inventoryItem   InventoryItem     @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  locationId      String
+  location        WarehouseLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@unique([inventoryItemId, idempotencyKey])
+  @@index([inventoryItemId, createdAt])
+  @@index([locationId, createdAt])
+  @@index([referenceType, referenceId])
+}
+
+model MediaAsset {
+  id           String            @id @default(uuid())
+  objectName   String            @unique
+  originalName String
+  contentType  String
+  sizeBytes    Int
+  checksum     String
+  status       MediaAssetStatus  @default(TEMPORARY)
+  purpose      MediaAssetPurpose
+  position     Int               @default(0)
+  expiresAt    DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   WarehouseProduct? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String?
+  variant   WarehouseVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, status, expiresAt])
+  @@index([productId, position])
+  @@index([variantId, position])
+}
+
+model ProductGift {
+  id       String @id @default(uuid())
+  quantity Int    @default(1)
+
+  productId String           @unique
+  product   WarehouseProduct @relation("ProductGiftOwner", fields: [productId], references: [id], onDelete: Cascade)
+
+  giftVariantId String
+  giftVariant   WarehouseVariant @relation("GiftVariant", fields: [giftVariantId], references: [id], onDelete: Restrict)
+
+  @@index([giftVariantId])
+}
+
+model PackagingMaterial {
+  id                  String   @id @default(uuid())
+  zomaalShopVariantId String
+  name                String
+  sku                 String?
+  imageObjectName     String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  inventoryItem InventoryItem?
+  requirements  ProductPackagingRequirement[]
+
+  @@unique([storeId, zomaalShopVariantId])
+  @@index([storeId, isActive])
+}
+
+model ProductPackagingRequirement {
+  id              String @id @default(uuid())
+  quantityPerUnit Int
+
+  productId String
+  product   WarehouseProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  variantId String?
+  variant   WarehouseVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  packagingMaterialId String
+  packagingMaterial   PackagingMaterial @relation(fields: [packagingMaterialId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, variantId, packagingMaterialId])
+  @@index([packagingMaterialId])
 }

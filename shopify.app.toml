@@ -11,7 +11,7 @@ automatically_update_urls_on_dev = true
 api_version = "2026-07"
 
 [access_scopes]
-scopes = "read_products,write_products,read_orders,read_customers,read_locations,write_inventory"
+scopes = "read_products,read_orders,read_customers"
 optional_scopes = []
 use_legacy_install_flow = false
 

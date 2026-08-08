@@ -26,3 +26,5 @@ Open `openapi.yaml` with one of these tools:
 - In `authFields`, `inputType: secure_text` is a UI masking instruction for a
   sensitive API value; it is not an additional credential field.
 - Live Swagger is available at `/docs` when `SWAGGER_ENABLED=true`.
+- Regenerate the standalone specification after controller or DTO changes with
+  `npm run docs:generate`. The generator does not connect to PostgreSQL or Redis.

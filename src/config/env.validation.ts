@@ -37,6 +37,7 @@ export function validateEnvironment(
 
   const developmentOtpEnabled = config.DEV_OTP_ENABLED === 'true';
   const nodeEnv = typeof config.NODE_ENV === 'string' ? config.NODE_ENV : '';
+  const productImageBucket = asString(config.PRODUCT_IMAGE_BUCKET);
   const developmentOtpCode =
     typeof config.DEV_OTP_CODE === 'string' ? config.DEV_OTP_CODE : '123456';
   const oauthMobileRedirectSchemes = normalizeCsv(
@@ -48,6 +49,14 @@ export function validateEnvironment(
   }
   if (developmentOtpEnabled && !/^\d{6}$/.test(developmentOtpCode)) {
     errors.push('DEV_OTP_CODE must contain exactly 6 digits');
+  }
+  if (nodeEnv === 'production' && !productImageBucket) {
+    errors.push('PRODUCT_IMAGE_BUCKET is required in production');
+  }
+  if (productImageBucket && !isValidBucketName(productImageBucket)) {
+    errors.push(
+      'PRODUCT_IMAGE_BUCKET is not a valid Cloud Storage bucket name',
+    );
   }
 
   const loggerPhone =
@@ -120,7 +129,7 @@ export function validateEnvironment(
   const shopifyScopes = normalizeCsv(
     asString(config.SHOPIFY_SCOPES) ||
       asString(config.SCOPES) ||
-      'read_products,write_products,read_orders,read_customers,read_locations,write_inventory',
+      'read_products,read_orders,read_customers',
   );
   const shopifyTokenEncryptionKey = decodeBase64Key(
     asString(config.SHOPIFY_TOKEN_ENCRYPTION_KEY),
@@ -164,18 +173,6 @@ export function validateEnvironment(
       errors.push(
         'SHOPIFY_API_VERSION must be a quarterly version such as 2026-07',
       );
-    }
-    for (const requiredScope of [
-      'read_products',
-      'write_products',
-      'read_locations',
-      'write_inventory',
-    ]) {
-      if (!shopifyScopes.includes(requiredScope)) {
-        errors.push(
-          `SHOPIFY_SCOPES must include ${requiredScope} for product publishing`,
-        );
-      }
     }
   }
 
@@ -258,20 +255,6 @@ export function validateEnvironment(
     ) {
       errors.push(
         'YOUCAN_SCOPES must be * or include view-store-info so the connected store can be identified',
-      );
-    } else if (
-      !youCanScopes.includes('*') &&
-      !youCanScopes.includes('edit-products')
-    ) {
-      errors.push(
-        'YOUCAN_SCOPES must be * or include edit-products for product publishing',
-      );
-    } else if (
-      !youCanScopes.includes('*') &&
-      !youCanScopes.includes('upload-media')
-    ) {
-      errors.push(
-        'YOUCAN_SCOPES must be * or include upload-media for product image uploads',
       );
     }
   }
@@ -381,6 +364,7 @@ export function validateEnvironment(
   return {
     ...config,
     PORT: port,
+    PRODUCT_IMAGE_BUCKET: productImageBucket,
     OAUTH_MOBILE_REDIRECT_SCHEMES: oauthMobileRedirectSchemes.join(','),
     ECOMMERCE_SYNC_SCHEDULER_ENABLED: ecommerceSyncSchedulerEnabled,
     ECOMMERCE_SYNC_SCHEDULER_SECRET: ecommerceSyncSchedulerSecret,
@@ -511,4 +495,21 @@ function normalizeCsv(value: string): string[] {
         .filter(Boolean),
     ),
   ].sort();
+}
+
+function isValidBucketName(value: string): boolean {
+  const components = value.split('.');
+  return (
+    value.length >= 3 &&
+    value.length <= 222 &&
+    components.every(
+      (component) =>
+        component.length >= 1 &&
+        component.length <= 63 &&
+        /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/.test(component),
+    ) &&
+    !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) &&
+    !value.startsWith('goog') &&
+    !value.includes('google')
+  );
 }
