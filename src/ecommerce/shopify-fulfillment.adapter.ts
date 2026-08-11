@@ -8,6 +8,7 @@ import { ShopifyConnectionService } from '../shopify/shopify-connection.service'
 import type {
   EcommerceFulfillmentAdapter,
   EcommerceFulfillmentPreview,
+  EcommerceOrderProducts,
 } from './interfaces/ecommerce-fulfillment-adapter.interface';
 
 const SHOPIFY_FULFILLMENT_ORDER_QUERY = `#graphql
@@ -41,6 +42,35 @@ const SHOPIFY_FULFILLMENT_ORDER_QUERY = `#graphql
           sku
           unfulfilledQuantity
         }
+      }
+    }
+  }
+`;
+
+const SHOPIFY_ORDER_PRODUCTS_QUERY = `#graphql
+  query ZomaalOrderProducts($id: ID!) {
+    order(id: $id) {
+      id
+      name
+      currencyCode
+      lineItems(first: 250) {
+        nodes {
+          id
+          title
+          variantTitle
+          sku
+          quantity
+          product { id }
+          variant { id }
+          image { url }
+          originalUnitPriceSet {
+            shopMoney { amount currencyCode }
+          }
+          priceAfterAllDiscountsBeforeTaxesSet {
+            shopMoney { amount currencyCode }
+          }
+        }
+        pageInfo { hasNextPage }
       }
     }
   }
@@ -80,6 +110,33 @@ interface RawShopifyFulfillmentOrder {
 
 interface RawShopifyFulfillmentResponse {
   order: RawShopifyFulfillmentOrder | null;
+}
+
+interface RawShopifyOrderProductsResponse {
+  order: {
+    id: string;
+    name: string;
+    currencyCode: string;
+    lineItems: {
+      nodes: Array<{
+        id: string;
+        title: string;
+        variantTitle: string | null;
+        sku: string | null;
+        quantity: number;
+        product: { id: string } | null;
+        variant: { id: string } | null;
+        image: { url: string } | null;
+        originalUnitPriceSet: {
+          shopMoney: { amount: string; currencyCode: string };
+        };
+        priceAfterAllDiscountsBeforeTaxesSet: {
+          shopMoney: { amount: string; currencyCode: string };
+        };
+      }>;
+      pageInfo: { hasNextPage: boolean };
+    };
+  } | null;
 }
 
 @Injectable()
@@ -140,6 +197,43 @@ export class ShopifyFulfillmentAdapter implements EcommerceFulfillmentAdapter {
           : EcommerceOrderStatus.OPEN,
       financialStatus: this.mapPaymentStatus(order.displayFinancialStatus),
       fulfillmentStatus: order.displayFulfillmentStatus,
+    };
+  }
+
+  async fetchOrderProducts(
+    userId: string,
+    externalOrderId: string,
+  ): Promise<EcommerceOrderProducts> {
+    const response =
+      await this.shopifyConnectionService.graphqlForUser<RawShopifyOrderProductsResponse>(
+        userId,
+        SHOPIFY_ORDER_PRODUCTS_QUERY,
+        { id: externalOrderId },
+      );
+    const order = response.order;
+    if (!order) {
+      throw new BadGatewayException('Shopify order not found');
+    }
+
+    return {
+      platform: EcommercePlatform.SHOPIFY,
+      externalOrderId: order.id,
+      orderReference: order.name,
+      currency: order.currencyCode,
+      complete: !order.lineItems.pageInfo.hasNextPage,
+      products: order.lineItems.nodes.map((item) => ({
+        lineItemId: item.id,
+        productId: item.product?.id ?? null,
+        variantId: item.variant?.id ?? null,
+        title: item.title,
+        variantTitle: item.variantTitle,
+        sku: item.sku,
+        quantity: item.quantity,
+        unitPrice: item.originalUnitPriceSet.shopMoney.amount,
+        totalPrice: item.priceAfterAllDiscountsBeforeTaxesSet.shopMoney.amount,
+        currency: item.originalUnitPriceSet.shopMoney.currencyCode,
+        imageUrl: item.image?.url ?? null,
+      })),
     };
   }
 

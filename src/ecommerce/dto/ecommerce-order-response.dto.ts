@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   EcommerceOrderStatus,
   EcommercePaymentStatus,
@@ -14,6 +14,73 @@ export class FulfillmentLineItemDto {
 
   @ApiProperty({ description: 'Quantity to fulfill' })
   quantity: number;
+}
+
+export class EcommerceOrderProductDto {
+  @ApiProperty({ description: 'Provider line-item or snapshot identifier' })
+  lineItemId: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  productId: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  variantId: string | null;
+
+  @ApiProperty({ description: 'Product title captured on the order' })
+  title: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  variantTitle: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  sku: string | null;
+
+  @ApiProperty({ minimum: 1 })
+  quantity: number;
+
+  @ApiPropertyOptional({ nullable: true, example: '149.9000' })
+  unitPrice: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: '299.8000' })
+  totalPrice: string | null;
+
+  @ApiProperty({ example: 'MAD' })
+  currency: string;
+
+  @ApiPropertyOptional({ nullable: true, format: 'uri' })
+  imageUrl: string | null;
+}
+
+export class EcommerceOrderProductsDto {
+  @ApiProperty({ description: 'Zomaal internal order ID', format: 'uuid' })
+  orderId: string;
+
+  @ApiProperty({ enum: EcommercePlatform })
+  platform: EcommercePlatform;
+
+  @ApiProperty({ description: 'Source-platform order identifier' })
+  externalOrderId: string;
+
+  @ApiProperty({ description: 'Visible source order reference' })
+  orderReference: string;
+
+  @ApiProperty({ example: 'MAD' })
+  currency: string;
+
+  @ApiProperty({ description: 'Total quantity across returned product lines' })
+  itemCount: number;
+
+  @ApiProperty({ description: 'Number of distinct returned product lines' })
+  productLineCount: number;
+
+  @ApiProperty({
+    description:
+      'False only when the provider order contains more lines than this response can safely return.',
+  })
+  complete: boolean;
+
+  @ApiProperty({ type: [EcommerceOrderProductDto] })
+  products: EcommerceOrderProductDto[];
 }
 
 export class EcommerceFulfillmentPreviewDto {
@@ -128,6 +195,34 @@ export class EcommerceOrderDto {
 
   @ApiProperty({ description: 'When the order was processed' })
   processedAt: string;
+
+  @ApiPropertyOptional({
+    type: () => EcommerceOrderDispatchDto,
+    nullable: true,
+  })
+  dispatch: EcommerceOrderDispatchDto | null;
+}
+
+export class EcommerceOrderDispatchDto {
+  @ApiProperty({
+    enum: ['SENDIT', 'QUICKLIVRAISON', 'FORCELOG', 'OZONEEXPRESS'],
+  })
+  provider: string;
+
+  @ApiProperty({ example: 'ORD-A1B2C3D4' })
+  merchantTracking: string;
+
+  @ApiPropertyOptional({ nullable: true, example: 'OZ123456789MA' })
+  providerTracking: string | null;
+
+  @ApiProperty({ enum: ['PENDING', 'DISPATCHED', 'FAILED'] })
+  status: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  errorMessage: string | null;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  updatedAt: string;
 }
 
 export class PaginationDto {

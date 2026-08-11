@@ -250,7 +250,7 @@ describe('validateEnvironment Lightfunnels configuration', () => {
     SHIPPING_CREDENTIAL_ENCRYPTION_KEY: encryptionKey,
   };
 
-  it('derives the callback and applies the minimum revenue scopes', () => {
+  it('derives the callback and applies all required e-commerce scopes', () => {
     const result = validateEnvironment({
       ...base,
       LIGHTFUNNELS_CLIENT_ID: 'client-id',
@@ -263,10 +263,12 @@ describe('validateEnvironment Lightfunnels configuration', () => {
     expect(result.LIGHTFUNNELS_REDIRECT_URI).toBe(
       'http://localhost:3001/auth/lightfunnels/callback',
     );
-    expect(result.LIGHTFUNNELS_SCOPES).toBe('funnels,orders');
+    expect(result.LIGHTFUNNELS_SCOPES).toBe(
+      'customers,funnels,orders,products',
+    );
   });
 
-  it('requires the orders and funnels scopes', () => {
+  it('requires the orders, funnels, products, and customers scopes', () => {
     expect(() =>
       validateEnvironment({
         ...base,
@@ -277,6 +279,28 @@ describe('validateEnvironment Lightfunnels configuration', () => {
         LIGHTFUNNELS_SCOPES: 'orders',
       }),
     ).toThrow('LIGHTFUNNELS_SCOPES must include funnels');
+
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        LIGHTFUNNELS_CLIENT_ID: 'client-id',
+        LIGHTFUNNELS_CLIENT_SECRET: 'client-secret',
+        LIGHTFUNNELS_APP_URL: 'http://localhost:3001',
+        LIGHTFUNNELS_TOKEN_ENCRYPTION_KEY: encryptionKey,
+        LIGHTFUNNELS_SCOPES: 'orders,funnels,customers',
+      }),
+    ).toThrow('LIGHTFUNNELS_SCOPES must include products');
+
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        LIGHTFUNNELS_CLIENT_ID: 'client-id',
+        LIGHTFUNNELS_CLIENT_SECRET: 'client-secret',
+        LIGHTFUNNELS_APP_URL: 'http://localhost:3001',
+        LIGHTFUNNELS_TOKEN_ENCRYPTION_KEY: encryptionKey,
+        LIGHTFUNNELS_SCOPES: 'orders,funnels,products',
+      }),
+    ).toThrow('LIGHTFUNNELS_SCOPES must include customers');
   });
 
   it('requires a dedicated encryption key when enabled', () => {

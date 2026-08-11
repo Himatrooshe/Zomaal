@@ -203,6 +203,10 @@ export class LightfunnelsAuthService {
                     syncStartedAt: null,
                     lastSyncedAt: null,
                     lastSyncError: null,
+                    productCount: null,
+                    customerCount: null,
+                    metricsSyncedAt: null,
+                    lastMetricsError: null,
                   }
                 : {}),
             },

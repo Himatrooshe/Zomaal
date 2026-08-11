@@ -184,11 +184,16 @@ export class LightfunnelsDataService {
   ): Promise<LightfunnelsPaginatedResponseDto<LightfunnelsProductDto>> {
     const data = await this.connectionService.graphqlForUser<{
       products: unknown;
-    }>(userId, PRODUCTS_QUERY, {
-      first: query.first,
-      after: query.after,
-      query: query.query ?? '',
-    });
+    }>(
+      userId,
+      PRODUCTS_QUERY,
+      {
+        first: query.first,
+        after: query.after,
+        query: query.query ?? '',
+      },
+      'products',
+    );
     return {
       data: data.products as LightfunnelsPaginatedConnectionDto<LightfunnelsProductDto>,
     };
@@ -200,7 +205,7 @@ export class LightfunnelsDataService {
   ): Promise<LightfunnelsDataResponseDto<LightfunnelsProductDto>> {
     const data = await this.connectionService.graphqlForUser<{
       products: { edges: { node: unknown }[] };
-    }>(userId, PRODUCT_QUERY, { query: `id:${productId}` });
+    }>(userId, PRODUCT_QUERY, { query: `id:${productId}` }, 'products');
     const product = data.products?.edges?.[0]?.node;
     if (!product) {
       throw new BadGatewayException('Lightfunnels product not found');
@@ -214,11 +219,16 @@ export class LightfunnelsDataService {
   ): Promise<LightfunnelsPaginatedResponseDto<LightfunnelsOrderDto>> {
     const data = await this.connectionService.graphqlForUser<{
       orders: unknown;
-    }>(userId, ORDERS_QUERY, {
-      first: query.first,
-      after: query.after,
-      query: query.query ?? '',
-    });
+    }>(
+      userId,
+      ORDERS_QUERY,
+      {
+        first: query.first,
+        after: query.after,
+        query: query.query ?? '',
+      },
+      'orders',
+    );
     return {
       data: data.orders as LightfunnelsPaginatedConnectionDto<LightfunnelsOrderDto>,
     };
@@ -230,7 +240,7 @@ export class LightfunnelsDataService {
   ): Promise<LightfunnelsDataResponseDto<LightfunnelsOrderDto>> {
     const data = await this.connectionService.graphqlForUser<{
       orders: { edges: { node: unknown }[] };
-    }>(userId, ORDER_QUERY, { query: `id:${orderId}` });
+    }>(userId, ORDER_QUERY, { query: `id:${orderId}` }, 'orders');
     const order = data.orders?.edges?.[0]?.node;
     if (!order) {
       throw new BadGatewayException('Lightfunnels order not found');
@@ -244,11 +254,16 @@ export class LightfunnelsDataService {
   ): Promise<LightfunnelsPaginatedResponseDto<LightfunnelsCustomerDto>> {
     const data = await this.connectionService.graphqlForUser<{
       customers: unknown;
-    }>(userId, CUSTOMERS_QUERY, {
-      first: query.first,
-      after: query.after,
-      query: query.query ?? '',
-    });
+    }>(
+      userId,
+      CUSTOMERS_QUERY,
+      {
+        first: query.first,
+        after: query.after,
+        query: query.query ?? '',
+      },
+      'customers',
+    );
     return {
       data: data.customers as LightfunnelsPaginatedConnectionDto<LightfunnelsCustomerDto>,
     };

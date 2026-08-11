@@ -14,7 +14,7 @@ describe('LightfunnelsAuthService', () => {
     displayName: 'Atlas',
     storeDomain: 'atlas.lightfunnels.com',
     status: 'active' as const,
-    grantedScopes: ['funnels', 'orders'],
+    grantedScopes: ['customers', 'funnels', 'orders', 'products'],
     installedAt: '2026-07-26T12:00:00.000Z',
     lastVerifiedAt: '2026-07-26T12:00:00.000Z',
     scopeUpdateRequired: false,
@@ -63,7 +63,9 @@ describe('LightfunnelsAuthService', () => {
     };
     const api = {
       assertConfigured: jest.fn(),
-      getRequestedScopes: jest.fn().mockReturnValue(['funnels', 'orders']),
+      getRequestedScopes: jest
+        .fn()
+        .mockReturnValue(['customers', 'funnels', 'orders', 'products']),
       buildAuthorizationUrl: jest
         .fn()
         .mockReturnValue('https://app.lightfunnels.com/admin/oauth'),
@@ -112,8 +114,15 @@ describe('LightfunnelsAuthService', () => {
     expect(authorizationState).toHaveLength(43);
     expect(createInput.stateHash).toMatch(/^[a-f0-9]{64}$/);
     expect(createInput.stateHash).not.toBe(authorizationState);
-    expect(createInput.requestedScopes).toBe('funnels,orders');
-    expect(result.requestedScopes).toEqual(['funnels', 'orders']);
+    expect(createInput.requestedScopes).toBe(
+      'customers,funnels,orders,products',
+    );
+    expect(result.requestedScopes).toEqual([
+      'customers',
+      'funnels',
+      'orders',
+      'products',
+    ]);
   });
 
   it('rejects an unknown or replayed state before token exchange', async () => {
@@ -130,7 +139,7 @@ describe('LightfunnelsAuthService', () => {
     const { service, prisma, api } = setup();
     prisma.lightfunnelsOAuthState.findUnique.mockResolvedValue({
       stateHash: 'hash',
-      requestedScopes: 'funnels,orders',
+      requestedScopes: 'customers,funnels,orders,products',
       expiresAt: new Date(Date.now() + 60_000),
       userId: 'user-id',
       storeId: 'zomaal-store-id',
@@ -147,7 +156,7 @@ describe('LightfunnelsAuthService', () => {
     const { service, prisma, transaction, api, connection } = setup();
     prisma.lightfunnelsOAuthState.findUnique.mockResolvedValue({
       stateHash: 'hash',
-      requestedScopes: 'funnels,orders',
+      requestedScopes: 'customers,funnels,orders,products',
       expiresAt: new Date(Date.now() + 60_000),
       userId: 'user-id',
       storeId: 'zomaal-store-id',

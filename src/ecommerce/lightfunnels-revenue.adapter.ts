@@ -67,6 +67,8 @@ export class LightfunnelsRevenueAdapter implements EcommerceRevenueAdapter {
     updatedSince?: Date | null,
     updatedThrough?: Date,
   ): Promise<EcommerceOrderPage> {
+    void updatedSince;
+    void updatedThrough;
     const data = await this.connectionService.graphqlForUser<OrdersQueryData>(
       userId,
       ORDERS_QUERY,
@@ -75,6 +77,7 @@ export class LightfunnelsRevenueAdapter implements EcommerceRevenueAdapter {
         after: cursor,
         query: 'order_by:id order_dir:asc',
       },
+      'orders',
     );
     const connection = asRecord(data.orders ?? data.pagination, 'orders');
     const edges = asArray(connection.edges, 'orders.edges');
@@ -205,10 +208,13 @@ function decimal(value: unknown, field: string): Prisma.Decimal {
 
 function timestamp(value: unknown, field: string): Date {
   let parsed: Date;
-  
+
   // Handle PHP/Carbon object serialization if Lightfunnels returns that
-  if (value && typeof value === 'object' && 'date' in value && typeof (value as any).date === 'string') {
-    value = (value as any).date;
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const timestampObject = value as Record<string, unknown>;
+    if (typeof timestampObject.date === 'string') {
+      value = timestampObject.date;
+    }
   }
 
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -216,9 +222,12 @@ function timestamp(value: unknown, field: string): Date {
   } else if (typeof value === 'string' && value.trim()) {
     const trimmed = value.trim();
     // Some timestamps might have a space instead of T, replace for strict ISO compliance
-    const normalized = trimmed.replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})$/, '$1T$2Z');
+    const normalized = trimmed.replace(
+      /^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})$/,
+      '$1T$2Z',
+    );
     const numeric = Number(value);
-    
+
     // Lightfunnels apparently returns relative human-readable times for their TimeStamp scalar!
     if (trimmed === 'just now') {
       parsed = new Date();
@@ -232,9 +241,10 @@ function timestamp(value: unknown, field: string): Date {
       else if (unit.startsWith('hour')) multiplier = 60 * 60 * 1000;
       else if (unit.startsWith('day')) multiplier = 24 * 60 * 60 * 1000;
       else if (unit.startsWith('week')) multiplier = 7 * 24 * 60 * 60 * 1000;
-      else if (unit.startsWith('month')) multiplier = 30 * 24 * 60 * 60 * 1000; // Approximation
+      else if (unit.startsWith('month'))
+        multiplier = 30 * 24 * 60 * 60 * 1000; // Approximation
       else if (unit.startsWith('year')) multiplier = 365 * 24 * 60 * 60 * 1000;
-      
+
       if (multiplier > 0 && !isNaN(amount)) {
         parsed = new Date(Date.now() - amount * multiplier);
       } else {

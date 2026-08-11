@@ -33,6 +33,7 @@ import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import {
   EcommerceConnectionListDto,
+  EcommerceMetricsRefreshDto,
   EcommerceSyncResponseDto,
   RevenueSummaryDto,
   RevenueTimeseriesDto,
@@ -43,6 +44,7 @@ import {
   EcommerceOrderDto,
   EcommerceOrderListDto,
   EcommerceFulfillmentPreviewDto,
+  EcommerceOrderProductsDto,
 } from './dto/ecommerce-order-response.dto';
 import {
   EcommerceDispatchDto,
@@ -50,6 +52,8 @@ import {
 } from './dto/ecommerce-dispatch.dto';
 import { EcommerceSyncService } from './ecommerce-sync.service';
 import { EcommerceService } from './ecommerce.service';
+import { EcommerceMetricsService } from './ecommerce-metrics.service';
+import { EcommerceHomeResponseDto } from './dto/ecommerce-home-response.dto';
 
 const PRIVATE_NO_STORE_HEADERS = {
   'Cache-Control': {
@@ -68,7 +72,31 @@ export class EcommerceController {
   constructor(
     private readonly ecommerceService: EcommerceService,
     private readonly syncService: EcommerceSyncService,
+    private readonly metricsService: EcommerceMetricsService,
   ) {}
+
+  @Get('home')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Get the consolidated e-commerce home-screen payload',
+    description:
+      'Returns revenue, actionable order states, cached product/customer totals, warehouse totals, shipping state, connection health, and recent orders in one request. The default period is the current calendar month in the requested timezone.',
+  })
+  @ApiOkResponse({
+    type: EcommerceHomeResponseDto,
+    headers: PRIVATE_NO_STORE_HEADERS,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid date range or timezone.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  getHome(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: RevenueRangeQueryDto,
+  ): Promise<EcommerceHomeResponseDto> {
+    return this.ecommerceService.getHome(user.userId, query);
+  }
 
   @Get('connections')
   @Header('Cache-Control', 'private, no-store')
@@ -144,6 +172,35 @@ export class EcommerceController {
     @Param('connectionId', new ParseUUIDPipe()) connectionId: string,
   ): Promise<EcommerceSyncResponseDto> {
     return this.syncService.syncConnection(user.userId, connectionId);
+  }
+
+  @Post('connections/:connectionId/metrics/refresh')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Refresh product and customer totals for one account',
+    description:
+      'Reads provider counts for the home screen without persisting customer records or customer PII.',
+  })
+  @ApiParam({
+    name: 'connectionId',
+    description: 'ID returned by GET /ecommerce/connections.',
+    format: 'uuid',
+  })
+  @ApiOkResponse({ type: EcommerceMetricsRefreshDto })
+  @ApiBadRequestResponse({
+    description: 'connectionId is not a valid UUID.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  refreshMetrics(
+    @CurrentUser() user: JwtPayload,
+    @Param('connectionId', new ParseUUIDPipe()) connectionId: string,
+  ): Promise<EcommerceMetricsRefreshDto> {
+    return this.metricsService.refreshConnectionMetrics(
+      user.userId,
+      connectionId,
+    );
   }
 
   @Get('revenue/summary')
@@ -243,6 +300,46 @@ export class EcommerceController {
     @Param('orderId', new ParseUUIDPipe()) orderId: string,
   ): Promise<EcommerceOrderDto> {
     return this.ecommerceService.getOrder(user.userId, orderId);
+  }
+
+  @Get('orders/:orderId/products')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'View all product lines on a synchronized order',
+    description:
+      'Fetches the current order product lines directly from Shopify, YouCan, or Lightfunnels and returns one provider-neutral response.',
+  })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Zomaal internal order ID returned by GET /ecommerce/orders',
+    format: 'uuid',
+  })
+  @ApiOkResponse({
+    type: EcommerceOrderProductsDto,
+    headers: PRIVATE_NO_STORE_HEADERS,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid order ID format or unsupported platform.',
+    type: ApiErrorDto,
+  })
+  @ApiConflictResponse({
+    description: 'The source-platform connection is not active.',
+    type: ApiErrorDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'The source-platform token lacks order-read access.',
+    type: ApiErrorDto,
+  })
+  @ApiBadGatewayResponse({
+    description: 'The source platform returned an invalid order response.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  getOrderProducts(
+    @CurrentUser() user: JwtPayload,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+  ): Promise<EcommerceOrderProductsDto> {
+    return this.ecommerceService.getOrderProducts(user.userId, orderId);
   }
 
   @Get('orders/:orderId/fulfillment-preview')

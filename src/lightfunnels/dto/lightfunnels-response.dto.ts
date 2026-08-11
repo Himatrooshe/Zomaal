@@ -5,11 +5,14 @@ export class LightfunnelsAuthorizationResponseDto {
     description:
       'Open this URL in the browser so the merchant can authorize Lightfunnels.',
     example:
-      'https://app.lightfunnels.com/admin/oauth?client_id=abc&redirect_uri=https%3A%2F%2Fapi.example.com%2Fauth%2Flightfunnels%2Fcallback&scope=orders%2Cfunnels&state=...',
+      'https://app.lightfunnels.com/admin/oauth?client_id=abc&redirect_uri=https%3A%2F%2Fapi.example.com%2Fauth%2Flightfunnels%2Fcallback&scope=customers%2Cfunnels%2Corders%2Cproducts&state=...',
   })
   authorizationUrl!: string;
 
-  @ApiProperty({ type: [String], example: ['funnels', 'orders'] })
+  @ApiProperty({
+    type: [String],
+    example: ['customers', 'funnels', 'orders', 'products'],
+  })
   requestedScopes!: string[];
 
   @ApiProperty({
@@ -59,7 +62,10 @@ export class LightfunnelsConnectionStatusDto {
     | 'disconnected'
     | 'reauthorization_required';
 
-  @ApiProperty({ type: [String], example: ['funnels', 'orders'] })
+  @ApiProperty({
+    type: [String],
+    example: ['customers', 'funnels', 'orders', 'products'],
+  })
   grantedScopes!: string[];
 
   @ApiPropertyOptional({

@@ -8,6 +8,7 @@ import { LightfunnelsConnectionService } from '../lightfunnels/lightfunnels-conn
 import type {
   EcommerceFulfillmentAdapter,
   EcommerceFulfillmentPreview,
+  EcommerceOrderProducts,
 } from './interfaces/ecommerce-fulfillment-adapter.interface';
 
 const LIGHTFUNNELS_FULFILLMENT_ORDER_QUERY = `
@@ -49,6 +50,37 @@ const LIGHTFUNNELS_FULFILLMENT_ORDER_QUERY = `
   }
 `;
 
+const LIGHTFUNNELS_ORDER_PRODUCTS_QUERY = `
+  query ZomaalLightfunnelsOrderProducts($query: String!) {
+    orders(first: 1, query: $query) {
+      edges {
+        node {
+          id
+          name
+          currency
+          items {
+            __typename
+            ... on VariantSnapshot {
+              id
+              variant_id
+              title
+              sku
+              price
+            }
+            ... on OrderBumpSnapshot {
+              id
+              product_id
+              title
+              sku
+              price
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
 interface RawLightfunnelsFulfillmentOrder {
   id: string;
   name: string | null;
@@ -82,6 +114,27 @@ interface RawLightfunnelsFulfillmentResponse {
   };
 }
 
+interface RawLightfunnelsOrderProductsResponse {
+  orders?: {
+    edges?: Array<{
+      node?: {
+        id: string;
+        name: string | null;
+        currency: string;
+        items: Array<{
+          __typename: 'VariantSnapshot' | 'OrderBumpSnapshot';
+          id: string;
+          variant_id?: string | null;
+          product_id?: string | null;
+          title: string | null;
+          sku: string | null;
+          price: number | string;
+        }> | null;
+      };
+    }>;
+  };
+}
+
 @Injectable()
 export class LightfunnelsFulfillmentAdapter implements EcommerceFulfillmentAdapter {
   constructor(
@@ -99,6 +152,7 @@ export class LightfunnelsFulfillmentAdapter implements EcommerceFulfillmentAdapt
         {
           query: `id:${externalOrderId}`,
         },
+        'orders',
       );
 
     const edges = data?.orders?.edges || [];
@@ -149,6 +203,46 @@ export class LightfunnelsFulfillmentAdapter implements EcommerceFulfillmentAdapt
     };
   }
 
+  async fetchOrderProducts(
+    userId: string,
+    externalOrderId: string,
+  ): Promise<EcommerceOrderProducts> {
+    const data =
+      await this.connectionService.graphqlForUser<RawLightfunnelsOrderProductsResponse>(
+        userId,
+        LIGHTFUNNELS_ORDER_PRODUCTS_QUERY,
+        { query: `id:${externalOrderId}` },
+        'orders',
+      );
+    const order = data.orders?.edges?.[0]?.node;
+    if (!order || String(order.id) !== externalOrderId) {
+      throw new BadGatewayException('Lightfunnels order not found');
+    }
+
+    const currency = order.currency.toUpperCase();
+    const items = Array.isArray(order.items) ? order.items : [];
+    return {
+      platform: EcommercePlatform.LIGHTFUNNELS,
+      externalOrderId: String(order.id),
+      orderReference: order.name || String(order.id),
+      currency,
+      complete: true,
+      products: items.map((item) => ({
+        lineItemId: String(item.id),
+        productId: item.product_id ? String(item.product_id) : null,
+        variantId: item.variant_id ? String(item.variant_id) : null,
+        title: item.title || 'Unknown Product',
+        variantTitle: null,
+        sku: item.sku || null,
+        quantity: 1,
+        unitPrice: money(item.price),
+        totalPrice: money(item.price),
+        currency,
+        imageUrl: null,
+      })),
+    };
+  }
+
   private mapFinancialStatus(value: string): EcommercePaymentStatus {
     switch (value.trim().toLowerCase()) {
       case 'paid':
@@ -163,4 +257,9 @@ export class LightfunnelsFulfillmentAdapter implements EcommerceFulfillmentAdapt
         return EcommercePaymentStatus.UNKNOWN;
     }
   }
+}
+
+function money(value: number | string): string | null {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric.toFixed(4) : null;
 }

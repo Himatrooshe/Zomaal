@@ -61,7 +61,8 @@ export class LightfunnelsApiService {
 
   getRequestedScopes(): string[] {
     return normalizeScopes(
-      this.configService.get<string>('LIGHTFUNNELS_SCOPES') ?? 'orders,funnels',
+      this.configService.get<string>('LIGHTFUNNELS_SCOPES') ??
+        'orders,funnels,products,customers',
     );
   }
 

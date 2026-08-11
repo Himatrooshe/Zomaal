@@ -1,8 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  EcommercePaymentStatus,
-  EcommercePlatform,
-} from '@prisma/client';
+import { EcommercePaymentStatus, EcommercePlatform } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,

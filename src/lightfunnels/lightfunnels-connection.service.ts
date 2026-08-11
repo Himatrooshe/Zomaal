@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
@@ -26,6 +27,7 @@ interface LightfunnelsCredentials {
   ecommerceConnectionId: string;
   externalAccountId: string;
   accessToken: string;
+  grantedScopes: string[];
 }
 
 @Injectable()
@@ -75,8 +77,14 @@ export class LightfunnelsConnectionService {
     userId: string,
     query: string,
     variables?: Record<string, unknown>,
+    requiredScope?: string,
   ): Promise<T> {
     const credentials = await this.getAccessCredentials(userId);
+    if (requiredScope && !credentials.grantedScopes.includes(requiredScope)) {
+      throw new ForbiddenException(
+        `Lightfunnels connection is missing the ${requiredScope} scope. Reconnect Lightfunnels to approve the updated permissions.`,
+      );
+    }
     try {
       return await this.lightfunnelsApi.graphql<T>(
         credentials.accessToken,
@@ -176,6 +184,7 @@ export class LightfunnelsConnectionService {
         connection.encryptedAccessToken,
         lightfunnelsAccessTokenContext(connection.externalAccountId),
       ),
+      grantedScopes: normalizeScopes(connection.grantedScopes),
     };
   }
 

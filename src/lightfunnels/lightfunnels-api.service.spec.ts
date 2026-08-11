@@ -13,7 +13,7 @@ describe('LightfunnelsApiService', () => {
     LIGHTFUNNELS_CLIENT_SECRET: 'client-secret',
     LIGHTFUNNELS_REDIRECT_URI:
       'http://localhost:3001/auth/lightfunnels/callback',
-    LIGHTFUNNELS_SCOPES: 'orders,funnels',
+    LIGHTFUNNELS_SCOPES: 'orders,funnels,products,customers',
     LIGHTFUNNELS_HTTP_TIMEOUT_MS: 1000,
   };
   const configService = {
@@ -36,7 +36,9 @@ describe('LightfunnelsApiService', () => {
     expect(url.searchParams.get('redirect_uri')).toBe(
       'http://localhost:3001/auth/lightfunnels/callback',
     );
-    expect(url.searchParams.get('scope')).toBe('funnels,orders');
+    expect(url.searchParams.get('scope')).toBe(
+      'customers,funnels,orders,products',
+    );
     expect(url.searchParams.get('state')).toBe('single-use-state');
   });
 

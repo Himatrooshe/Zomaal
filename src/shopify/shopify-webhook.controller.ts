@@ -27,7 +27,7 @@ export class ShopifyWebhookController {
   @ApiOperation({
     summary: 'Receive a Shopify webhook',
     description:
-      'Public endpoint for app/uninstalled and mandatory privacy topics. The HMAC is verified against the exact raw request body before processing. Duplicate webhook IDs are acknowledged idempotently.',
+      'Public endpoint for order, refund, product, customer, uninstall, and mandatory privacy topics. The HMAC is verified against the exact raw request body before processing. Duplicate webhook IDs are acknowledged idempotently.',
   })
   @ApiHeader({
     name: 'X-Shopify-Hmac-Sha256',

@@ -32,9 +32,37 @@ export interface EcommerceFulfillmentPreview {
   fulfillmentStatus: string | null;
 }
 
+export interface EcommerceOrderProduct {
+  lineItemId: string;
+  productId: string | null;
+  variantId: string | null;
+  title: string;
+  variantTitle: string | null;
+  sku: string | null;
+  quantity: number;
+  unitPrice: string | null;
+  totalPrice: string | null;
+  currency: string;
+  imageUrl: string | null;
+}
+
+export interface EcommerceOrderProducts {
+  platform: EcommercePlatform;
+  externalOrderId: string;
+  orderReference: string;
+  currency: string;
+  complete: boolean;
+  products: EcommerceOrderProduct[];
+}
+
 export interface EcommerceFulfillmentAdapter {
   fetchFulfillmentPreview(
     userId: string,
     externalOrderId: string,
   ): Promise<EcommerceFulfillmentPreview>;
+
+  fetchOrderProducts(
+    userId: string,
+    externalOrderId: string,
+  ): Promise<EcommerceOrderProducts>;
 }

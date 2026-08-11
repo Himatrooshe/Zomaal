@@ -292,7 +292,7 @@ export function validateEnvironment(
       ? new URL(LIGHTFUNNELS_CALLBACK_PATH, lightfunnelsAppUrl).toString()
       : '');
   const lightfunnelsScopes = normalizeCsv(
-    asString(config.LIGHTFUNNELS_SCOPES) || 'orders,funnels',
+    asString(config.LIGHTFUNNELS_SCOPES) || 'orders,funnels,products,customers',
   );
   const lightfunnelsTokenEncryptionKey = decodeBase64Key(
     asString(config.LIGHTFUNNELS_TOKEN_ENCRYPTION_KEY),
@@ -335,6 +335,16 @@ export function validateEnvironment(
     if (!lightfunnelsScopes.includes('funnels')) {
       errors.push(
         'LIGHTFUNNELS_SCOPES must include funnels so the connected account can be identified',
+      );
+    }
+    if (!lightfunnelsScopes.includes('products')) {
+      errors.push(
+        'LIGHTFUNNELS_SCOPES must include products for catalog synchronization',
+      );
+    }
+    if (!lightfunnelsScopes.includes('customers')) {
+      errors.push(
+        'LIGHTFUNNELS_SCOPES must include customers for customer metrics and data access',
       );
     }
   }

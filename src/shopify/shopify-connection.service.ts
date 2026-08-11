@@ -156,6 +156,26 @@ export class ShopifyConnectionService {
     }
   }
 
+  async graphqlForShopDomain<T>(
+    shopDomain: string,
+    operation: string,
+    variables?: Record<string, unknown>,
+  ): Promise<T> {
+    const normalizedDomain = this.shopifyApi.normalizeShopDomain(shopDomain);
+    const connection = await this.prisma.shopifyConnection.findUnique({
+      where: { shopDomain: normalizedDomain },
+      select: { store: { select: { userId: true } } },
+    });
+    if (!connection) {
+      throw new NotFoundException('Shopify connection not found');
+    }
+    return this.graphqlForUser<T>(
+      connection.store.userId,
+      operation,
+      variables,
+    );
+  }
+
   private async getAccessCredentials(
     userId: string,
     forceRefresh = false,
@@ -334,6 +354,8 @@ export class ShopifyConnectionService {
         installedAt: null,
         lastVerifiedAt: null,
         scopeUpdateRequired: false,
+        lastWebhookAt: null,
+        lastWebhookError: null,
         message: 'Shopify store is not connected',
       };
     }
@@ -358,6 +380,8 @@ export class ShopifyConnectionService {
       installedAt: connection.installedAt.toISOString(),
       lastVerifiedAt: connection.lastVerifiedAt?.toISOString() ?? null,
       scopeUpdateRequired,
+      lastWebhookAt: connection.lastWebhookAt?.toISOString() ?? null,
+      lastWebhookError: connection.lastWebhookError,
       message:
         status === 'active'
           ? 'Shopify store is connected'

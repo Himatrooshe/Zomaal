@@ -223,40 +223,4 @@ export class LightfunnelsDataController {
   ) {
     return this.dataService.listCustomers(user.userId, query);
   }
-
-  @Get('debug/schema')
-  async debugSchema(@CurrentUser() user: JwtPayload) {
-    const query = `
-      query {
-        __type(name: "Order") {
-          fields {
-            name
-            type {
-              name
-              kind
-              ofType {
-                name
-                kind
-                ofType {
-                  name
-                  kind
-                }
-              }
-            }
-          }
-        }
-      }
-    `;
-    // @ts-ignore
-    const res = await this.dataService.connectionService.graphqlForUser(
-      user.userId,
-      query,
-      {},
-    );
-    require('fs').writeFileSync(
-      'schema_dump.json',
-      JSON.stringify(res, null, 2),
-    );
-    return res;
-  }
 }

@@ -14,13 +14,22 @@ import { YouCanFulfillmentAdapter } from './youcan-fulfillment.adapter';
 import { LightfunnelsFulfillmentAdapter } from './lightfunnels-fulfillment.adapter';
 import { EcommerceSchedulerController } from './ecommerce-scheduler.controller';
 import { EcommerceSchedulerGuard } from './ecommerce-scheduler.guard';
+import { ShippingModule } from '../shipping/shipping.module';
+import { EcommerceMetricsService } from './ecommerce-metrics.service';
 
 @Module({
-  imports: [ShopifyModule, YouCanModule, LightfunnelsModule, CurrencyModule],
+  imports: [
+    ShopifyModule,
+    YouCanModule,
+    LightfunnelsModule,
+    CurrencyModule,
+    ShippingModule,
+  ],
   controllers: [EcommerceController, EcommerceSchedulerController],
   providers: [
     EcommerceService,
     EcommerceSyncService,
+    EcommerceMetricsService,
     EcommerceSchedulerGuard,
     LightfunnelsRevenueAdapter,
     ShopifyRevenueAdapter,

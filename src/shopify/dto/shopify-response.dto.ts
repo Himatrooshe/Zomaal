@@ -72,6 +72,12 @@ export class ShopifyConnectionStatusDto {
   })
   scopeUpdateRequired!: boolean;
 
+  @ApiPropertyOptional({ nullable: true, format: 'date-time' })
+  lastWebhookAt!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  lastWebhookError!: string | null;
+
   @ApiProperty({
     example: 'Shopify store is connected',
   })

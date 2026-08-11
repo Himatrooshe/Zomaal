@@ -57,6 +57,40 @@ export class EcommerceConnectionDto {
     example: null,
   })
   lastSyncError!: string | null;
+
+  @ApiPropertyOptional({ type: Number, nullable: true, example: 125 })
+  productCount!: number | null;
+
+  @ApiPropertyOptional({ type: Number, nullable: true, example: 840 })
+  customerCount!: number | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date-time',
+    nullable: true,
+    example: '2026-08-12T08:30:00.000Z',
+  })
+  metricsSyncedAt!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, example: null })
+  lastMetricsError!: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    format: 'date-time',
+    nullable: true,
+    description:
+      'Latest successfully processed provider webhook. Currently available for Shopify.',
+  })
+  lastWebhookAt!: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description:
+      'Latest safe webhook processing error. Currently available for Shopify.',
+  })
+  lastWebhookError!: string | null;
 }
 
 export class EcommerceConnectionListDto {
@@ -97,6 +131,23 @@ export class EcommerceSyncResponseDto {
     example: '2026-07-19T08:30:00.000Z',
   })
   lastSyncedAt!: string | null;
+}
+
+export class EcommerceMetricsRefreshDto {
+  @ApiProperty({ example: '7cf83ca3-497c-44a7-bc11-ae0c7cfdba1f' })
+  connectionId!: string;
+
+  @ApiProperty({ enum: ['SHOPIFY', 'YOUCAN', 'LIGHTFUNNELS'] })
+  platform!: string;
+
+  @ApiProperty({ example: 125 })
+  productCount!: number;
+
+  @ApiProperty({ example: 840 })
+  customerCount!: number;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  metricsSyncedAt!: string;
 }
 
 export class RevenuePeriodDto {

@@ -4865,7 +4865,7 @@ paths:
         - Shopify OAuth
   /webhooks/shopify:
     post:
-      description: Public endpoint for app/uninstalled and mandatory privacy topics. The HMAC is verified against the exact raw request body before processing. Duplicate webhook IDs are acknowledged idempotently.
+      description: Public endpoint for order, refund, product, customer, uninstall, and mandatory privacy topics. The HMAC is verified against the exact raw request body before processing. Duplicate webhook IDs are acknowledged idempotently.
       operationId: ShopifyWebhook_handle
       parameters:
         - name: X-Shopify-Webhook-Id
@@ -4920,6 +4920,72 @@ paths:
       summary: Receive a Shopify webhook
       tags:
         - Shopify Webhooks
+  /ecommerce/home:
+    get:
+      description: Returns revenue, actionable order states, cached product/customer totals, warehouse totals, shipping state, connection health, and recent orders in one request. The default period is the current calendar month in the requested timezone.
+      operationId: Ecommerce_getHome
+      parameters:
+        - name: from
+          required: false
+          in: query
+          description: Inclusive first reporting date in the requested timezone. Omit for an all-time summary.
+          schema:
+            pattern: ^\d{4}-\d{2}-\d{2}$
+            example: '2026-07-01'
+            type: string
+        - name: to
+          required: false
+          in: query
+          description: Inclusive last reporting date in the requested timezone. Omit for an all-time summary.
+          schema:
+            pattern: ^\d{4}-\d{2}-\d{2}$
+            example: '2026-07-31'
+            type: string
+        - name: timezone
+          required: false
+          in: query
+          description: IANA timezone used for date boundaries and daily grouping. Times are stored in UTC.
+          schema:
+            maxLength: 64
+            default: UTC
+            example: Africa/Casablanca
+            type: string
+      responses:
+        '200':
+          headers:
+            Cache-Control:
+              description: Revenue and connection data is private to the authenticated store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EcommerceHomeResponseDto'
+        '400':
+          description: Invalid date range or timezone.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get the consolidated e-commerce home-screen payload
+      tags:
+        - E-commerce Revenue
   /ecommerce/connections:
     get:
       description: Returns provider-neutral connection and synchronization state for the current Zomaal store. Provider credentials are never exposed.
@@ -5025,6 +5091,48 @@ paths:
       security:
         - bearer: []
       summary: Synchronize order revenue from one account
+      tags:
+        - E-commerce Revenue
+  /ecommerce/connections/{connectionId}/metrics/refresh:
+    post:
+      description: Reads provider counts for the home screen without persisting customer records or customer PII.
+      operationId: Ecommerce_refreshMetrics
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          description: ID returned by GET /ecommerce/connections.
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EcommerceMetricsRefreshDto'
+        '400':
+          description: connectionId is not a valid UUID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Refresh product and customer totals for one account
       tags:
         - E-commerce Revenue
   /ecommerce/revenue/summary:
@@ -5318,6 +5426,72 @@ paths:
       security:
         - bearer: []
       summary: Get details of a synchronized e-commerce order
+      tags:
+        - E-commerce Revenue
+  /ecommerce/orders/{orderId}/products:
+    get:
+      description: Fetches the current order product lines directly from Shopify, YouCan, or Lightfunnels and returns one provider-neutral response.
+      operationId: Ecommerce_getOrderProducts
+      parameters:
+        - name: orderId
+          required: true
+          in: path
+          description: Zomaal internal order ID returned by GET /ecommerce/orders
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          headers:
+            Cache-Control:
+              description: Revenue and connection data is private to the authenticated store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EcommerceOrderProductsDto'
+        '400':
+          description: Invalid order ID format or unsupported platform.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: The source-platform token lacks order-read access.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The source-platform connection is not active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: The source platform returned an invalid order response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: View all product lines on a synchronized order
       tags:
         - E-commerce Revenue
   /ecommerce/orders/{orderId}/fulfillment-preview:
@@ -6618,17 +6792,6 @@ paths:
       security:
         - bearer: []
       summary: List customers from the connected Lightfunnels store
-      tags:
-        - Lightfunnels Store Data
-  /lightfunnels/data/debug/schema:
-    get:
-      operationId: LightfunnelsData_debugSchema
-      parameters: []
-      responses:
-        '200':
-          description: ''
-      security:
-        - bearer: []
       tags:
         - Lightfunnels Store Data
   /warehouse/categories:
@@ -10046,6 +10209,13 @@ components:
           type: boolean
           example: false
           description: True when the configured scope list contains scopes missing from the granted token.
+        lastWebhookAt:
+          type: object
+          nullable: true
+          format: date-time
+        lastWebhookError:
+          type: object
+          nullable: true
         message:
           type: string
           example: Shopify store is connected
@@ -10117,6 +10287,13 @@ components:
           type: boolean
           example: false
           description: True when the configured scope list contains scopes missing from the granted token.
+        lastWebhookAt:
+          type: object
+          nullable: true
+          format: date-time
+        lastWebhookError:
+          type: object
+          nullable: true
         message:
           type: string
           example: Shopify credentials removed from Zomaal. Uninstall the app in Shopify Admin to revoke the installation.
@@ -11258,100 +11435,6 @@ components:
         - duplicate
         - topic
         - webhookId
-    EcommerceConnectionDto:
-      type: object
-      properties:
-        id:
-          type: string
-          example: 7cf83ca3-497c-44a7-bc11-ae0c7cfdba1f
-        platform:
-          type: string
-          description: Provider identifier. Additional values will be introduced as integrations are added.
-          enum:
-            - SHOPIFY
-            - YOUCAN
-            - LIGHTFUNNELS
-          example: SHOPIFY
-        externalAccountId:
-          type: string
-          example: atlas-market.myshopify.com
-        displayName:
-          type: string
-          nullable: true
-          example: Atlas Market
-        status:
-          type: string
-          enum:
-            - ACTIVE
-            - DISCONNECTED
-            - REAUTHORIZATION_REQUIRED
-          example: ACTIVE
-        includeInRevenue:
-          type: boolean
-          description: Whether this connection contributes to combined revenue calculations.
-          example: true
-        lastSyncedAt:
-          type: string
-          format: date-time
-          nullable: true
-          example: '2026-07-19T08:30:00.000Z'
-        syncPending:
-          type: boolean
-          description: Whether a subsequent sync request is required to finish the current backfill.
-          example: false
-        lastSyncError:
-          type: string
-          nullable: true
-          description: Last safe synchronization error message.
-          example: null
-      required:
-        - id
-        - platform
-        - externalAccountId
-        - status
-        - includeInRevenue
-        - syncPending
-    EcommerceConnectionListDto:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/EcommerceConnectionDto'
-      required:
-        - data
-    EcommerceSyncResponseDto:
-      type: object
-      properties:
-        connectionId:
-          type: string
-          example: 7cf83ca3-497c-44a7-bc11-ae0c7cfdba1f
-        platform:
-          type: string
-          enum:
-            - SHOPIFY
-            - YOUCAN
-            - LIGHTFUNNELS
-          example: LIGHTFUNNELS
-        processedOrders:
-          type: number
-          description: Orders inserted or refreshed during this synchronization run.
-          example: 87
-        hasMore:
-          type: boolean
-          description: Whether more provider pages remain. Call this endpoint again when true.
-          example: false
-        lastSyncedAt:
-          type: string
-          format: date-time
-          nullable: true
-          description: Completed synchronization watermark. Null while a paginated backfill remains.
-          example: '2026-07-19T08:30:00.000Z'
-      required:
-        - connectionId
-        - platform
-        - processedOrders
-        - hasMore
     RevenuePeriodDto:
       type: object
       properties:
@@ -11489,6 +11572,379 @@ components:
         - period
         - totalsByCurrency
         - byPlatform
+    EcommerceHomeOrderMetricsDto:
+      type: object
+      properties:
+        total:
+          type: number
+          example: 420
+        inPeriod:
+          type: number
+          example: 38
+        open:
+          type: number
+          example: 14
+        unfulfilled:
+          type: number
+          example: 9
+        readyToDispatch:
+          type: number
+          example: 6
+        dispatched:
+          type: number
+          example: 120
+        cancelled:
+          type: number
+          example: 7
+        refunded:
+          type: number
+          example: 5
+      required:
+        - total
+        - inPeriod
+        - open
+        - unfulfilled
+        - readyToDispatch
+        - dispatched
+        - cancelled
+        - refunded
+    EcommerceHomeCatalogMetricsDto:
+      type: object
+      properties:
+        connectedProducts:
+          type: number
+          example: 210
+        connectedCustomers:
+          type: number
+          example: 1300
+        warehouseProducts:
+          type: number
+          example: 46
+        activeWarehouseProducts:
+          type: number
+          example: 39
+        complete:
+          type: boolean
+          example: true
+        metricsFreshAsOf:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - connectedProducts
+        - connectedCustomers
+        - warehouseProducts
+        - activeWarehouseProducts
+        - complete
+    EcommerceHomeShippingMetricsDto:
+      type: object
+      properties:
+        connectedProviders:
+          type: number
+          example: 2
+        totalDispatches:
+          type: number
+          example: 131
+        pending:
+          type: number
+          example: 1
+        dispatched:
+          type: number
+          example: 120
+        failed:
+          type: number
+          example: 10
+      required:
+        - connectedProviders
+        - totalDispatches
+        - pending
+        - dispatched
+        - failed
+    EcommerceConnectionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 7cf83ca3-497c-44a7-bc11-ae0c7cfdba1f
+        platform:
+          type: string
+          description: Provider identifier. Additional values will be introduced as integrations are added.
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+          example: SHOPIFY
+        externalAccountId:
+          type: string
+          example: atlas-market.myshopify.com
+        displayName:
+          type: string
+          nullable: true
+          example: Atlas Market
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISCONNECTED
+            - REAUTHORIZATION_REQUIRED
+          example: ACTIVE
+        includeInRevenue:
+          type: boolean
+          description: Whether this connection contributes to combined revenue calculations.
+          example: true
+        lastSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-07-19T08:30:00.000Z'
+        syncPending:
+          type: boolean
+          description: Whether a subsequent sync request is required to finish the current backfill.
+          example: false
+        lastSyncError:
+          type: string
+          nullable: true
+          description: Last safe synchronization error message.
+          example: null
+        productCount:
+          type: number
+          nullable: true
+          example: 125
+        customerCount:
+          type: number
+          nullable: true
+          example: 840
+        metricsSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-08-12T08:30:00.000Z'
+        lastMetricsError:
+          type: string
+          nullable: true
+          example: null
+        lastWebhookAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Latest successfully processed provider webhook. Currently available for Shopify.
+        lastWebhookError:
+          type: string
+          nullable: true
+          description: Latest safe webhook processing error. Currently available for Shopify.
+      required:
+        - id
+        - platform
+        - externalAccountId
+        - status
+        - includeInRevenue
+        - syncPending
+    EcommerceOrderDispatchDto:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - SENDIT
+            - QUICKLIVRAISON
+            - FORCELOG
+            - OZONEEXPRESS
+        merchantTracking:
+          type: string
+          example: ORD-A1B2C3D4
+        providerTracking:
+          type: object
+          nullable: true
+          example: OZ123456789MA
+        status:
+          type: string
+          enum:
+            - PENDING
+            - DISPATCHED
+            - FAILED
+        errorMessage:
+          type: object
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - provider
+        - merchantTracking
+        - status
+        - updatedAt
+    EcommerceOrderDto:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Zomaal internal order ID
+        externalOrderId:
+          type: string
+          description: External order ID
+        orderName:
+          type: object
+          description: Order name/reference
+        platform:
+          type: string
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+          description: Source platform
+        status:
+          type: string
+          enum:
+            - OPEN
+            - CLOSED
+            - CANCELLED
+            - UNKNOWN
+        financialStatus:
+          type: string
+          enum:
+            - PENDING
+            - AUTHORIZED
+            - PARTIALLY_PAID
+            - PAID
+            - PARTIALLY_REFUNDED
+            - REFUNDED
+            - VOIDED
+            - EXPIRED
+            - UNKNOWN
+        fulfillmentStatus:
+          type: object
+          description: Fulfillment status
+        currency:
+          type: string
+          description: Order currency
+        grossSales:
+          type: string
+          description: Order gross sales
+        totalCollected:
+          type: string
+          description: Order total collected
+        itemCount:
+          type: number
+          description: Number of items
+        processedAt:
+          type: string
+          description: When the order was processed
+        dispatch:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/EcommerceOrderDispatchDto'
+      required:
+        - id
+        - externalOrderId
+        - orderName
+        - platform
+        - status
+        - financialStatus
+        - fulfillmentStatus
+        - currency
+        - grossSales
+        - totalCollected
+        - itemCount
+        - processedAt
+    EcommerceHomeResponseDto:
+      type: object
+      properties:
+        baseCurrency:
+          type: string
+          example: MAD
+        revenue:
+          $ref: '#/components/schemas/RevenueSummaryDto'
+        orders:
+          $ref: '#/components/schemas/EcommerceHomeOrderMetricsDto'
+        catalog:
+          $ref: '#/components/schemas/EcommerceHomeCatalogMetricsDto'
+        shipping:
+          $ref: '#/components/schemas/EcommerceHomeShippingMetricsDto'
+        connections:
+          type: array
+          items:
+            $ref: '#/components/schemas/EcommerceConnectionDto'
+        recentOrders:
+          type: array
+          items:
+            $ref: '#/components/schemas/EcommerceOrderDto'
+      required:
+        - baseCurrency
+        - revenue
+        - orders
+        - catalog
+        - shipping
+        - connections
+        - recentOrders
+    EcommerceConnectionListDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EcommerceConnectionDto'
+      required:
+        - data
+    EcommerceSyncResponseDto:
+      type: object
+      properties:
+        connectionId:
+          type: string
+          example: 7cf83ca3-497c-44a7-bc11-ae0c7cfdba1f
+        platform:
+          type: string
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+          example: LIGHTFUNNELS
+        processedOrders:
+          type: number
+          description: Orders inserted or refreshed during this synchronization run.
+          example: 87
+        hasMore:
+          type: boolean
+          description: Whether more provider pages remain. Call this endpoint again when true.
+          example: false
+        lastSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Completed synchronization watermark. Null while a paginated backfill remains.
+          example: '2026-07-19T08:30:00.000Z'
+      required:
+        - connectionId
+        - platform
+        - processedOrders
+        - hasMore
+    EcommerceMetricsRefreshDto:
+      type: object
+      properties:
+        connectionId:
+          type: string
+          example: 7cf83ca3-497c-44a7-bc11-ae0c7cfdba1f
+        platform:
+          type: string
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+        productCount:
+          type: number
+          example: 125
+        customerCount:
+          type: number
+          example: 840
+        metricsSyncedAt:
+          type: string
+          format: date-time
+      required:
+        - connectionId
+        - platform
+        - productCount
+        - customerCount
+        - metricsSyncedAt
     RevenueDailyTotalDto:
       type: object
       properties:
@@ -11550,75 +12006,6 @@ components:
       required:
         - period
         - data
-    EcommerceOrderDto:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Zomaal internal order ID
-        externalOrderId:
-          type: string
-          description: External order ID
-        orderName:
-          type: object
-          description: Order name/reference
-        platform:
-          type: string
-          enum:
-            - SHOPIFY
-            - YOUCAN
-            - LIGHTFUNNELS
-          description: Source platform
-        status:
-          type: string
-          enum:
-            - OPEN
-            - CLOSED
-            - CANCELLED
-            - UNKNOWN
-        financialStatus:
-          type: string
-          enum:
-            - PENDING
-            - AUTHORIZED
-            - PARTIALLY_PAID
-            - PAID
-            - PARTIALLY_REFUNDED
-            - REFUNDED
-            - VOIDED
-            - EXPIRED
-            - UNKNOWN
-        fulfillmentStatus:
-          type: object
-          description: Fulfillment status
-        currency:
-          type: string
-          description: Order currency
-        grossSales:
-          type: string
-          description: Order gross sales
-        totalCollected:
-          type: string
-          description: Order total collected
-        itemCount:
-          type: number
-          description: Number of items
-        processedAt:
-          type: string
-          description: When the order was processed
-      required:
-        - id
-        - externalOrderId
-        - orderName
-        - platform
-        - status
-        - financialStatus
-        - fulfillmentStatus
-        - currency
-        - grossSales
-        - totalCollected
-        - itemCount
-        - processedAt
     PaginationDto:
       type: object
       properties:
@@ -11654,6 +12041,95 @@ components:
       required:
         - data
         - pagination
+    EcommerceOrderProductDto:
+      type: object
+      properties:
+        lineItemId:
+          type: string
+          description: Provider line-item or snapshot identifier
+        productId:
+          type: object
+          nullable: true
+        variantId:
+          type: object
+          nullable: true
+        title:
+          type: string
+          description: Product title captured on the order
+        variantTitle:
+          type: object
+          nullable: true
+        sku:
+          type: object
+          nullable: true
+        quantity:
+          type: number
+          minimum: 1
+        unitPrice:
+          type: object
+          nullable: true
+          example: '149.9000'
+        totalPrice:
+          type: object
+          nullable: true
+          example: '299.8000'
+        currency:
+          type: string
+          example: MAD
+        imageUrl:
+          type: object
+          nullable: true
+          format: uri
+      required:
+        - lineItemId
+        - title
+        - quantity
+        - currency
+    EcommerceOrderProductsDto:
+      type: object
+      properties:
+        orderId:
+          type: string
+          description: Zomaal internal order ID
+          format: uuid
+        platform:
+          type: string
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+        externalOrderId:
+          type: string
+          description: Source-platform order identifier
+        orderReference:
+          type: string
+          description: Visible source order reference
+        currency:
+          type: string
+          example: MAD
+        itemCount:
+          type: number
+          description: Total quantity across returned product lines
+        productLineCount:
+          type: number
+          description: Number of distinct returned product lines
+        complete:
+          type: boolean
+          description: False only when the provider order contains more lines than this response can safely return.
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/EcommerceOrderProductDto'
+      required:
+        - orderId
+        - platform
+        - externalOrderId
+        - orderReference
+        - currency
+        - itemCount
+        - productLineCount
+        - complete
+        - products
     FulfillmentLineItemDto:
       type: object
       properties:
@@ -11768,7 +12244,13 @@ components:
           description: Courier to dispatch to
         options:
           type: object
-          description: Courier-specific options and payload
+          description: Courier routing options. Sendit requires pickupDistrictId and destinationDistrictId. QuickLivraison requires destinationDistrictId. ForceLog and OzoneExpress accept destinationCity when the source order city is not the provider city identifier. allowOpen and allowTry are optional booleans.
+          example:
+            pickupDistrictId: 1
+            destinationDistrictId: 58
+            destinationCity: Casablanca
+            allowOpen: false
+            allowTry: false
       required:
         - provider
     EcommerceDispatchResponseDto:
@@ -11780,9 +12262,21 @@ components:
         status:
           type: string
           description: Status of the dispatch
+        provider:
+          type: string
+          enum:
+            - SENDIT
+            - QUICKLIVRAISON
+            - FORCELOG
+            - OZONEEXPRESS
+        merchantTracking:
+          type: string
+          description: Stable Zomaal merchant parcel reference
       required:
         - trackingNumber
         - status
+        - provider
+        - merchantTracking
     YouCanAuthorizationResponseDto:
       type: object
       properties:
@@ -11912,11 +12406,13 @@ components:
         authorizationUrl:
           type: string
           description: Open this URL in the browser so the merchant can authorize Lightfunnels.
-          example: https://app.lightfunnels.com/admin/oauth?client_id=abc&redirect_uri=https%3A%2F%2Fapi.example.com%2Fauth%2Flightfunnels%2Fcallback&scope=orders%2Cfunnels&state=...
+          example: https://app.lightfunnels.com/admin/oauth?client_id=abc&redirect_uri=https%3A%2F%2Fapi.example.com%2Fauth%2Flightfunnels%2Fcallback&scope=customers%2Cfunnels%2Corders%2Cproducts&state=...
         requestedScopes:
           example:
+            - customers
             - funnels
             - orders
+            - products
           type: array
           items:
             type: string
@@ -11956,8 +12452,10 @@ components:
           example: active
         grantedScopes:
           example:
+            - customers
             - funnels
             - orders
+            - products
           type: array
           items:
             type: string

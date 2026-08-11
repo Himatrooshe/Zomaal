@@ -76,6 +76,7 @@ describe('LightfunnelsRevenueAdapter', () => {
         after: null,
         query: 'order_by:id order_dir:asc',
       },
+      'orders',
     );
   });
 

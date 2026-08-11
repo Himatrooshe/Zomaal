@@ -149,6 +149,10 @@ model EcommerceConnection {
   syncStartedAt     DateTime?
   lastSyncedAt      DateTime?
   lastSyncError     String?
+  productCount      Int?
+  customerCount     Int?
+  metricsSyncedAt   DateTime?
+  lastMetricsError  String?
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt
 
@@ -233,6 +237,8 @@ model ShopifyConnection {
   installedAt           DateTime                @default(now())
   disconnectedAt        DateTime?
   lastVerifiedAt        DateTime?
+  lastWebhookAt         DateTime?
+  lastWebhookError      String?
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
 

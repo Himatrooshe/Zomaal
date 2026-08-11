@@ -65,6 +65,10 @@ Possible `status` values:
 When `scopeUpdateRequired` is true, start authorization again after the Shopify
 app configuration has been deployed with the required scopes.
 
+`lastWebhookAt` records the latest successfully processed Shopify event.
+`lastWebhookError` contains a safe processing error when Shopify should retry a
+delivery. The response never includes webhook payloads or credentials.
+
 ### Verify and disconnect
 
 ```http
@@ -243,14 +247,45 @@ Cloud Run deploys the Docker backend. Shopify CLI deploys Shopify configuration;
 ## Webhooks
 
 `POST /webhooks/shopify` validates the exact raw body and required Shopify
-headers. Supported lifecycle/privacy topics are:
+headers. App-specific subscriptions are declared once in `shopify.app.toml`
+and deployed uniformly to every installed shop. Supported topics are:
 
 - `app/uninstalled`
+- `orders/create`
+- `orders/updated`
+- `orders/cancelled`
+- `orders/delete`
+- `refunds/create`
+- `products/create`
+- `products/update`
+- `products/delete`
+- `customers/create`
+- `customers/update`
+- `customers/delete`
 - `customers/data_request`
 - `customers/redact`
 - `shop/redact`
 
-Webhook IDs are stored for idempotency without retaining payload PII. Zomaal
-currently stores no Shopify customer/order payloads. If such tables are added,
-their data-export and redaction behavior must be added to the two customer
-privacy handlers before release.
+For order and refund events, Zomaal refetches the current GraphQL order and
+upserts the normalized, non-PII financial projection used by revenue and home
+screens. Refetching avoids replaying stale REST payloads. Provider timestamps
+prevent older concurrent deliveries from overwriting newer order state.
+
+Product and customer events refresh exact Shopify counts. Product details,
+customer details, and fulfillment addresses remain live provider reads; Zomaal
+does not retain customer records or webhook payload PII. Order deletion removes
+the normalized order. Uninstall disconnects credentials, and shop redaction
+removes the Shopify connection and its normalized data.
+
+Webhook IDs are stored for idempotency. Shopify can deliver duplicates and does
+not guarantee delivery or ordering, so `POST /internal/ecommerce/sync` remains
+the scheduler-only reconciliation path. It refreshes both orders and cached
+product/customer totals. The normal frontend should not expose a Sync button.
+
+After editing webhook topics or URLs, apply them to the development store with
+`shopify app dev` and to every production installation with:
+
+```bash
+shopify app config validate
+shopify app deploy
+```
