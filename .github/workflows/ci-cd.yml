@@ -113,6 +113,13 @@ jobs:
           region: ${{ vars.GCP_REGION }}
           service: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
           source: .
+          # These are non-secret application capabilities required at startup.
+          # Keeping them here prevents a code deploy from starting with stale
+          # OAuth scope configuration already present on the Cloud Run service.
+          env_vars: |-
+            YOUCAN_SCOPES=*
+            LIGHTFUNNELS_SCOPES="orders,funnels,products,customers"
+          env_vars_update_strategy: merge
 
       - name: Smoke-test the deployed revision
         shell: bash
