@@ -380,6 +380,15 @@ export class UpdateWarehouseProductDto {
   status?: WarehouseProductStatus;
 }
 
+export enum ProductStockStatus {
+  /** Product has more available units than its low-stock threshold. */
+  IN_STOCK = 'IN_STOCK',
+  /** Product has 1..threshold available units. */
+  LOW_STOCK = 'LOW_STOCK',
+  /** Product has 0 available units (including products without inventory). */
+  OUT_OF_STOCK = 'OUT_OF_STOCK',
+}
+
 export class WarehouseProductQueryDto {
   @ApiPropertyOptional({
     description:
@@ -395,6 +404,15 @@ export class WarehouseProductQueryDto {
   @IsOptional()
   @IsEnum(WarehouseProductStatus)
   status?: WarehouseProductStatus;
+
+  @ApiPropertyOptional({
+    enum: ProductStockStatus,
+    description:
+      'Stock availability filter. Available = onHand - reserved - damaged summed across variants; low-stock threshold is the sum of the variants lowStockAlertThreshold.',
+  })
+  @IsOptional()
+  @IsEnum(ProductStockStatus)
+  stockStatus?: ProductStockStatus;
 
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
