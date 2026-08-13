@@ -18,6 +18,7 @@ import { BarcodeService } from './barcode.service';
 import {
   CreateWarehouseProductDto,
   ProductOptionInputDto,
+  ProductStockStatus,
   ProductVariantInputDto,
   UpdateWarehouseProductDto,
   WarehouseProductQueryDto,
@@ -350,12 +351,19 @@ export class ProductService {
     const store = await this.stores.requireStore(userId);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+    // Stock availability is an aggregate over variant inventory balances, so it
+    // cannot be expressed in a Prisma where clause. Resolve the matching product
+    // IDs first and constrain the paginated query with them.
+    const stockProductIds = query.stockStatus
+      ? await this.stockMatchingProductIds(store.id, query.stockStatus)
+      : null;
     const where: Prisma.WarehouseProductWhereInput = {
       storeId: store.id,
       ...(query.status
         ? { status: query.status }
         : { status: { not: 'ARCHIVED' } }),
       ...(query.categoryId ? { categoryId: query.categoryId } : {}),
+      ...(stockProductIds ? { id: { in: stockProductIds } } : {}),
       ...(query.search
         ? {
             OR: [
@@ -394,6 +402,40 @@ export class ProductService {
       data: products.map((product) => this.toResponse(product)),
       pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
+  }
+
+  /**
+   * Product IDs whose aggregated available stock (sum of onHand - reserved -
+   * damaged across all variant inventory balances) matches the given status.
+   * The low-stock threshold is the sum of the variants' lowStockAlertThreshold,
+   * mirroring how available units are summed. Products without any inventory
+   * have 0 available and therefore only match OUT_OF_STOCK.
+   */
+  private async stockMatchingProductIds(
+    storeId: string,
+    stockStatus: ProductStockStatus,
+  ): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT p."id" AS id
+      FROM "WarehouseProduct" p
+      LEFT JOIN "WarehouseVariant" v ON v."productId" = p."id"
+      LEFT JOIN "InventoryItem" ii ON ii."variantId" = v."id"
+      LEFT JOIN "InventoryBalance" b ON b."inventoryItemId" = ii."id"
+      WHERE p."storeId" = ${storeId}
+      GROUP BY p."id"
+      HAVING CASE ${stockStatus}
+        WHEN 'OUT_OF_STOCK' THEN
+          COALESCE(SUM(b."onHand" - b."reserved" - b."damaged"), 0) = 0
+        WHEN 'LOW_STOCK' THEN
+          COALESCE(SUM(b."onHand" - b."reserved" - b."damaged"), 0) > 0
+          AND COALESCE(SUM(b."onHand" - b."reserved" - b."damaged"), 0)
+            <= COALESCE(SUM(v."lowStockThreshold"), 0)
+        ELSE
+          COALESCE(SUM(b."onHand" - b."reserved" - b."damaged"), 0)
+            > COALESCE(SUM(v."lowStockThreshold"), 0)
+      END
+    `);
+    return rows.map((row) => row.id);
   }
 
   async get(userId: string, productId: string) {
