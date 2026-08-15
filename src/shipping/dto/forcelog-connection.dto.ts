@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsString } from 'class-validator';
 
 export class ConnectForceLogDto {
@@ -43,4 +43,10 @@ export class ForceLogConnectionStatusDto {
     example: 'ForceLog account is connected',
   })
   message: string;
+
+  @ApiPropertyOptional({ nullable: true, format: 'date-time' })
+  lastSyncedAt?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  lastSyncError?: string | null;
 }

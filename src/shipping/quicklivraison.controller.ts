@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -15,6 +16,7 @@ import {
   ApiConflictResponse,
   ApiConsumes,
   ApiCreatedResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
@@ -34,6 +36,9 @@ import {
 } from './dto/quicklivraison-connection.dto';
 import { QuickLivraisonBulkDeliveryDto } from './dto/quicklivraison-bulk-delivery.dto';
 import { QuickLivraisonDeliveryDto } from './dto/quicklivraison-delivery.dto';
+import { QuickLivraisonShipmentQueryDto } from './dto/quicklivraison-shipment-query.dto';
+import { QuickLivraisonOverviewQueryDto } from './dto/quicklivraison-overview-query.dto';
+import { QuickLivraisonOverviewResponseDto } from './dto/quicklivraison-overview-response.dto';
 import { ShippingService } from './shipping.service';
 
 @ApiTags('Shipping - QuickLivraison')
@@ -284,6 +289,157 @@ export class QuickLivraisonController {
     return this.shippingService.createQuickLivraisonBulkDeliveries(
       user.userId,
       payload,
+    );
+  }
+
+  @Get('shipments')
+  @ApiOperation({
+    summary: 'List locally stored QuickLivraison shipments',
+    operationId: 'listStoredQuickLivraisonShipments',
+    description:
+      'Returns user-scoped local shipments with search, normalized-status filtering, and backend pagination. This endpoint does not call QuickLivraison.',
+  })
+  @ApiOkResponse({
+    description: 'Paginated normalized QuickLivraison shipments.',
+    schema: {
+      example: {
+        data: [],
+        pagination: { total: 0, page: 1, limit: 20, totalPages: 0 },
+      },
+    },
+  })
+  listStoredShipments(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: QuickLivraisonShipmentQueryDto,
+  ) {
+    return this.shippingService.listQuickLivraisonShipments(user.userId, query);
+  }
+
+  @Post('shipments/sync')
+  @ApiOperation({
+    summary: 'Synchronize existing QuickLivraison shipments',
+    operationId: 'syncQuickLivraisonShipments',
+    description:
+      'Fetches the connected account’s complete provider parcel list, imports unknown tracking numbers, reconciles statuses idempotently, and updates sync health.',
+  })
+  @ApiOkResponse({
+    description: 'QuickLivraison shipment synchronization summary.',
+    schema: {
+      example: {
+        success: true,
+        message: 'QuickLivraison shipments synchronized',
+        processed: 120,
+        imported: 100,
+        reconciled: 20,
+        syncedAt: '2026-08-13T00:00:00.000Z',
+      },
+    },
+  })
+  syncShipments(@CurrentUser() user: JwtPayload) {
+    return this.shippingService.syncQuickLivraisonShipments(user.userId);
+  }
+
+  @Get('overview')
+  @ApiOperation({
+    summary: 'Get QuickLivraison overview analytics',
+    operationId: 'getQuickLivraisonOverview',
+    description:
+      'Returns local KPIs, status breakdown, daily performance, top cities, and synchronization health for the selected rolling period.',
+  })
+  @ApiOkResponse({
+    description: 'QuickLivraison overview computed from local shipments.',
+    type: QuickLivraisonOverviewResponseDto,
+  })
+  getOverview(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: QuickLivraisonOverviewQueryDto,
+  ) {
+    return this.shippingService.getQuickLivraisonOverview(user.userId, query);
+  }
+
+  @Get('shipments/:trackingNumber')
+  @ApiOperation({
+    summary: 'Get one locally stored QuickLivraison shipment',
+    operationId: 'getStoredQuickLivraisonShipment',
+    description:
+      'Returns the authenticated user’s normalized local shipment and tracking events. A successful single or bulk creation stores the parcel before its provider response is returned. This endpoint does not call QuickLivraison.',
+  })
+  @ApiParam({
+    name: 'trackingNumber',
+    description: 'QuickLivraison tracking number.',
+    example: 'PARCEL_12345678',
+  })
+  @ApiOkResponse({
+    description: 'Stored QuickLivraison shipment with its local timeline.',
+    schema: {
+      type: 'object',
+      additionalProperties: true,
+      example: {
+        id: '8fe15ef0-d7ef-4dd2-a120-b9868a8425fb',
+        provider: 'quicklivraison',
+        providerCode: 'PARCEL_12345678',
+        providerStatus: 'NEW_PARCEL',
+        providerSecondaryStatus: null,
+        normalizedStatus: 'PENDING',
+        reference: 'ORDER-1001',
+        recipientName: 'Sara El Amrani',
+        recipientPhone: '0612345678',
+        address: '123 Rue Al Massira, Casablanca',
+        destinationDistrictId: 123,
+        codAmount: '250.0000',
+        currency: 'MAD',
+        events: [
+          {
+            eventType: 'delivery.created',
+            providerStatus: 'NEW_PARCEL',
+            normalizedStatus: 'PENDING',
+            actor: 'QuickLivraison',
+          },
+        ],
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description:
+      'No stored QuickLivraison shipment with this tracking number belongs to the authenticated user.',
+    type: ApiErrorDto,
+  })
+  getStoredShipment(
+    @CurrentUser() user: JwtPayload,
+    @Param('trackingNumber') trackingNumber: string,
+  ) {
+    return this.shippingService.getQuickLivraisonShipment(
+      user.userId,
+      trackingNumber,
+    );
+  }
+
+  @Get('shipments/:trackingNumber/timeline')
+  @ApiOperation({
+    summary: 'Get a QuickLivraison shipment timeline',
+    operationId: 'getQuickLivraisonShipmentTimeline',
+    description:
+      'Returns locally stored creation, reconciliation, and verified webhook status events in newest-first order.',
+  })
+  @ApiParam({
+    name: 'trackingNumber',
+    example: 'PARCEL_12345678',
+  })
+  @ApiOkResponse({
+    description: 'Normalized QuickLivraison shipment timeline.',
+    schema: { type: 'object', additionalProperties: true },
+  })
+  @ApiNotFoundResponse({
+    description: 'Stored QuickLivraison shipment was not found.',
+    type: ApiErrorDto,
+  })
+  getTimeline(
+    @CurrentUser() user: JwtPayload,
+    @Param('trackingNumber') trackingNumber: string,
+  ) {
+    return this.shippingService.getQuickLivraisonTimeline(
+      user.userId,
+      trackingNumber,
     );
   }
 

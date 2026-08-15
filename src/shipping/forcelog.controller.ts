@@ -4,8 +4,11 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -18,6 +21,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiNotFoundResponse,
   ApiParam,
   ApiProduces,
   ApiServiceUnavailableResponse,
@@ -40,6 +44,12 @@ import {
 import { ForceLogPickupDto } from './dto/forcelog-pickup.dto';
 import { ForceLogProductDto } from './dto/forcelog-product.dto';
 import { ForceLogReturnRequestDto } from './dto/forcelog-return.dto';
+import {
+  ForceLogShipmentQueryDto,
+  ForceLogSyncQueryDto,
+} from './dto/forcelog-shipment-query.dto';
+import { ForceLogOverviewQueryDto } from './dto/forcelog-overview-query.dto';
+import { ForceLogOverviewResponseDto } from './dto/forcelog-overview-response.dto';
 import { ShippingService } from './shipping.service';
 
 const forceLogAuthDescription =
@@ -182,6 +192,124 @@ export class ForceLogController {
     return this.shippingService.addForceLogParcel(user.userId, payload);
   }
 
+  @Get('shipments')
+  @ApiOperation({
+    summary: 'List locally stored ForceLog shipments',
+    operationId: 'listStoredForceLogShipments',
+    description:
+      'Returns user-scoped ForceLog parcels with backend pagination, search, and normalized-status filtering. This endpoint does not contact ForceLog.',
+  })
+  @ApiOkResponse({
+    description: 'Paginated normalized ForceLog shipments.',
+    schema: {
+      example: {
+        data: [],
+        pagination: { total: 0, page: 1, limit: 20, totalPages: 0 },
+      },
+    },
+  })
+  listStoredShipments(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ForceLogShipmentQueryDto,
+  ) {
+    return this.shippingService.listForceLogShipments(user.userId, query);
+  }
+
+  @Post('shipments/sync')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Refresh locally known ForceLog shipments',
+    operationId: 'syncForceLogShipments',
+    description:
+      'Refreshes a bounded set of locally known tracking codes. ForceLog does not expose an account-wide parcel-list endpoint, so parcels created outside Zomaal are not automatically discoverable.',
+  })
+  @ApiOkResponse({
+    description: 'ForceLog refresh batch completed.',
+    schema: { type: 'object', additionalProperties: true },
+  })
+  @ApiForceLogProviderErrors()
+  syncShipments(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ForceLogSyncQueryDto,
+  ) {
+    return this.shippingService.syncForceLogShipments(user.userId, query);
+  }
+
+  @Get('overview')
+  @ApiOperation({
+    summary: 'Get ForceLog overview analytics',
+    operationId: 'getForceLogOverview',
+    description:
+      'Returns local ForceLog KPIs, status breakdown, performance trend, top cities, and synchronization health.',
+  })
+  @ApiOkResponse({
+    description: 'ForceLog overview computed from locally tracked parcels.',
+    type: ForceLogOverviewResponseDto,
+  })
+  getOverview(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ForceLogOverviewQueryDto,
+  ) {
+    return this.shippingService.getForceLogOverview(user.userId, query);
+  }
+
+  @Post('shipments/:code/refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Refresh or import one ForceLog shipment',
+    operationId: 'refreshForceLogShipment',
+    description:
+      'Fetches one tracking code from ForceLog and upserts its normalized local shipment and status event. This can import a parcel created outside Zomaal.',
+  })
+  @ApiOkResponse({
+    description: 'Refreshed normalized ForceLog shipment.',
+    schema: { type: 'object', additionalProperties: true },
+  })
+  @ApiForceLogProviderErrors()
+  refreshShipment(
+    @CurrentUser() user: JwtPayload,
+    @Param('code') code: string,
+  ) {
+    return this.shippingService.refreshForceLogShipment(user.userId, code);
+  }
+
+  @Get('shipments/:code/timeline')
+  @ApiOperation({
+    summary: 'Get a stored ForceLog shipment timeline',
+    operationId: 'getForceLogShipmentTimeline',
+  })
+  @ApiOkResponse({
+    description: 'Normalized ForceLog shipment timeline.',
+    schema: { type: 'object', additionalProperties: true },
+  })
+  @ApiNotFoundResponse({
+    description: 'Stored ForceLog shipment was not found.',
+    type: ApiErrorDto,
+  })
+  getTimeline(@CurrentUser() user: JwtPayload, @Param('code') code: string) {
+    return this.shippingService.getForceLogTimeline(user.userId, code);
+  }
+
+  @Get('shipments/:code')
+  @ApiOperation({
+    summary: 'Get one locally stored ForceLog shipment',
+    operationId: 'getStoredForceLogShipment',
+  })
+  @ApiOkResponse({
+    description: 'Stored normalized ForceLog shipment.',
+    schema: { type: 'object', additionalProperties: true },
+  })
+  @ApiNotFoundResponse({
+    description: 'Stored ForceLog shipment was not found.',
+    type: ApiErrorDto,
+  })
+  getStoredShipment(
+    @CurrentUser() user: JwtPayload,
+    @Param('code') code: string,
+  ) {
+    return this.shippingService.getForceLogShipment(user.userId, code);
+  }
+
   @Get('parcels/:code')
   @ApiOperation({
     summary: 'Get ForceLog parcel details',
@@ -198,13 +326,13 @@ export class ForceLogController {
     schema: {
       ...providerObjectSchema,
       example: {
-        CODE: 'FL000123456',
+        TRACKING_NUMBER: 'FL000123456',
         ORDER_NUM: 'ORDER-1001',
         STATUS: 'NEW_PARCEL',
-        RECEIVE: 'Sara El Amrani',
+        RECEIVER: 'Sara El Amrani',
         PHONE: '0612345678',
-        CITY: 'Casablanca',
-        COD: 250,
+        CITY_NAME: 'Casablanca',
+        PRICE: 250,
       },
     },
   })

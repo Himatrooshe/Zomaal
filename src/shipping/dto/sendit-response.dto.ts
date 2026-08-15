@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ShippingShipmentStatus } from '@prisma/client';
 
 export class SenditPaginationDto {
   @ApiProperty({
@@ -489,4 +490,246 @@ export class SenditServiceUnavailableErrorDto {
 
   @ApiProperty({ example: 503 })
   statusCode: number;
+}
+
+export class StoredSenditTrackingEventDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ example: 'delivery.created' })
+  eventType: string;
+
+  @ApiProperty({ example: 'PENDING' })
+  providerStatus: string;
+
+  @ApiProperty({ enum: ShippingShipmentStatus })
+  normalizedStatus: ShippingShipmentStatus;
+
+  @ApiPropertyOptional({ nullable: true })
+  message: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    format: 'uri',
+    example: 'https://app.sendit.ma/storage/deliveries/June2025/proof.jpg',
+  })
+  proofImageUrl: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    format: 'date-time',
+    example: '2025-06-12T00:00:00.000Z',
+  })
+  deliverBy: string | null;
+
+  @ApiPropertyOptional({ nullable: true, minimum: 0, example: 1 })
+  unreachableCount: number | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 'Sendit' })
+  actor: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  eventAt: string;
+}
+
+export class StoredSenditShipmentDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ enum: ['sendit'], example: 'sendit' })
+  provider: 'sendit';
+
+  @ApiProperty({ example: 'DHF420101C' })
+  providerCode: string;
+
+  @ApiProperty({ example: 'PENDING' })
+  providerStatus: string;
+
+  @ApiPropertyOptional({ nullable: true, example: null })
+  providerReturnStatus: string | null;
+
+  @ApiProperty({ enum: ShippingShipmentStatus })
+  normalizedStatus: ShippingShipmentStatus;
+
+  @ApiPropertyOptional({ nullable: true, example: 'ORDER-2026-0042' })
+  reference: string | null;
+
+  @ApiProperty({ example: 'Sara Amrani' })
+  recipientName: string;
+
+  @ApiProperty({ example: '0612345678' })
+  recipientPhone: string;
+
+  @ApiProperty({ example: '12 Rue Al Massira, Casablanca' })
+  address: string;
+
+  @ApiPropertyOptional({ nullable: true, example: 'Casablanca' })
+  city: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 1 })
+  pickupDistrictId: number | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 58 })
+  destinationDistrictId: number | null;
+
+  @ApiProperty({ example: '349.9000' })
+  codAmount: string;
+
+  @ApiPropertyOptional({ nullable: true, example: '35.0000' })
+  fee: string | null;
+
+  @ApiProperty({ example: 'MAD' })
+  currency: string;
+
+  @ApiPropertyOptional({ nullable: true, format: 'date-time' })
+  lastActionAt: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  createdAt: string;
+
+  @ApiProperty({ format: 'date-time' })
+  updatedAt: string;
+
+  @ApiProperty({ type: [StoredSenditTrackingEventDto] })
+  events: StoredSenditTrackingEventDto[];
+}
+
+export class StoredSenditShipmentListItemDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ enum: ['sendit'], example: 'sendit' })
+  provider: 'sendit';
+
+  @ApiProperty({ example: 'DHF420101C' })
+  providerCode: string;
+
+  @ApiProperty({ example: 'POSTPONED' })
+  providerStatus: string;
+
+  @ApiProperty({ enum: ShippingShipmentStatus })
+  normalizedStatus: ShippingShipmentStatus;
+
+  @ApiPropertyOptional({ nullable: true, example: 'ORDER-2026-0042' })
+  reference: string | null;
+
+  @ApiProperty({ example: 'Sara Amrani' })
+  recipientName: string;
+
+  @ApiProperty({ example: '0612345678' })
+  recipientPhone: string;
+
+  @ApiPropertyOptional({ nullable: true, example: 'Casablanca' })
+  city: string | null;
+
+  @ApiProperty({ example: '349.9000' })
+  codAmount: string;
+
+  @ApiPropertyOptional({ nullable: true, example: '35.0000' })
+  fee: string | null;
+
+  @ApiProperty({ example: 'MAD' })
+  currency: string;
+
+  @ApiPropertyOptional({ nullable: true, format: 'date-time' })
+  lastActionAt: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  createdAt: string;
+
+  @ApiProperty({ format: 'date-time' })
+  updatedAt: string;
+}
+
+export class StoredSenditShipmentPaginationDto {
+  @ApiProperty({ example: 42 })
+  total: number;
+
+  @ApiProperty({ example: 1 })
+  page: number;
+
+  @ApiProperty({ example: 20 })
+  limit: number;
+
+  @ApiProperty({ example: 3 })
+  totalPages: number;
+}
+
+export class StoredSenditShipmentListDto {
+  @ApiProperty({ type: [StoredSenditShipmentListItemDto] })
+  data: StoredSenditShipmentListItemDto[];
+
+  @ApiProperty({ type: StoredSenditShipmentPaginationDto })
+  pagination: StoredSenditShipmentPaginationDto;
+}
+
+export class StoredSenditTimelineDto {
+  @ApiProperty({ example: 'DHF420101C' })
+  providerCode: string;
+
+  @ApiProperty({ example: 'POSTPONED' })
+  providerStatus: string;
+
+  @ApiPropertyOptional({ nullable: true, example: null })
+  providerReturnStatus: string | null;
+
+  @ApiProperty({ enum: ShippingShipmentStatus })
+  normalizedStatus: ShippingShipmentStatus;
+
+  @ApiPropertyOptional({ nullable: true, format: 'date-time' })
+  lastActionAt: string | null;
+
+  @ApiProperty({ type: [StoredSenditTrackingEventDto] })
+  events: StoredSenditTrackingEventDto[];
+}
+
+export class SenditShipmentSyncResponseDto {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({ example: 'Sendit shipments synchronized' })
+  message: string;
+
+  @ApiProperty({
+    description: 'Number of Sendit provider pages processed in this run.',
+    example: 5,
+  })
+  pagesSynced: number;
+
+  @ApiProperty({
+    description: 'Number of delivery records processed across those pages.',
+    example: 50,
+  })
+  processed: number;
+
+  @ApiProperty({
+    description: 'Previously unknown Sendit deliveries imported into Zomaal.',
+    example: 42,
+  })
+  imported: number;
+
+  @ApiProperty({
+    description: 'Existing local shipments reconciled with Sendit snapshots.',
+    example: 8,
+  })
+  reconciled: number;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    minimum: 1,
+    description:
+      'Next Sendit page to pass as startPage, or null when the provider collection is exhausted.',
+    example: 6,
+  })
+  nextPage: number | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Total number of deliveries reported by Sendit.',
+    example: 124,
+  })
+  providerTotal: number | null;
+
+  @ApiProperty({ format: 'date-time' })
+  syncedAt: string;
 }

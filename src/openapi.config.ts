@@ -40,6 +40,10 @@ export function createOpenApiConfig() {
       'Frontend catalog and generic shipping-company connection management.',
     )
     .addTag(
+      'Shipping Overview',
+      'Provider-independent shipping counts, costs, and home-screen metrics.',
+    )
+    .addTag(
       'Shipping - Sendit',
       'Sendit account connection, deliveries, districts, pickups, returns, and labels.',
     )

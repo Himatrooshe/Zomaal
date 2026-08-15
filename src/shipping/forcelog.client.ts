@@ -16,7 +16,7 @@ export class ForceLogClient {
 
   addParcel(apiKey: string, payload: unknown) {
     return this.request(apiKey, 'POST', '/Parcels/AddParcel', {
-      body: payload,
+      body: mapAddParcelPayload(payload),
     });
   }
 
@@ -165,4 +165,29 @@ export class ForceLogClient {
 
     return url.toString();
   }
+}
+
+function mapAddParcelPayload(payload: unknown): Record<string, unknown> {
+  const value = providerRecord(payload);
+
+  return {
+    ORDER_NUM: value.ORDER_NUM,
+    RECEIVER: value.RECEIVER ?? value.RECEIVE,
+    PHONE: value.PHONE,
+    CITY: value.CITY,
+    ADDRESS: value.ADDRESS,
+    HOW: value.HOW,
+    PRODUCT_NATURE: value.PRODUCT_NATURE,
+    COD: value.COD,
+    CAN_OPEN: value.CAN_OPEN,
+    STOCK: value.STOCK,
+    FRAGILE: value.FRAGILE,
+    CARTON: value.CARTON,
+  };
+}
+
+function providerRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }

@@ -36,31 +36,39 @@ export class QuickLivraisonWebhookController {
   @ApiOperation({
     summary: 'Receive a QuickLivraison webhook event',
     description:
-      'Public callback endpoint for QuickLivraison. When QUICKLIVRAISON_WEBHOOK_SECRET is configured, the signature is verified against the exact raw request body.',
+      'Public callback endpoint for QuickLivraison. QUICKLIVRAISON_WEBHOOK_SECRET is required; the signature is verified against the exact raw request body before a tracked shipment and its timeline are updated idempotently.',
   })
   @ApiHeader({
     name: 'x-webhook-signature',
-    required: false,
-    description:
-      'HMAC-SHA256 signature formatted as sha256=<hex>. Required when QUICKLIVRAISON_WEBHOOK_SECRET is configured.',
+    required: true,
+    description: 'Required HMAC-SHA256 signature formatted as sha256=<hex>.',
     example: 'sha256=75f0b6f1c3d7...',
   })
   @ApiBody({
-    description:
-      'Provider-defined event payload. Fields can vary according to event type.',
+    description: 'QuickLivraison status_changed event payload.',
     schema: {
       type: 'object',
       additionalProperties: true,
       example: {
-        event: 'parcel.updated',
-        trackingNumber: 'PARCEL_12345678',
-        status: 'delivered',
+        event: 'status_changed',
+        timestamp: '2026-05-22T15:00:00+01:00',
+        data: {
+          tracking_number: 'PARCEL_12345678',
+          status: 'DELIVERED',
+          status_second: null,
+          new_status_code: 'DELIVERED',
+          situation: 'PAID',
+          price: 250,
+          receiver_name: 'Ahmed',
+          city: 'Casablanca',
+          comment: 'Livré avec succès',
+        },
       },
     },
   })
   @ApiOkResponse({
     description:
-      'Webhook signature verified (when enabled) and event accepted.',
+      'Webhook signature verified and the tracked shipment event accepted.',
     type: WebhookReceiptDto,
   })
   @ApiBadRequestResponse({

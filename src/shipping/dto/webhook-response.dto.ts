@@ -4,6 +4,6 @@ export class WebhookReceiptDto {
   @ApiProperty({ example: true })
   success: boolean;
 
-  @ApiProperty({ example: 'QuickLivraison webhook received' })
+  @ApiProperty({ example: 'Provider webhook received' })
   message: string;
 }

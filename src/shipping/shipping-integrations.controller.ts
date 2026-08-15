@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -33,12 +34,18 @@ import {
   ShippingIntegrationsResponseDto,
 } from './dto/shipping-integration.dto';
 import { ShippingIntegrationsService } from './shipping-integrations.service';
+import { ShippingIntegrationQueryDto } from './dto/shipping-integration-query.dto';
+import {
+  CreateShippingCourierSuggestionDto,
+  ShippingCourierSuggestionResponseDto,
+} from './dto/shipping-courier-suggestion.dto';
 
 const companyCodes = [
   'sendit',
   'quicklivraison',
   'forcelog',
   'ozoneexpress',
+  'ameex',
 ] as const;
 
 @ApiTags('Shipping Integrations')
@@ -66,8 +73,33 @@ export class ShippingIntegrationsController {
     description: 'Complete frontend shipping catalog.',
     type: ShippingIntegrationsResponseDto,
   })
-  list(@CurrentUser() user: JwtPayload) {
-    return this.shippingIntegrations.list(user.userId);
+  list(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ShippingIntegrationQueryDto,
+  ) {
+    return this.shippingIntegrations.list(user.userId, query);
+  }
+
+  @Post('suggestions')
+  @ApiOperation({
+    summary: 'Suggest a shipping courier',
+    description:
+      'Stores a courier integration request for review. The authenticated user can submit a courier name, optional website, supported country, and notes. This operation does not contact the suggested courier.',
+  })
+  @ApiBody({ type: CreateShippingCourierSuggestionDto })
+  @ApiCreatedResponse({
+    description: 'Courier suggestion stored for review.',
+    type: ShippingCourierSuggestionResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid courier name, URL, country, or notes.',
+    type: ApiErrorDto,
+  })
+  suggestCourier(
+    @CurrentUser() user: JwtPayload,
+    @Body() payload: CreateShippingCourierSuggestionDto,
+  ) {
+    return this.shippingIntegrations.suggestCourier(user.userId, payload);
   }
 
   @Post(':companyCode/connection')

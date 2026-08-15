@@ -12,7 +12,8 @@ export type ShippingCompanyCode =
   | 'sendit'
   | 'quicklivraison'
   | 'forcelog'
-  | 'ozoneexpress';
+  | 'ozoneexpress'
+  | 'ameex';
 
 export class ShippingIntegrationCredentialsDto {
   @ApiPropertyOptional({
@@ -52,6 +53,12 @@ export class ShippingIntegrationCredentialsDto {
   @IsString()
   @IsNotEmpty()
   apiKey?: string;
+
+  @ApiPropertyOptional({ description: 'Ameex API ID.' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  apiId?: string;
 }
 
 export class ConnectShippingIntegrationDto {
@@ -92,7 +99,7 @@ export class ShippingAuthFieldDto {
 
 export class ShippingCompanyDto {
   @ApiProperty({
-    enum: ['sendit', 'quicklivraison', 'forcelog', 'ozoneexpress'],
+    enum: ['sendit', 'quicklivraison', 'forcelog', 'ozoneexpress', 'ameex'],
     example: 'forcelog',
   })
   code: ShippingCompanyCode;
@@ -125,6 +132,22 @@ export class ShippingCompanyDto {
 
   @ApiProperty({ type: [ShippingAuthFieldDto] })
   authFields: ShippingAuthFieldDto[];
+
+  @ApiProperty({
+    description:
+      'Whether this provider currently has local shipment analytics implemented.',
+    example: true,
+  })
+  analyticsAvailable: boolean;
+
+  @ApiProperty({ example: 1842 })
+  totalShipments: number;
+
+  @ApiProperty({ example: 120 })
+  activeShipments: number;
+
+  @ApiPropertyOptional({ nullable: true, format: 'date-time' })
+  dataUpdatedAt: string | null;
 }
 
 export class ShippingCountryDto {
@@ -148,13 +171,26 @@ export class ShippingCountryDto {
 }
 
 export class ShippingIntegrationsResponseDto {
+  @ApiProperty({
+    example: {
+      connectedCouriers: 2,
+      totalShipments: 1942,
+      activeShipments: 140,
+    },
+  })
+  summary: {
+    connectedCouriers: number;
+    totalShipments: number;
+    activeShipments: number;
+  };
+
   @ApiProperty({ type: [ShippingCountryDto] })
   countries: ShippingCountryDto[];
 }
 
 export class ShippingIntegrationConnectionResponseDto {
   @ApiProperty({
-    enum: ['sendit', 'quicklivraison', 'forcelog', 'ozoneexpress'],
+    enum: ['sendit', 'quicklivraison', 'forcelog', 'ozoneexpress', 'ameex'],
     example: 'forcelog',
   })
   companyCode: ShippingCompanyCode;

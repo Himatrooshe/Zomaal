@@ -19,46 +19,80 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  store                    Store?
-  senditConnection         SenditConnection?
-  quickLivraisonConnection QuickLivraisonConnection?
-  forceLogConnection       ForceLogConnection?
-  ozoneExpressConnection   OzoneExpressConnection?
-  shopifyOAuthStates       ShopifyOAuthState[]
-  youCanOAuthStates        YouCanOAuthState[]
-  lightfunnelsOAuthStates  LightfunnelsOAuthState[]
+  store                      Store?
+  senditConnection           SenditConnection?
+  quickLivraisonConnection   QuickLivraisonConnection?
+  forceLogConnection         ForceLogConnection?
+  ozoneExpressConnection     OzoneExpressConnection?
+  ameexConnection            AmeexConnection?
+  shopifyOAuthStates         ShopifyOAuthState[]
+  youCanOAuthStates          YouCanOAuthState[]
+  lightfunnelsOAuthStates    LightfunnelsOAuthState[]
+  senditShipments            SenditShipment[]
+  quickLivraisonShipments    QuickLivraisonShipment[]
+  forceLogShipments          ForceLogShipment[]
+  ozoneExpressShipments      OzoneExpressShipment[]
+  ameexShipments             AmeexShipment[]
+  shippingCourierSuggestions ShippingCourierSuggestion[]
 }
 
 model QuickLivraisonConnection {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   encryptedApiKey String
   keyType         String
-  connectedAt     DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  connectedAt     DateTime  @default(now())
+  lastSyncedAt    DateTime?
+  lastSyncError   String?
+  updatedAt       DateTime  @updatedAt
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  shipments QuickLivraisonShipment[]
 }
 
 model ForceLogConnection {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   encryptedApiKey String
-  connectedAt     DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  connectedAt     DateTime  @default(now())
+  lastSyncedAt    DateTime?
+  lastSyncError   String?
+  updatedAt       DateTime  @updatedAt
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  shipments ForceLogShipment[]
 }
 
 model OzoneExpressConnection {
-  id                  String   @id @default(uuid())
+  id                  String    @id @default(uuid())
   encryptedCustomerId String
   encryptedApiKey     String
-  connectedAt         DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  connectedAt         DateTime  @default(now())
+  lastSyncedAt        DateTime?
+  lastSyncError       String?
+  updatedAt           DateTime  @updatedAt
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  shipments OzoneExpressShipment[]
+}
+
+model AmeexConnection {
+  id              String    @id @default(uuid())
+  encryptedApiId  String
+  encryptedApiKey String
+  connectedAt     DateTime  @default(now())
+  lastSyncedAt    DateTime?
+  lastSyncError   String?
+  updatedAt       DateTime  @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  shipments AmeexShipment[]
 }
 
 model SenditConnection {
@@ -71,6 +105,337 @@ model SenditConnection {
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  shipments SenditShipment[]
+}
+
+enum ShippingShipmentStatus {
+  PENDING
+  CONFIRMED
+  PICKUP_PENDING
+  PICKED_UP
+  AT_WAREHOUSE
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  POSTPONED
+  UNREACHABLE
+  DELIVERED
+  CANCELLED
+  REFUSED
+  RETURN_PENDING
+  RETURN_IN_TRANSIT
+  RETURNED_TO_WAREHOUSE
+  RETURN_INSPECTION
+  RETURNED_TO_STOCK
+  RETURNED_TO_SELLER
+  UNKNOWN
+}
+
+model SenditShipment {
+  id                    String                 @id @default(uuid())
+  providerCode          String
+  providerStatus        String
+  providerReturnStatus  String?
+  normalizedStatus      ShippingShipmentStatus
+  reference             String?
+  recipientName         String
+  recipientPhone        String
+  address               String
+  city                  String?
+  pickupDistrictId      Int?
+  destinationDistrictId Int?
+  codAmount             Decimal                @db.Decimal(20, 4)
+  fee                   Decimal?               @db.Decimal(20, 4)
+  currency              String                 @default("MAD")
+  lastActionAt          DateTime?
+  providerCreatedAt     DateTime?
+  providerUpdatedAt     DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  userId       String
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectionId String?
+  connection   SenditConnection?       @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  dispatchId   String?                 @unique
+  dispatch     EcommerceOrderDispatch? @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  events       SenditTrackingEvent[]
+
+  @@unique([userId, providerCode])
+  @@index([userId, normalizedStatus, updatedAt])
+  @@index([connectionId, updatedAt])
+  @@index([reference])
+}
+
+model SenditTrackingEvent {
+  id               String                 @id @default(uuid())
+  providerEventKey String
+  eventType        String
+  providerStatus   String
+  normalizedStatus ShippingShipmentStatus
+  message          String?
+  proofImageUrl    String?
+  deliverBy        DateTime?
+  unreachableCount Int?
+  actor            String?
+  eventAt          DateTime
+  rawPayload       Json?
+  createdAt        DateTime               @default(now())
+
+  shipmentId String
+  shipment   SenditShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([shipmentId, providerEventKey])
+  @@index([shipmentId, eventAt])
+}
+
+model QuickLivraisonShipment {
+  id                      String                 @id @default(uuid())
+  providerCode            String
+  providerStatus          String
+  providerSecondaryStatus String?
+  situation               String?
+  normalizedStatus        ShippingShipmentStatus
+  reference               String?
+  recipientName           String?
+  recipientPhone          String?
+  address                 String?
+  city                    String?
+  destinationDistrictId   Int?
+  codAmount               Decimal?               @db.Decimal(20, 4)
+  fee                     Decimal?               @db.Decimal(20, 4)
+  currency                String                 @default("MAD")
+  storeName               String?
+  lastActionAt            DateTime?
+  providerCreatedAt       DateTime?
+  providerUpdatedAt       DateTime?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  userId       String
+  user         User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectionId String?
+  connection   QuickLivraisonConnection?     @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  dispatchId   String?                       @unique
+  dispatch     EcommerceOrderDispatch?       @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  events       QuickLivraisonTrackingEvent[]
+
+  @@unique([userId, providerCode])
+  @@index([userId, normalizedStatus, updatedAt])
+  @@index([connectionId, updatedAt])
+  @@index([reference])
+}
+
+model QuickLivraisonTrackingEvent {
+  id                      String                 @id @default(uuid())
+  providerEventKey        String
+  eventType               String
+  providerStatus          String
+  providerSecondaryStatus String?
+  normalizedStatus        ShippingShipmentStatus
+  message                 String?
+  actor                   String?
+  eventAt                 DateTime
+  rawPayload              Json?
+  createdAt               DateTime               @default(now())
+
+  shipmentId String
+  shipment   QuickLivraisonShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([shipmentId, providerEventKey])
+  @@index([shipmentId, eventAt])
+}
+
+model ForceLogShipment {
+  id                String                 @id @default(uuid())
+  providerCode      String
+  providerStatus    String
+  situation         String?
+  normalizedStatus  ShippingShipmentStatus
+  reference         String?
+  recipientName     String?
+  recipientPhone    String?
+  address           String?
+  city              String?
+  codAmount         Decimal?               @db.Decimal(20, 4)
+  fee               Decimal?               @db.Decimal(20, 4)
+  currency          String                 @default("MAD")
+  canOpen           Boolean?
+  comment           String?
+  productNature     String?
+  lastActionAt      DateTime?
+  providerCreatedAt DateTime?
+  providerUpdatedAt DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  userId       String
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectionId String?
+  connection   ForceLogConnection?     @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  dispatchId   String?                 @unique
+  dispatch     EcommerceOrderDispatch? @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  events       ForceLogTrackingEvent[]
+
+  @@unique([userId, providerCode])
+  @@index([userId, normalizedStatus, updatedAt])
+  @@index([connectionId, updatedAt])
+  @@index([reference])
+}
+
+model ForceLogTrackingEvent {
+  id               String                 @id @default(uuid())
+  providerEventKey String
+  eventType        String
+  providerStatus   String
+  normalizedStatus ShippingShipmentStatus
+  message          String?
+  actor            String?
+  eventAt          DateTime
+  rawPayload       Json?
+  createdAt        DateTime               @default(now())
+
+  shipmentId String
+  shipment   ForceLogShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([shipmentId, providerEventKey])
+  @@index([shipmentId, eventAt])
+}
+
+model OzoneExpressShipment {
+  id                String                 @id @default(uuid())
+  providerCode      String
+  providerStatus    String
+  normalizedStatus  ShippingShipmentStatus
+  reference         String?
+  recipientName     String?
+  recipientPhone    String?
+  address           String?
+  city              String?
+  cityId            Int?
+  codAmount         Decimal?               @db.Decimal(20, 4)
+  deliveredPrice    Decimal?               @db.Decimal(20, 4)
+  returnedPrice     Decimal?               @db.Decimal(20, 4)
+  refusedPrice      Decimal?               @db.Decimal(20, 4)
+  fee               Decimal?               @db.Decimal(20, 4)
+  currency          String                 @default("MAD")
+  note              String?
+  nature            String?
+  stock             Int?
+  canOpen           Int?
+  fragile           Int?
+  replacement       Int?
+  lastActionAt      DateTime?
+  providerCreatedAt DateTime?
+  providerUpdatedAt DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  userId       String
+  user         User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectionId String?
+  connection   OzoneExpressConnection?     @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  dispatchId   String?                     @unique
+  dispatch     EcommerceOrderDispatch?     @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  events       OzoneExpressTrackingEvent[]
+
+  @@unique([userId, providerCode])
+  @@index([userId, normalizedStatus, updatedAt])
+  @@index([connectionId, updatedAt])
+  @@index([reference])
+}
+
+model OzoneExpressTrackingEvent {
+  id               String                 @id @default(uuid())
+  providerEventKey String
+  eventType        String
+  providerStatus   String
+  normalizedStatus ShippingShipmentStatus
+  message          String?
+  actor            String?
+  eventAt          DateTime
+  rawPayload       Json?
+  createdAt        DateTime               @default(now())
+
+  shipmentId String
+  shipment   OzoneExpressShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([shipmentId, providerEventKey])
+  @@index([shipmentId, eventAt])
+}
+
+model AmeexShipment {
+  id                String                 @id @default(uuid())
+  providerCode      String
+  providerStatus    String
+  providerSubStatus String?
+  normalizedStatus  ShippingShipmentStatus
+  reference         String?
+  recipientName     String?
+  recipientPhone    String?
+  address           String?
+  city              String?
+  cityId            Int?
+  codAmount         Decimal?               @db.Decimal(20, 4)
+  fee               Decimal?               @db.Decimal(20, 4)
+  currency          String                 @default("MAD")
+  note              String?
+  nature            String?
+  lastActionAt      DateTime?
+  providerCreatedAt DateTime?
+  providerUpdatedAt DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectionId String?
+  connection   AmeexConnection?     @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  events       AmeexTrackingEvent[]
+
+  @@unique([userId, providerCode])
+  @@index([providerCode])
+  @@index([userId, normalizedStatus, updatedAt])
+  @@index([connectionId, updatedAt])
+  @@index([reference])
+}
+
+model AmeexTrackingEvent {
+  id                String                 @id @default(uuid())
+  providerEventKey  String
+  eventType         String
+  providerStatus    String
+  providerSubStatus String?
+  normalizedStatus  ShippingShipmentStatus
+  message           String?
+  actor             String?
+  eventAt           DateTime
+  rawPayload        Json?
+  createdAt         DateTime               @default(now())
+
+  shipmentId String
+  shipment   AmeexShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([shipmentId, providerEventKey])
+  @@index([shipmentId, eventAt])
+}
+
+model ShippingCourierSuggestion {
+  id          String   @id @default(uuid())
+  courierName String
+  website     String?
+  countryCode String
+  notes       String?
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([countryCode, createdAt])
 }
 
 model Store {
@@ -213,8 +578,12 @@ model EcommerceOrderDispatch {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  orderId String         @unique
-  order   EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId                String                  @unique
+  order                  EcommerceOrder          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  senditShipment         SenditShipment?
+  quickLivraisonShipment QuickLivraisonShipment?
+  forceLogShipment       ForceLogShipment?
+  ozoneExpressShipment   OzoneExpressShipment?
 
   @@index([provider, status])
 }

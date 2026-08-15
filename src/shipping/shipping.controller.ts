@@ -4,6 +4,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Post,
@@ -21,6 +23,7 @@ import {
   ApiCreatedResponse,
   ApiExcludeEndpoint,
   ApiOkResponse,
+  ApiNotFoundResponse,
   ApiOperation,
   ApiParam,
   ApiProduces,
@@ -42,6 +45,9 @@ import { SenditDeliveryDto } from './dto/sendit-delivery.dto';
 import { SenditDistrictQueryDto } from './dto/sendit-district-query.dto';
 import { SenditLabelsDto } from './dto/sendit-labels.dto';
 import { SenditListQueryDto } from './dto/sendit-list-query.dto';
+import { SenditShipmentQueryDto } from './dto/sendit-shipment-query.dto';
+import { SenditSyncQueryDto } from './dto/sendit-sync-query.dto';
+import { SenditOverviewQueryDto } from './dto/sendit-overview-query.dto';
 import {
   SenditPickupDto,
   SenditUpdatePickupDto,
@@ -64,9 +70,14 @@ import {
   SenditReturnListResponseDto,
   SenditReturnResponseDto,
   SenditServiceUnavailableErrorDto,
+  SenditShipmentSyncResponseDto,
+  StoredSenditShipmentListDto,
+  StoredSenditShipmentDto,
+  StoredSenditTimelineDto,
   SenditUpstreamErrorDto,
   SenditValidationErrorDto,
 } from './dto/sendit-response.dto';
+import { SenditOverviewResponseDto } from './dto/sendit-overview-response.dto';
 import { ShippingService } from './shipping.service';
 
 const senditAuthorizationDescription =
@@ -305,6 +316,126 @@ export class ShippingController {
     @Body() payload: SenditDeliveryDto,
   ) {
     return this.shippingService.createSenditDelivery(user.userId, payload);
+  }
+
+  @Get('sendit/shipments')
+  @ApiOperation({
+    summary: 'List Sendit shipments stored by Zomaal',
+    operationId: 'listStoredSenditShipments',
+    description:
+      'Returns the authenticated user’s local Sendit shipments for the frontend Orders tab. This endpoint does not call Sendit. Results are newest-status-first, paginated, searchable, and filterable by normalized status.',
+  })
+  @ApiOkResponse({
+    description: 'Paginated local Sendit shipment collection.',
+    type: StoredSenditShipmentListDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Search, status, page, or limit is invalid.',
+    type: SenditValidationErrorDto,
+  })
+  listStoredSenditShipments(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: SenditShipmentQueryDto,
+  ) {
+    return this.shippingService.listStoredSenditShipments(user.userId, query);
+  }
+
+  @Get('sendit/overview')
+  @ApiOperation({
+    summary: 'Get the Sendit courier overview dashboard',
+    operationId: 'getSenditOverview',
+    description:
+      'Returns all-time shipment KPIs, current normalized status distribution, top delivery cities, and a 7/30/90-day UTC performance trend from Zomaal’s local database. This endpoint does not call Sendit.',
+  })
+  @ApiOkResponse({
+    description: 'Sendit overview analytics.',
+    type: SenditOverviewResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'days must be 7, 30, or 90.',
+    type: SenditValidationErrorDto,
+  })
+  getSenditOverview(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: SenditOverviewQueryDto,
+  ) {
+    return this.shippingService.getSenditOverview(user.userId, query);
+  }
+
+  @Post('sendit/shipments/sync')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Synchronize existing Sendit shipments into Zomaal',
+    operationId: 'syncStoredSenditShipments',
+    description: `${senditAuthorizationDescription}\n\nImports existing Sendit deliveries and reconciles locally tracked status snapshots. The operation is idempotent and processes a bounded number of provider pages. Continue with nextPage when the response indicates that more pages remain.`,
+  })
+  @ApiOkResponse({
+    description: 'Bounded Sendit shipment sync completed.',
+    type: SenditShipmentSyncResponseDto,
+  })
+  @ApiSenditValidationError('startPage or maxPages is invalid.')
+  @ApiSenditProviderErrors()
+  syncStoredSenditShipments(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: SenditSyncQueryDto,
+  ) {
+    return this.shippingService.syncSenditShipments(user.userId, query);
+  }
+
+  @Get('sendit/shipments/:code/timeline')
+  @ApiOperation({
+    summary: 'Get a stored Sendit shipment timeline',
+    operationId: 'getStoredSenditTimeline',
+    description:
+      'Returns the current normalized state and newest-first event history for one locally tracked Sendit shipment. Proof images, scheduling dates, messages, and unreachable counts are included when Sendit supplied them.',
+  })
+  @ApiParam({
+    name: 'code',
+    required: true,
+    description: 'Sendit delivery code.',
+    schema: { type: 'string', example: 'DHF420101C' },
+  })
+  @ApiOkResponse({
+    description: 'Normalized Sendit shipment timeline.',
+    type: StoredSenditTimelineDto,
+  })
+  @ApiNotFoundResponse({
+    description:
+      'No locally stored Sendit shipment with this code belongs to the authenticated user.',
+  })
+  getStoredSenditTimeline(
+    @CurrentUser() user: JwtPayload,
+    @Param('code') code: string,
+  ) {
+    return this.shippingService.getStoredSenditTimeline(user.userId, code);
+  }
+
+  @Get('sendit/shipments/:code')
+  @ApiOperation({
+    summary: 'Get a Sendit shipment stored by Zomaal',
+    operationId: 'getStoredSenditShipment',
+    description:
+      'Reads the normalized local shipment created after POST /shipping/sendit/deliveries succeeds. This endpoint does not call Sendit. Its events include the initial creation and verified status updates received through the Sendit webhook.',
+  })
+  @ApiParam({
+    name: 'code',
+    required: true,
+    description: 'Sendit delivery code returned when the delivery was created.',
+    schema: { type: 'string', example: 'DHF420101C' },
+  })
+  @ApiOkResponse({
+    description: 'Normalized Sendit shipment stored in Zomaal.',
+    type: StoredSenditShipmentDto,
+  })
+  @ApiNotFoundResponse({
+    description:
+      'No locally stored Sendit shipment with this code belongs to the authenticated user.',
+  })
+  getStoredSenditShipment(
+    @CurrentUser() user: JwtPayload,
+    @Param('code') code: string,
+  ) {
+    return this.shippingService.getStoredSenditShipment(user.userId, code);
   }
 
   @Get('sendit/deliveries/statuses')
@@ -771,16 +902,6 @@ export class ShippingController {
     @Param('code') code: string,
   ) {
     return this.shippingService.deleteSenditReturn(user.userId, code);
-  }
-
-  @Get('sendit/webhook/latest')
-  @ApiExcludeEndpoint()
-  @ApiOperation({
-    summary: 'Get latest Sendit webhook received by this server',
-  })
-  @ApiResponse({ status: 200, description: 'Returns latest webhook payload' })
-  getLatestSenditWebhook() {
-    return this.shippingService.getLatestSenditWebhook();
   }
 
   @Get('quicklivraison/webhook/latest')
