@@ -107,6 +107,41 @@ export function validateEnvironment(
     );
   }
 
+  const quickLivraisonSyncSchedulerEnabled =
+    config.QUICKLIVRAISON_SYNC_SCHEDULER_ENABLED === 'true';
+  const quickLivraisonSyncSchedulerSecret = asString(
+    config.QUICKLIVRAISON_SYNC_SCHEDULER_SECRET,
+  );
+  const quickLivraisonSyncConcurrency = boundedPositiveInteger(
+    'QUICKLIVRAISON_SYNC_CONCURRENCY',
+    config.QUICKLIVRAISON_SYNC_CONCURRENCY,
+    2,
+    10,
+    errors,
+  );
+  const quickLivraisonSyncMaxConnections = boundedPositiveInteger(
+    'QUICKLIVRAISON_SYNC_MAX_CONNECTIONS',
+    config.QUICKLIVRAISON_SYNC_MAX_CONNECTIONS,
+    100,
+    1000,
+    errors,
+  );
+  const quickLivraisonSyncMinIntervalMinutes = boundedPositiveInteger(
+    'QUICKLIVRAISON_SYNC_MIN_INTERVAL_MINUTES',
+    config.QUICKLIVRAISON_SYNC_MIN_INTERVAL_MINUTES,
+    15,
+    1440,
+    errors,
+  );
+  if (
+    quickLivraisonSyncSchedulerEnabled &&
+    quickLivraisonSyncSchedulerSecret.length < 32
+  ) {
+    errors.push(
+      'QUICKLIVRAISON_SYNC_SCHEDULER_SECRET must be at least 32 characters when scheduled synchronization is enabled',
+    );
+  }
+
   const shopifyApiKey = asString(config.SHOPIFY_API_KEY);
   const shopifyApiSecret = asString(config.SHOPIFY_API_SECRET);
   const shopifyEnabled =
@@ -381,6 +416,12 @@ export function validateEnvironment(
     ECOMMERCE_SYNC_CONCURRENCY: ecommerceSyncConcurrency,
     ECOMMERCE_SYNC_MAX_CONNECTIONS: ecommerceSyncMaxConnections,
     ECOMMERCE_SYNC_MIN_INTERVAL_MINUTES: ecommerceSyncMinIntervalMinutes,
+    QUICKLIVRAISON_SYNC_SCHEDULER_ENABLED: quickLivraisonSyncSchedulerEnabled,
+    QUICKLIVRAISON_SYNC_SCHEDULER_SECRET: quickLivraisonSyncSchedulerSecret,
+    QUICKLIVRAISON_SYNC_CONCURRENCY: quickLivraisonSyncConcurrency,
+    QUICKLIVRAISON_SYNC_MAX_CONNECTIONS: quickLivraisonSyncMaxConnections,
+    QUICKLIVRAISON_SYNC_MIN_INTERVAL_MINUTES:
+      quickLivraisonSyncMinIntervalMinutes,
     SHOPIFY_ENABLED: shopifyEnabled,
     SHOPIFY_APP_URL: shopifyAppUrl,
     SHOPIFY_REDIRECT_URI: shopifyRedirectUri,

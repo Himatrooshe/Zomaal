@@ -3,15 +3,20 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ShippingShipmentStatus } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { ForceLogConnectionService } from './forcelog-connection.service';
 import { OzoneExpressConnectionService } from './ozoneexpress-connection.service';
 import { QuickLivraisonConnectionService } from './quicklivraison-connection.service';
 import { SenditConnectionService } from './sendit-connection.service';
+import { AmeexConnectionService } from './ameex-connection.service';
 import type {
   ShippingAuthFieldDto,
   ShippingCompanyCode,
   ShippingIntegrationCredentialsDto,
 } from './dto/shipping-integration.dto';
+import type { ShippingIntegrationQueryDto } from './dto/shipping-integration-query.dto';
+import type { CreateShippingCourierSuggestionDto } from './dto/shipping-courier-suggestion.dto';
 
 type CountryDefinition = {
   code: string;
@@ -106,7 +111,38 @@ const COMPANIES: CompanyDefinition[] = [
       secureField('apiKey', 'API key', 'Enter your API key'),
     ],
   },
+  {
+    code: 'ameex',
+    countryCode: 'MA',
+    name: 'Ameex',
+    description: 'Moroccan parcel delivery and COD service',
+    logoUrl: null,
+    instructions: 'Enter the API ID and API key from your Ameex account.',
+    authFields: [
+      textField('apiId', 'API ID', 'Enter your API ID'),
+      secureField('apiKey', 'API key', 'Enter your API key'),
+    ],
+  },
 ];
+
+const RESOLVED_STATUSES = [
+  ShippingShipmentStatus.DELIVERED,
+  ShippingShipmentStatus.CANCELLED,
+  ShippingShipmentStatus.REFUSED,
+  ShippingShipmentStatus.RETURN_PENDING,
+  ShippingShipmentStatus.RETURN_IN_TRANSIT,
+  ShippingShipmentStatus.RETURNED_TO_WAREHOUSE,
+  ShippingShipmentStatus.RETURN_INSPECTION,
+  ShippingShipmentStatus.RETURNED_TO_STOCK,
+  ShippingShipmentStatus.RETURNED_TO_SELLER,
+] as const;
+
+type CompanyMetrics = {
+  analyticsAvailable: boolean;
+  totalShipments: number;
+  activeShipments: number;
+  dataUpdatedAt: string | null;
+};
 
 @Injectable()
 export class ShippingIntegrationsService {
@@ -115,40 +151,102 @@ export class ShippingIntegrationsService {
     private readonly quickLivraisonConnection: QuickLivraisonConnectionService,
     private readonly forceLogConnection: ForceLogConnectionService,
     private readonly ozoneExpressConnection: OzoneExpressConnectionService,
+    private readonly ameexConnection: AmeexConnectionService,
+    private readonly prisma: PrismaService,
   ) {}
 
-  async list(userId: string) {
-    const countries = await Promise.all(
-      COUNTRIES.map(async (country) => {
-        const definitions = COMPANIES.filter(
-          (company) => company.countryCode === country.code,
+  async list(userId: string, query: ShippingIntegrationQueryDto = {}) {
+    const [statuses, metrics] = await Promise.all([
+      Promise.all(
+        COMPANIES.map(
+          async (company) =>
+            [company.code, await this.getStatus(company.code, userId)] as const,
+        ),
+      ),
+      this.getCompanyMetrics(userId),
+    ]);
+    const statusByCode = new Map(statuses);
+    const search = query.search?.trim().toLocaleLowerCase();
+    const countries = COUNTRIES.filter(
+      (country) => !query.country || country.code === query.country,
+    ).map((country) => {
+      const definitions = COMPANIES.filter((company) => {
+        if (company.countryCode !== country.code) return false;
+        const status = statusByCode.get(company.code);
+        if (
+          query.connected !== undefined &&
+          status?.connected !== query.connected
+        ) {
+          return false;
+        }
+        return (
+          !search ||
+          company.name.toLocaleLowerCase().includes(search) ||
+          company.description.toLocaleLowerCase().includes(search)
         );
-        const companies = await Promise.all(
-          definitions.map(async (company) => {
-            const status = await this.getStatus(company.code, userId);
-            return {
-              code: company.code,
-              name: company.name,
-              description: company.description,
-              logoUrl: company.logoUrl,
-              status: 'available' as const,
-              connected: status.connected,
-              connectedAt: status.connectedAt,
-              instructions: company.instructions,
-              authFields: company.authFields,
-            };
-          }),
-        );
-
+      });
+      const companies = definitions.map((company) => {
+        const status = statusByCode.get(company.code)!;
+        const companyMetrics = metrics.get(company.code)!;
         return {
-          ...country,
-          availableCompanyCount: companies.length,
-          companies,
+          code: company.code,
+          name: company.name,
+          description: company.description,
+          logoUrl: company.logoUrl,
+          status: 'available' as const,
+          connected: status.connected,
+          connectedAt: status.connectedAt,
+          instructions: company.instructions,
+          authFields: company.authFields,
+          ...companyMetrics,
         };
-      }),
-    );
+      });
 
-    return { countries };
+      return {
+        ...country,
+        availableCompanyCount: companies.length,
+        companies,
+      };
+    });
+
+    return {
+      summary: {
+        connectedCouriers: statuses.filter(([, status]) => status.connected)
+          .length,
+        totalShipments: sum(
+          [...metrics.values()].map((item) => item.totalShipments),
+        ),
+        activeShipments: sum(
+          [...metrics.values()].map((item) => item.activeShipments),
+        ),
+      },
+      countries,
+    };
+  }
+
+  async suggestCourier(
+    userId: string,
+    payload: CreateShippingCourierSuggestionDto,
+  ) {
+    const suggestion = await this.prisma.shippingCourierSuggestion.create({
+      data: {
+        userId,
+        courierName: payload.courierName,
+        website: payload.website || null,
+        countryCode: payload.countryCode,
+        notes: payload.notes || null,
+      },
+    });
+
+    return {
+      id: suggestion.id,
+      courierName: suggestion.courierName,
+      website: suggestion.website,
+      countryCode: suggestion.countryCode,
+      notes: suggestion.notes,
+      status: 'PENDING' as const,
+      createdAt: suggestion.createdAt.toISOString(),
+    };
   }
 
   async connect(
@@ -189,6 +287,12 @@ export class ShippingIntegrationsService {
           apiKey: credentials.apiKey!,
         });
         break;
+      case 'ameex':
+        status = await this.ameexConnection.connect(userId, {
+          apiId: credentials.apiId!,
+          apiKey: credentials.apiKey!,
+        });
+        break;
     }
 
     return this.normalizeStatus(company.code, status);
@@ -214,6 +318,9 @@ export class ShippingIntegrationsService {
         break;
       case 'ozoneexpress':
         status = await this.ozoneExpressConnection.disconnect(userId);
+        break;
+      case 'ameex':
+        status = await this.ameexConnection.disconnect(userId);
         break;
     }
 
@@ -242,6 +349,8 @@ export class ShippingIntegrationsService {
         return this.forceLogConnection.getStatus(userId);
       case 'ozoneexpress':
         return this.ozoneExpressConnection.getStatus(userId);
+      case 'ameex':
+        return this.ameexConnection.getStatus(userId);
     }
   }
 
@@ -283,4 +392,118 @@ export class ShippingIntegrationsService {
       message: status.message,
     };
   }
+
+  private async getCompanyMetrics(userId: string) {
+    const [
+      senditGroups,
+      quickGroups,
+      forceLogGroups,
+      ozoneGroups,
+      ameexGroups,
+      latestSendit,
+      latestQuick,
+      latestForceLog,
+      latestOzone,
+      latestAmeex,
+    ] = await Promise.all([
+      this.prisma.senditShipment.groupBy({
+        by: ['normalizedStatus'],
+        where: { userId },
+        _count: { _all: true },
+      }),
+      this.prisma.quickLivraisonShipment.groupBy({
+        by: ['normalizedStatus'],
+        where: { userId },
+        _count: { _all: true },
+      }),
+      this.prisma.forceLogShipment.groupBy({
+        by: ['normalizedStatus'],
+        where: { userId },
+        _count: { _all: true },
+      }),
+      this.prisma.ozoneExpressShipment.groupBy({
+        by: ['normalizedStatus'],
+        where: { userId },
+        _count: { _all: true },
+      }),
+      this.prisma.ameexShipment.groupBy({
+        by: ['normalizedStatus'],
+        where: { userId },
+        _count: { _all: true },
+      }),
+      this.prisma.senditShipment.findFirst({
+        where: { userId },
+        orderBy: { updatedAt: 'desc' },
+        select: { updatedAt: true },
+      }),
+      this.prisma.quickLivraisonShipment.findFirst({
+        where: { userId },
+        orderBy: { updatedAt: 'desc' },
+        select: { updatedAt: true },
+      }),
+      this.prisma.forceLogShipment.findFirst({
+        where: { userId },
+        orderBy: { updatedAt: 'desc' },
+        select: { updatedAt: true },
+      }),
+      this.prisma.ozoneExpressShipment.findFirst({
+        where: { userId },
+        orderBy: { updatedAt: 'desc' },
+        select: { updatedAt: true },
+      }),
+      this.prisma.ameexShipment.findFirst({
+        where: { userId },
+        orderBy: { updatedAt: 'desc' },
+        select: { updatedAt: true },
+      }),
+    ]);
+
+    return new Map<ShippingCompanyCode, CompanyMetrics>([
+      ['sendit', trackedMetrics(senditGroups, latestSendit?.updatedAt ?? null)],
+      [
+        'quicklivraison',
+        trackedMetrics(quickGroups, latestQuick?.updatedAt ?? null),
+      ],
+      [
+        'forcelog',
+        trackedMetrics(forceLogGroups, latestForceLog?.updatedAt ?? null),
+      ],
+      [
+        'ozoneexpress',
+        trackedMetrics(ozoneGroups, latestOzone?.updatedAt ?? null),
+      ],
+      ['ameex', trackedMetrics(ameexGroups, latestAmeex?.updatedAt ?? null)],
+    ]);
+  }
+}
+
+function trackedMetrics(
+  groups: Array<{
+    normalizedStatus: ShippingShipmentStatus;
+    _count: { _all: number };
+  }>,
+  dataUpdatedAt: Date | null,
+): CompanyMetrics {
+  const totalShipments = sum(groups.map((group) => group._count._all));
+  const resolvedShipments = sum(
+    groups
+      .filter((group) =>
+        RESOLVED_STATUSES.includes(
+          group.normalizedStatus as (typeof RESOLVED_STATUSES)[number],
+        ),
+      )
+      .map((group) => group._count._all),
+  );
+  return {
+    analyticsAvailable: true,
+    totalShipments,
+    activeShipments: totalShipments - resolvedShipments,
+    dataUpdatedAt: dataUpdatedAt?.toISOString() ?? null,
+  };
+}
+
+function sum(values: Iterable<number>) {
+  let total = 0;
+  for (const value of values) total += value;
+  return total;
 }

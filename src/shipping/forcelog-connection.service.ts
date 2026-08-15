@@ -40,7 +40,11 @@ export class ForceLogConnectionService {
   async getStatus(userId: string) {
     const connection = await this.prisma.forceLogConnection.findUnique({
       where: { userId },
-      select: { connectedAt: true },
+      select: {
+        connectedAt: true,
+        lastSyncedAt: true,
+        lastSyncError: true,
+      },
     });
 
     if (!connection) {
@@ -52,7 +56,11 @@ export class ForceLogConnectionService {
       };
     }
 
-    return this.toStatus(connection.connectedAt);
+    return {
+      ...this.toStatus(connection.connectedAt),
+      lastSyncedAt: connection.lastSyncedAt?.toISOString() ?? null,
+      lastSyncError: connection.lastSyncError,
+    };
   }
 
   async disconnect(userId: string) {
@@ -79,6 +87,20 @@ export class ForceLogConnectionService {
     }
 
     return this.decrypt(connection.encryptedApiKey);
+  }
+
+  async updateSyncHealth(
+    userId: string,
+    lastSyncedAt: Date | null,
+    lastSyncError: string | null,
+  ) {
+    await this.prisma.forceLogConnection.updateMany({
+      where: { userId },
+      data: {
+        ...(lastSyncedAt ? { lastSyncedAt } : {}),
+        lastSyncError,
+      },
+    });
   }
 
   private toStatus(connectedAt: Date) {

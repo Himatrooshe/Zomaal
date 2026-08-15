@@ -691,6 +691,321 @@ paths:
       summary: Create a Sendit delivery
       tags:
         - Shipping - Sendit
+  /shipping/sendit/shipments:
+    get:
+      description: Returns the authenticated user’s local Sendit shipments for the frontend Orders tab. This endpoint does not call Sendit. Results are newest-status-first, paginated, searchable, and filterable by normalized status.
+      operationId: listStoredSenditShipments
+      parameters:
+        - name: search
+          required: false
+          in: query
+          description: Case-insensitive search across tracking code, merchant reference, recipient, phone, address, and city.
+          schema:
+            maxLength: 100
+            example: DHF420101C
+            type: string
+        - name: status
+          required: false
+          in: query
+          description: Normalized Zomaal shipment status.
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - CONFIRMED
+              - PICKUP_PENDING
+              - PICKED_UP
+              - AT_WAREHOUSE
+              - IN_TRANSIT
+              - OUT_FOR_DELIVERY
+              - POSTPONED
+              - UNREACHABLE
+              - DELIVERED
+              - CANCELLED
+              - REFUSED
+              - RETURN_PENDING
+              - RETURN_IN_TRANSIT
+              - RETURNED_TO_WAREHOUSE
+              - RETURN_INSPECTION
+              - RETURNED_TO_STOCK
+              - RETURNED_TO_SELLER
+              - UNKNOWN
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: Paginated local Sendit shipment collection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoredSenditShipmentListDto'
+        '400':
+          description: Search, status, page, or limit is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditValidationErrorDto'
+        '401':
+          description: Authentication failed. Every route requires a valid Zomaal access token; provider-backed routes can also return 401 when Sendit rejects the stored credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditConnectionErrorDto'
+              examples:
+                missingOrInvalidAccessToken:
+                  summary: Missing, expired, or invalid Zomaal access token
+                  value:
+                    message: Unauthorized
+                    error: Unauthorized
+                    statusCode: 401
+                senditCredentialsRejected:
+                  summary: Stored Sendit credentials were rejected
+                  value:
+                    message: Sendit request was not authorized
+                    error: Unauthorized
+                    statusCode: 401
+      security:
+        - bearer: []
+      summary: List Sendit shipments stored by Zomaal
+      tags:
+        - Shipping - Sendit
+  /shipping/sendit/overview:
+    get:
+      description: Returns all-time shipment KPIs, current normalized status distribution, top delivery cities, and a 7/30/90-day UTC performance trend from Zomaal’s local database. This endpoint does not call Sendit.
+      operationId: getSenditOverview
+      parameters:
+        - name: days
+          required: false
+          in: query
+          description: Rolling UTC period used by the performance trend.
+          schema:
+            default: 7
+            example: 7
+            type: number
+            enum:
+              - 7
+              - 30
+              - 90
+      responses:
+        '200':
+          description: Sendit overview analytics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditOverviewResponseDto'
+        '400':
+          description: days must be 7, 30, or 90.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditValidationErrorDto'
+        '401':
+          description: Authentication failed. Every route requires a valid Zomaal access token; provider-backed routes can also return 401 when Sendit rejects the stored credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditConnectionErrorDto'
+              examples:
+                missingOrInvalidAccessToken:
+                  summary: Missing, expired, or invalid Zomaal access token
+                  value:
+                    message: Unauthorized
+                    error: Unauthorized
+                    statusCode: 401
+                senditCredentialsRejected:
+                  summary: Stored Sendit credentials were rejected
+                  value:
+                    message: Sendit request was not authorized
+                    error: Unauthorized
+                    statusCode: 401
+      security:
+        - bearer: []
+      summary: Get the Sendit courier overview dashboard
+      tags:
+        - Shipping - Sendit
+  /shipping/sendit/shipments/sync:
+    post:
+      description: |-
+        **Authorization header:** `Bearer <accessToken>`. Use the Zomaal access token returned by `/auth/login` or `/auth/verify-otp`; a refresh token is not accepted. In Swagger UI, click **Authorize** and paste the access token only.
+
+        Imports existing Sendit deliveries and reconciles locally tracked status snapshots. The operation is idempotent and processes a bounded number of provider pages. Continue with nextPage when the response indicates that more pages remain.
+      operationId: syncStoredSenditShipments
+      parameters:
+        - name: startPage
+          required: false
+          in: query
+          description: One-based Sendit page where this bounded sync run should begin.
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: maxPages
+          required: false
+          in: query
+          description: Maximum provider pages to process in this request. Use nextPage from the response to continue a larger backfill.
+          schema:
+            minimum: 1
+            maximum: 20
+            default: 5
+            type: number
+      responses:
+        '200':
+          description: Bounded Sendit shipment sync completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditShipmentSyncResponseDto'
+        '400':
+          description: startPage or maxPages is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditValidationErrorDto'
+        '401':
+          description: Authentication failed. Every route requires a valid Zomaal access token; provider-backed routes can also return 401 when Sendit rejects the stored credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditConnectionErrorDto'
+              examples:
+                missingOrInvalidAccessToken:
+                  summary: Missing, expired, or invalid Zomaal access token
+                  value:
+                    message: Unauthorized
+                    error: Unauthorized
+                    statusCode: 401
+                senditCredentialsRejected:
+                  summary: Stored Sendit credentials were rejected
+                  value:
+                    message: Sendit request was not authorized
+                    error: Unauthorized
+                    statusCode: 401
+        '409':
+          description: The authenticated user has not connected a Sendit account yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditNotConnectedErrorDto'
+        '502':
+          description: Sendit returned a non-success response, malformed JSON, or an incomplete payload. Provider details are included when available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditUpstreamErrorDto'
+        '503':
+          description: Stored Sendit credentials cannot be decrypted or credential encryption is misconfigured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditServiceUnavailableErrorDto'
+      security:
+        - bearer: []
+      summary: Synchronize existing Sendit shipments into Zomaal
+      tags:
+        - Shipping - Sendit
+  /shipping/sendit/shipments/{code}/timeline:
+    get:
+      description: Returns the current normalized state and newest-first event history for one locally tracked Sendit shipment. Proof images, scheduling dates, messages, and unreachable counts are included when Sendit supplied them.
+      operationId: getStoredSenditTimeline
+      parameters:
+        - name: code
+          required: true
+          in: path
+          description: Sendit delivery code.
+          schema:
+            type: string
+            example: DHF420101C
+      responses:
+        '200':
+          description: Normalized Sendit shipment timeline.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoredSenditTimelineDto'
+        '401':
+          description: Authentication failed. Every route requires a valid Zomaal access token; provider-backed routes can also return 401 when Sendit rejects the stored credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditConnectionErrorDto'
+              examples:
+                missingOrInvalidAccessToken:
+                  summary: Missing, expired, or invalid Zomaal access token
+                  value:
+                    message: Unauthorized
+                    error: Unauthorized
+                    statusCode: 401
+                senditCredentialsRejected:
+                  summary: Stored Sendit credentials were rejected
+                  value:
+                    message: Sendit request was not authorized
+                    error: Unauthorized
+                    statusCode: 401
+        '404':
+          description: No locally stored Sendit shipment with this code belongs to the authenticated user.
+      security:
+        - bearer: []
+      summary: Get a stored Sendit shipment timeline
+      tags:
+        - Shipping - Sendit
+  /shipping/sendit/shipments/{code}:
+    get:
+      description: Reads the normalized local shipment created after POST /shipping/sendit/deliveries succeeds. This endpoint does not call Sendit. Its events include the initial creation and verified status updates received through the Sendit webhook.
+      operationId: getStoredSenditShipment
+      parameters:
+        - name: code
+          required: true
+          in: path
+          description: Sendit delivery code returned when the delivery was created.
+          schema:
+            type: string
+            example: DHF420101C
+      responses:
+        '200':
+          description: Normalized Sendit shipment stored in Zomaal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoredSenditShipmentDto'
+        '401':
+          description: Authentication failed. Every route requires a valid Zomaal access token; provider-backed routes can also return 401 when Sendit rejects the stored credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenditConnectionErrorDto'
+              examples:
+                missingOrInvalidAccessToken:
+                  summary: Missing, expired, or invalid Zomaal access token
+                  value:
+                    message: Unauthorized
+                    error: Unauthorized
+                    statusCode: 401
+                senditCredentialsRejected:
+                  summary: Stored Sendit credentials were rejected
+                  value:
+                    message: Sendit request was not authorized
+                    error: Unauthorized
+                    statusCode: 401
+        '404':
+          description: No locally stored Sendit shipment with this code belongs to the authenticated user.
+      security:
+        - bearer: []
+      summary: Get a Sendit shipment stored by Zomaal
+      tags:
+        - Shipping - Sendit
   /shipping/sendit/deliveries/statuses:
     get:
       description: |-
@@ -1935,37 +2250,61 @@ paths:
         - Shipping - Sendit
   /shipping/sendit/webhook:
     post:
-      description: Public callback endpoint for Sendit. The JSON payload is accepted as supplied by the provider. Do not call this endpoint with a Zomaal bearer token.
+      description: Public callback endpoint for Sendit delivery status updates. The X-Sendit-Signature HMAC-SHA256 signature is verified against the exact raw request body using the API secret associated with the stored shipment. Do not call this endpoint with a Zomaal bearer token.
       operationId: SenditWebhook_receiveWebhook
       parameters:
-        - name: x-webhook-event
+        - name: X-Sendit-Signature
           in: header
-          description: Sendit event name, when supplied by the provider.
-          required: false
+          description: Lowercase hexadecimal HMAC-SHA256 of the exact request body, generated with the API secret selected when configuring the Sendit webhook.
+          required: true
           schema:
             type: string
-            example: delivery.updated
+            example: 75f0b6f1c3d7...
       requestBody:
         required: true
-        description: Provider-defined event payload. Fields can vary according to event type.
+        description: Sendit delivery status update payload.
         content:
           application/json:
             schema:
               type: object
               additionalProperties: true
               example:
-                event: delivery.updated
-                code: DH123456
-                status: delivered
+                event: delivery.status.update
+                code: DHF420101C
+                oldStatus: UNREACHABLE
+                newStatus: POSTPONED
+                lastActionAt: '2025-06-11 16:05:05'
+                message: Programmé par le client
+                proofImage: https://app.sendit.ma/storage/deliveries/June2025/proof.jpg
+                deliverBy: '2025-06-12'
+                counterUnreachable: 1
       responses:
         '200':
-          description: Webhook accepted.
+          description: Webhook signature verified and shipment event persisted.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/WebhookReceiptDto'
         '400':
-          description: Malformed JSON payload.
+          description: Malformed JSON or unsupported/incomplete Sendit payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Signature is missing, invalid, or does not match the Sendit connection associated with the shipment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The delivery code is not one of the Sendit shipments tracked by Zomaal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: The associated Sendit credentials cannot be decrypted.
           content:
             application/json:
               schema:
@@ -2288,6 +2627,239 @@ paths:
       summary: Create QuickLivraison deliveries in bulk
       tags:
         - Shipping - QuickLivraison
+  /shipping/quicklivraison/shipments:
+    get:
+      description: Returns user-scoped local shipments with search, normalized-status filtering, and backend pagination. This endpoint does not call QuickLivraison.
+      operationId: listStoredQuickLivraisonShipments
+      parameters:
+        - name: search
+          required: false
+          in: query
+          description: Case-insensitive search across tracking number, merchant reference, recipient, phone, address, and city.
+          schema:
+            maxLength: 100
+            example: PARCEL_12345678
+            type: string
+        - name: status
+          required: false
+          in: query
+          description: Normalized Zomaal shipment status.
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - CONFIRMED
+              - PICKUP_PENDING
+              - PICKED_UP
+              - AT_WAREHOUSE
+              - IN_TRANSIT
+              - OUT_FOR_DELIVERY
+              - POSTPONED
+              - UNREACHABLE
+              - DELIVERED
+              - CANCELLED
+              - REFUSED
+              - RETURN_PENDING
+              - RETURN_IN_TRANSIT
+              - RETURNED_TO_WAREHOUSE
+              - RETURN_INSPECTION
+              - RETURNED_TO_STOCK
+              - RETURNED_TO_SELLER
+              - UNKNOWN
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: Paginated normalized QuickLivraison shipments.
+          content:
+            application/json:
+              schema:
+                example:
+                  data: []
+                  pagination:
+                    total: 0
+                    page: 1
+                    limit: 20
+                    totalPages: 0
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List locally stored QuickLivraison shipments
+      tags:
+        - Shipping - QuickLivraison
+  /shipping/quicklivraison/shipments/sync:
+    post:
+      description: Fetches the connected account’s complete provider parcel list, imports unknown tracking numbers, reconciles statuses idempotently, and updates sync health.
+      operationId: syncQuickLivraisonShipments
+      parameters: []
+      responses:
+        '200':
+          description: QuickLivraison shipment synchronization summary.
+          content:
+            application/json:
+              schema:
+                example:
+                  success: true
+                  message: QuickLivraison shipments synchronized
+                  processed: 120
+                  imported: 100
+                  reconciled: 20
+                  syncedAt: '2026-08-13T00:00:00.000Z'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Synchronize existing QuickLivraison shipments
+      tags:
+        - Shipping - QuickLivraison
+  /shipping/quicklivraison/overview:
+    get:
+      description: Returns local KPIs, status breakdown, daily performance, top cities, and synchronization health for the selected rolling period.
+      operationId: getQuickLivraisonOverview
+      parameters:
+        - name: days
+          required: false
+          in: query
+          description: Rolling UTC period used by the performance trend.
+          schema:
+            default: 7
+            type: number
+            enum:
+              - 7
+              - 30
+              - 90
+      responses:
+        '200':
+          description: QuickLivraison overview computed from local shipments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuickLivraisonOverviewResponseDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get QuickLivraison overview analytics
+      tags:
+        - Shipping - QuickLivraison
+  /shipping/quicklivraison/shipments/{trackingNumber}:
+    get:
+      description: Returns the authenticated user’s normalized local shipment and tracking events. A successful single or bulk creation stores the parcel before its provider response is returned. This endpoint does not call QuickLivraison.
+      operationId: getStoredQuickLivraisonShipment
+      parameters:
+        - name: trackingNumber
+          required: true
+          in: path
+          description: QuickLivraison tracking number.
+          schema:
+            example: PARCEL_12345678
+            type: string
+      responses:
+        '200':
+          description: Stored QuickLivraison shipment with its local timeline.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                example:
+                  id: 8fe15ef0-d7ef-4dd2-a120-b9868a8425fb
+                  provider: quicklivraison
+                  providerCode: PARCEL_12345678
+                  providerStatus: NEW_PARCEL
+                  providerSecondaryStatus: null
+                  normalizedStatus: PENDING
+                  reference: ORDER-1001
+                  recipientName: Sara El Amrani
+                  recipientPhone: '0612345678'
+                  address: 123 Rue Al Massira, Casablanca
+                  destinationDistrictId: 123
+                  codAmount: '250.0000'
+                  currency: MAD
+                  events:
+                    - eventType: delivery.created
+                      providerStatus: NEW_PARCEL
+                      normalizedStatus: PENDING
+                      actor: QuickLivraison
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: No stored QuickLivraison shipment with this tracking number belongs to the authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get one locally stored QuickLivraison shipment
+      tags:
+        - Shipping - QuickLivraison
+  /shipping/quicklivraison/shipments/{trackingNumber}/timeline:
+    get:
+      description: Returns locally stored creation, reconciliation, and verified webhook status events in newest-first order.
+      operationId: getQuickLivraisonShipmentTimeline
+      parameters:
+        - name: trackingNumber
+          required: true
+          in: path
+          schema:
+            example: PARCEL_12345678
+            type: string
+      responses:
+        '200':
+          description: Normalized QuickLivraison shipment timeline.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Stored QuickLivraison shipment was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get a QuickLivraison shipment timeline
+      tags:
+        - Shipping - QuickLivraison
   /shipping/quicklivraison/deliveries/{trackingNumber}:
     get:
       description: 'Requires `Authorization: Bearer <accessToken>`. Looks up one parcel using the provider tracking number. This provider endpoint does not use the user''s stored QuickLivraison key, but the Zomaal route remains protected.'
@@ -2484,31 +3056,40 @@ paths:
         - Shipping - QuickLivraison
   /shipping/quicklivraison/webhook:
     post:
-      description: Public callback endpoint for QuickLivraison. When QUICKLIVRAISON_WEBHOOK_SECRET is configured, the signature is verified against the exact raw request body.
+      description: Public callback endpoint for QuickLivraison. QUICKLIVRAISON_WEBHOOK_SECRET is required; the signature is verified against the exact raw request body before a tracked shipment and its timeline are updated idempotently.
       operationId: QuickLivraisonWebhook_receiveWebhook
       parameters:
         - name: x-webhook-signature
           in: header
-          description: HMAC-SHA256 signature formatted as sha256=<hex>. Required when QUICKLIVRAISON_WEBHOOK_SECRET is configured.
-          required: false
+          description: Required HMAC-SHA256 signature formatted as sha256=<hex>.
+          required: true
           schema:
             type: string
             example: sha256=75f0b6f1c3d7...
       requestBody:
         required: true
-        description: Provider-defined event payload. Fields can vary according to event type.
+        description: QuickLivraison status_changed event payload.
         content:
           application/json:
             schema:
               type: object
               additionalProperties: true
               example:
-                event: parcel.updated
-                trackingNumber: PARCEL_12345678
-                status: delivered
+                event: status_changed
+                timestamp: '2026-05-22T15:00:00+01:00'
+                data:
+                  tracking_number: PARCEL_12345678
+                  status: DELIVERED
+                  status_second: null
+                  new_status_code: DELIVERED
+                  situation: PAID
+                  price: 250
+                  receiver_name: Ahmed
+                  city: Casablanca
+                  comment: Livré avec succès
       responses:
         '200':
-          description: Webhook signature verified (when enabled) and event accepted.
+          description: Webhook signature verified and the tracked shipment event accepted.
           content:
             application/json:
               schema:
@@ -2682,6 +3263,281 @@ paths:
       summary: Add a ForceLog parcel
       tags:
         - Shipping - ForceLog
+  /shipping/forcelog/shipments:
+    get:
+      description: Returns user-scoped ForceLog parcels with backend pagination, search, and normalized-status filtering. This endpoint does not contact ForceLog.
+      operationId: listStoredForceLogShipments
+      parameters:
+        - name: search
+          required: false
+          in: query
+          description: Search tracking code, order reference, recipient, phone, address, or city.
+          schema:
+            maxLength: 100
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - CONFIRMED
+              - PICKUP_PENDING
+              - PICKED_UP
+              - AT_WAREHOUSE
+              - IN_TRANSIT
+              - OUT_FOR_DELIVERY
+              - POSTPONED
+              - UNREACHABLE
+              - DELIVERED
+              - CANCELLED
+              - REFUSED
+              - RETURN_PENDING
+              - RETURN_IN_TRANSIT
+              - RETURNED_TO_WAREHOUSE
+              - RETURN_INSPECTION
+              - RETURNED_TO_STOCK
+              - RETURNED_TO_SELLER
+              - UNKNOWN
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: Paginated normalized ForceLog shipments.
+          content:
+            application/json:
+              schema:
+                example:
+                  data: []
+                  pagination:
+                    total: 0
+                    page: 1
+                    limit: 20
+                    totalPages: 0
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List locally stored ForceLog shipments
+      tags:
+        - Shipping - ForceLog
+  /shipping/forcelog/shipments/sync:
+    post:
+      description: Refreshes a bounded set of locally known tracking codes. ForceLog does not expose an account-wide parcel-list endpoint, so parcels created outside Zomaal are not automatically discoverable.
+      operationId: syncForceLogShipments
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          description: Maximum locally tracked parcels to refresh from ForceLog in this request.
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ForceLog refresh batch completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The authenticated user has not connected a ForceLog account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: ForceLog rejected the request or returned an invalid provider response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: ForceLog is unreachable or the stored credential cannot be decrypted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Refresh locally known ForceLog shipments
+      tags:
+        - Shipping - ForceLog
+  /shipping/forcelog/overview:
+    get:
+      description: Returns local ForceLog KPIs, status breakdown, performance trend, top cities, and synchronization health.
+      operationId: getForceLogOverview
+      parameters:
+        - name: days
+          required: false
+          in: query
+          schema:
+            default: 7
+            type: number
+            enum:
+              - 7
+              - 30
+              - 90
+      responses:
+        '200':
+          description: ForceLog overview computed from locally tracked parcels.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForceLogOverviewResponseDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get ForceLog overview analytics
+      tags:
+        - Shipping - ForceLog
+  /shipping/forcelog/shipments/{code}/refresh:
+    post:
+      description: Fetches one tracking code from ForceLog and upserts its normalized local shipment and status event. This can import a parcel created outside Zomaal.
+      operationId: refreshForceLogShipment
+      parameters:
+        - name: code
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Refreshed normalized ForceLog shipment.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The authenticated user has not connected a ForceLog account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: ForceLog rejected the request or returned an invalid provider response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: ForceLog is unreachable or the stored credential cannot be decrypted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Refresh or import one ForceLog shipment
+      tags:
+        - Shipping - ForceLog
+  /shipping/forcelog/shipments/{code}/timeline:
+    get:
+      operationId: getForceLogShipmentTimeline
+      parameters:
+        - name: code
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Normalized ForceLog shipment timeline.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Stored ForceLog shipment was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get a stored ForceLog shipment timeline
+      tags:
+        - Shipping - ForceLog
+  /shipping/forcelog/shipments/{code}:
+    get:
+      operationId: getStoredForceLogShipment
+      parameters:
+        - name: code
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stored normalized ForceLog shipment.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Stored ForceLog shipment was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get one locally stored ForceLog shipment
+      tags:
+        - Shipping - ForceLog
   /shipping/forcelog/parcels/{code}:
     get:
       description: 'Requires `Authorization: Bearer <accessToken>`. In Swagger UI, click **Authorize** and paste the Zomaal access token only. Looks up one parcel by its ForceLog code.'
@@ -2703,13 +3559,13 @@ paths:
                 type: object
                 additionalProperties: true
                 example:
-                  CODE: FL000123456
+                  TRACKING_NUMBER: FL000123456
                   ORDER_NUM: ORDER-1001
                   STATUS: NEW_PARCEL
-                  RECEIVE: Sara El Amrani
+                  RECEIVER: Sara El Amrani
                   PHONE: '0612345678'
-                  CITY: Casablanca
-                  COD: 250
+                  CITY_NAME: Casablanca
+                  PRICE: 250
         '401':
           description: Missing or invalid Zomaal bearer token.
           content:
@@ -3475,6 +4331,241 @@ paths:
       summary: Add an OzoneExpress parcel
       tags:
         - Shipping - OzoneExpress
+  /shipping/ozoneexpress/shipments:
+    get:
+      description: Returns user-scoped local parcels with backend pagination, search, and normalized-status filtering.
+      operationId: listStoredOzoneExpressShipments
+      parameters:
+        - name: search
+          required: false
+          in: query
+          schema:
+            maxLength: 100
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - CONFIRMED
+              - PICKUP_PENDING
+              - PICKED_UP
+              - AT_WAREHOUSE
+              - IN_TRANSIT
+              - OUT_FOR_DELIVERY
+              - POSTPONED
+              - UNREACHABLE
+              - DELIVERED
+              - CANCELLED
+              - REFUSED
+              - RETURN_PENDING
+              - RETURN_IN_TRANSIT
+              - RETURNED_TO_WAREHOUSE
+              - RETURN_INSPECTION
+              - RETURNED_TO_STOCK
+              - RETURNED_TO_SELLER
+              - UNKNOWN
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: Paginated normalized OzoneExpress shipments.
+          content:
+            application/json:
+              schema:
+                example:
+                  data: []
+                  pagination:
+                    total: 0
+                    page: 1
+                    limit: 20
+                    totalPages: 0
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List locally stored OzoneExpress shipments
+      tags:
+        - Shipping - OzoneExpress
+  /shipping/ozoneexpress/shipments/sync:
+    post:
+      operationId: syncOzoneExpressShipments
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: OzoneExpress refresh batch completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Refresh locally known OzoneExpress shipments
+      tags:
+        - Shipping - OzoneExpress
+  /shipping/ozoneexpress/overview:
+    get:
+      operationId: getOzoneExpressOverview
+      parameters:
+        - name: days
+          required: false
+          in: query
+          schema:
+            default: 7
+            type: number
+            enum:
+              - 7
+              - 30
+              - 90
+      responses:
+        '200':
+          description: OzoneExpress overview computed from local shipments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OzoneExpressOverviewResponseDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get OzoneExpress overview analytics
+      tags:
+        - Shipping - OzoneExpress
+  /shipping/ozoneexpress/shipments/{trackingNumber}/refresh:
+    post:
+      description: Fetches parcel information and tracking history, then upserts the normalized local shipment.
+      operationId: refreshOzoneExpressShipment
+      parameters:
+        - name: trackingNumber
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Refreshed normalized OzoneExpress shipment.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Refresh or import one OzoneExpress shipment
+      tags:
+        - Shipping - OzoneExpress
+  /shipping/ozoneexpress/shipments/{trackingNumber}/timeline:
+    get:
+      operationId: getOzoneExpressShipmentTimeline
+      parameters:
+        - name: trackingNumber
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Normalized OzoneExpress tracking history.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Stored OzoneExpress shipment was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get a stored OzoneExpress shipment timeline
+      tags:
+        - Shipping - OzoneExpress
+  /shipping/ozoneexpress/shipments/{trackingNumber}:
+    get:
+      operationId: getStoredOzoneExpressShipment
+      parameters:
+        - name: trackingNumber
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stored normalized OzoneExpress shipment.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Stored OzoneExpress shipment was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get one locally stored OzoneExpress shipment
+      tags:
+        - Shipping - OzoneExpress
   /shipping/ozoneexpress/parcels/{trackingNumber}:
     get:
       description: 'Requires `Authorization: Bearer <accessToken>`. Retrieves the current provider record for one parcel from the connected OzoneExpress account.'
@@ -3879,11 +4970,349 @@ paths:
       summary: List OzoneExpress cities
       tags:
         - Shipping - OzoneExpress
+  /shipping/ameex/connection:
+    get:
+      operationId: Ameex_getConnection
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AmeexConnectionStatusDto'
+      security:
+        - bearer: []
+      summary: Check Ameex connection
+      tags:
+        - Shipping - Ameex
+    post:
+      operationId: Ameex_connect
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectAmeexDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AmeexConnectionStatusDto'
+      security:
+        - bearer: []
+      summary: Validate and connect an Ameex account
+      tags:
+        - Shipping - Ameex
+    delete:
+      operationId: Ameex_disconnect
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Disconnect Ameex
+      tags:
+        - Shipping - Ameex
+  /shipping/ameex/statuses:
+    get:
+      operationId: Ameex_statuses
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Get Ameex parcel statuses
+      tags:
+        - Shipping - Ameex
+  /shipping/ameex/parcels:
+    post:
+      operationId: Ameex_addParcel
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmeexParcelDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+      security:
+        - bearer: []
+      summary: Create and locally store an Ameex parcel
+      tags:
+        - Shipping - Ameex
+  /shipping/ameex/provider/parcels/{code}:
+    get:
+      operationId: Ameex_providerInfo
+      parameters:
+        - name: code
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Get raw Ameex parcel information
+      tags:
+        - Shipping - Ameex
+  /shipping/ameex/provider/parcels/{code}/tracking:
+    get:
+      operationId: Ameex_providerTracking
+      parameters:
+        - name: code
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Get raw Ameex tracking history
+      tags:
+        - Shipping - Ameex
+  /shipping/ameex/shipments:
+    get:
+      operationId: Ameex_list
+      parameters:
+        - name: search
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - CONFIRMED
+              - PICKUP_PENDING
+              - PICKED_UP
+              - AT_WAREHOUSE
+              - IN_TRANSIT
+              - OUT_FOR_DELIVERY
+              - POSTPONED
+              - UNREACHABLE
+              - DELIVERED
+              - CANCELLED
+              - REFUSED
+              - RETURN_PENDING
+              - RETURN_IN_TRANSIT
+              - RETURNED_TO_WAREHOUSE
+              - RETURN_INSPECTION
+              - RETURNED_TO_STOCK
+              - RETURNED_TO_SELLER
+              - UNKNOWN
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: List locally stored Ameex shipments
+      tags:
+        - Shipping - Ameex
+  /shipping/ameex/overview:
+    get:
+      operationId: Ameex_getOverview
+      parameters:
+        - name: days
+          required: false
+          in: query
+          schema:
+            default: 7
+            type: number
+            enum:
+              - 7
+              - 30
+              - 90
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Get Ameex overview analytics
+      tags:
+        - Shipping - Ameex
+  /shipping/ameex/shipments/sync:
+    post:
+      description: Imports remote Ameex parcel-list pages, then mass-tracks up to 25 active local shipments. This endpoint is intended for the frontend Sync Now action and does not require a cron job.
+      operationId: Ameex_sync
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 25
+            default: 20
+            type: number
+        - name: importPageSize
+          required: false
+          in: query
+          description: Number of remote Ameex parcels requested per import page.
+          schema:
+            minimum: 1
+            maximum: 250
+            default: 100
+            type: number
+        - name: maxImportPages
+          required: false
+          in: query
+          description: Safety cap for remote parcel-list pages imported by one manual sync.
+          schema:
+            minimum: 1
+            maximum: 50
+            default: 10
+            type: number
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Import and synchronize Ameex shipments
+      tags:
+        - Shipping - Ameex
+  /shipping/ameex/shipments/{code}/refresh:
+    post:
+      operationId: Ameex_refresh
+      parameters:
+        - name: code
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Refresh or import one Ameex shipment
+      tags:
+        - Shipping - Ameex
+  /shipping/ameex/shipments/{code}/timeline:
+    get:
+      operationId: Ameex_timeline
+      parameters:
+        - name: code
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Get an Ameex shipment timeline
+      tags:
+        - Shipping - Ameex
+  /shipping/ameex/shipments/{code}:
+    get:
+      operationId: Ameex_shipment
+      parameters:
+        - name: code
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Get one locally stored Ameex shipment
+      tags:
+        - Shipping - Ameex
+  /shipping/ameex/webhook:
+    post:
+      description: Ameex sends form-urlencoded updates only for parcels created through its API. The documented contract does not provide a signature.
+      operationId: AmeexWebhook_receive
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AmeexWebhookDto'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmeexWebhookDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                example:
+                  received: true
+                  matchedShipments: 1
+      summary: Receive an Ameex parcel status webhook
+      tags:
+        - Provider Webhooks
   /shipping/integrations:
     get:
       description: Frontend bootstrap endpoint. Returns countries, available companies, the current user’s connection state, instructions, and the exact fields needed to build each credentials form. No credential values are ever returned. The frontend can navigate and search the returned catalog locally without additional API calls.
       operationId: ShippingIntegrations_list
-      parameters: []
+      parameters:
+        - name: country
+          required: false
+          in: query
+          description: ISO 3166-1 alpha-2 country code.
+          schema:
+            example: MA
+            type: string
+            enum:
+              - MA
+              - DZ
+              - TN
+              - LY
+              - EG
+        - name: search
+          required: false
+          in: query
+          description: Case-insensitive courier name or description search.
+          schema:
+            maxLength: 100
+            type: string
+        - name: connected
+          required: false
+          in: query
+          description: Restrict the catalog to connected or disconnected couriers.
+          schema:
+            type: boolean
       responses:
         '200':
           description: Complete frontend shipping catalog.
@@ -3902,6 +5331,41 @@ paths:
       summary: Load the complete shipping integration catalog
       tags:
         - Shipping Integrations
+  /shipping/integrations/suggestions:
+    post:
+      description: Stores a courier integration request for review. The authenticated user can submit a courier name, optional website, supported country, and notes. This operation does not contact the suggested courier.
+      operationId: ShippingIntegrations_suggestCourier
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShippingCourierSuggestionDto'
+      responses:
+        '201':
+          description: Courier suggestion stored for review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingCourierSuggestionResponseDto'
+        '400':
+          description: Invalid courier name, URL, country, or notes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing, invalid, expired, or non-access Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Suggest a shipping courier
+      tags:
+        - Shipping Integrations
   /shipping/integrations/{companyCode}/connection:
     post:
       description: Submit only the credential fields declared in authFields for the selected company. Values marked inputType=secure_text must be masked by the frontend and excluded from logs and analytics. Credentials are validated by the provider before encrypted storage.
@@ -3916,6 +5380,7 @@ paths:
               - quicklivraison
               - forcelog
               - ozoneexpress
+              - ameex
             type: string
       requestBody:
         required: true
@@ -4074,6 +5539,7 @@ paths:
               - quicklivraison
               - forcelog
               - ozoneexpress
+              - ameex
             type: string
       responses:
         '200':
@@ -4099,6 +5565,309 @@ paths:
       summary: Disconnect a shipping company account
       tags:
         - Shipping Integrations
+  /shipping/home:
+    get:
+      description: Combines locally tracked Sendit and QuickLivraison shipments for Today, 7, 30, or 90 days. Costs use stored courier fees only. The response reports priced-shipment coverage so the frontend can identify partial provider fee data.
+      operationId: ShippingDashboard_getHome
+      parameters:
+        - name: days
+          required: false
+          in: query
+          description: Rolling UTC reporting period. Use 1 for Today.
+          schema:
+            default: 1
+            type: number
+            enum:
+              - 1
+              - 7
+              - 30
+              - 90
+      responses:
+        '200':
+          description: Unified shipping costs and shipment counts in MAD.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingHomeResponseDto'
+        '401':
+          description: Missing, invalid, expired, or non-access bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get unified shipping home metrics
+      tags:
+        - Shipping Overview
+  /shipping/providers/{provider}/connection:
+    get:
+      operationId: ShippingProvider_connection
+      parameters:
+        - name: provider
+          required: true
+          in: path
+          schema:
+            enum:
+              - sendit
+              - quicklivraison
+              - forcelog
+              - ozoneexpress
+              - ameex
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedConnectionStatusDto'
+      security:
+        - bearer: []
+      summary: Get normalized courier connection status
+      tags:
+        - Shipping - Shared Providers
+  /shipping/providers/{provider}/shipments:
+    get:
+      operationId: ShippingProvider_list
+      parameters:
+        - name: provider
+          required: true
+          in: path
+          schema:
+            enum:
+              - sendit
+              - quicklivraison
+              - forcelog
+              - ozoneexpress
+              - ameex
+            type: string
+        - name: search
+          required: false
+          in: query
+          schema:
+            maxLength: 100
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - CONFIRMED
+              - PICKUP_PENDING
+              - PICKED_UP
+              - AT_WAREHOUSE
+              - IN_TRANSIT
+              - OUT_FOR_DELIVERY
+              - POSTPONED
+              - UNREACHABLE
+              - DELIVERED
+              - CANCELLED
+              - REFUSED
+              - RETURN_PENDING
+              - RETURN_IN_TRANSIT
+              - RETURNED_TO_WAREHOUSE
+              - RETURN_INSPECTION
+              - RETURNED_TO_STOCK
+              - RETURNED_TO_SELLER
+              - UNKNOWN
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedShipmentListDto'
+      security:
+        - bearer: []
+      summary: List normalized courier shipments
+      tags:
+        - Shipping - Shared Providers
+  /shipping/providers/{provider}/sync:
+    post:
+      operationId: ShippingProvider_sync
+      parameters:
+        - name: provider
+          required: true
+          in: path
+          schema:
+            enum:
+              - sendit
+              - quicklivraison
+              - forcelog
+              - ozoneexpress
+              - ameex
+            type: string
+        - name: limit
+          required: false
+          in: query
+          description: Maximum active shipments to refresh. Ameex is capped at 25 by its provider API.
+          schema:
+            minimum: 1
+            maximum: 25
+            default: 20
+            type: number
+        - name: startPage
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: maxPages
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 20
+            default: 5
+            type: number
+        - name: importPageSize
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 250
+            default: 100
+            type: number
+        - name: maxImportPages
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 50
+            default: 10
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedSyncResultDto'
+      security:
+        - bearer: []
+      summary: Run normalized manual courier synchronization
+      tags:
+        - Shipping - Shared Providers
+  /shipping/providers/{provider}/overview:
+    get:
+      operationId: ShippingProvider_overview
+      parameters:
+        - name: provider
+          required: true
+          in: path
+          schema:
+            enum:
+              - sendit
+              - quicklivraison
+              - forcelog
+              - ozoneexpress
+              - ameex
+            type: string
+        - name: days
+          required: false
+          in: query
+          schema:
+            default: 7
+            type: number
+            enum:
+              - 7
+              - 30
+              - 90
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedOverviewResponseDto'
+      security:
+        - bearer: []
+      summary: Get normalized courier analytics
+      tags:
+        - Shipping - Shared Providers
+  /shipping/providers/{provider}/shipments/{code}/timeline:
+    get:
+      operationId: ShippingProvider_timeline
+      parameters:
+        - name: provider
+          required: true
+          in: path
+          schema:
+            enum:
+              - sendit
+              - quicklivraison
+              - forcelog
+              - ozoneexpress
+              - ameex
+            type: string
+        - name: code
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedTimelineDto'
+      security:
+        - bearer: []
+      summary: Get a normalized shipment timeline
+      tags:
+        - Shipping - Shared Providers
+  /shipping/providers/{provider}/shipments/{code}:
+    get:
+      operationId: ShippingProvider_detail
+      parameters:
+        - name: provider
+          required: true
+          in: path
+          schema:
+            enum:
+              - sendit
+              - quicklivraison
+              - forcelog
+              - ozoneexpress
+              - ameex
+            type: string
+        - name: code
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedShipmentDetailDto'
+      security:
+        - bearer: []
+      summary: Get normalized shipment details
+      tags:
+        - Shipping - Shared Providers
   /shopify/auth/start:
     post:
       description: Requires a Zomaal access token and an existing Zomaal store. Returns a short-lived Shopify authorization URL. The frontend must navigate the browser to that URL; it must not call the URL server-to-server.
@@ -8080,6 +9849,8 @@ tags:
     description: Store onboarding and profile management.
   - name: Shipping Integrations
     description: Frontend catalog and generic shipping-company connection management.
+  - name: Shipping Overview
+    description: Provider-independent shipping counts, costs, and home-screen metrics.
   - name: Shipping - Sendit
     description: Sendit account connection, deliveries, districts, pickups, returns, and labels.
   - name: Shipping - QuickLivraison
@@ -8780,6 +10551,550 @@ components:
         - success
         - message
         - data
+    StoredSenditShipmentListItemDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum:
+            - sendit
+          example: sendit
+        providerCode:
+          type: string
+          example: DHF420101C
+        providerStatus:
+          type: string
+          example: POSTPONED
+        normalizedStatus:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        reference:
+          type: object
+          nullable: true
+          example: ORDER-2026-0042
+        recipientName:
+          type: string
+          example: Sara Amrani
+        recipientPhone:
+          type: string
+          example: '0612345678'
+        city:
+          type: object
+          nullable: true
+          example: Casablanca
+        codAmount:
+          type: string
+          example: '349.9000'
+        fee:
+          type: object
+          nullable: true
+          example: '35.0000'
+        currency:
+          type: string
+          example: MAD
+        lastActionAt:
+          type: object
+          nullable: true
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - provider
+        - providerCode
+        - providerStatus
+        - normalizedStatus
+        - recipientName
+        - recipientPhone
+        - codAmount
+        - currency
+        - createdAt
+        - updatedAt
+    StoredSenditShipmentPaginationDto:
+      type: object
+      properties:
+        total:
+          type: number
+          example: 42
+        page:
+          type: number
+          example: 1
+        limit:
+          type: number
+          example: 20
+        totalPages:
+          type: number
+          example: 3
+      required:
+        - total
+        - page
+        - limit
+        - totalPages
+    StoredSenditShipmentListDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoredSenditShipmentListItemDto'
+        pagination:
+          $ref: '#/components/schemas/StoredSenditShipmentPaginationDto'
+      required:
+        - data
+        - pagination
+    SenditOverviewPeriodDto:
+      type: object
+      properties:
+        days:
+          type: number
+          enum:
+            - 7
+            - 30
+            - 90
+          example: 7
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          enum:
+            - UTC
+          example: UTC
+      required:
+        - days
+        - from
+        - to
+        - timezone
+    SenditOverviewMetricsDto:
+      type: object
+      properties:
+        totalShipments:
+          type: number
+          example: 1842
+        activeShipments:
+          type: number
+          example: 120
+        deliveredShipments:
+          type: number
+          example: 1510
+        returnedShipments:
+          type: number
+          example: 46
+        deliveredRate:
+          type: number
+          description: Delivered shipments divided by resolved shipments (delivered, cancelled, refused, or in a return state).
+          example: 94.38
+        returnRate:
+          type: number
+          description: Shipments currently in a normalized return state divided by all shipments.
+          example: 2.5
+        averageDeliveryDays:
+          type: object
+          nullable: true
+          description: Average elapsed days from provider creation to the first delivered timeline event.
+          example: 2.3
+      required:
+        - totalShipments
+        - activeShipments
+        - deliveredShipments
+        - returnedShipments
+        - deliveredRate
+        - returnRate
+    SenditStatusBreakdownItemDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        count:
+          type: number
+          example: 120
+      required:
+        - status
+        - count
+    SenditPerformancePointDto:
+      type: object
+      properties:
+        date:
+          type: string
+          example: '2026-08-13'
+        shipmentCount:
+          type: number
+          example: 18
+        delivered:
+          type: number
+          example: 14
+        returned:
+          type: number
+          example: 2
+      required:
+        - date
+        - shipmentCount
+        - delivered
+        - returned
+    SenditTopCityDto:
+      type: object
+      properties:
+        city:
+          type: string
+          example: Casablanca
+        shipments:
+          type: number
+          example: 420
+        delivered:
+          type: number
+          example: 398
+        deliveryRate:
+          type: number
+          example: 94.76
+      required:
+        - city
+        - shipments
+        - delivered
+        - deliveryRate
+    SenditOverviewResponseDto:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/SenditOverviewPeriodDto'
+        metrics:
+          $ref: '#/components/schemas/SenditOverviewMetricsDto'
+        statusBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/SenditStatusBreakdownItemDto'
+        performance:
+          type: array
+          items:
+            $ref: '#/components/schemas/SenditPerformancePointDto'
+        topCities:
+          type: array
+          items:
+            $ref: '#/components/schemas/SenditTopCityDto'
+        dataUpdatedAt:
+          type: object
+          nullable: true
+          format: date-time
+      required:
+        - period
+        - metrics
+        - statusBreakdown
+        - performance
+        - topCities
+    SenditShipmentSyncResponseDto:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Sendit shipments synchronized
+        pagesSynced:
+          type: number
+          description: Number of Sendit provider pages processed in this run.
+          example: 5
+        processed:
+          type: number
+          description: Number of delivery records processed across those pages.
+          example: 50
+        imported:
+          type: number
+          description: Previously unknown Sendit deliveries imported into Zomaal.
+          example: 42
+        reconciled:
+          type: number
+          description: Existing local shipments reconciled with Sendit snapshots.
+          example: 8
+        nextPage:
+          type: object
+          nullable: true
+          minimum: 1
+          description: Next Sendit page to pass as startPage, or null when the provider collection is exhausted.
+          example: 6
+        providerTotal:
+          type: object
+          nullable: true
+          description: Total number of deliveries reported by Sendit.
+          example: 124
+        syncedAt:
+          type: string
+          format: date-time
+      required:
+        - success
+        - message
+        - pagesSynced
+        - processed
+        - imported
+        - reconciled
+        - syncedAt
+    StoredSenditTrackingEventDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          example: delivery.created
+        providerStatus:
+          type: string
+          example: PENDING
+        normalizedStatus:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        message:
+          type: object
+          nullable: true
+        proofImageUrl:
+          type: object
+          nullable: true
+          format: uri
+          example: https://app.sendit.ma/storage/deliveries/June2025/proof.jpg
+        deliverBy:
+          type: object
+          nullable: true
+          format: date-time
+          example: '2025-06-12T00:00:00.000Z'
+        unreachableCount:
+          type: object
+          nullable: true
+          minimum: 0
+          example: 1
+        actor:
+          type: object
+          nullable: true
+          example: Sendit
+        eventAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - eventType
+        - providerStatus
+        - normalizedStatus
+        - eventAt
+    StoredSenditTimelineDto:
+      type: object
+      properties:
+        providerCode:
+          type: string
+          example: DHF420101C
+        providerStatus:
+          type: string
+          example: POSTPONED
+        providerReturnStatus:
+          type: object
+          nullable: true
+          example: null
+        normalizedStatus:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        lastActionAt:
+          type: object
+          nullable: true
+          format: date-time
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoredSenditTrackingEventDto'
+      required:
+        - providerCode
+        - providerStatus
+        - normalizedStatus
+        - events
+    StoredSenditShipmentDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum:
+            - sendit
+          example: sendit
+        providerCode:
+          type: string
+          example: DHF420101C
+        providerStatus:
+          type: string
+          example: PENDING
+        providerReturnStatus:
+          type: object
+          nullable: true
+          example: null
+        normalizedStatus:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        reference:
+          type: object
+          nullable: true
+          example: ORDER-2026-0042
+        recipientName:
+          type: string
+          example: Sara Amrani
+        recipientPhone:
+          type: string
+          example: '0612345678'
+        address:
+          type: string
+          example: 12 Rue Al Massira, Casablanca
+        city:
+          type: object
+          nullable: true
+          example: Casablanca
+        pickupDistrictId:
+          type: object
+          nullable: true
+          example: 1
+        destinationDistrictId:
+          type: object
+          nullable: true
+          example: 58
+        codAmount:
+          type: string
+          example: '349.9000'
+        fee:
+          type: object
+          nullable: true
+          example: '35.0000'
+        currency:
+          type: string
+          example: MAD
+        lastActionAt:
+          type: object
+          nullable: true
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoredSenditTrackingEventDto'
+      required:
+        - id
+        - provider
+        - providerCode
+        - providerStatus
+        - normalizedStatus
+        - recipientName
+        - recipientPhone
+        - address
+        - codAmount
+        - currency
+        - createdAt
+        - updatedAt
+        - events
     SenditDeliveryStatusResourceDto:
       type: object
       properties:
@@ -9246,7 +11561,7 @@ components:
           example: true
         message:
           type: string
-          example: QuickLivraison webhook received
+          example: Provider webhook received
       required:
         - success
         - message
@@ -9277,6 +11592,15 @@ components:
           example: '2026-07-15T10:30:00.000Z'
           nullable: true
           format: date-time
+        lastSyncedAt:
+          type: object
+          description: Last successful local shipment synchronization time.
+          nullable: true
+          format: date-time
+        lastSyncError:
+          type: object
+          description: Most recent synchronization failure, if any.
+          nullable: true
         message:
           type: string
           description: Human-readable status summary.
@@ -9445,6 +11769,160 @@ components:
             $ref: '#/components/schemas/QuickLivraisonDeliveryDto'
       required:
         - parcels
+    QuickLivraisonOverviewPeriodDto:
+      type: object
+      properties:
+        days:
+          type: number
+          enum:
+            - 7
+            - 30
+            - 90
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          enum:
+            - UTC
+      required:
+        - days
+        - from
+        - to
+        - timezone
+    QuickLivraisonOverviewMetricsDto:
+      type: object
+      properties:
+        totalShipments:
+          type: number
+        activeShipments:
+          type: number
+        deliveredShipments:
+          type: number
+        returnedShipments:
+          type: number
+        deliveredRate:
+          type: number
+        returnRate:
+          type: number
+        averageDeliveryDays:
+          type: object
+          nullable: true
+      required:
+        - totalShipments
+        - activeShipments
+        - deliveredShipments
+        - returnedShipments
+        - deliveredRate
+        - returnRate
+    QuickLivraisonStatusBreakdownDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        count:
+          type: number
+      required:
+        - status
+        - count
+    QuickLivraisonPerformancePointDto:
+      type: object
+      properties:
+        date:
+          type: string
+          example: '2026-08-13'
+        shipmentCount:
+          type: number
+        delivered:
+          type: number
+        returned:
+          type: number
+      required:
+        - date
+        - shipmentCount
+        - delivered
+        - returned
+    QuickLivraisonTopCityDto:
+      type: object
+      properties:
+        city:
+          type: string
+        shipments:
+          type: number
+        delivered:
+          type: number
+        deliveryRate:
+          type: number
+      required:
+        - city
+        - shipments
+        - delivered
+        - deliveryRate
+    QuickLivraisonSyncHealthDto:
+      type: object
+      properties:
+        lastSyncedAt:
+          type: object
+          nullable: true
+          format: date-time
+        lastSyncError:
+          type: object
+          nullable: true
+    QuickLivraisonOverviewResponseDto:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/QuickLivraisonOverviewPeriodDto'
+        metrics:
+          $ref: '#/components/schemas/QuickLivraisonOverviewMetricsDto'
+        statusBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuickLivraisonStatusBreakdownDto'
+        performance:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuickLivraisonPerformancePointDto'
+        topCities:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuickLivraisonTopCityDto'
+        dataUpdatedAt:
+          type: object
+          nullable: true
+          format: date-time
+        sync:
+          $ref: '#/components/schemas/QuickLivraisonSyncHealthDto'
+      required:
+        - period
+        - metrics
+        - statusBreakdown
+        - performance
+        - topCities
+        - sync
     ForceLogConnectionStatusDto:
       type: object
       properties:
@@ -9468,6 +11946,13 @@ components:
           type: string
           description: Human-readable connection state.
           example: ForceLog account is connected
+        lastSyncedAt:
+          type: object
+          nullable: true
+          format: date-time
+        lastSyncError:
+          type: object
+          nullable: true
       required:
         - connected
         - provider
@@ -9551,6 +12036,160 @@ components:
         - PHONE
         - CITY
         - ADDRESS
+    ForceLogOverviewPeriodDto:
+      type: object
+      properties:
+        days:
+          type: number
+          enum:
+            - 7
+            - 30
+            - 90
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          enum:
+            - UTC
+      required:
+        - days
+        - from
+        - to
+        - timezone
+    ForceLogOverviewMetricsDto:
+      type: object
+      properties:
+        totalShipments:
+          type: number
+        activeShipments:
+          type: number
+        deliveredShipments:
+          type: number
+        returnedShipments:
+          type: number
+        deliveredRate:
+          type: number
+        returnRate:
+          type: number
+        averageDeliveryDays:
+          type: object
+          nullable: true
+      required:
+        - totalShipments
+        - activeShipments
+        - deliveredShipments
+        - returnedShipments
+        - deliveredRate
+        - returnRate
+    ForceLogStatusBreakdownDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        count:
+          type: number
+      required:
+        - status
+        - count
+    ForceLogPerformancePointDto:
+      type: object
+      properties:
+        date:
+          type: string
+          example: '2026-08-15'
+        shipmentCount:
+          type: number
+        delivered:
+          type: number
+        returned:
+          type: number
+      required:
+        - date
+        - shipmentCount
+        - delivered
+        - returned
+    ForceLogTopCityDto:
+      type: object
+      properties:
+        city:
+          type: string
+        shipments:
+          type: number
+        delivered:
+          type: number
+        deliveryRate:
+          type: number
+      required:
+        - city
+        - shipments
+        - delivered
+        - deliveryRate
+    ForceLogSyncHealthDto:
+      type: object
+      properties:
+        lastSyncedAt:
+          type: object
+          nullable: true
+          format: date-time
+        lastSyncError:
+          type: object
+          nullable: true
+    ForceLogOverviewResponseDto:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/ForceLogOverviewPeriodDto'
+        metrics:
+          $ref: '#/components/schemas/ForceLogOverviewMetricsDto'
+        statusBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/ForceLogStatusBreakdownDto'
+        performance:
+          type: array
+          items:
+            $ref: '#/components/schemas/ForceLogPerformancePointDto'
+        topCities:
+          type: array
+          items:
+            $ref: '#/components/schemas/ForceLogTopCityDto'
+        dataUpdatedAt:
+          type: object
+          nullable: true
+          format: date-time
+        sync:
+          $ref: '#/components/schemas/ForceLogSyncHealthDto'
+      required:
+        - period
+        - metrics
+        - statusBreakdown
+        - performance
+        - topCities
+        - sync
     ForceLogRelaunchDto:
       type: object
       properties:
@@ -9774,6 +12413,17 @@ components:
           example: '2026-07-16T10:30:00.000Z'
           nullable: true
           format: date-time
+        lastSyncedAt:
+          type: string
+          description: UTC time of the latest successful local shipment sync.
+          example: '2026-08-15T10:00:00.000Z'
+          nullable: true
+          format: date-time
+        lastSyncError:
+          type: string
+          description: Latest shipment synchronization error, when one exists.
+          example: null
+          nullable: true
         message:
           type: string
           description: Human-readable status summary.
@@ -9922,6 +12572,160 @@ components:
         - address
         - price
         - stock
+    OzoneExpressOverviewPeriodDto:
+      type: object
+      properties:
+        days:
+          type: number
+          enum:
+            - 7
+            - 30
+            - 90
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          enum:
+            - UTC
+      required:
+        - days
+        - from
+        - to
+        - timezone
+    OzoneExpressOverviewMetricsDto:
+      type: object
+      properties:
+        totalShipments:
+          type: number
+        activeShipments:
+          type: number
+        deliveredShipments:
+          type: number
+        returnedShipments:
+          type: number
+        deliveredRate:
+          type: number
+        returnRate:
+          type: number
+        averageDeliveryDays:
+          type: object
+          nullable: true
+      required:
+        - totalShipments
+        - activeShipments
+        - deliveredShipments
+        - returnedShipments
+        - deliveredRate
+        - returnRate
+    OzoneExpressStatusBreakdownDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        count:
+          type: number
+      required:
+        - status
+        - count
+    OzoneExpressPerformancePointDto:
+      type: object
+      properties:
+        date:
+          type: string
+          example: '2026-08-15'
+        shipmentCount:
+          type: number
+        delivered:
+          type: number
+        returned:
+          type: number
+      required:
+        - date
+        - shipmentCount
+        - delivered
+        - returned
+    OzoneExpressTopCityDto:
+      type: object
+      properties:
+        city:
+          type: string
+        shipments:
+          type: number
+        delivered:
+          type: number
+        deliveryRate:
+          type: number
+      required:
+        - city
+        - shipments
+        - delivered
+        - deliveryRate
+    OzoneExpressSyncHealthDto:
+      type: object
+      properties:
+        lastSyncedAt:
+          type: object
+          nullable: true
+          format: date-time
+        lastSyncError:
+          type: object
+          nullable: true
+    OzoneExpressOverviewResponseDto:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/OzoneExpressOverviewPeriodDto'
+        metrics:
+          $ref: '#/components/schemas/OzoneExpressOverviewMetricsDto'
+        statusBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/OzoneExpressStatusBreakdownDto'
+        performance:
+          type: array
+          items:
+            $ref: '#/components/schemas/OzoneExpressPerformancePointDto'
+        topCities:
+          type: array
+          items:
+            $ref: '#/components/schemas/OzoneExpressTopCityDto'
+        dataUpdatedAt:
+          type: object
+          nullable: true
+          format: date-time
+        sync:
+          $ref: '#/components/schemas/OzoneExpressSyncHealthDto'
+      required:
+        - period
+        - metrics
+        - statusBreakdown
+        - performance
+        - topCities
+        - sync
     OzoneExpressTrackingDto:
       type: object
       properties:
@@ -9993,6 +12797,144 @@ components:
         - pdfStandard
         - labelsA4
         - labels10x10
+    AmeexConnectionStatusDto:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        provider:
+          type: string
+          enum:
+            - ameex.ma
+        connectedAt:
+          type: object
+          nullable: true
+          format: date-time
+        lastSyncedAt:
+          type: object
+          nullable: true
+          format: date-time
+        lastSyncError:
+          type: object
+          nullable: true
+        message:
+          type: string
+      required:
+        - connected
+        - provider
+        - connectedAt
+        - message
+    ConnectAmeexDto:
+      type: object
+      properties:
+        apiId:
+          type: string
+          description: Ameex API ID used in C-Api-Id.
+        apiKey:
+          type: string
+          description: Ameex API key used in C-Api-Key.
+          format: password
+          writeOnly: true
+      required:
+        - apiId
+        - apiKey
+    AmeexProductDto:
+      type: object
+      properties:
+        id:
+          type: string
+        qty:
+          type: number
+          minimum: 1
+      required:
+        - id
+        - qty
+    AmeexParcelDto:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - SIMPLE
+            - STOCK
+          default: SIMPLE
+        orderNumber:
+          type: string
+          description: Merchant order/reference number.
+        replace:
+          type: boolean
+          default: false
+        exchangeCode:
+          type: string
+        open:
+          type: string
+          enum:
+            - 'YES'
+            - 'NO'
+          default: 'NO'
+        try:
+          type: string
+          enum:
+            - 'YES'
+            - 'NO'
+          default: 'NO'
+        fragile:
+          type: number
+          enum:
+            - 0
+            - 1
+          default: 0
+        receiver:
+          type: string
+        phone:
+          type: string
+        city:
+          type: string
+          description: Ameex city ID.
+        address:
+          type: string
+        comment:
+          type: string
+        product:
+          type: string
+        cod:
+          type: number
+          minimum: 0
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/AmeexProductDto'
+      required:
+        - type
+        - receiver
+        - phone
+        - city
+        - address
+        - cod
+    AmeexWebhookDto:
+      type: object
+      properties:
+        CODE:
+          type: string
+        STATUT:
+          type: string
+        DATE:
+          type: string
+        COMMENT:
+          type: string
+        STATUT_S:
+          type: string
+        STATUT_NAME:
+          type: string
+        STATUT_COLOR:
+          type: string
+        STATUT_S_NAME:
+          type: string
+        STATUT_S_COLOR:
+          type: string
+      required:
+        - CODE
+        - STATUT
     ShippingAuthFieldDto:
       type: object
       properties:
@@ -10035,6 +12977,7 @@ components:
             - quicklivraison
             - forcelog
             - ozoneexpress
+            - ameex
           example: forcelog
         name:
           type: string
@@ -10066,6 +13009,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ShippingAuthFieldDto'
+        analyticsAvailable:
+          type: boolean
+          description: Whether this provider currently has local shipment analytics implemented.
+          example: true
+        totalShipments:
+          type: number
+          example: 1842
+        activeShipments:
+          type: number
+          example: 120
+        dataUpdatedAt:
+          type: object
+          nullable: true
+          format: date-time
       required:
         - code
         - name
@@ -10076,6 +13033,9 @@ components:
         - connectedAt
         - instructions
         - authFields
+        - analyticsAvailable
+        - totalShipments
+        - activeShipments
     ShippingCountryDto:
       type: object
       properties:
@@ -10107,12 +13067,78 @@ components:
     ShippingIntegrationsResponseDto:
       type: object
       properties:
+        summary:
+          type: object
+          example:
+            connectedCouriers: 2
+            totalShipments: 1942
+            activeShipments: 140
         countries:
           type: array
           items:
             $ref: '#/components/schemas/ShippingCountryDto'
       required:
+        - summary
         - countries
+    CreateShippingCourierSuggestionDto:
+      type: object
+      properties:
+        courierName:
+          type: string
+          example: Example Courier
+          minLength: 2
+          maxLength: 100
+        website:
+          type: string
+          example: https://example-courier.ma
+          maxLength: 500
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+          enum:
+            - MA
+            - DZ
+            - TN
+            - LY
+            - EG
+          example: MA
+        notes:
+          type: string
+          maxLength: 2000
+          example: Requested by our team.
+      required:
+        - courierName
+        - countryCode
+    ShippingCourierSuggestionResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        courierName:
+          type: string
+        website:
+          type: object
+          nullable: true
+        countryCode:
+          type: string
+          example: MA
+        notes:
+          type: object
+          nullable: true
+        status:
+          type: string
+          enum:
+            - PENDING
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - courierName
+        - countryCode
+        - status
+        - createdAt
     ShippingIntegrationConnectionResponseDto:
       type: object
       properties:
@@ -10123,6 +13149,7 @@ components:
             - quicklivraison
             - forcelog
             - ozoneexpress
+            - ameex
           example: forcelog
         connected:
           type: boolean
@@ -10140,6 +13167,609 @@ components:
         - connected
         - connectedAt
         - message
+    ShippingHomePeriodDto:
+      type: object
+      properties:
+        days:
+          type: number
+          enum:
+            - 1
+            - 7
+            - 30
+            - 90
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+          enum:
+            - UTC
+      required:
+        - days
+        - from
+        - to
+        - timezone
+    ShippingCostMetricDto:
+      type: object
+      properties:
+        cost:
+          type: string
+          example: '3842.0000'
+        shipments:
+          type: number
+          example: 198
+        pricedShipments:
+          type: number
+          example: 190
+      required:
+        - cost
+        - shipments
+        - pricedShipments
+    ShippingProviderCostDto:
+      type: object
+      properties:
+        cost:
+          type: string
+          example: '3842.0000'
+        shipments:
+          type: number
+          example: 198
+        pricedShipments:
+          type: number
+          example: 190
+        provider:
+          type: string
+          enum:
+            - sendit
+            - quicklivraison
+            - forcelog
+            - ozoneexpress
+            - ameex
+      required:
+        - cost
+        - shipments
+        - pricedShipments
+        - provider
+    ShippingHomeResponseDto:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/ShippingHomePeriodDto'
+        currency:
+          type: string
+          enum:
+            - MAD
+        totalShippingCost:
+          type: string
+          example: '738456.0000'
+        averageShippingCostPerPricedShipment:
+          type: object
+          example: '3.4500'
+          nullable: true
+        totalShipments:
+          type: number
+          example: 1245
+        pricedShipments:
+          type: number
+          example: 1150
+        costCoveragePercentage:
+          type: number
+          example: 92.37
+        delivery:
+          $ref: '#/components/schemas/ShippingCostMetricDto'
+        cancelled:
+          $ref: '#/components/schemas/ShippingCostMetricDto'
+        refused:
+          $ref: '#/components/schemas/ShippingCostMetricDto'
+        pickup:
+          $ref: '#/components/schemas/ShippingCostMetricDto'
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShippingProviderCostDto'
+        dataUpdatedAt:
+          type: object
+          nullable: true
+          format: date-time
+      required:
+        - period
+        - currency
+        - totalShippingCost
+        - averageShippingCostPerPricedShipment
+        - totalShipments
+        - pricedShipments
+        - costCoveragePercentage
+        - delivery
+        - cancelled
+        - refused
+        - pickup
+        - providers
+    SharedConnectionStatusDto:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - sendit
+            - quicklivraison
+            - forcelog
+            - ozoneexpress
+            - ameex
+        connected:
+          type: boolean
+        connectedAt:
+          type: object
+          nullable: true
+        lastSyncedAt:
+          type: object
+          nullable: true
+        lastSyncError:
+          type: object
+          nullable: true
+        message:
+          type: object
+          nullable: true
+        providerDetails:
+          type: object
+          additionalProperties: true
+      required:
+        - provider
+        - connected
+        - providerDetails
+    SharedShipmentDto:
+      type: object
+      properties:
+        id:
+          type: string
+        provider:
+          type: string
+          enum:
+            - sendit
+            - quicklivraison
+            - forcelog
+            - ozoneexpress
+            - ameex
+        providerCode:
+          type: string
+        providerStatus:
+          type: string
+        providerSubStatus:
+          type: object
+          nullable: true
+        normalizedStatus:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        reference:
+          type: object
+          nullable: true
+        recipientName:
+          type: object
+          nullable: true
+        recipientPhone:
+          type: object
+          nullable: true
+        address:
+          type: object
+          nullable: true
+        city:
+          type: object
+          nullable: true
+        cityId:
+          type: object
+          nullable: true
+        codAmount:
+          type: object
+          nullable: true
+        fee:
+          type: object
+          nullable: true
+        currency:
+          type: string
+        productName:
+          type: object
+          nullable: true
+        note:
+          type: object
+          nullable: true
+        lastActionAt:
+          type: object
+          nullable: true
+        providerCreatedAt:
+          type: object
+          nullable: true
+        providerUpdatedAt:
+          type: object
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        providerDetails:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - provider
+        - providerCode
+        - providerStatus
+        - normalizedStatus
+        - currency
+        - createdAt
+        - updatedAt
+        - providerDetails
+    SharedPaginationDto:
+      type: object
+      properties:
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+        totalPages:
+          type: number
+      required:
+        - total
+        - page
+        - limit
+        - totalPages
+    SharedShipmentListDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SharedShipmentDto'
+        pagination:
+          $ref: '#/components/schemas/SharedPaginationDto'
+      required:
+        - data
+        - pagination
+    SharedSyncResultDto:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - sendit
+            - quicklivraison
+            - forcelog
+            - ozoneexpress
+            - ameex
+        success:
+          type: boolean
+        message:
+          type: object
+          nullable: true
+        syncedAt:
+          type: object
+          nullable: true
+        selected:
+          type: number
+        processed:
+          type: number
+        imported:
+          type: number
+        refreshed:
+          type: number
+        reconciled:
+          type: number
+        failed:
+          type: number
+        failures:
+          type: array
+          items:
+            type: object
+        nextCursor:
+          type: object
+          nullable: true
+        providerDetails:
+          type: object
+          additionalProperties: true
+      required:
+        - provider
+        - success
+        - selected
+        - processed
+        - imported
+        - refreshed
+        - reconciled
+        - failed
+        - failures
+        - providerDetails
+    SharedOverviewResponseDto:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - sendit
+            - quicklivraison
+            - forcelog
+            - ozoneexpress
+            - ameex
+        period:
+          type: object
+          additionalProperties: true
+        metrics:
+          type: object
+          additionalProperties: true
+        statusBreakdown:
+          type: array
+          items:
+            type: object
+        performance:
+          type: array
+          items:
+            type: object
+        topCities:
+          type: array
+          items:
+            type: object
+        dataUpdatedAt:
+          type: object
+          nullable: true
+        sync:
+          type: object
+          additionalProperties: true
+      required:
+        - provider
+        - period
+        - metrics
+        - statusBreakdown
+        - performance
+        - topCities
+        - sync
+    SharedTrackingEventDto:
+      type: object
+      properties:
+        id:
+          type: string
+        provider:
+          type: string
+          enum:
+            - sendit
+            - quicklivraison
+            - forcelog
+            - ozoneexpress
+            - ameex
+        eventType:
+          type: string
+        providerStatus:
+          type: string
+        providerSubStatus:
+          type: object
+          nullable: true
+        normalizedStatus:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        statusName:
+          type: object
+          nullable: true
+        statusColor:
+          type: object
+          nullable: true
+        message:
+          type: object
+          nullable: true
+        actor:
+          type: object
+          nullable: true
+        proofImageUrl:
+          type: object
+          nullable: true
+        eventAt:
+          type: string
+        providerDetails:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - provider
+        - eventType
+        - providerStatus
+        - normalizedStatus
+        - eventAt
+        - providerDetails
+    SharedTimelineDto:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - sendit
+            - quicklivraison
+            - forcelog
+            - ozoneexpress
+            - ameex
+        providerCode:
+          type: string
+        providerStatus:
+          type: string
+        providerSubStatus:
+          type: object
+          nullable: true
+        normalizedStatus:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        lastActionAt:
+          type: object
+          nullable: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/SharedTrackingEventDto'
+      required:
+        - provider
+        - providerCode
+        - providerStatus
+        - normalizedStatus
+        - events
+    SharedShipmentDetailDto:
+      type: object
+      properties:
+        id:
+          type: string
+        provider:
+          type: string
+          enum:
+            - sendit
+            - quicklivraison
+            - forcelog
+            - ozoneexpress
+            - ameex
+        providerCode:
+          type: string
+        providerStatus:
+          type: string
+        providerSubStatus:
+          type: object
+          nullable: true
+        normalizedStatus:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+        reference:
+          type: object
+          nullable: true
+        recipientName:
+          type: object
+          nullable: true
+        recipientPhone:
+          type: object
+          nullable: true
+        address:
+          type: object
+          nullable: true
+        city:
+          type: object
+          nullable: true
+        cityId:
+          type: object
+          nullable: true
+        codAmount:
+          type: object
+          nullable: true
+        fee:
+          type: object
+          nullable: true
+        currency:
+          type: string
+        productName:
+          type: object
+          nullable: true
+        note:
+          type: object
+          nullable: true
+        lastActionAt:
+          type: object
+          nullable: true
+        providerCreatedAt:
+          type: object
+          nullable: true
+        providerUpdatedAt:
+          type: object
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        providerDetails:
+          type: object
+          additionalProperties: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/SharedTrackingEventDto'
+      required:
+        - id
+        - provider
+        - providerCode
+        - providerStatus
+        - normalizedStatus
+        - currency
+        - createdAt
+        - updatedAt
+        - providerDetails
+        - events
     StartShopifyAuthDto:
       type: object
       properties:

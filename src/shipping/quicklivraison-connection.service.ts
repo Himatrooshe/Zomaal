@@ -47,7 +47,12 @@ export class QuickLivraisonConnectionService {
   async getStatus(userId: string) {
     const connection = await this.prisma.quickLivraisonConnection.findUnique({
       where: { userId },
-      select: { keyType: true, connectedAt: true },
+      select: {
+        keyType: true,
+        connectedAt: true,
+        lastSyncedAt: true,
+        lastSyncError: true,
+      },
     });
 
     if (!connection) {
@@ -60,7 +65,11 @@ export class QuickLivraisonConnectionService {
       };
     }
 
-    return this.toStatus(connection.keyType, connection.connectedAt);
+    return {
+      ...this.toStatus(connection.keyType, connection.connectedAt),
+      lastSyncedAt: connection.lastSyncedAt?.toISOString() ?? null,
+      lastSyncError: connection.lastSyncError,
+    };
   }
 
   async disconnect(userId: string) {
@@ -90,6 +99,20 @@ export class QuickLivraisonConnectionService {
     }
 
     return this.decrypt(connection.encryptedApiKey);
+  }
+
+  async updateSyncHealth(
+    userId: string,
+    lastSyncedAt: Date | null,
+    lastSyncError: string | null,
+  ) {
+    await this.prisma.quickLivraisonConnection.updateMany({
+      where: { userId },
+      data: {
+        ...(lastSyncedAt ? { lastSyncedAt } : {}),
+        lastSyncError,
+      },
+    });
   }
 
   private toStatus(keyType: string, connectedAt: Date) {

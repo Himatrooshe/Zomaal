@@ -1,10 +1,5 @@
-import {
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, timingSafeEqual } from 'crypto';
 import { ForceLogClient } from './forcelog.client';
 import { ForceLogConnectionService } from './forcelog-connection.service';
 import type { ConnectForceLogDto } from './dto/forcelog-connection.dto';
@@ -16,6 +11,13 @@ import type {
 import type { ForceLogPickupDto } from './dto/forcelog-pickup.dto';
 import type { ForceLogProductDto } from './dto/forcelog-product.dto';
 import type { ForceLogReturnRequestDto } from './dto/forcelog-return.dto';
+import type {
+  ForceLogShipmentQueryDto,
+  ForceLogSyncQueryDto,
+} from './dto/forcelog-shipment-query.dto';
+import type { ForceLogOverviewQueryDto } from './dto/forcelog-overview-query.dto';
+import { ForceLogShipmentService } from './forcelog-shipment.service';
+import { ForceLogOverviewService } from './forcelog-overview.service';
 import { OzoneExpressClient } from './ozoneexpress.client';
 import { OzoneExpressConnectionService } from './ozoneexpress-connection.service';
 import type { ConnectOzoneExpressDto } from './dto/ozoneexpress-connection.dto';
@@ -23,17 +25,35 @@ import type {
   OzoneExpressDeliveryNoteParcelsDto,
   OzoneExpressParcelDto,
 } from './dto/ozoneexpress-parcel.dto';
+import type {
+  OzoneExpressShipmentQueryDto,
+  OzoneExpressSyncQueryDto,
+} from './dto/ozoneexpress-shipment-query.dto';
+import type { OzoneExpressOverviewQueryDto } from './dto/ozoneexpress-overview-query.dto';
+import { OzoneExpressShipmentService } from './ozoneexpress-shipment.service';
+import { OzoneExpressOverviewService } from './ozoneexpress-overview.service';
 import { QuickLivraisonClient } from './quicklivraison.client';
 import { QuickLivraisonConnectionService } from './quicklivraison-connection.service';
+import { QuickLivraisonShipmentService } from './quicklivraison-shipment.service';
+import { QuickLivraisonSyncService } from './quicklivraison-sync.service';
+import { QuickLivraisonOverviewService } from './quicklivraison-overview.service';
 import type { ConnectQuickLivraisonDto } from './dto/quicklivraison-connection.dto';
 import type { QuickLivraisonBulkDeliveryDto } from './dto/quicklivraison-bulk-delivery.dto';
 import type { QuickLivraisonDeliveryDto } from './dto/quicklivraison-delivery.dto';
+import type { QuickLivraisonShipmentQueryDto } from './dto/quicklivraison-shipment-query.dto';
+import type { QuickLivraisonOverviewQueryDto } from './dto/quicklivraison-overview-query.dto';
 import { SenditClient } from './sendit.client';
 import { SenditConnectionService } from './sendit-connection.service';
+import { SenditShipmentService } from './sendit-shipment.service';
+import { SenditSyncService } from './sendit-sync.service';
+import { SenditOverviewService } from './sendit-overview.service';
 import type { SenditDeliveryDto } from './dto/sendit-delivery.dto';
 import type { SenditDistrictQueryDto } from './dto/sendit-district-query.dto';
 import type { SenditLabelsDto } from './dto/sendit-labels.dto';
 import type { SenditListQueryDto } from './dto/sendit-list-query.dto';
+import type { SenditShipmentQueryDto } from './dto/sendit-shipment-query.dto';
+import type { SenditSyncQueryDto } from './dto/sendit-sync-query.dto';
+import type { SenditOverviewQueryDto } from './dto/sendit-overview-query.dto';
 import type {
   SenditPickupDto,
   SenditUpdatePickupDto,
@@ -45,12 +65,6 @@ import type {
 
 @Injectable()
 export class ShippingService {
-  private latestSenditWebhook: {
-    receivedAt: string;
-    headers: Record<string, string | string[] | undefined>;
-    payload: unknown;
-  } | null = null;
-
   private latestQuickLivraisonWebhook: {
     receivedAt: string;
     headers: Record<string, string | string[] | undefined>;
@@ -60,12 +74,22 @@ export class ShippingService {
   constructor(
     private readonly senditClient: SenditClient,
     private readonly senditConnectionService: SenditConnectionService,
+    private readonly senditShipments: SenditShipmentService,
+    private readonly senditSync: SenditSyncService,
+    private readonly senditOverview: SenditOverviewService,
     private readonly quickLivraisonClient: QuickLivraisonClient,
     private readonly quickLivraisonConnectionService: QuickLivraisonConnectionService,
+    private readonly quickLivraisonShipments: QuickLivraisonShipmentService,
+    private readonly quickLivraisonSync: QuickLivraisonSyncService,
+    private readonly quickLivraisonOverview: QuickLivraisonOverviewService,
     private readonly forceLogClient: ForceLogClient,
     private readonly forceLogConnectionService: ForceLogConnectionService,
+    private readonly forceLogShipments: ForceLogShipmentService,
+    private readonly forceLogOverview: ForceLogOverviewService,
     private readonly ozoneExpressClient: OzoneExpressClient,
     private readonly ozoneExpressConnectionService: OzoneExpressConnectionService,
+    private readonly ozoneExpressShipments: OzoneExpressShipmentService,
+    private readonly ozoneExpressOverview: OzoneExpressOverviewService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -96,11 +120,37 @@ export class ShippingService {
   }
 
   async createSenditDelivery(userId: string, payload: SenditDeliveryDto) {
-    return this.senditClient.createDelivery(
+    const response = await this.senditClient.createDelivery(
       userId,
       await this.credentials(userId),
       payload,
     );
+    await this.senditShipments.persistCreatedDelivery(
+      userId,
+      payload,
+      response,
+    );
+    return response;
+  }
+
+  getStoredSenditShipment(userId: string, providerCode: string) {
+    return this.senditShipments.getByProviderCode(userId, providerCode);
+  }
+
+  listStoredSenditShipments(userId: string, query: SenditShipmentQueryDto) {
+    return this.senditShipments.list(userId, query);
+  }
+
+  getStoredSenditTimeline(userId: string, providerCode: string) {
+    return this.senditShipments.getTimeline(userId, providerCode);
+  }
+
+  syncSenditShipments(userId: string, query: SenditSyncQueryDto) {
+    return this.senditSync.sync(userId, query);
+  }
+
+  getSenditOverview(userId: string, query: SenditOverviewQueryDto) {
+    return this.senditOverview.getOverview(userId, query);
   }
 
   async getSenditDelivery(userId: string, code: string) {
@@ -277,26 +327,9 @@ export class ShippingService {
   receiveSenditWebhook(
     headers: Record<string, string | string[] | undefined>,
     payload: unknown,
+    rawBody?: Buffer,
   ) {
-    this.latestSenditWebhook = {
-      receivedAt: new Date().toISOString(),
-      headers: this.sanitizeWebhookHeaders(headers),
-      payload,
-    };
-
-    return {
-      success: true,
-      message: 'Sendit webhook received',
-    };
-  }
-
-  getLatestSenditWebhook() {
-    this.assertWebhookDebugEnabled();
-
-    return {
-      success: true,
-      data: this.latestSenditWebhook,
-    };
+    return this.senditShipments.processStatusWebhook(headers, payload, rawBody);
   }
 
   connectQuickLivraison(userId: string, payload: ConnectQuickLivraisonDto) {
@@ -315,20 +348,61 @@ export class ShippingService {
     userId: string,
     payload: QuickLivraisonDeliveryDto,
   ) {
-    return this.quickLivraisonClient.createDelivery(
+    const response = await this.quickLivraisonClient.createDelivery(
       await this.quickLivraisonConnectionService.getApiKey(userId),
       payload,
     );
+    await this.quickLivraisonShipments.persistCreatedDelivery(
+      userId,
+      payload,
+      response,
+    );
+    return response;
   }
 
   async createQuickLivraisonBulkDeliveries(
     userId: string,
     payload: QuickLivraisonBulkDeliveryDto,
   ) {
-    return this.quickLivraisonClient.createBulkDeliveries(
+    const response = await this.quickLivraisonClient.createBulkDeliveries(
       await this.quickLivraisonConnectionService.getApiKey(userId),
       payload.parcels,
     );
+    await this.quickLivraisonShipments.persistBulkCreatedDeliveries(
+      userId,
+      payload.parcels,
+      response,
+    );
+    return response;
+  }
+
+  getQuickLivraisonShipment(userId: string, trackingNumber: string) {
+    return this.quickLivraisonShipments.getByProviderCode(
+      userId,
+      trackingNumber,
+    );
+  }
+
+  listQuickLivraisonShipments(
+    userId: string,
+    query: QuickLivraisonShipmentQueryDto,
+  ) {
+    return this.quickLivraisonShipments.list(userId, query);
+  }
+
+  getQuickLivraisonTimeline(userId: string, trackingNumber: string) {
+    return this.quickLivraisonShipments.getTimeline(userId, trackingNumber);
+  }
+
+  syncQuickLivraisonShipments(userId: string) {
+    return this.quickLivraisonSync.sync(userId);
+  }
+
+  getQuickLivraisonOverview(
+    userId: string,
+    query: QuickLivraisonOverviewQueryDto,
+  ) {
+    return this.quickLivraisonOverview.getOverview(userId, query);
   }
 
   async listQuickLivraisonDeliveries(userId: string) {
@@ -355,12 +429,16 @@ export class ShippingService {
     return this.quickLivraisonClient.getCitiesWithFeesAndDelays();
   }
 
-  receiveQuickLivraisonWebhook(
+  async receiveQuickLivraisonWebhook(
     headers: Record<string, string | string[] | undefined>,
     payload: unknown,
     rawBody?: Buffer,
   ) {
-    this.verifyQuickLivraisonWebhookSignature(headers, rawBody);
+    const result = await this.quickLivraisonShipments.processStatusWebhook(
+      headers,
+      payload,
+      rawBody,
+    );
 
     this.latestQuickLivraisonWebhook = {
       receivedAt: new Date().toISOString(),
@@ -368,10 +446,7 @@ export class ShippingService {
       payload,
     };
 
-    return {
-      success: true,
-      message: 'QuickLivraison webhook received',
-    };
+    return result;
   }
 
   getLatestQuickLivraisonWebhook() {
@@ -396,17 +471,53 @@ export class ShippingService {
   }
 
   async addForceLogParcel(userId: string, payload: ForceLogParcelDto) {
-    return this.forceLogClient.addParcel(
+    const response = await this.forceLogClient.addParcel(
       await this.forceLogConnectionService.getApiKey(userId),
       payload,
     );
+    await this.forceLogShipments.persistCreatedParcel(
+      userId,
+      payload,
+      response,
+    );
+    return response;
   }
 
   async getForceLogParcel(userId: string, code: string) {
-    return this.forceLogClient.getParcel(
+    const response = await this.forceLogClient.getParcel(
       await this.forceLogConnectionService.getApiKey(userId),
       code,
     );
+    await this.forceLogShipments.reconcileProviderParcel(
+      userId,
+      code,
+      response,
+    );
+    return response;
+  }
+
+  listForceLogShipments(userId: string, query: ForceLogShipmentQueryDto) {
+    return this.forceLogShipments.list(userId, query);
+  }
+
+  getForceLogShipment(userId: string, code: string) {
+    return this.forceLogShipments.getByProviderCode(userId, code);
+  }
+
+  getForceLogTimeline(userId: string, code: string) {
+    return this.forceLogShipments.getTimeline(userId, code);
+  }
+
+  refreshForceLogShipment(userId: string, code: string) {
+    return this.forceLogShipments.refresh(userId, code);
+  }
+
+  syncForceLogShipments(userId: string, query: ForceLogSyncQueryDto) {
+    return this.forceLogShipments.sync(userId, query);
+  }
+
+  getForceLogOverview(userId: string, query: ForceLogOverviewQueryDto) {
+    return this.forceLogOverview.getOverview(userId, query);
   }
 
   async relaunchForceLogParcel(userId: string, payload: ForceLogRelaunchDto) {
@@ -495,24 +606,65 @@ export class ShippingService {
   }
 
   async addOzoneExpressParcel(userId: string, payload: OzoneExpressParcelDto) {
-    return this.ozoneExpressClient.addParcel(
+    const response = await this.ozoneExpressClient.addParcel(
       await this.ozoneExpressConnectionService.getCredentials(userId),
       payload,
     );
+    await this.ozoneExpressShipments.persistCreatedParcel(
+      userId,
+      payload,
+      response,
+    );
+    return response;
   }
 
   async getOzoneExpressParcelInfo(userId: string, trackingNumber: string) {
-    return this.ozoneExpressClient.getParcelInfo(
+    const response = await this.ozoneExpressClient.getParcelInfo(
       await this.ozoneExpressConnectionService.getCredentials(userId),
       trackingNumber,
     );
+    await this.ozoneExpressShipments.reconcileParcelInfo(
+      userId,
+      trackingNumber,
+      response,
+    );
+    return response;
   }
 
   async trackOzoneExpress(userId: string, trackingNumber: string | string[]) {
-    return this.ozoneExpressClient.track(
+    const response = await this.ozoneExpressClient.track(
       await this.ozoneExpressConnectionService.getCredentials(userId),
       trackingNumber,
     );
+    await this.ozoneExpressShipments.reconcileTracking(userId, response);
+    return response;
+  }
+
+  listOzoneExpressShipments(
+    userId: string,
+    query: OzoneExpressShipmentQueryDto,
+  ) {
+    return this.ozoneExpressShipments.list(userId, query);
+  }
+
+  getOzoneExpressShipment(userId: string, trackingNumber: string) {
+    return this.ozoneExpressShipments.getByProviderCode(userId, trackingNumber);
+  }
+
+  getOzoneExpressTimeline(userId: string, trackingNumber: string) {
+    return this.ozoneExpressShipments.getTimeline(userId, trackingNumber);
+  }
+
+  refreshOzoneExpressShipment(userId: string, trackingNumber: string) {
+    return this.ozoneExpressShipments.refresh(userId, trackingNumber);
+  }
+
+  syncOzoneExpressShipments(userId: string, query: OzoneExpressSyncQueryDto) {
+    return this.ozoneExpressShipments.sync(userId, query);
+  }
+
+  getOzoneExpressOverview(userId: string, query: OzoneExpressOverviewQueryDto) {
+    return this.ozoneExpressOverview.getOverview(userId, query);
   }
 
   async createOzoneExpressDeliveryNote(userId: string) {
@@ -567,44 +719,5 @@ export class ShippingService {
         allowedHeaders.includes(key.toLowerCase()),
       ),
     );
-  }
-
-  private verifyQuickLivraisonWebhookSignature(
-    headers: Record<string, string | string[] | undefined>,
-    rawBody?: Buffer,
-  ) {
-    const secret = this.configService.get<string>(
-      'QUICKLIVRAISON_WEBHOOK_SECRET',
-    );
-
-    if (!secret) {
-      return;
-    }
-
-    const signatureHeader = headers['x-webhook-signature'];
-    const signature = Array.isArray(signatureHeader)
-      ? signatureHeader[0]
-      : signatureHeader;
-
-    if (!signature || !rawBody) {
-      throw new UnauthorizedException(
-        'Missing QuickLivraison webhook signature',
-      );
-    }
-
-    const expected = `sha256=${createHmac('sha256', secret)
-      .update(rawBody)
-      .digest('hex')}`;
-    const expectedBuffer = Buffer.from(expected);
-    const signatureBuffer = Buffer.from(signature);
-
-    if (
-      expectedBuffer.length !== signatureBuffer.length ||
-      !timingSafeEqual(expectedBuffer, signatureBuffer)
-    ) {
-      throw new UnauthorizedException(
-        'Invalid QuickLivraison webhook signature',
-      );
-    }
   }
 }

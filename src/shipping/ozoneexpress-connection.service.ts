@@ -48,7 +48,11 @@ export class OzoneExpressConnectionService {
   async getStatus(userId: string) {
     const connection = await this.prisma.ozoneExpressConnection.findUnique({
       where: { userId },
-      select: { connectedAt: true },
+      select: {
+        connectedAt: true,
+        lastSyncedAt: true,
+        lastSyncError: true,
+      },
     });
 
     if (!connection) {
@@ -60,7 +64,11 @@ export class OzoneExpressConnectionService {
       };
     }
 
-    return this.toStatus(connection.connectedAt);
+    return {
+      ...this.toStatus(connection.connectedAt),
+      lastSyncedAt: connection.lastSyncedAt?.toISOString() ?? null,
+      lastSyncError: connection.lastSyncError,
+    };
   }
 
   async disconnect(userId: string) {
@@ -90,6 +98,20 @@ export class OzoneExpressConnectionService {
       customerId: this.decrypt(connection.encryptedCustomerId),
       apiKey: this.decrypt(connection.encryptedApiKey),
     };
+  }
+
+  async updateSyncHealth(
+    userId: string,
+    lastSyncedAt: Date | null,
+    lastSyncError: string | null,
+  ) {
+    await this.prisma.ozoneExpressConnection.updateMany({
+      where: { userId },
+      data: {
+        ...(lastSyncedAt ? { lastSyncedAt } : {}),
+        lastSyncError,
+      },
+    });
   }
 
   private toStatus(connectedAt: Date) {

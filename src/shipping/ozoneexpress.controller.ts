@@ -3,8 +3,11 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -16,6 +19,7 @@ import {
   ApiConsumes,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiNotFoundResponse,
   ApiOperation,
   ApiParam,
   ApiProduces,
@@ -39,6 +43,12 @@ import {
   OzoneExpressParcelDto,
   OzoneExpressTrackingDto,
 } from './dto/ozoneexpress-parcel.dto';
+import {
+  OzoneExpressShipmentQueryDto,
+  OzoneExpressSyncQueryDto,
+} from './dto/ozoneexpress-shipment-query.dto';
+import { OzoneExpressOverviewQueryDto } from './dto/ozoneexpress-overview-query.dto';
+import { OzoneExpressOverviewResponseDto } from './dto/ozoneexpress-overview-response.dto';
 import { ShippingService } from './shipping.service';
 
 @ApiTags('Shipping - OzoneExpress')
@@ -222,6 +232,130 @@ export class OzoneExpressController {
     @Body() payload: OzoneExpressParcelDto,
   ) {
     return this.shippingService.addOzoneExpressParcel(user.userId, payload);
+  }
+
+  @Get('shipments')
+  @ApiOperation({
+    summary: 'List locally stored OzoneExpress shipments',
+    operationId: 'listStoredOzoneExpressShipments',
+    description:
+      'Returns user-scoped local parcels with backend pagination, search, and normalized-status filtering.',
+  })
+  @ApiOkResponse({
+    description: 'Paginated normalized OzoneExpress shipments.',
+    schema: {
+      example: {
+        data: [],
+        pagination: { total: 0, page: 1, limit: 20, totalPages: 0 },
+      },
+    },
+  })
+  listStoredShipments(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: OzoneExpressShipmentQueryDto,
+  ) {
+    return this.shippingService.listOzoneExpressShipments(user.userId, query);
+  }
+
+  @Post('shipments/sync')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Refresh locally known OzoneExpress shipments',
+    operationId: 'syncOzoneExpressShipments',
+  })
+  @ApiOkResponse({
+    description: 'OzoneExpress refresh batch completed.',
+    schema: { type: 'object', additionalProperties: true },
+  })
+  syncShipments(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: OzoneExpressSyncQueryDto,
+  ) {
+    return this.shippingService.syncOzoneExpressShipments(user.userId, query);
+  }
+
+  @Get('overview')
+  @ApiOperation({
+    summary: 'Get OzoneExpress overview analytics',
+    operationId: 'getOzoneExpressOverview',
+  })
+  @ApiOkResponse({
+    description: 'OzoneExpress overview computed from local shipments.',
+    type: OzoneExpressOverviewResponseDto,
+  })
+  getOverview(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: OzoneExpressOverviewQueryDto,
+  ) {
+    return this.shippingService.getOzoneExpressOverview(user.userId, query);
+  }
+
+  @Post('shipments/:trackingNumber/refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Refresh or import one OzoneExpress shipment',
+    operationId: 'refreshOzoneExpressShipment',
+    description:
+      'Fetches parcel information and tracking history, then upserts the normalized local shipment.',
+  })
+  @ApiOkResponse({
+    description: 'Refreshed normalized OzoneExpress shipment.',
+    schema: { type: 'object', additionalProperties: true },
+  })
+  refreshShipment(
+    @CurrentUser() user: JwtPayload,
+    @Param('trackingNumber') trackingNumber: string,
+  ) {
+    return this.shippingService.refreshOzoneExpressShipment(
+      user.userId,
+      trackingNumber,
+    );
+  }
+
+  @Get('shipments/:trackingNumber/timeline')
+  @ApiOperation({
+    summary: 'Get a stored OzoneExpress shipment timeline',
+    operationId: 'getOzoneExpressShipmentTimeline',
+  })
+  @ApiOkResponse({
+    description: 'Normalized OzoneExpress tracking history.',
+    schema: { type: 'object', additionalProperties: true },
+  })
+  @ApiNotFoundResponse({
+    description: 'Stored OzoneExpress shipment was not found.',
+    type: ApiErrorDto,
+  })
+  getTimeline(
+    @CurrentUser() user: JwtPayload,
+    @Param('trackingNumber') trackingNumber: string,
+  ) {
+    return this.shippingService.getOzoneExpressTimeline(
+      user.userId,
+      trackingNumber,
+    );
+  }
+
+  @Get('shipments/:trackingNumber')
+  @ApiOperation({
+    summary: 'Get one locally stored OzoneExpress shipment',
+    operationId: 'getStoredOzoneExpressShipment',
+  })
+  @ApiOkResponse({
+    description: 'Stored normalized OzoneExpress shipment.',
+    schema: { type: 'object', additionalProperties: true },
+  })
+  @ApiNotFoundResponse({
+    description: 'Stored OzoneExpress shipment was not found.',
+    type: ApiErrorDto,
+  })
+  getStoredShipment(
+    @CurrentUser() user: JwtPayload,
+    @Param('trackingNumber') trackingNumber: string,
+  ) {
+    return this.shippingService.getOzoneExpressShipment(
+      user.userId,
+      trackingNumber,
+    );
   }
 
   @Get('parcels/:trackingNumber')

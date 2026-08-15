@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsIn,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -161,6 +162,8 @@ export class OzoneExpressTrackingDto {
       },
     ],
   })
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
   trackingNumber: string | string[];
 }
 

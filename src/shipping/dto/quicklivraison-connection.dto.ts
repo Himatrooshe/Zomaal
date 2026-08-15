@@ -48,6 +48,19 @@ export class QuickLivraisonConnectionStatusDto {
   })
   connectedAt: string | null;
 
+  @ApiPropertyOptional({
+    description: 'Last successful local shipment synchronization time.',
+    nullable: true,
+    format: 'date-time',
+  })
+  lastSyncedAt?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Most recent synchronization failure, if any.',
+    nullable: true,
+  })
+  lastSyncError?: string | null;
+
   @ApiProperty({
     description: 'Human-readable status summary.',
     example: 'QuickLivraison account is connected',

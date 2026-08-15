@@ -48,6 +48,23 @@ export class OzoneExpressConnectionStatusDto {
   })
   connectedAt: string | null;
 
+  @ApiPropertyOptional({
+    description: 'UTC time of the latest successful local shipment sync.',
+    example: '2026-08-15T10:00:00.000Z',
+    nullable: true,
+    type: String,
+    format: 'date-time',
+  })
+  lastSyncedAt?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Latest shipment synchronization error, when one exists.',
+    example: null,
+    nullable: true,
+    type: String,
+  })
+  lastSyncError?: string | null;
+
   @ApiProperty({
     description: 'Human-readable status summary.',
     example: 'OzoneExpress account is connected',
