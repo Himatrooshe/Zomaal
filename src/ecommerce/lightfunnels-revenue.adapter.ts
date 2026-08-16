@@ -37,8 +37,23 @@ const ORDERS_QUERY = `
           net_payment
           currency
           test
+          shipping_address { city }
           items {
             __typename
+            ... on VariantSnapshot {
+              id
+              variant_id
+              title
+              sku
+              price
+            }
+            ... on OrderBumpSnapshot {
+              id
+              product_id
+              title
+              sku
+              price
+            }
           }
         }
       }
@@ -162,10 +177,36 @@ function normalizeOrder(
     shipping: shipping.toFixed(4),
     tax: tax.toFixed(4),
     totalCollected: totalCollected.toFixed(4),
+    shippingCity:
+      optionalString(asOptionalRecord(order.shipping_address)?.city) ?? null,
     providerCreatedAt,
     processedAt: providerCreatedAt,
     cancelledAt,
     providerUpdatedAt,
+    lines: items.map((item, index) =>
+      normalizeLine(item, index, externalOrderId, currency),
+    ),
+  };
+}
+
+function normalizeLine(
+  value: unknown,
+  index: number,
+  orderId: string,
+  currency: string,
+) {
+  const item = asOptionalRecord(value) ?? {};
+  const price = optionalDecimal(item.price);
+  return {
+    externalLineId: optionalString(item.id) ?? `${orderId}:${index + 1}`,
+    externalProductId: optionalString(item.product_id),
+    externalVariantId: optionalString(item.variant_id),
+    sku: optionalString(item.sku),
+    name: optionalString(item.title) ?? 'Unknown Product',
+    quantity: 1,
+    unitPrice: price.toFixed(4),
+    totalPrice: price.toFixed(4),
+    currency,
   };
 }
 
@@ -280,7 +321,28 @@ function requiredString(value: unknown, field: string): string {
 }
 
 function optionalString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+function asOptionalRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function optionalDecimal(value: unknown): Prisma.Decimal {
+  try {
+    const parsed = new Prisma.Decimal(
+      typeof value === 'number' || typeof value === 'string' ? value : 0,
+    );
+    return parsed.isFinite() && !parsed.isNegative()
+      ? parsed
+      : new Prisma.Decimal(0);
+  } catch {
+    return new Prisma.Decimal(0);
+  }
 }
 
 function asRecord(value: unknown, field: string): Record<string, unknown> {

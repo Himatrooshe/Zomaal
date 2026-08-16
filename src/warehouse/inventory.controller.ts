@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -28,7 +29,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
-import { AdjustInventoryDto } from './dto/inventory.dto';
+import { AdjustInventoryDto, SetInventoryOnHandDto } from './dto/inventory.dto';
 import {
   InventoryItemResponseDto,
   InventoryMovementResponseDto,
@@ -128,5 +129,34 @@ export class InventoryController {
     @Body() dto: AdjustInventoryDto,
   ) {
     return this.inventory.adjust(user.userId, id, dto);
+  }
+
+  @Put(':id/stock')
+  @ApiParam({ name: 'id', format: 'uuid', description: 'Inventory item ID.' })
+  @ApiOperation({
+    summary: 'Set the final on-hand stock quantity',
+    description:
+      'UI-friendly Update Stock endpoint. Send the final quantity shown in the popup; the backend calculates and audits the delta atomically.',
+  })
+  @ApiOkResponse({ type: InventoryMovementResponseDto })
+  @ApiBadRequestResponse({
+    description:
+      'Invalid quantity or the new on-hand quantity is below reserved plus damaged stock.',
+    type: ApiErrorDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Store or store-owned inventory item was not found.',
+    type: ApiErrorDto,
+  })
+  @ApiConflictResponse({
+    description: 'Inventory changed concurrently after three retries.',
+    type: ApiErrorDto,
+  })
+  setStock(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: SetInventoryOnHandDto,
+  ) {
+    return this.inventory.setOnHand(user.userId, id, dto);
   }
 }

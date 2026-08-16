@@ -1,5 +1,17 @@
 import { EcommerceOrderStatus, EcommercePaymentStatus } from '@prisma/client';
 
+export interface NormalizedEcommerceOrderLine {
+  externalLineId: string;
+  externalProductId: string | null;
+  externalVariantId: string | null;
+  sku: string | null;
+  name: string;
+  quantity: number;
+  unitPrice: string;
+  totalPrice: string;
+  currency: string;
+}
+
 export interface NormalizedEcommerceOrder {
   externalOrderId: string;
   orderName: string;
@@ -15,10 +27,12 @@ export interface NormalizedEcommerceOrder {
   shipping: string;
   tax: string;
   totalCollected: string;
+  shippingCity: string | null;
   providerCreatedAt: Date;
   processedAt: Date;
   cancelledAt: Date | null;
   providerUpdatedAt: Date;
+  lines: NormalizedEcommerceOrderLine[];
 }
 
 export interface EcommerceOrderPage {

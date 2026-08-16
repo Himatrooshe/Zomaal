@@ -29,11 +29,14 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import {
+  CreateProductBundleDto,
   CreateWarehouseProductDto,
+  ProductPerformanceQueryDto,
   UpdateWarehouseProductDto,
   WarehouseProductQueryDto,
 } from './dto/product.dto';
 import {
+  ProductPerformanceResponseDto,
   WarehouseProductListResponseDto,
   WarehouseProductResponseDto,
 } from './dto/product-response.dto';
@@ -151,6 +154,30 @@ export class ProductController {
     return this.products.create(user.userId, dto);
   }
 
+  @Post('bundles')
+  @ApiOperation({
+    summary: 'Create a product bundle from existing variants',
+    description:
+      'Creates a sellable bundle with a derived cost and derived stock. Available bundle stock is the minimum number of complete bundles that can be assembled from the selected component variants.',
+  })
+  @ApiBody({ type: CreateProductBundleDto })
+  @ApiCreatedResponse({ type: WarehouseProductResponseDto })
+  @ApiBadRequestResponse({
+    description:
+      'Invalid component, duplicate component, inactive category, or invalid image upload.',
+    type: ApiErrorDto,
+  })
+  @ApiConflictResponse({
+    description: 'Bundle SKU or idempotency key is already in use.',
+    type: ApiErrorDto,
+  })
+  createBundle(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateProductBundleDto,
+  ) {
+    return this.products.createBundle(user.userId, dto);
+  }
+
   @Get()
   @ApiOperation({
     summary: 'Search and list merchant warehouse products',
@@ -200,6 +227,26 @@ export class ProductController {
     return this.products.get(user.userId, id);
   }
 
+  @Get(':id/performance')
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description: 'Store-owned warehouse product ID.',
+  })
+  @ApiOperation({
+    summary: 'Get product-level order and financial performance',
+    description:
+      'Returns 7D, 30D, 90D, or custom product performance based on normalized synchronized order lines matched by warehouse SKU.',
+  })
+  @ApiOkResponse({ type: ProductPerformanceResponseDto })
+  performance(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: ProductPerformanceQueryDto,
+  ) {
+    return this.products.performance(user.userId, id, query);
+  }
+
   @Patch(':id')
   @ApiParam({
     name: 'id',
@@ -207,9 +254,9 @@ export class ProductController {
     description: 'Store-owned warehouse product ID.',
   })
   @ApiOperation({
-    summary: 'Update warehouse product metadata safely',
+    summary: 'Update warehouse product details and pricing safely',
     description:
-      'Updates only name, description, category, and status. Send the latest version returned by GET/PATCH; the response increments it. Variant/inventory changes use their dedicated workflows.',
+      'Updates name, description, category, status, and simple-product or per-variant price, cost, and low-stock thresholds. Send the latest version returned by GET/PATCH; the response increments it. Stock changes use the dedicated inventory endpoint.',
   })
   @ApiOkResponse({ type: WarehouseProductResponseDto })
   @ApiBadRequestResponse({

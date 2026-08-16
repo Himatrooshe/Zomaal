@@ -86,4 +86,63 @@ describe('InventoryService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(tx.inventoryBalance.update).not.toHaveBeenCalled();
   });
+
+  it('sets an absolute stock quantity and audits the calculated delta', async () => {
+    const tx = {
+      inventoryItem: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'item-1',
+          balances: [
+            {
+              id: 'balance-1',
+              locationId: 'location-1',
+              location: { isDefault: true },
+              onHand: 47,
+              reserved: 2,
+              damaged: 1,
+              incoming: 0,
+            },
+          ],
+        }),
+      },
+      inventoryMovement: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest
+          .fn()
+          .mockImplementation((args: { data: Record<string, unknown> }) =>
+            Promise.resolve(args.data),
+          ),
+      },
+      inventoryBalance: { update: jest.fn() },
+    };
+    const prisma = {
+      $transaction: jest
+        .fn()
+        .mockImplementation((callback: (client: typeof tx) => unknown) =>
+          callback(tx),
+        ),
+    };
+    const stores = {
+      requireStore: jest.fn().mockResolvedValue({ id: 'store-1' }),
+    };
+    const service = new InventoryService(prisma as never, stores as never);
+
+    const result = await service.setOnHand('user-1', 'item-1', {
+      quantity: 60,
+      reason: 'Manual stock count',
+      idempotencyKey: 'absolute-stock-001',
+    });
+
+    expect(tx.inventoryBalance.update).toHaveBeenCalledWith({
+      where: { id: 'balance-1' },
+      data: { onHand: 60, version: { increment: 1 } },
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        quantityDelta: 13,
+        resultingQuantity: 60,
+        bucket: InventoryBucket.ON_HAND,
+      }),
+    );
+  });
 });

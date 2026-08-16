@@ -60,6 +60,7 @@ interface VerifiedWebhook {
 
 interface ConnectedShop {
   id: string;
+  storeId: string;
   status: ShopifyConnectionStatus;
   ecommerceConnectionId: string | null;
 }
@@ -124,7 +125,12 @@ export class ShopifyWebhookService {
 
     const connection = await this.prisma.shopifyConnection.findUnique({
       where: { shopDomain: webhook.domain },
-      select: { id: true, status: true, ecommerceConnectionId: true },
+      select: {
+        id: true,
+        storeId: true,
+        status: true,
+        ecommerceConnectionId: true,
+      },
     });
 
     if (webhook.topic === 'APP_UNINSTALLED') {
@@ -205,7 +211,8 @@ export class ShopifyWebhookService {
         existing.providerUpdatedAt.getTime() <=
           order.providerUpdatedAt.getTime()
       ) {
-        await transaction.ecommerceOrder.upsert({
+        const { lines, ...orderData } = order;
+        const saved = await transaction.ecommerceOrder.upsert({
           where: {
             connectionId_externalOrderId: {
               connectionId: connection.ecommerceConnectionId,
@@ -214,10 +221,46 @@ export class ShopifyWebhookService {
           },
           create: {
             connectionId: connection.ecommerceConnectionId,
-            ...order,
+            ...orderData,
           },
-          update: order,
+          update: orderData,
         });
+        const skus = lines
+          .map((line) => line.sku)
+          .filter((sku): sku is string => Boolean(sku));
+        const variants = skus.length
+          ? await transaction.warehouseVariant.findMany({
+              where: {
+                storeId: connection.storeId,
+                sku: { in: skus, mode: 'insensitive' },
+              },
+              select: { id: true, sku: true },
+            })
+          : [];
+        const variantBySku = new Map(
+          variants
+            .filter((variant) => variant.sku)
+            .map((variant) => [
+              variant.sku!.toLocaleLowerCase('en-US'),
+              variant.id,
+            ]),
+        );
+        await transaction.ecommerceOrderLine.deleteMany({
+          where: { orderId: saved.id },
+        });
+        if (lines.length) {
+          await transaction.ecommerceOrderLine.createMany({
+            data: lines.map((line) => ({
+              orderId: saved.id,
+              ...line,
+              warehouseVariantId: line.sku
+                ? (variantBySku.get(line.sku.toLocaleLowerCase('en-US')) ??
+                  null)
+                : null,
+            })),
+            skipDuplicates: true,
+          });
+        }
       }
       await this.recordProcessed(transaction, webhook, connection.id);
     });

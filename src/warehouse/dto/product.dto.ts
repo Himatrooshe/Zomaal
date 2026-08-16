@@ -5,6 +5,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsDateString,
   IsEnum,
   IsInt,
   IsNumber,
@@ -378,6 +379,175 @@ export class UpdateWarehouseProductDto {
   @IsOptional()
   @IsEnum(WarehouseProductStatus)
   status?: WarehouseProductStatus;
+
+  @ApiPropertyOptional({
+    minimum: 0,
+    description:
+      'New selling price for a simple product or bundle default variant.',
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  basePrice?: number;
+
+  @ApiPropertyOptional({
+    minimum: 0,
+    description:
+      'New purchase cost for a simple product. Bundle costs are derived from their components.',
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  costPrice?: number;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  lowStockAlertThreshold?: number;
+
+  @ApiPropertyOptional({
+    type: () => [UpdateWarehouseVariantDto],
+    description:
+      'Price, cost, and low-stock edits for products with multiple variants.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => UpdateWarehouseVariantDto)
+  variants?: UpdateWarehouseVariantDto[];
+}
+
+export class UpdateWarehouseVariantDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  id: string;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  price?: number;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  costPrice?: number;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  lowStockAlertThreshold?: number;
+}
+
+export class ProductBundleComponentInputDto {
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Active store-owned variant included in the bundle.',
+  })
+  @IsUUID()
+  variantId: string;
+
+  @ApiProperty({ minimum: 1, maximum: 100, example: 1 })
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  quantity: number;
+}
+
+export class CreateProductBundleDto {
+  @ApiProperty({ minLength: 8, maxLength: 100 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(100)
+  idempotencyKey: string;
+
+  @ApiProperty({ example: 'Wireless Essentials Bundle' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(255)
+  name: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100000)
+  description?: string;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  categoryId: string;
+
+  @ApiPropertyOptional({ enum: WarehouseProductStatus, default: 'ACTIVE' })
+  @IsOptional()
+  @IsEnum(WarehouseProductStatus)
+  status?: WarehouseProductStatus;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  mainImageUploadId: string;
+
+  @ApiProperty({ minimum: 0, example: 299.99 })
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  price: number;
+
+  @ApiPropertyOptional({ maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  sku?: string;
+
+  @ApiPropertyOptional({ minimum: 0, default: 5 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  lowStockAlertThreshold?: number;
+
+  @ApiProperty({ type: [ProductBundleComponentInputDto], minItems: 2 })
+  @IsArray()
+  @ArrayMinSize(2)
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => ProductBundleComponentInputDto)
+  components: ProductBundleComponentInputDto[];
+}
+
+export enum ProductPerformancePeriod {
+  SEVEN_DAYS = '7D',
+  THIRTY_DAYS = '30D',
+  NINETY_DAYS = '90D',
+  CUSTOM = 'CUSTOM',
+}
+
+export class ProductPerformanceQueryDto {
+  @ApiPropertyOptional({
+    enum: ProductPerformancePeriod,
+    default: ProductPerformancePeriod.SEVEN_DAYS,
+  })
+  @IsOptional()
+  @IsEnum(ProductPerformancePeriod)
+  period?: ProductPerformancePeriod;
+
+  @ApiPropertyOptional({
+    format: 'date',
+    description: 'Required with period=CUSTOM.',
+  })
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @ApiPropertyOptional({
+    format: 'date',
+    description: 'Required with period=CUSTOM.',
+  })
+  @IsOptional()
+  @IsDateString()
+  to?: string;
 }
 
 export enum ProductStockStatus {

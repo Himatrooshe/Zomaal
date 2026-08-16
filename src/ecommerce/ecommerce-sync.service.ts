@@ -6,7 +6,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EcommerceConnectionStatus, EcommercePlatform } from '@prisma/client';
+import {
+  EcommerceConnectionStatus,
+  EcommercePlatform,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { EcommerceSyncResponseDto } from './dto/ecommerce-response.dto';
 import type {
@@ -197,6 +201,7 @@ export class EcommerceSyncService {
     userId: string,
     connection: {
       id: string;
+      storeId: string;
       platform: EcommercePlatform;
       syncCursor: string | null;
       syncFrom: Date | null;
@@ -235,7 +240,11 @@ export class EcommerceSyncService {
           syncFrom,
           syncStartedAt,
         );
-        await this.persistOrders(connection.id, page.orders);
+        await this.persistOrders(
+          connection.id,
+          connection.storeId,
+          page.orders,
+        );
         processedOrders += page.orders.length;
 
         if (!page.hasNextPage) {
@@ -304,6 +313,7 @@ export class EcommerceSyncService {
 
   private async persistOrders(
     connectionId: string,
+    storeId: string,
     orders: NormalizedEcommerceOrder[],
   ): Promise<void> {
     if (orders.length === 0) {
@@ -311,18 +321,62 @@ export class EcommerceSyncService {
     }
 
     await this.prisma.$transaction(
-      orders.map((order) =>
-        this.prisma.ecommerceOrder.upsert({
-          where: {
-            connectionId_externalOrderId: {
-              connectionId,
-              externalOrderId: order.externalOrderId,
+      async (tx) => {
+        for (const order of orders) {
+          const { lines, ...orderData } = order;
+          const saved = await tx.ecommerceOrder.upsert({
+            where: {
+              connectionId_externalOrderId: {
+                connectionId,
+                externalOrderId: order.externalOrderId,
+              },
             },
-          },
-          create: { connectionId, ...order },
-          update: order,
-        }),
-      ),
+            create: { connectionId, ...orderData },
+            update: orderData,
+          });
+          const skus = lines
+            .map((line) => line.sku?.trim())
+            .filter((sku): sku is string => Boolean(sku));
+          const variants = skus.length
+            ? await tx.warehouseVariant.findMany({
+                where: { storeId, sku: { in: skus, mode: 'insensitive' } },
+                select: { id: true, sku: true },
+              })
+            : [];
+          const variantBySku = new Map(
+            variants
+              .filter((variant) => variant.sku)
+              .map((variant) => [
+                variant.sku!.toLocaleLowerCase('en-US'),
+                variant.id,
+              ]),
+          );
+          await tx.ecommerceOrderLine.deleteMany({
+            where: { orderId: saved.id },
+          });
+          const uniqueLines = [
+            ...new Map(
+              lines.map((line) => [line.externalLineId, line]),
+            ).values(),
+          ];
+          if (uniqueLines.length) {
+            await tx.ecommerceOrderLine.createMany({
+              data: uniqueLines.map((line) => ({
+                orderId: saved.id,
+                ...line,
+                warehouseVariantId: line.sku
+                  ? (variantBySku.get(
+                      line.sku.trim().toLocaleLowerCase('en-US'),
+                    ) ?? null)
+                  : null,
+              })),
+            });
+          }
+        }
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      },
     );
   }
 }

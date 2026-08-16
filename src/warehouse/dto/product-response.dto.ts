@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { WarehouseProductStatus } from '@prisma/client';
+import { WarehouseProductKind, WarehouseProductStatus } from '@prisma/client';
 import { WarehouseBarcodeDto } from './barcode.dto';
 import { ProductCategoryResponseDto } from './category-response.dto';
 
@@ -193,6 +193,38 @@ export class WarehouseProductPackagingResponseDto {
   imageUrl: string | null;
 }
 
+export class WarehouseProductBundleComponentDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ format: 'uuid' })
+  variantId: string;
+
+  @ApiProperty({ format: 'uuid' })
+  productId: string;
+
+  @ApiProperty({ example: 'Wireless Mouse' })
+  productName: string;
+
+  @ApiProperty({ example: 'Default' })
+  variantTitle: string;
+
+  @ApiProperty({ nullable: true, example: 'MOUSE-001' })
+  sku: string | null;
+
+  @ApiProperty({ example: 1 })
+  quantity: number;
+
+  @ApiProperty({ example: 45 })
+  availableUnits: number;
+
+  @ApiProperty({ example: 45 })
+  availableBundles: number;
+
+  @ApiProperty({ example: 40 })
+  unitCost: number;
+}
+
 export class WarehouseProductResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
@@ -205,6 +237,9 @@ export class WarehouseProductResponseDto {
 
   @ApiProperty({ enum: WarehouseProductStatus, example: 'ACTIVE' })
   status: WarehouseProductStatus;
+
+  @ApiProperty({ enum: WarehouseProductKind, example: 'STANDARD' })
+  kind: WarehouseProductKind;
 
   @ApiProperty({
     description: 'Optimistic-lock version required by PATCH.',
@@ -232,6 +267,9 @@ export class WarehouseProductResponseDto {
 
   @ApiProperty({ type: [WarehouseProductPackagingResponseDto] })
   packaging: WarehouseProductPackagingResponseDto[];
+
+  @ApiProperty({ type: [WarehouseProductBundleComponentDto] })
+  bundleComponents: WarehouseProductBundleComponentDto[];
 
   @ApiProperty({ format: 'date-time' })
   createdAt: string;
@@ -263,4 +301,62 @@ export class WarehouseProductListResponseDto {
 
   @ApiProperty({ type: WarehouseProductPaginationDto })
   pagination: WarehouseProductPaginationDto;
+}
+
+export class ProductPerformancePeriodDto {
+  @ApiProperty({ enum: ['7D', '30D', '90D', 'CUSTOM'] })
+  period: string;
+
+  @ApiProperty({ format: 'date-time' })
+  from: string;
+
+  @ApiProperty({ format: 'date-time' })
+  to: string;
+}
+
+export class ProductPerformanceMetricsDto {
+  @ApiProperty() totalOrders: number;
+  @ApiProperty() deliveredOrders: number;
+  @ApiProperty() cancelledOrders: number;
+  @ApiProperty() returnedOrders: number;
+  @ApiProperty() totalUnits: number;
+  @ApiProperty() totalRevenue: string;
+  @ApiProperty() totalCost: string;
+  @ApiProperty() grossProfit: string;
+  @ApiProperty() netProfit: string;
+  @ApiProperty({ nullable: true }) roi: number | null;
+  @ApiProperty() deliveryRate: number;
+  @ApiProperty() cancellationRate: number;
+  @ApiProperty() returnRate: number;
+}
+
+export class ProductPerformancePointDto {
+  @ApiProperty({ format: 'date' })
+  date: string;
+  @ApiProperty() orders: number;
+  @ApiProperty() units: number;
+  @ApiProperty() revenue: string;
+  @ApiProperty() profit: string;
+}
+
+export class ProductTopCityDto {
+  @ApiProperty() city: string;
+  @ApiProperty() orders: number;
+  @ApiProperty() revenue: string;
+}
+
+export class ProductPerformanceResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  productId: string;
+  @ApiProperty() currency: string;
+  @ApiProperty({ type: ProductPerformancePeriodDto })
+  period: ProductPerformancePeriodDto;
+  @ApiProperty({ type: ProductPerformanceMetricsDto })
+  metrics: ProductPerformanceMetricsDto;
+  @ApiProperty({ type: [ProductPerformancePointDto] })
+  performance: ProductPerformancePointDto[];
+  @ApiProperty({ type: [ProductTopCityDto] })
+  topCities: ProductTopCityDto[];
+  @ApiProperty({ nullable: true, format: 'date-time' })
+  dataUpdatedAt: string | null;
 }

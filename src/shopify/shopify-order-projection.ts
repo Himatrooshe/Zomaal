@@ -23,6 +23,19 @@ export const SHOPIFY_REVENUE_ORDER_FIELDS = `
   currentShippingPriceSet { shopMoney { amount currencyCode } }
   currentTotalTaxSet { shopMoney { amount currencyCode } }
   netPaymentSet { shopMoney { amount currencyCode } }
+  shippingAddress { city }
+  lineItems(first: 250) {
+    nodes {
+      id
+      title
+      sku
+      quantity
+      product { id }
+      variant { id }
+      originalUnitPriceSet { shopMoney { amount currencyCode } }
+      priceAfterAllDiscountsBeforeTaxesSet { shopMoney { amount currencyCode } }
+    }
+  }
 `;
 
 interface RawMoney {
@@ -51,6 +64,19 @@ export interface RawShopifyRevenueOrder {
   currentShippingPriceSet: RawMoneyBag;
   currentTotalTaxSet: RawMoneyBag;
   netPaymentSet: RawMoneyBag;
+  shippingAddress?: { city: string | null } | null;
+  lineItems?: {
+    nodes: Array<{
+      id: string;
+      title: string;
+      sku: string | null;
+      quantity: number;
+      product: { id: string } | null;
+      variant: { id: string } | null;
+      originalUnitPriceSet: RawMoneyBag;
+      priceAfterAllDiscountsBeforeTaxesSet: RawMoneyBag;
+    }>;
+  };
 }
 
 export function normalizeShopifyOrder(
@@ -91,10 +117,24 @@ export function normalizeShopifyOrder(
     ),
     tax: decimal(order.currentTotalTaxSet.shopMoney.amount).toFixed(4),
     totalCollected: decimal(order.netPaymentSet.shopMoney.amount).toFixed(4),
+    shippingCity: order.shippingAddress?.city?.trim() || null,
     providerCreatedAt: parseShopifyDate(order.createdAt),
     processedAt: parseShopifyDate(order.processedAt ?? order.createdAt),
     cancelledAt: order.cancelledAt ? parseShopifyDate(order.cancelledAt) : null,
     providerUpdatedAt: parseShopifyDate(order.updatedAt),
+    lines: (order.lineItems?.nodes ?? []).map((line) => ({
+      externalLineId: line.id,
+      externalProductId: line.product?.id ?? null,
+      externalVariantId: line.variant?.id ?? null,
+      sku: line.sku?.trim() || null,
+      name: line.title,
+      quantity: line.quantity,
+      unitPrice: decimal(line.originalUnitPriceSet.shopMoney.amount).toFixed(4),
+      totalPrice: decimal(
+        line.priceAfterAllDiscountsBeforeTaxesSet.shopMoney.amount,
+      ).toFixed(4),
+      currency: line.originalUnitPriceSet.shopMoney.currencyCode,
+    })),
   };
 }
 

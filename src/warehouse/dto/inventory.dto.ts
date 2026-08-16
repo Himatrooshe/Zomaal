@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  Min,
   MinLength,
   NotEquals,
 } from 'class-validator';
@@ -61,4 +62,27 @@ export class AdjustInventoryDto {
   @IsString()
   @MaxLength(255)
   referenceId?: string;
+}
+
+export class SetInventoryOnHandDto {
+  @ApiProperty({
+    minimum: 0,
+    example: 60,
+    description: 'The final on-hand quantity entered in the Update Stock UI.',
+  })
+  @IsInt()
+  @Min(0)
+  quantity: number;
+
+  @ApiProperty({ minLength: 3, maxLength: 500, example: 'Manual stock count' })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  reason: string;
+
+  @ApiProperty({ minLength: 8, maxLength: 100 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(100)
+  idempotencyKey: string;
 }

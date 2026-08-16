@@ -37,10 +37,12 @@ describe('ShopifyWebhookService', () => {
   const orderUpsert = jest.fn(
     (args: Prisma.EcommerceOrderUpsertArgs): Promise<unknown> => {
       capturedOrderUpsert = args;
-      return Promise.resolve({});
+      return Promise.resolve({ id: 'order-id' });
     },
   );
   const orderDeleteMany = jest.fn();
+  const orderLineDeleteMany = jest.fn();
+  const orderLineCreateMany = jest.fn();
 
   const transactionClient = {
     shopifyWebhookReceipt: { create: receiptCreate },
@@ -58,6 +60,11 @@ describe('ShopifyWebhookService', () => {
       upsert: orderUpsert,
       deleteMany: orderDeleteMany,
     },
+    ecommerceOrderLine: {
+      deleteMany: orderLineDeleteMany,
+      createMany: orderLineCreateMany,
+    },
+    warehouseVariant: { findMany: jest.fn().mockResolvedValue([]) },
   };
   const prisma = {
     shopifyWebhookReceipt: { findUnique: receiptFindUnique },
@@ -91,6 +98,7 @@ describe('ShopifyWebhookService', () => {
     receiptFindUnique.mockResolvedValue(null);
     connectionFindUnique.mockResolvedValue({
       id: 'shopify-id',
+      storeId: 'store-id',
       status: ShopifyConnectionStatus.ACTIVE,
       ecommerceConnectionId: 'ecommerce-id',
     });
@@ -254,5 +262,20 @@ function shopifyOrder() {
     currentShippingPriceSet: money('5'),
     currentTotalTaxSet: money('0'),
     netPaymentSet: money('105'),
+    shippingAddress: { city: 'Casablanca' },
+    lineItems: {
+      nodes: [
+        {
+          id: 'line-1',
+          title: 'Headphones',
+          sku: 'SKU-1',
+          quantity: 2,
+          product: { id: 'product-1' },
+          variant: { id: 'variant-1' },
+          originalUnitPriceSet: money('50'),
+          priceAfterAllDiscountsBeforeTaxesSet: money('100'),
+        },
+      ],
+    },
   };
 }

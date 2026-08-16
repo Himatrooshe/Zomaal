@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InventoryBucket, InventoryMovementType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { AdjustInventoryDto } from './dto/inventory.dto';
+import { AdjustInventoryDto, SetInventoryOnHandDto } from './dto/inventory.dto';
 import { WarehouseStoreService } from './warehouse-store.service';
 
 @Injectable()
@@ -160,6 +160,86 @@ export class InventoryService {
       createdAt: item.createdAt.toISOString(),
       updatedAt: item.updatedAt.toISOString(),
     };
+  }
+
+  async setOnHand(
+    userId: string,
+    inventoryItemId: string,
+    dto: SetInventoryOnHandDto,
+  ) {
+    const store = await this.stores.requireStore(userId);
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(
+          async (tx) => {
+            const item = await tx.inventoryItem.findFirst({
+              where: { id: inventoryItemId, storeId: store.id },
+              include: { balances: { include: { location: true } } },
+            });
+            if (!item) throw new NotFoundException('Inventory item not found');
+            const duplicate = await tx.inventoryMovement.findUnique({
+              where: {
+                inventoryItemId_idempotencyKey: {
+                  inventoryItemId,
+                  idempotencyKey: dto.idempotencyKey,
+                },
+              },
+            });
+            if (duplicate) return duplicate;
+
+            let balance = item.balances.find(
+              (entry) => entry.location.isDefault,
+            );
+            if (!balance) {
+              const location = await tx.warehouseLocation.upsert({
+                where: { storeId_code: { storeId: store.id, code: 'MAIN' } },
+                create: {
+                  storeId: store.id,
+                  code: 'MAIN',
+                  name: 'Main Warehouse',
+                  isDefault: true,
+                },
+                update: {},
+              });
+              balance = await tx.inventoryBalance.create({
+                data: { inventoryItemId, locationId: location.id },
+                include: { location: true },
+              });
+            }
+            validateBalance({ ...balance, onHand: dto.quantity });
+            const quantityDelta = dto.quantity - balance.onHand;
+            await tx.inventoryBalance.update({
+              where: { id: balance.id },
+              data: { onHand: dto.quantity, version: { increment: 1 } },
+            });
+            return tx.inventoryMovement.create({
+              data: {
+                inventoryItemId,
+                locationId: balance.locationId,
+                type: InventoryMovementType.MANUAL_ADJUSTMENT,
+                bucket: InventoryBucket.ON_HAND,
+                quantityDelta,
+                resultingQuantity: dto.quantity,
+                reason: dto.reason.trim(),
+                referenceType: 'ABSOLUTE_STOCK_UPDATE',
+                idempotencyKey: dto.idempotencyKey,
+              },
+            });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error) {
+        if (!isWriteConflict(error)) throw error;
+        if (attempt === 3) {
+          throw new ConflictException(
+            'Inventory changed concurrently; retry the request',
+          );
+        }
+      }
+    }
+    throw new ConflictException(
+      'Inventory changed concurrently; retry the request',
+    );
   }
 
   async movements(userId: string, inventoryItemId: string, limit = 100) {

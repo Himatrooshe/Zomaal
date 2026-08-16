@@ -9332,6 +9332,16 @@ paths:
               - DRAFT
               - ACTIVE
               - ARCHIVED
+        - name: stockStatus
+          required: false
+          in: query
+          description: Stock availability filter. Available = onHand - reserved - damaged summed across variants; low-stock threshold is the sum of the variants lowStockAlertThreshold.
+          schema:
+            type: string
+            enum:
+              - IN_STOCK
+              - LOW_STOCK
+              - OUT_OF_STOCK
         - name: categoryId
           required: false
           in: query
@@ -9383,6 +9393,47 @@ paths:
       summary: Search and list merchant warehouse products
       tags:
         - Warehouse Products
+  /warehouse/products/bundles:
+    post:
+      description: Creates a sellable bundle with a derived cost and derived stock. Available bundle stock is the minimum number of complete bundles that can be assembled from the selected component variants.
+      operationId: Product_createBundle
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductBundleDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseProductResponseDto'
+        '400':
+          description: Invalid component, duplicate component, inactive category, or invalid image upload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Bundle SKU or idempotency key is already in use.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Create a product bundle from existing variants
+      tags:
+        - Warehouse Products
   /warehouse/products/{id}:
     get:
       description: 'Returns everything required to redraw product details: category, ordered options and values, media URLs, variants, barcodes, inventory, gift card data, and packaging requirements.'
@@ -9426,7 +9477,7 @@ paths:
       tags:
         - Warehouse Products
     patch:
-      description: Updates only name, description, category, and status. Send the latest version returned by GET/PATCH; the response increments it. Variant/inventory changes use their dedicated workflows.
+      description: Updates name, description, category, status, and simple-product or per-variant price, cost, and low-stock thresholds. Send the latest version returned by GET/PATCH; the response increments it. Stock changes use the dedicated inventory endpoint.
       operationId: Product_update
       parameters:
         - name: id
@@ -9475,7 +9526,62 @@ paths:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
-      summary: Update warehouse product metadata safely
+      summary: Update warehouse product details and pricing safely
+      tags:
+        - Warehouse Products
+  /warehouse/products/{id}/performance:
+    get:
+      description: Returns 7D, 30D, 90D, or custom product performance based on normalized synchronized order lines matched by warehouse SKU.
+      operationId: Product_performance
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Store-owned warehouse product ID.
+          schema:
+            format: uuid
+            type: string
+        - name: period
+          required: false
+          in: query
+          schema:
+            default: 7D
+            type: string
+            enum:
+              - 7D
+              - 30D
+              - 90D
+              - CUSTOM
+        - name: from
+          required: false
+          in: query
+          description: Required with period=CUSTOM.
+          schema:
+            format: date
+            type: string
+        - name: to
+          required: false
+          in: query
+          description: Required with period=CUSTOM.
+          schema:
+            format: date
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPerformanceResponseDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get product-level order and financial performance
       tags:
         - Warehouse Products
   /warehouse/products/{id}/archive:
@@ -9706,6 +9812,60 @@ paths:
       security:
         - bearer: []
       summary: Apply an idempotent manual stock adjustment
+      tags:
+        - Warehouse Inventory
+  /warehouse/inventory/items/{id}/stock:
+    put:
+      description: UI-friendly Update Stock endpoint. Send the final quantity shown in the popup; the backend calculates and audits the delta atomically.
+      operationId: Inventory_setStock
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Inventory item ID.
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetInventoryOnHandDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMovementResponseDto'
+        '400':
+          description: Invalid quantity or the new on-hand quantity is below reserved plus damaged stock.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Store or store-owned inventory item was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Inventory changed concurrently after three retries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Set the final on-hand stock quantity
       tags:
         - Warehouse Inventory
   /warehouse/packaging:
@@ -17049,6 +17209,51 @@ components:
         - quantityPerUnit
         - ownedQuantity
         - imageUrl
+    WarehouseProductBundleComponentDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        variantId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+          example: Wireless Mouse
+        variantTitle:
+          type: string
+          example: Default
+        sku:
+          type: object
+          nullable: true
+          example: MOUSE-001
+        quantity:
+          type: number
+          example: 1
+        availableUnits:
+          type: number
+          example: 45
+        availableBundles:
+          type: number
+          example: 45
+        unitCost:
+          type: number
+          example: 40
+      required:
+        - id
+        - variantId
+        - productId
+        - productName
+        - variantTitle
+        - sku
+        - quantity
+        - availableUnits
+        - availableBundles
+        - unitCost
     WarehouseProductResponseDto:
       type: object
       properties:
@@ -17069,6 +17274,12 @@ components:
             - ACTIVE
             - ARCHIVED
           example: ACTIVE
+        kind:
+          type: string
+          enum:
+            - STANDARD
+            - BUNDLE
+          example: STANDARD
         version:
           type: number
           description: Optimistic-lock version required by PATCH.
@@ -17101,6 +17312,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WarehouseProductPackagingResponseDto'
+        bundleComponents:
+          type: array
+          items:
+            $ref: '#/components/schemas/WarehouseProductBundleComponentDto'
         createdAt:
           type: string
           format: date-time
@@ -17116,6 +17331,7 @@ components:
         - name
         - description
         - status
+        - kind
         - version
         - category
         - options
@@ -17124,9 +17340,73 @@ components:
         - inventory
         - gift
         - packaging
+        - bundleComponents
         - createdAt
         - updatedAt
         - archivedAt
+    ProductBundleComponentInputDto:
+      type: object
+      properties:
+        variantId:
+          type: string
+          format: uuid
+          description: Active store-owned variant included in the bundle.
+        quantity:
+          type: number
+          minimum: 1
+          maximum: 100
+          example: 1
+      required:
+        - variantId
+        - quantity
+    CreateProductBundleDto:
+      type: object
+      properties:
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 100
+        name:
+          type: string
+          example: Wireless Essentials Bundle
+        description:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - ACTIVE
+            - ARCHIVED
+          default: ACTIVE
+        mainImageUploadId:
+          type: string
+          format: uuid
+        price:
+          type: number
+          minimum: 0
+          example: 299.99
+        sku:
+          type: string
+          maxLength: 100
+        lowStockAlertThreshold:
+          type: number
+          minimum: 0
+          default: 5
+        components:
+          minItems: 2
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductBundleComponentInputDto'
+      required:
+        - idempotencyKey
+        - name
+        - categoryId
+        - mainImageUploadId
+        - price
+        - components
     WarehouseProductPaginationDto:
       type: object
       properties:
@@ -17159,6 +17439,152 @@ components:
       required:
         - data
         - pagination
+    ProductPerformancePeriodDto:
+      type: object
+      properties:
+        period:
+          type: string
+          enum:
+            - 7D
+            - 30D
+            - 90D
+            - CUSTOM
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+      required:
+        - period
+        - from
+        - to
+    ProductPerformanceMetricsDto:
+      type: object
+      properties:
+        totalOrders:
+          type: number
+        deliveredOrders:
+          type: number
+        cancelledOrders:
+          type: number
+        returnedOrders:
+          type: number
+        totalUnits:
+          type: number
+        totalRevenue:
+          type: string
+        totalCost:
+          type: string
+        grossProfit:
+          type: string
+        netProfit:
+          type: string
+        roi:
+          type: object
+          nullable: true
+        deliveryRate:
+          type: number
+        cancellationRate:
+          type: number
+        returnRate:
+          type: number
+      required:
+        - totalOrders
+        - deliveredOrders
+        - cancelledOrders
+        - returnedOrders
+        - totalUnits
+        - totalRevenue
+        - totalCost
+        - grossProfit
+        - netProfit
+        - roi
+        - deliveryRate
+        - cancellationRate
+        - returnRate
+    ProductPerformancePointDto:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        orders:
+          type: number
+        units:
+          type: number
+        revenue:
+          type: string
+        profit:
+          type: string
+      required:
+        - date
+        - orders
+        - units
+        - revenue
+        - profit
+    ProductTopCityDto:
+      type: object
+      properties:
+        city:
+          type: string
+        orders:
+          type: number
+        revenue:
+          type: string
+      required:
+        - city
+        - orders
+        - revenue
+    ProductPerformanceResponseDto:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        currency:
+          type: string
+        period:
+          $ref: '#/components/schemas/ProductPerformancePeriodDto'
+        metrics:
+          $ref: '#/components/schemas/ProductPerformanceMetricsDto'
+        performance:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductPerformancePointDto'
+        topCities:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductTopCityDto'
+        dataUpdatedAt:
+          type: object
+          nullable: true
+          format: date-time
+      required:
+        - productId
+        - currency
+        - period
+        - metrics
+        - performance
+        - topCities
+        - dataUpdatedAt
+    UpdateWarehouseVariantDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        price:
+          type: number
+          minimum: 0
+        costPrice:
+          type: number
+          minimum: 0
+        lowStockAlertThreshold:
+          type: number
+          minimum: 0
+      required:
+        - id
     UpdateWarehouseProductDto:
       type: object
       properties:
@@ -17180,6 +17606,22 @@ components:
             - DRAFT
             - ACTIVE
             - ARCHIVED
+        basePrice:
+          type: number
+          minimum: 0
+          description: New selling price for a simple product or bundle default variant.
+        costPrice:
+          type: number
+          minimum: 0
+          description: New purchase cost for a simple product. Bundle costs are derived from their components.
+        lowStockAlertThreshold:
+          type: number
+          minimum: 0
+        variants:
+          description: Price, cost, and low-stock edits for products with multiple variants.
+          type: array
+          items:
+            $ref: '#/components/schemas/UpdateWarehouseVariantDto'
       required:
         - version
     InventoryProductReferenceDto:
@@ -17473,6 +17915,27 @@ components:
       required:
         - bucket
         - quantityDelta
+        - reason
+        - idempotencyKey
+    SetInventoryOnHandDto:
+      type: object
+      properties:
+        quantity:
+          type: number
+          minimum: 0
+          example: 60
+          description: The final on-hand quantity entered in the Update Stock UI.
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 500
+          example: Manual stock count
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 100
+      required:
+        - quantity
         - reason
         - idempotencyKey
     OwnedPackagingMaterialResponseDto:

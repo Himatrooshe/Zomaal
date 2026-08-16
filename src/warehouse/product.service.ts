@@ -5,11 +5,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  EcommerceOrderStatus,
+  EcommercePaymentStatus,
   InventoryBarcodeType,
   InventoryItemKind,
   MediaAssetPurpose,
   MediaAssetStatus,
   Prisma,
+  ShippingShipmentStatus,
+  WarehouseProductKind,
   WarehouseProductStatus,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
@@ -17,6 +21,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BarcodeService } from './barcode.service';
 import {
   CreateWarehouseProductDto,
+  CreateProductBundleDto,
+  ProductPerformancePeriod,
+  ProductPerformanceQueryDto,
   ProductOptionInputDto,
   ProductStockStatus,
   ProductVariantInputDto,
@@ -68,6 +75,17 @@ const PRODUCT_INCLUDE = {
     include: {
       packagingMaterial: {
         include: {
+          inventoryItem: { include: { balances: true } },
+        },
+      },
+    },
+  },
+  bundleComponents: {
+    orderBy: { position: 'asc' as const },
+    include: {
+      componentVariant: {
+        include: {
+          product: { select: { id: true, name: true, status: true } },
           inventoryItem: { include: { balances: true } },
         },
       },
@@ -306,6 +324,7 @@ export class ProductService {
           include: PRODUCT_INCLUDE,
         });
       });
+      await this.linkOrderLinesForProduct(store.id, product.id);
       return this.toResponse(product);
     } catch (error) {
       if (isUniqueError(error)) {
@@ -327,6 +346,150 @@ export class ProductService {
         }
         throw new ConflictException(
           'A barcode, SKU, or idempotency key is already in use',
+        );
+      }
+      throw error;
+    }
+  }
+
+  async createBundle(userId: string, dto: CreateProductBundleDto) {
+    const store = await this.stores.requireStore(userId);
+    const fingerprint = createFingerprint(dto);
+    const existing = await this.prisma.warehouseProduct.findUnique({
+      where: {
+        storeId_idempotencyKey: {
+          storeId: store.id,
+          idempotencyKey: dto.idempotencyKey,
+        },
+      },
+      include: PRODUCT_INCLUDE,
+    });
+    if (existing) {
+      this.assertMatchingIdempotency(
+        existing.idempotencyFingerprint,
+        fingerprint,
+      );
+      return this.toResponse(existing);
+    }
+
+    await this.requireActiveCategory(store.id, dto.categoryId);
+    const componentIds = dto.components.map((component) => component.variantId);
+    if (new Set(componentIds).size !== componentIds.length) {
+      throw new BadRequestException(
+        'A variant can appear only once in a product bundle',
+      );
+    }
+    const components = await this.prisma.warehouseVariant.findMany({
+      where: {
+        id: { in: componentIds },
+        storeId: store.id,
+        product: {
+          status: WarehouseProductStatus.ACTIVE,
+          kind: WarehouseProductKind.STANDARD,
+        },
+      },
+      select: { id: true, costPrice: true },
+    });
+    if (components.length !== componentIds.length) {
+      throw new BadRequestException(
+        'Every bundle component must be an active standard product variant from this store',
+      );
+    }
+    const upload = await this.prisma.mediaAsset.findFirst({
+      where: {
+        id: dto.mainImageUploadId,
+        storeId: store.id,
+        status: MediaAssetStatus.TEMPORARY,
+        purpose: MediaAssetPurpose.PRODUCT_MAIN,
+        expiresAt: { gt: new Date() },
+      },
+      select: { id: true },
+    });
+    if (!upload) {
+      throw new BadRequestException(
+        'The bundle image upload is invalid or expired',
+      );
+    }
+
+    const byId = new Map(
+      components.map((component) => [component.id, component]),
+    );
+    const costPrice = dto.components.reduce(
+      (total, component) =>
+        total.plus(
+          byId.get(component.variantId)!.costPrice.times(component.quantity),
+        ),
+      new Prisma.Decimal(0),
+    );
+
+    try {
+      const product = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.warehouseProduct.create({
+          data: {
+            storeId: store.id,
+            categoryId: dto.categoryId,
+            name: dto.name.trim(),
+            description: dto.description?.trim() || null,
+            status: dto.status ?? WarehouseProductStatus.ACTIVE,
+            kind: WarehouseProductKind.BUNDLE,
+            idempotencyKey: dto.idempotencyKey,
+            idempotencyFingerprint: fingerprint,
+          },
+        });
+        await tx.warehouseVariant.create({
+          data: {
+            productId: created.id,
+            storeId: store.id,
+            title: 'Bundle',
+            sku: dto.sku?.trim() || null,
+            price: dto.price,
+            costPrice,
+            lowStockThreshold: dto.lowStockAlertThreshold ?? 5,
+            isDefault: true,
+          },
+        });
+        await tx.productBundleComponent.createMany({
+          data: dto.components.map((component, position) => ({
+            bundleProductId: created.id,
+            componentVariantId: component.variantId,
+            quantity: component.quantity,
+            position,
+          })),
+        });
+        await this.attachMedia(
+          tx,
+          store.id,
+          dto.mainImageUploadId,
+          MediaAssetPurpose.PRODUCT_MAIN,
+          { productId: created.id, position: 0 },
+        );
+        return tx.warehouseProduct.findUniqueOrThrow({
+          where: { id: created.id },
+          include: PRODUCT_INCLUDE,
+        });
+      });
+      await this.linkOrderLinesForProduct(store.id, product.id);
+      return this.toResponse(product);
+    } catch (error) {
+      if (isUniqueError(error)) {
+        const duplicate = await this.prisma.warehouseProduct.findUnique({
+          where: {
+            storeId_idempotencyKey: {
+              storeId: store.id,
+              idempotencyKey: dto.idempotencyKey,
+            },
+          },
+          include: PRODUCT_INCLUDE,
+        });
+        if (duplicate) {
+          this.assertMatchingIdempotency(
+            duplicate.idempotencyFingerprint,
+            fingerprint,
+          );
+          return this.toResponse(duplicate);
+        }
+        throw new ConflictException(
+          'A bundle SKU or idempotency key is already in use',
         );
       }
       throw error;
@@ -416,23 +579,52 @@ export class ProductService {
     stockStatus: ProductStockStatus,
   ): Promise<string[]> {
     const rows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      SELECT p."id" AS id
-      FROM "WarehouseProduct" p
-      LEFT JOIN "WarehouseVariant" v ON v."productId" = p."id"
-      LEFT JOIN "InventoryItem" ii ON ii."variantId" = v."id"
-      LEFT JOIN "InventoryBalance" b ON b."inventoryItemId" = ii."id"
-      WHERE p."storeId" = ${storeId}
-      GROUP BY p."id"
-      HAVING CASE ${stockStatus}
+      WITH variant_stock AS (
+        SELECT
+          v."id",
+          COALESCE(SUM(b."onHand" - b."reserved" - b."damaged"), 0)::int AS available
+        FROM "WarehouseVariant" v
+        LEFT JOIN "InventoryItem" ii ON ii."variantId" = v."id"
+        LEFT JOIN "InventoryBalance" b ON b."inventoryItemId" = ii."id"
+        WHERE v."storeId" = ${storeId}
+        GROUP BY v."id"
+      ), standard_stock AS (
+        SELECT
+          p."id",
+          p."kind",
+          COALESCE(SUM(vs.available), 0)::int AS available,
+          COALESCE(SUM(v."lowStockThreshold"), 0)::int AS threshold
+        FROM "WarehouseProduct" p
+        LEFT JOIN "WarehouseVariant" v ON v."productId" = p."id"
+        LEFT JOIN variant_stock vs ON vs."id" = v."id"
+        WHERE p."storeId" = ${storeId}
+        GROUP BY p."id", p."kind"
+      ), bundle_stock AS (
+        SELECT
+          c."bundleProductId" AS id,
+          COALESCE(MIN(FLOOR(vs.available::numeric / c.quantity)), 0)::int AS available
+        FROM "ProductBundleComponent" c
+        LEFT JOIN variant_stock vs ON vs."id" = c."componentVariantId"
+        GROUP BY c."bundleProductId"
+      ), product_stock AS (
+        SELECT
+          s."id",
+          CASE WHEN s."kind" = 'BUNDLE'
+            THEN COALESCE(bs.available, 0)
+            ELSE s.available
+          END AS available,
+          s.threshold
+        FROM standard_stock s
+        LEFT JOIN bundle_stock bs ON bs.id = s."id"
+      )
+      SELECT "id" FROM product_stock
+      WHERE CASE ${stockStatus}
         WHEN 'OUT_OF_STOCK' THEN
-          COALESCE(SUM(b."onHand" - b."reserved" - b."damaged"), 0) = 0
+          available = 0
         WHEN 'LOW_STOCK' THEN
-          COALESCE(SUM(b."onHand" - b."reserved" - b."damaged"), 0) > 0
-          AND COALESCE(SUM(b."onHand" - b."reserved" - b."damaged"), 0)
-            <= COALESCE(SUM(v."lowStockThreshold"), 0)
+          available > 0 AND available <= threshold
         ELSE
-          COALESCE(SUM(b."onHand" - b."reserved" - b."damaged"), 0)
-            > COALESCE(SUM(v."lowStockThreshold"), 0)
+          available > threshold
       END
     `);
     return rows.map((row) => row.id);
@@ -443,37 +635,310 @@ export class ProductService {
     return this.toResponse(await this.requireProduct(store.id, productId));
   }
 
+  async performance(
+    userId: string,
+    productId: string,
+    query: ProductPerformanceQueryDto,
+  ) {
+    const store = await this.stores.requireStore(userId);
+    await this.requireProduct(store.id, productId);
+    const range = performanceRange(query);
+    const lines = await this.prisma.ecommerceOrderLine.findMany({
+      where: {
+        warehouseVariant: { productId, storeId: store.id },
+        order: {
+          connection: { storeId: store.id },
+          processedAt: { gte: range.from, lt: range.toExclusive },
+        },
+      },
+      include: {
+        warehouseVariant: { select: { costPrice: true } },
+        order: {
+          select: {
+            id: true,
+            status: true,
+            financialStatus: true,
+            fulfillmentStatus: true,
+            shippingCity: true,
+            processedAt: true,
+            providerUpdatedAt: true,
+            dispatch: {
+              select: {
+                senditShipment: { select: { normalizedStatus: true } },
+                quickLivraisonShipment: {
+                  select: { normalizedStatus: true },
+                },
+                forceLogShipment: { select: { normalizedStatus: true } },
+                ozoneExpressShipment: { select: { normalizedStatus: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { order: { processedAt: 'asc' } },
+    });
+
+    const days = dateKeys(range.from, range.toExclusive);
+    const points = new Map(
+      days.map((date) => [
+        date,
+        {
+          date,
+          orderIds: new Set<string>(),
+          units: 0,
+          revenue: new Prisma.Decimal(0),
+          profit: new Prisma.Decimal(0),
+        },
+      ]),
+    );
+    const orders = new Map<
+      string,
+      {
+        delivered: boolean;
+        cancelled: boolean;
+        returned: boolean;
+        city: string | null;
+        realized: boolean;
+        updatedAt: Date;
+      }
+    >();
+    const cities = new Map<
+      string,
+      { orderIds: Set<string>; revenue: Prisma.Decimal }
+    >();
+    let units = 0;
+    let revenue = new Prisma.Decimal(0);
+    let cost = new Prisma.Decimal(0);
+    let dataUpdatedAt: Date | null = null;
+
+    for (const line of lines) {
+      const state = productOrderState(line.order);
+      orders.set(line.order.id, {
+        ...state,
+        city: line.order.shippingCity,
+        updatedAt: line.order.providerUpdatedAt,
+      });
+      if (
+        !dataUpdatedAt ||
+        line.order.providerUpdatedAt.getTime() > dataUpdatedAt.getTime()
+      ) {
+        dataUpdatedAt = line.order.providerUpdatedAt;
+      }
+      units += line.quantity;
+      const lineRevenue = state.realized
+        ? line.totalPrice
+        : new Prisma.Decimal(0);
+      const lineCost = state.realized
+        ? line.warehouseVariant!.costPrice.times(line.quantity)
+        : new Prisma.Decimal(0);
+      revenue = revenue.plus(lineRevenue);
+      cost = cost.plus(lineCost);
+
+      const point = points.get(utcDateKey(line.order.processedAt));
+      if (point) {
+        point.orderIds.add(line.order.id);
+        point.units += line.quantity;
+        point.revenue = point.revenue.plus(lineRevenue);
+        point.profit = point.profit.plus(lineRevenue.minus(lineCost));
+      }
+      const city = line.order.shippingCity?.trim();
+      if (city && state.realized) {
+        const key = city.toLocaleLowerCase('en-US');
+        const current = cities.get(key) ?? {
+          orderIds: new Set<string>(),
+          revenue: new Prisma.Decimal(0),
+        };
+        current.orderIds.add(line.order.id);
+        current.revenue = current.revenue.plus(lineRevenue);
+        cities.set(key, current);
+      }
+    }
+
+    const orderStates = [...orders.values()];
+    const grossProfit = revenue.minus(cost);
+    const totalOrders = orders.size;
+    return {
+      productId,
+      currency: store.baseCurrency,
+      period: {
+        period: range.period,
+        from: range.from.toISOString(),
+        to: new Date(range.toExclusive.getTime() - 1).toISOString(),
+      },
+      metrics: {
+        totalOrders,
+        deliveredOrders: orderStates.filter((order) => order.delivered).length,
+        cancelledOrders: orderStates.filter((order) => order.cancelled).length,
+        returnedOrders: orderStates.filter((order) => order.returned).length,
+        totalUnits: units,
+        totalRevenue: revenue.toFixed(4),
+        totalCost: cost.toFixed(4),
+        grossProfit: grossProfit.toFixed(4),
+        netProfit: grossProfit.toFixed(4),
+        roi: cost.isZero()
+          ? null
+          : round2(grossProfit.div(cost).times(100).toNumber()),
+        deliveryRate: percentage(
+          orderStates.filter((order) => order.delivered).length,
+          totalOrders,
+        ),
+        cancellationRate: percentage(
+          orderStates.filter((order) => order.cancelled).length,
+          totalOrders,
+        ),
+        returnRate: percentage(
+          orderStates.filter((order) => order.returned).length,
+          totalOrders,
+        ),
+      },
+      performance: [...points.values()].map((point) => ({
+        date: point.date,
+        orders: point.orderIds.size,
+        units: point.units,
+        revenue: point.revenue.toFixed(4),
+        profit: point.profit.toFixed(4),
+      })),
+      topCities: [...cities.entries()]
+        .map(([key, value]) => ({
+          city:
+            orderStates.find(
+              (order) => order.city?.toLocaleLowerCase('en-US') === key,
+            )?.city ?? key,
+          orders: value.orderIds.size,
+          revenue: value.revenue.toFixed(4),
+        }))
+        .sort(
+          (left, right) =>
+            Number(right.revenue) - Number(left.revenue) ||
+            left.city.localeCompare(right.city),
+        )
+        .slice(0, 5),
+      dataUpdatedAt: dataUpdatedAt?.toISOString() ?? null,
+    };
+  }
+
   async update(
     userId: string,
     productId: string,
     dto: UpdateWarehouseProductDto,
   ) {
     const store = await this.stores.requireStore(userId);
-    await this.requireProduct(store.id, productId);
+    const product = await this.requireProduct(store.id, productId);
     if (dto.categoryId)
       await this.requireActiveCategory(store.id, dto.categoryId);
-    const result = await this.prisma.warehouseProduct.updateMany({
-      where: { id: productId, storeId: store.id, version: dto.version },
-      data: {
-        ...(dto.name === undefined ? {} : { name: dto.name.trim() }),
-        ...(dto.description === undefined
-          ? {}
-          : { description: dto.description.trim() || null }),
-        ...(dto.categoryId === undefined ? {} : { categoryId: dto.categoryId }),
-        ...(dto.status === undefined
-          ? {}
-          : {
-              status: dto.status,
-              archivedAt: dto.status === 'ARCHIVED' ? new Date() : null,
-            }),
-        version: { increment: 1 },
-      },
-    });
-    if (result.count === 0) {
-      throw new ConflictException(
-        'Product was changed by another request; reload and retry',
+    if (
+      dto.variants?.length &&
+      (dto.basePrice !== undefined ||
+        dto.costPrice !== undefined ||
+        dto.lowStockAlertThreshold !== undefined)
+    ) {
+      throw new BadRequestException(
+        'Use either the simple-product pricing fields or variants, not both',
       );
     }
+    if (
+      (dto.basePrice !== undefined ||
+        dto.costPrice !== undefined ||
+        dto.lowStockAlertThreshold !== undefined) &&
+      product.variants.length !== 1
+    ) {
+      throw new BadRequestException(
+        'Products with multiple variants must be updated through the variants array',
+      );
+    }
+    if (
+      product.kind === WarehouseProductKind.BUNDLE &&
+      (dto.costPrice !== undefined ||
+        dto.variants?.some((variant) => variant.costPrice !== undefined))
+    ) {
+      throw new BadRequestException(
+        'Bundle cost is derived from component variant costs',
+      );
+    }
+
+    const variantUpdates = dto.variants ?? [];
+    if (
+      new Set(variantUpdates.map((variant) => variant.id)).size !==
+      variantUpdates.length
+    ) {
+      throw new BadRequestException('A variant can be updated only once');
+    }
+    const productVariantIds = new Set(
+      product.variants.map((variant) => variant.id),
+    );
+    if (variantUpdates.some((variant) => !productVariantIds.has(variant.id))) {
+      throw new BadRequestException(
+        'Every updated variant must belong to this product',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const result = await tx.warehouseProduct.updateMany({
+        where: { id: productId, storeId: store.id, version: dto.version },
+        data: {
+          ...(dto.name === undefined ? {} : { name: dto.name.trim() }),
+          ...(dto.description === undefined
+            ? {}
+            : { description: dto.description.trim() || null }),
+          ...(dto.categoryId === undefined
+            ? {}
+            : { categoryId: dto.categoryId }),
+          ...(dto.status === undefined
+            ? {}
+            : {
+                status: dto.status,
+                archivedAt: dto.status === 'ARCHIVED' ? new Date() : null,
+              }),
+          version: { increment: 1 },
+        },
+      });
+      if (result.count === 0) {
+        throw new ConflictException(
+          'Product was changed by another request; reload and retry',
+        );
+      }
+
+      const defaultVariant = product.variants[0];
+      if (
+        dto.basePrice !== undefined ||
+        dto.costPrice !== undefined ||
+        dto.lowStockAlertThreshold !== undefined
+      ) {
+        await tx.warehouseVariant.update({
+          where: { id: defaultVariant.id },
+          data: {
+            ...(dto.basePrice === undefined ? {} : { price: dto.basePrice }),
+            ...(dto.costPrice === undefined
+              ? {}
+              : { costPrice: dto.costPrice }),
+            ...(dto.lowStockAlertThreshold === undefined
+              ? {}
+              : { lowStockThreshold: dto.lowStockAlertThreshold }),
+          },
+        });
+      }
+      for (const variant of variantUpdates) {
+        await tx.warehouseVariant.update({
+          where: { id: variant.id },
+          data: {
+            ...(variant.price === undefined ? {} : { price: variant.price }),
+            ...(variant.costPrice === undefined
+              ? {}
+              : { costPrice: variant.costPrice }),
+            ...(variant.lowStockAlertThreshold === undefined
+              ? {}
+              : { lowStockThreshold: variant.lowStockAlertThreshold }),
+          },
+        });
+      }
+      const changedCostVariantIds = [
+        ...(dto.costPrice !== undefined ? [defaultVariant.id] : []),
+        ...variantUpdates
+          .filter((variant) => variant.costPrice !== undefined)
+          .map((variant) => variant.id),
+      ];
+      await this.refreshBundleCosts(tx, changedCostVariantIds);
+    });
     return this.toResponse(await this.requireProduct(store.id, productId));
   }
 
@@ -626,10 +1091,92 @@ export class ProductService {
     return product;
   }
 
+  private async linkOrderLinesForProduct(storeId: string, productId: string) {
+    const variants = await this.prisma.warehouseVariant.findMany({
+      where: { productId, storeId, sku: { not: null } },
+      select: { id: true, sku: true },
+    });
+    for (const variant of variants) {
+      if (!variant.sku) continue;
+      await this.prisma.ecommerceOrderLine.updateMany({
+        where: {
+          warehouseVariantId: null,
+          sku: { equals: variant.sku, mode: 'insensitive' },
+          order: { connection: { storeId } },
+        },
+        data: { warehouseVariantId: variant.id },
+      });
+    }
+  }
+
+  private async refreshBundleCosts(
+    tx: Prisma.TransactionClient,
+    componentVariantIds: string[],
+  ) {
+    if (!componentVariantIds.length) return;
+    const usages = await tx.productBundleComponent.findMany({
+      where: { componentVariantId: { in: componentVariantIds } },
+      select: { bundleProductId: true },
+      distinct: ['bundleProductId'],
+    });
+    for (const usage of usages) {
+      const components = await tx.productBundleComponent.findMany({
+        where: { bundleProductId: usage.bundleProductId },
+        include: { componentVariant: { select: { costPrice: true } } },
+      });
+      const cost = components.reduce(
+        (total, component) =>
+          total.plus(
+            component.componentVariant.costPrice.times(component.quantity),
+          ),
+        new Prisma.Decimal(0),
+      );
+      await tx.warehouseVariant.updateMany({
+        where: { productId: usage.bundleProductId, isDefault: true },
+        data: { costPrice: cost },
+      });
+    }
+  }
+
   private toResponse(product: ProductWithRelations) {
+    const bundleComponents = product.bundleComponents.map((component) => {
+      const balances = component.componentVariant.inventoryItem?.balances ?? [];
+      const onHand = balances.reduce((sum, balance) => sum + balance.onHand, 0);
+      const availableUnits = balances.reduce(
+        (sum, balance) =>
+          sum + balance.onHand - balance.reserved - balance.damaged,
+        0,
+      );
+      return {
+        id: component.id,
+        variantId: component.componentVariantId,
+        productId: component.componentVariant.product.id,
+        productName: component.componentVariant.product.name,
+        variantTitle: component.componentVariant.title,
+        sku: component.componentVariant.sku,
+        quantity: component.quantity,
+        onHandBundles: Math.floor(onHand / component.quantity),
+        availableUnits,
+        availableBundles: Math.floor(availableUnits / component.quantity),
+        unitCost: Number(component.componentVariant.costPrice),
+      };
+    });
+    const bundleOnHand = bundleComponents.length
+      ? Math.min(
+          ...bundleComponents.map((component) => component.onHandBundles),
+        )
+      : 0;
+    const bundleAvailable = bundleComponents.length
+      ? Math.min(
+          ...bundleComponents.map((component) => component.availableBundles),
+        )
+      : 0;
     const variants = product.variants.map((variant) => {
       const balances = variant.inventoryItem?.balances ?? [];
-      const onHand = balances.reduce((sum, balance) => sum + balance.onHand, 0);
+      const storedOnHand = balances.reduce(
+        (sum, balance) => sum + balance.onHand,
+        0,
+      );
       const reserved = balances.reduce(
         (sum, balance) => sum + balance.reserved,
         0,
@@ -638,6 +1185,14 @@ export class ProductService {
         (sum, balance) => sum + balance.damaged,
         0,
       );
+      const onHand =
+        product.kind === WarehouseProductKind.BUNDLE
+          ? bundleOnHand
+          : storedOnHand;
+      const available =
+        product.kind === WarehouseProductKind.BUNDLE
+          ? bundleAvailable
+          : onHand - reserved - damaged;
       return {
         id: variant.id,
         title: variant.title,
@@ -671,7 +1226,7 @@ export class ProductService {
           onHand,
           reserved,
           damaged,
-          available: onHand - reserved - damaged,
+          available,
           locations: balances.map((balance) => ({
             id: balance.location.id,
             name: balance.location.name,
@@ -690,6 +1245,7 @@ export class ProductService {
       name: product.name,
       description: product.description,
       status: product.status,
+      kind: product.kind,
       version: product.version,
       category: product.category,
       options: product.options.map((option) => ({
@@ -742,11 +1298,145 @@ export class ProductService {
           ? `/warehouse/packaging/${requirement.packagingMaterial.id}/image`
           : null,
       })),
+      bundleComponents: bundleComponents.map((component) => ({
+        id: component.id,
+        variantId: component.variantId,
+        productId: component.productId,
+        productName: component.productName,
+        variantTitle: component.variantTitle,
+        sku: component.sku,
+        quantity: component.quantity,
+        availableUnits: component.availableUnits,
+        availableBundles: component.availableBundles,
+        unitCost: component.unitCost,
+      })),
       createdAt: product.createdAt.toISOString(),
       updatedAt: product.updatedAt.toISOString(),
       archivedAt: product.archivedAt?.toISOString() ?? null,
     };
   }
+}
+
+function performanceRange(query: ProductPerformanceQueryDto) {
+  const period = query.period ?? ProductPerformancePeriod.SEVEN_DAYS;
+  const now = new Date();
+  if (period === ProductPerformancePeriod.CUSTOM) {
+    if (!query.from || !query.to) {
+      throw new BadRequestException(
+        'from and to are required when period is CUSTOM',
+      );
+    }
+    const from = parseUtcDate(query.from, 'from');
+    const inclusiveTo = parseUtcDate(query.to, 'to');
+    const toExclusive = new Date(inclusiveTo.getTime() + 86_400_000);
+    if (from >= toExclusive) {
+      throw new BadRequestException('from must not be after to');
+    }
+    if (toExclusive.getTime() - from.getTime() > 366 * 86_400_000) {
+      throw new BadRequestException(
+        'Custom performance ranges cannot exceed 366 days',
+      );
+    }
+    return { period, from, toExclusive };
+  }
+  const count =
+    period === ProductPerformancePeriod.NINETY_DAYS
+      ? 90
+      : period === ProductPerformancePeriod.THIRTY_DAYS
+        ? 30
+        : 7;
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  return {
+    period,
+    from: new Date(today.getTime() - (count - 1) * 86_400_000),
+    toExclusive: new Date(today.getTime() + 86_400_000),
+  };
+}
+
+function parseUtcDate(value: string, field: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new BadRequestException(`${field} must use YYYY-MM-DD format`);
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException(`${field} is not a valid date`);
+  }
+  return parsed;
+}
+
+function dateKeys(from: Date, toExclusive: Date) {
+  const keys: string[] = [];
+  for (
+    let time = from.getTime();
+    time < toExclusive.getTime();
+    time += 86_400_000
+  ) {
+    keys.push(utcDateKey(new Date(time)));
+  }
+  return keys;
+}
+
+function utcDateKey(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+const RETURNED_SHIPMENT_STATUSES = new Set<ShippingShipmentStatus>([
+  ShippingShipmentStatus.RETURN_PENDING,
+  ShippingShipmentStatus.RETURN_IN_TRANSIT,
+  ShippingShipmentStatus.RETURNED_TO_WAREHOUSE,
+  ShippingShipmentStatus.RETURN_INSPECTION,
+  ShippingShipmentStatus.RETURNED_TO_STOCK,
+  ShippingShipmentStatus.RETURNED_TO_SELLER,
+]);
+
+function productOrderState(order: {
+  status: EcommerceOrderStatus;
+  financialStatus: EcommercePaymentStatus;
+  fulfillmentStatus: string | null;
+  dispatch: {
+    senditShipment: { normalizedStatus: ShippingShipmentStatus } | null;
+    quickLivraisonShipment: {
+      normalizedStatus: ShippingShipmentStatus;
+    } | null;
+    forceLogShipment: { normalizedStatus: ShippingShipmentStatus } | null;
+    ozoneExpressShipment: { normalizedStatus: ShippingShipmentStatus } | null;
+  } | null;
+}) {
+  const shipmentStatus = order.dispatch
+    ? [
+        order.dispatch.senditShipment,
+        order.dispatch.quickLivraisonShipment,
+        order.dispatch.forceLogShipment,
+        order.dispatch.ozoneExpressShipment,
+      ]
+        .map((shipment) => shipment?.normalizedStatus)
+        .find(Boolean)
+    : undefined;
+  const fulfillment = order.fulfillmentStatus?.toLocaleLowerCase('en-US') ?? '';
+  const returned = shipmentStatus
+    ? RETURNED_SHIPMENT_STATUSES.has(shipmentStatus)
+    : /return|restock/.test(fulfillment);
+  const delivered = shipmentStatus
+    ? shipmentStatus === ShippingShipmentStatus.DELIVERED
+    : /deliver|fulfill/.test(fulfillment);
+  const cancelled = order.status === EcommerceOrderStatus.CANCELLED;
+  const refunded = order.financialStatus === EcommercePaymentStatus.REFUNDED;
+  return {
+    delivered,
+    returned,
+    cancelled,
+    realized: !cancelled && !returned && !refunded,
+  };
+}
+
+function percentage(numerator: number, denominator: number) {
+  return denominator === 0 ? 0 : round2((numerator / denominator) * 100);
+}
+
+function round2(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 export function prepareProduct(dto: CreateWarehouseProductDto) {

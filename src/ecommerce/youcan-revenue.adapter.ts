@@ -29,6 +29,7 @@ interface RawYouCanOrder {
   updated_at?: unknown;
   payment?: unknown;
   shipping?: unknown;
+  shipping_address?: unknown;
   refunds?: unknown;
   variants?: unknown;
 }
@@ -50,6 +51,8 @@ export class YouCanRevenueAdapter implements EcommerceRevenueAdapter {
     updatedSince?: Date | null,
     updatedThrough?: Date,
   ): Promise<EcommerceOrderPage> {
+    void updatedSince;
+    void updatedThrough;
     const page = parsePage(cursor);
     const [response, storeCurrency] = await Promise.all([
       this.youCanConnectionService.getJsonForUser<RawYouCanOrdersResponse>(
@@ -132,6 +135,9 @@ function normalizeYouCanOrder(
   const currency =
     optionalString(order.currency)?.toUpperCase() ||
     storeCurrency.toUpperCase();
+  const lines = variants.map((variant, index) =>
+    normalizeLine(variant, index, id, currency),
+  );
 
   return {
     externalOrderId: id,
@@ -151,10 +157,50 @@ function normalizeYouCanOrder(
     shipping: shipping.toFixed(4),
     tax: tax.toFixed(4),
     totalCollected: totalCollected.toFixed(4),
+    shippingCity: recordString(order.shipping_address, 'city'),
     providerCreatedAt: createdAt,
     processedAt: createdAt,
     cancelledAt: status === EcommerceOrderStatus.CANCELLED ? updatedAt : null,
     providerUpdatedAt: updatedAt,
+    lines,
+  };
+}
+
+function normalizeLine(
+  value: unknown,
+  index: number,
+  orderId: string,
+  currency: string,
+) {
+  if (!isRecord(value)) {
+    throw new BadGatewayException('YouCan returned an invalid order variant');
+  }
+  const quantity = lineQuantity(value);
+  const unitPrice = decimal(value.price, 'variant price');
+  const product = recordValue(value, 'product');
+  const variant = recordValue(value, 'variant');
+  return {
+    externalLineId:
+      optionalString(value.id) ??
+      optionalString(value.product_variant_id) ??
+      `${orderId}:${index + 1}`,
+    externalProductId:
+      optionalString(value.product_id) ?? recordString(product, 'id'),
+    externalVariantId:
+      optionalString(value.product_variant_id) ??
+      recordString(variant, 'id') ??
+      optionalString(value.id),
+    sku: optionalString(value.sku) ?? recordString(variant, 'sku'),
+    name:
+      optionalString(value.product_name) ??
+      recordString(product, 'name') ??
+      optionalString(value.name) ??
+      optionalString(value.title) ??
+      'Unknown Product',
+    quantity,
+    unitPrice: unitPrice.toFixed(4),
+    totalPrice: unitPrice.times(quantity).toFixed(4),
+    currency,
   };
 }
 
@@ -265,7 +311,7 @@ function lineQuantity(value: unknown): number {
     throw new BadGatewayException('YouCan returned an invalid order variant');
   }
   const quantity = Number(value.quantity);
-  if (!Number.isInteger(quantity) || quantity < 0) {
+  if (!Number.isInteger(quantity) || quantity <= 0) {
     throw new BadGatewayException(
       'YouCan returned an invalid variant quantity',
     );

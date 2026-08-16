@@ -32,15 +32,30 @@ describe('EcommerceSyncService', () => {
     shipping: '5.0000',
     tax: '0.0000',
     totalCollected: '95.0000',
+    shippingCity: 'Casablanca',
     providerCreatedAt: new Date('2026-07-18T10:00:00.000Z'),
     processedAt: new Date('2026-07-18T10:01:00.000Z'),
     cancelledAt: null,
     providerUpdatedAt: new Date('2026-07-19T10:00:00.000Z'),
+    lines: [
+      {
+        externalLineId: 'line-1',
+        externalProductId: 'product-1',
+        externalVariantId: 'variant-1',
+        sku: 'SKU-1',
+        name: 'Headphones',
+        quantity: 1,
+        unitPrice: '90.0000',
+        totalPrice: '90.0000',
+        currency: 'MAD',
+      },
+    ],
   };
 
   it('upserts normalized orders and completes the watermark', async () => {
     const connection = {
       id: 'connection-id',
+      storeId: 'store-id',
       platform: EcommercePlatform.SHOPIFY,
       status: EcommerceConnectionStatus.ACTIVE,
       syncCursor: null,
@@ -52,7 +67,9 @@ describe('EcommerceSyncService', () => {
       lightfunnelsConnection: null,
     };
     const update = jest.fn().mockResolvedValue(connection);
-    const upsert = jest.fn().mockResolvedValue({});
+    const upsert = jest.fn().mockResolvedValue({ id: 'order-id' });
+    const lineDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
+    const lineCreateMany = jest.fn().mockResolvedValue({ count: 1 });
     const prisma = {
       ecommerceConnection: {
         findFirst: jest.fn().mockResolvedValue(connection),
@@ -60,8 +77,20 @@ describe('EcommerceSyncService', () => {
         updateMany: jest.fn(),
       },
       ecommerceOrder: { upsert },
-      $transaction: jest.fn((operations: Promise<unknown>[]) =>
-        Promise.all(operations),
+      $transaction: jest.fn(
+        (callback: (tx: Record<string, unknown>) => Promise<unknown>) =>
+          callback({
+            ecommerceOrder: { upsert },
+            ecommerceOrderLine: {
+              deleteMany: lineDeleteMany,
+              createMany: lineCreateMany,
+            },
+            warehouseVariant: {
+              findMany: jest
+                .fn()
+                .mockResolvedValue([{ id: 'warehouse-variant', sku: 'SKU-1' }]),
+            },
+          }),
       ),
     } as unknown as PrismaService;
     const adapter = {
@@ -81,6 +110,8 @@ describe('EcommerceSyncService', () => {
 
     const result = await service.syncConnection('user-id', 'connection-id');
 
+    const { lines: _lines, ...orderData } = order;
+    void _lines;
     expect(upsert).toHaveBeenCalledWith({
       where: {
         connectionId_externalOrderId: {
@@ -88,8 +119,17 @@ describe('EcommerceSyncService', () => {
           externalOrderId: order.externalOrderId,
         },
       },
-      create: { connectionId: 'connection-id', ...order },
-      update: order,
+      create: { connectionId: 'connection-id', ...orderData },
+      update: orderData,
+    });
+    expect(lineCreateMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          orderId: 'order-id',
+          externalLineId: 'line-1',
+          warehouseVariantId: 'warehouse-variant',
+        }),
+      ],
     });
     expect(result).toEqual({
       connectionId: 'connection-id',

@@ -551,6 +551,7 @@ model EcommerceOrder {
   shipping          Decimal                @db.Decimal(20, 4)
   tax               Decimal                @db.Decimal(20, 4)
   totalCollected    Decimal                @db.Decimal(20, 4)
+  shippingCity      String?
   providerCreatedAt DateTime
   processedAt       DateTime
   cancelledAt       DateTime?
@@ -561,11 +562,38 @@ model EcommerceOrder {
   connectionId String
   connection   EcommerceConnection     @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   dispatch     EcommerceOrderDispatch?
+  lines        EcommerceOrderLine[]
 
   @@unique([connectionId, externalOrderId])
   @@index([connectionId, processedAt])
   @@index([connectionId, providerUpdatedAt])
   @@index([financialStatus, processedAt])
+}
+
+model EcommerceOrderLine {
+  id                String   @id @default(uuid())
+  externalLineId    String
+  externalProductId String?
+  externalVariantId String?
+  sku               String?
+  name              String
+  quantity          Int
+  unitPrice         Decimal  @db.Decimal(20, 4)
+  totalPrice        Decimal  @db.Decimal(20, 4)
+  currency          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  orderId String
+  order   EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  warehouseVariantId String?
+  warehouseVariant   WarehouseVariant? @relation(fields: [warehouseVariantId], references: [id], onDelete: SetNull)
+
+  @@unique([orderId, externalLineId])
+  @@index([orderId])
+  @@index([warehouseVariantId])
+  @@index([sku])
 }
 
 model EcommerceOrderDispatch {
@@ -746,6 +774,11 @@ enum WarehouseProductStatus {
   ARCHIVED
 }
 
+enum WarehouseProductKind {
+  STANDARD
+  BUNDLE
+}
+
 enum InventoryItemKind {
   PRODUCT_VARIANT
   PACKAGING_MATERIAL
@@ -817,6 +850,7 @@ model WarehouseProduct {
   name                   String
   description            String?
   status                 WarehouseProductStatus @default(DRAFT)
+  kind                   WarehouseProductKind   @default(STANDARD)
   idempotencyKey         String?
   idempotencyFingerprint String?
   version                Int                    @default(1)
@@ -835,6 +869,7 @@ model WarehouseProduct {
   media                 MediaAsset[]
   gift                  ProductGift?                  @relation("ProductGiftOwner")
   packagingRequirements ProductPackagingRequirement[]
+  bundleComponents      ProductBundleComponent[]      @relation("BundleProduct")
 
   @@unique([storeId, idempotencyKey])
   @@index([storeId, status, createdAt])
@@ -883,14 +918,33 @@ model WarehouseVariant {
   storeId String
   store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
-  optionValues       WarehouseVariantOptionValue[]
-  inventoryItem      InventoryItem?
-  media              MediaAsset[]
-  usedAsGift         ProductGift[]                 @relation("GiftVariant")
-  packagingOverrides ProductPackagingRequirement[]
+  optionValues        WarehouseVariantOptionValue[]
+  inventoryItem       InventoryItem?
+  media               MediaAsset[]
+  usedAsGift          ProductGift[]                 @relation("GiftVariant")
+  packagingOverrides  ProductPackagingRequirement[]
+  bundleUsages        ProductBundleComponent[]      @relation("BundleComponentVariant")
+  ecommerceOrderLines EcommerceOrderLine[]
 
   @@unique([storeId, sku])
   @@index([productId, position])
+}
+
+model ProductBundleComponent {
+  id        String   @id @default(uuid())
+  quantity  Int
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bundleProductId String
+  bundleProduct   WarehouseProduct @relation("BundleProduct", fields: [bundleProductId], references: [id], onDelete: Cascade)
+
+  componentVariantId String
+  componentVariant   WarehouseVariant @relation("BundleComponentVariant", fields: [componentVariantId], references: [id], onDelete: Restrict)
+
+  @@unique([bundleProductId, componentVariantId])
+  @@index([componentVariantId])
 }
 
 model WarehouseVariantOptionValue {
