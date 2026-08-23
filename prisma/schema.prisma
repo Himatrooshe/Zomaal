@@ -186,6 +186,8 @@ model EcommerceOrder {
   shipping          Decimal                @db.Decimal(20, 4)
   tax               Decimal                @db.Decimal(20, 4)
   totalCollected    Decimal                @db.Decimal(20, 4)
+  codAmount         Decimal?               @db.Decimal(20, 4)
+  codStatus         String?                // PENDING | COLLECTED | FAILED
   providerCreatedAt DateTime
   processedAt       DateTime
   cancelledAt       DateTime?
@@ -194,13 +196,36 @@ model EcommerceOrder {
   updatedAt         DateTime               @updatedAt
 
   connectionId String
-  connection   EcommerceConnection     @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connection   EcommerceConnection      @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   dispatch     EcommerceOrderDispatch?
+  events       EcommerceOrderEvent[]
 
   @@unique([connectionId, externalOrderId])
   @@index([connectionId, processedAt])
   @@index([connectionId, providerUpdatedAt])
   @@index([financialStatus, processedAt])
+}
+
+model EcommerceOrderEvent {
+  id              String   @id @default(uuid())
+  orderId         String
+  providerEventId String   // always set — generated deterministically when the platform provides no ID
+  source          String   // SHOPIFY | YOUCAN | LIGHTFUNNELS | SYSTEM
+  type            String   // OrderEventType constant
+  title           String
+  message         String?
+  actor           String?
+  location        String?
+  metadata        Json?
+  occurredAt      DateTime
+  synthetic       Boolean  @default(false)
+  rawPayload      Json?
+  createdAt       DateTime @default(now())
+
+  order EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, providerEventId])
+  @@index([orderId, occurredAt])
 }
 
 model EcommerceOrderDispatch {

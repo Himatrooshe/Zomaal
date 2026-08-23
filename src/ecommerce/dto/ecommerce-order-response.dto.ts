@@ -184,17 +184,38 @@ export class EcommerceOrderDto {
   @ApiProperty({ description: 'Order currency' })
   currency: string;
 
-  @ApiProperty({ description: 'Order gross sales' })
+  @ApiProperty({ description: 'Gross sales before discounts', example: '249.98' })
   grossSales: string;
 
-  @ApiProperty({ description: 'Order total collected' })
+  @ApiProperty({ description: 'Total discount amount', example: '25.00' })
+  discounts: string;
+
+  @ApiProperty({ description: 'Shipping cost charged to the customer', example: '10.00' })
+  shipping: string;
+
+  @ApiProperty({ description: 'Total refunded amount', example: '0.00' })
+  refunds: string;
+
+  @ApiProperty({ description: 'Net sales after discounts and refunds', example: '224.98' })
+  netSales: string;
+
+  @ApiProperty({ description: 'Total amount collected from customer', example: '234.98' })
   totalCollected: string;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Cash on delivery amount (MAD)', example: '234.98' })
+  codAmount: string | null;
+
+  @ApiPropertyOptional({ nullable: true, enum: ['PENDING', 'COLLECTED', 'FAILED'] })
+  codStatus: string | null;
 
   @ApiProperty({ description: 'Number of items' })
   itemCount: number;
 
-  @ApiProperty({ description: 'When the order was processed' })
+  @ApiProperty({ description: 'When the order was processed', format: 'date-time' })
   processedAt: string;
+
+  @ApiPropertyOptional({ nullable: true, format: 'date-time' })
+  cancelledAt: string | null;
 
   @ApiPropertyOptional({
     type: () => EcommerceOrderDispatchDto,

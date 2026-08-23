@@ -1,0 +1,32 @@
+export const OrderEventType = {
+  // Order lifecycle
+  ORDER_CREATED:          'ORDER_CREATED',
+  ORDER_CONFIRMED:        'ORDER_CONFIRMED',
+  ORDER_CANCELLED:        'ORDER_CANCELLED',
+  ORDER_CLOSED:           'ORDER_CLOSED',
+  // Payment
+  PAYMENT_PENDING:        'PAYMENT_PENDING',
+  PAYMENT_AUTHORIZED:     'PAYMENT_AUTHORIZED',
+  PAYMENT_PAID:           'PAYMENT_PAID',
+  PAYMENT_PARTIALLY_PAID: 'PAYMENT_PARTIALLY_PAID',
+  PAYMENT_REFUNDED:       'PAYMENT_REFUNDED',
+  PAYMENT_VOIDED:         'PAYMENT_VOIDED',
+  // Fulfillment / shipping
+  FULFILLMENT_PENDING:    'FULFILLMENT_PENDING',
+  FULFILLMENT_CREATED:    'FULFILLMENT_CREATED',
+  LABEL_CREATED:          'LABEL_CREATED',
+  PICKED_UP:              'PICKED_UP',
+  IN_TRANSIT:             'IN_TRANSIT',
+  OUT_FOR_DELIVERY:       'OUT_FOR_DELIVERY',
+  DELIVERED:              'DELIVERED',
+  DELIVERY_FAILED:        'DELIVERY_FAILED',
+  FULFILLMENT_CANCELLED:  'FULFILLMENT_CANCELLED',
+  // Returns
+  RETURN_REQUESTED:       'RETURN_REQUESTED',
+  RETURN_IN_TRANSIT:      'RETURN_IN_TRANSIT',
+  RETURNED:               'RETURNED',
+  // Catch-all
+  OTHER:                  'OTHER',
+} as const;
+
+export type OrderEventType = typeof OrderEventType[keyof typeof OrderEventType];

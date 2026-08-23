@@ -233,7 +233,9 @@ function timestamp(value: unknown, field: string): Date {
       parsed = new Date();
     } else if (trimmed.endsWith(' ago')) {
       const parts = trimmed.split(' ');
-      const amount = parseInt(parts[0], 10);
+      // "a month ago" / "an hour ago" → treat as 1
+      const rawAmount = parts[0].toLowerCase();
+      const amount = rawAmount === 'a' || rawAmount === 'an' ? 1 : parseInt(rawAmount, 10);
       const unit = parts[1]?.toLowerCase();
       let multiplier = 0;
       if (unit.startsWith('sec')) multiplier = 1000;
