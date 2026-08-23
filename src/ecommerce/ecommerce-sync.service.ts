@@ -242,7 +242,7 @@ export class EcommerceSyncService {
           syncFrom,
           syncStartedAt,
         );
-        await this.persistOrders(connection.id, page.orders, connection.platform);
+        await this.persistOrders(connection.id, connection.storeId, page.orders, connection.platform);
         processedOrders += page.orders.length;
 
         if (!page.hasNextPage) {
@@ -340,9 +340,9 @@ export class EcommerceSyncService {
       }
     }
 
-    // Upsert all orders
+    // Upsert all orders — strip `lines` from the spread (lines are persisted separately below)
     const upserted = await this.prisma.$transaction(
-      orders.map((order) =>
+      orders.map(({ lines: _lines, ...order }) =>
         this.prisma.ecommerceOrder.upsert({
           where: {
             connectionId_externalOrderId: {
@@ -356,6 +356,31 @@ export class EcommerceSyncService {
         }),
       ),
     );
+
+    // Persist order lines — replace all lines for each order (sync is authoritative)
+    for (let i = 0; i < orders.length; i++) {
+      const { id: orderId } = upserted[i];
+      const lines = orders[i].lines;
+      if (!lines || lines.length === 0) continue;
+
+      await this.prisma.ecommerceOrderLine.deleteMany({ where: { orderId } });
+      await this.prisma.ecommerceOrderLine.createMany({
+        data: lines.map((line) => ({
+          orderId,
+          externalLineId:    line.externalLineId,
+          externalProductId: line.externalProductId,
+          externalVariantId: line.externalVariantId,
+          sku:               line.sku,
+          name:              line.name,
+          quantity:          line.quantity,
+          unitPrice:         line.unitPrice,
+          totalPrice:        line.totalPrice,
+          currency:          line.currency,
+          warehouseVariantId: null, // linked later by linkOrderLinesForProduct
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     // Detect and store status transitions for non-Shopify platforms
     if (
