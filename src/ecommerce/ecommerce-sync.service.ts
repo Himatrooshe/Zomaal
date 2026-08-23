@@ -20,6 +20,7 @@ import type {
 import { LightfunnelsRevenueAdapter } from './lightfunnels-revenue.adapter';
 import { ShopifyRevenueAdapter } from './shopify-revenue.adapter';
 import { YouCanRevenueAdapter } from './youcan-revenue.adapter';
+import { EcommerceOrderTimelineService } from './ecommerce-order-timeline.service';
 
 const MAX_PAGES_PER_REQUEST = 5;
 
@@ -54,6 +55,7 @@ export class EcommerceSyncService {
     private readonly shopifyAdapter: ShopifyRevenueAdapter,
     private readonly youCanAdapter: YouCanRevenueAdapter,
     private readonly configService: ConfigService,
+    private readonly timelineService: EcommerceOrderTimelineService,
   ) {}
 
   async syncConnection(
@@ -240,11 +242,7 @@ export class EcommerceSyncService {
           syncFrom,
           syncStartedAt,
         );
-        await this.persistOrders(
-          connection.id,
-          connection.storeId,
-          page.orders,
-        );
+        await this.persistOrders(connection.id, page.orders, connection.platform);
         processedOrders += page.orders.length;
 
         if (!page.hasNextPage) {
@@ -315,69 +313,76 @@ export class EcommerceSyncService {
     connectionId: string,
     storeId: string,
     orders: NormalizedEcommerceOrder[],
+    platform: EcommercePlatform,
   ): Promise<void> {
-    if (orders.length === 0) {
-      return;
+    if (orders.length === 0) return;
+
+    // For YouCan and Lightfunnels we detect status changes and persist timeline
+    // events. We fetch the current state before the upsert in one batched query.
+    const previousStateMap = new Map<
+      string,
+      { id: string; financialStatus: string; fulfillmentStatus: string | null }
+    >();
+
+    if (
+      platform === EcommercePlatform.YOUCAN ||
+      platform === EcommercePlatform.LIGHTFUNNELS
+    ) {
+      const existing = await this.prisma.ecommerceOrder.findMany({
+        where: {
+          connectionId,
+          externalOrderId: { in: orders.map((o) => o.externalOrderId) },
+        },
+        select: { id: true, externalOrderId: true, financialStatus: true, fulfillmentStatus: true },
+      });
+      for (const row of existing) {
+        previousStateMap.set(row.externalOrderId, row);
+      }
     }
 
-    await this.prisma.$transaction(
-      async (tx) => {
-        for (const order of orders) {
-          const { lines, ...orderData } = order;
-          const saved = await tx.ecommerceOrder.upsert({
-            where: {
-              connectionId_externalOrderId: {
-                connectionId,
-                externalOrderId: order.externalOrderId,
-              },
+    // Upsert all orders
+    const upserted = await this.prisma.$transaction(
+      orders.map((order) =>
+        this.prisma.ecommerceOrder.upsert({
+          where: {
+            connectionId_externalOrderId: {
+              connectionId,
+              externalOrderId: order.externalOrderId,
             },
-            create: { connectionId, ...orderData },
-            update: orderData,
-          });
-          const skus = lines
-            .map((line) => line.sku?.trim())
-            .filter((sku): sku is string => Boolean(sku));
-          const variants = skus.length
-            ? await tx.warehouseVariant.findMany({
-                where: { storeId, sku: { in: skus, mode: 'insensitive' } },
-                select: { id: true, sku: true },
-              })
-            : [];
-          const variantBySku = new Map(
-            variants
-              .filter((variant) => variant.sku)
-              .map((variant) => [
-                variant.sku!.toLocaleLowerCase('en-US'),
-                variant.id,
-              ]),
-          );
-          await tx.ecommerceOrderLine.deleteMany({
-            where: { orderId: saved.id },
-          });
-          const uniqueLines = [
-            ...new Map(
-              lines.map((line) => [line.externalLineId, line]),
-            ).values(),
-          ];
-          if (uniqueLines.length) {
-            await tx.ecommerceOrderLine.createMany({
-              data: uniqueLines.map((line) => ({
-                orderId: saved.id,
-                ...line,
-                warehouseVariantId: line.sku
-                  ? (variantBySku.get(
-                      line.sku.trim().toLocaleLowerCase('en-US'),
-                    ) ?? null)
-                  : null,
-              })),
-            });
-          }
-        }
-      },
-      {
-        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
-      },
+          },
+          create: { connectionId, ...order },
+          update: order,
+          select: { id: true, externalOrderId: true },
+        }),
+      ),
     );
+
+    // Detect and store status transitions for non-Shopify platforms
+    if (
+      platform === EcommercePlatform.YOUCAN ||
+      platform === EcommercePlatform.LIGHTFUNNELS
+    ) {
+      const source = platform === EcommercePlatform.YOUCAN ? 'YOUCAN' : 'LIGHTFUNNELS';
+
+      for (let i = 0; i < orders.length; i++) {
+        const incoming = orders[i];
+        const previous = previousStateMap.get(incoming.externalOrderId);
+        if (!previous) continue; // new order — no prior state to diff
+
+        const { id: orderId } = upserted[i];
+        await this.timelineService
+          .detectAndStoreChanges(
+            orderId,
+            { financialStatus: previous.financialStatus as any, fulfillmentStatus: previous.fulfillmentStatus },
+            { financialStatus: incoming.financialStatus, fulfillmentStatus: incoming.fulfillmentStatus },
+            source,
+            incoming.providerUpdatedAt,
+          )
+          .catch((err) =>
+            this.logger.warn(`Timeline change detection failed for order ${orderId}: ${String(err)}`),
+          );
+      }
+    }
   }
 }
 

@@ -54,6 +54,8 @@ import { EcommerceSyncService } from './ecommerce-sync.service';
 import { EcommerceService } from './ecommerce.service';
 import { EcommerceMetricsService } from './ecommerce-metrics.service';
 import { EcommerceHomeResponseDto } from './dto/ecommerce-home-response.dto';
+import { EcommerceOrderTimelineService } from './ecommerce-order-timeline.service';
+import { OrderTimelineDto } from './dto/order-timeline.dto';
 
 const PRIVATE_NO_STORE_HEADERS = {
   'Cache-Control': {
@@ -73,6 +75,7 @@ export class EcommerceController {
     private readonly ecommerceService: EcommerceService,
     private readonly syncService: EcommerceSyncService,
     private readonly metricsService: EcommerceMetricsService,
+    private readonly timelineService: EcommerceOrderTimelineService,
   ) {}
 
   @Get('home')
@@ -394,6 +397,63 @@ export class EcommerceController {
     @Body() payload: EcommerceDispatchDto,
   ): Promise<EcommerceDispatchResponseDto> {
     return this.ecommerceService.dispatchOrder(user.userId, orderId, payload);
+  }
+
+  @Get('orders/:orderId/timeline')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Get the event timeline for an order',
+    description:
+      'Returns all order lifecycle and shipping events sourced from the connected e-commerce platform. ' +
+      'Works regardless of which shipping carrier or plugin the merchant uses, as long as the platform ' +
+      'reflects the shipment updates. Pass ?refresh=true to re-fetch from the platform; otherwise cached ' +
+      'events are returned. Always returns 200 — check `available` to determine whether events exist.',
+  })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Zomaal internal order ID',
+    format: 'uuid',
+  })
+  @ApiOkResponse({
+    description: 'Order timeline. `available: false` when no events exist yet.',
+    type: OrderTimelineDto,
+    headers: PRIVATE_NO_STORE_HEADERS,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid order ID format.', type: ApiErrorDto })
+  @ApiRevenueReadErrors()
+  getOrderTimeline(
+    @CurrentUser() user: JwtPayload,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Query('refresh') refresh?: string,
+  ): Promise<OrderTimelineDto> {
+    return this.timelineService.getTimeline(
+      user.userId,
+      orderId,
+      refresh === 'true',
+    );
+  }
+
+  @Post('orders/timeline/backfill')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Backfill synthetic timeline events for existing YouCan/Lightfunnels orders',
+    description:
+      'One-time operation. Generates synthetic events from stored timestamps for all ' +
+      'YouCan/Lightfunnels orders that have no timeline events yet. Idempotent — safe to call multiple times.',
+  })
+  @ApiOkResponse({
+    description: 'Backfill result.',
+    schema: {
+      type: 'object',
+      properties: {
+        processed: { type: 'number', description: 'Orders that received synthetic events' },
+        skipped:   { type: 'number', description: 'Orders that failed to backfill' },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token.', type: ApiErrorDto })
+  backfillTimelines(): Promise<{ processed: number; skipped: number }> {
+    return this.timelineService.backfillAllOrders();
   }
 }
 

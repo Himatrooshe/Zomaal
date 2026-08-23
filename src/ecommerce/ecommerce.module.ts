@@ -16,6 +16,10 @@ import { EcommerceSchedulerController } from './ecommerce-scheduler.controller';
 import { EcommerceSchedulerGuard } from './ecommerce-scheduler.guard';
 import { ShippingModule } from '../shipping/shipping.module';
 import { EcommerceMetricsService } from './ecommerce-metrics.service';
+import { EcommerceOrderTimelineService } from './ecommerce-order-timeline.service';
+import { ShopifyOrderTimelineAdapter } from './shopify-order-timeline.adapter';
+import { YouCanOrderTimelineAdapter } from './youcan-order-timeline.adapter';
+import { LightfunnelsOrderTimelineAdapter } from './lightfunnels-order-timeline.adapter';
 
 @Module({
   imports: [
@@ -37,6 +41,10 @@ import { EcommerceMetricsService } from './ecommerce-metrics.service';
     ShopifyFulfillmentAdapter,
     YouCanFulfillmentAdapter,
     LightfunnelsFulfillmentAdapter,
+    EcommerceOrderTimelineService,
+    ShopifyOrderTimelineAdapter,
+    YouCanOrderTimelineAdapter,
+    LightfunnelsOrderTimelineAdapter,
   ],
 })
 export class EcommerceModule {}

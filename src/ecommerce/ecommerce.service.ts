@@ -316,12 +316,19 @@ export class EcommerceService {
         status: order.status,
         financialStatus: order.financialStatus,
         fulfillmentStatus: order.fulfillmentStatus,
-        currency: order.currency,
-        grossSales: order.grossSales.toFixed(4),
-        totalCollected: order.totalCollected.toFixed(4),
-        itemCount: order.itemCount,
-        processedAt: order.processedAt.toISOString(),
-        dispatch: mapDispatch(order.dispatch),
+        currency:          order.currency,
+        grossSales:        order.grossSales.toFixed(2),
+        discounts:         order.discounts.toFixed(2),
+        shipping:          order.shipping.toFixed(2),
+        refunds:           order.refunds.toFixed(2),
+        netSales:          order.netSales.toFixed(2),
+        totalCollected:    order.totalCollected.toFixed(2),
+        codAmount:         order.codAmount?.toFixed(2) ?? null,
+        codStatus:         order.codStatus ?? null,
+        itemCount:         order.itemCount,
+        processedAt:       order.processedAt.toISOString(),
+        cancelledAt:       order.cancelledAt?.toISOString() ?? null,
+        dispatch:          mapDispatch(order.dispatch),
       })),
       pagination: {
         total,
@@ -347,19 +354,26 @@ export class EcommerceService {
     }
 
     return {
-      id: order.id,
-      externalOrderId: order.externalOrderId,
-      orderName: order.orderName,
-      platform: order.connection.platform,
-      status: order.status,
-      financialStatus: order.financialStatus,
+      id:                order.id,
+      externalOrderId:   order.externalOrderId,
+      orderName:         order.orderName,
+      platform:          order.connection.platform,
+      status:            order.status,
+      financialStatus:   order.financialStatus,
       fulfillmentStatus: order.fulfillmentStatus,
-      currency: order.currency,
-      grossSales: order.grossSales.toFixed(4),
-      totalCollected: order.totalCollected.toFixed(4),
-      itemCount: order.itemCount,
-      processedAt: order.processedAt.toISOString(),
-      dispatch: mapDispatch(order.dispatch),
+      currency:          order.currency,
+      grossSales:        order.grossSales.toFixed(2),
+      discounts:         order.discounts.toFixed(2),
+      shipping:          order.shipping.toFixed(2),
+      refunds:           order.refunds.toFixed(2),
+      netSales:          order.netSales.toFixed(2),
+      totalCollected:    order.totalCollected.toFixed(2),
+      codAmount:         order.codAmount?.toFixed(2) ?? null,
+      codStatus:         order.codStatus ?? null,
+      itemCount:         order.itemCount,
+      processedAt:       order.processedAt.toISOString(),
+      cancelledAt:       order.cancelledAt?.toISOString() ?? null,
+      dispatch:          mapDispatch(order.dispatch),
     };
   }
 
@@ -540,14 +554,23 @@ export class EcommerceService {
           `${payload.provider} accepted the request but did not return a tracking number`,
         );
       }
-      const dispatch = await this.prisma.ecommerceOrderDispatch.update({
-        where: { orderId: order.id },
-        data: {
-          status: 'DISPATCHED',
-          providerTracking,
-          errorMessage: null,
-        },
-      });
+      const [dispatch] = await this.prisma.$transaction([
+        this.prisma.ecommerceOrderDispatch.update({
+          where: { orderId: order.id },
+          data: {
+            status: 'DISPATCHED',
+            providerTracking,
+            errorMessage: null,
+          },
+        }),
+        this.prisma.ecommerceOrder.update({
+          where: { id: order.id },
+          data: {
+            codAmount: codAmount,
+            codStatus: 'PENDING',
+          },
+        }),
+      ]);
       return {
         trackingNumber: providerTracking,
         status: dispatch.status,

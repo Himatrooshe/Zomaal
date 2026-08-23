@@ -104,8 +104,7 @@ describe('EcommerceSyncService', () => {
       prisma,
       {} as LightfunnelsRevenueAdapter,
       adapter,
-      {} as YouCanRevenueAdapter,
-      config,
+      {} as YouCanRevenueAdapter, config, {} as any
     );
 
     const result = await service.syncConnection('user-id', 'connection-id');
@@ -152,8 +151,7 @@ describe('EcommerceSyncService', () => {
       prisma,
       {} as LightfunnelsRevenueAdapter,
       {} as ShopifyRevenueAdapter,
-      {} as YouCanRevenueAdapter,
-      config,
+      {} as YouCanRevenueAdapter, config, {} as any
     );
 
     await expect(
@@ -196,8 +194,7 @@ describe('EcommerceSyncService', () => {
       prisma,
       {} as LightfunnelsRevenueAdapter,
       {} as ShopifyRevenueAdapter,
-      youCanAdapter,
-      config,
+      youCanAdapter, config, {} as any
     );
 
     const result = await service.syncConnection(
@@ -246,8 +243,7 @@ describe('EcommerceSyncService', () => {
       prisma,
       lightfunnelsAdapter,
       {} as ShopifyRevenueAdapter,
-      {} as YouCanRevenueAdapter,
-      config,
+      {} as YouCanRevenueAdapter, config, {} as any
     );
 
     const result = await service.syncConnection(
@@ -264,15 +260,7 @@ describe('EcommerceSyncService', () => {
   it('synchronizes due active connections and isolates provider failures', async () => {
     let capturedQuery: Record<string, unknown> | undefined;
     const findMany = jest
-      .fn<
-        (query: Record<string, unknown>) => Promise<
-          Array<{
-            id: string;
-            platform: EcommercePlatform;
-            store: { userId: string };
-          }>
-        >
-      >()
+      .fn()
       .mockImplementation((query: Record<string, unknown>) => {
         capturedQuery = query;
         return Promise.resolve([
@@ -309,6 +297,7 @@ describe('EcommerceSyncService', () => {
       {} as ShopifyRevenueAdapter,
       {} as YouCanRevenueAdapter,
       schedulerConfig,
+      {} as any,
     );
     jest
       .spyOn(service, 'syncConnection')

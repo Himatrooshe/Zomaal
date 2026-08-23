@@ -551,7 +551,8 @@ model EcommerceOrder {
   shipping          Decimal                @db.Decimal(20, 4)
   tax               Decimal                @db.Decimal(20, 4)
   totalCollected    Decimal                @db.Decimal(20, 4)
-  shippingCity      String?
+  codAmount         Decimal?               @db.Decimal(20, 4)
+  codStatus         String?                // PENDING | COLLECTED | FAILED
   providerCreatedAt DateTime
   processedAt       DateTime
   cancelledAt       DateTime?
@@ -560,9 +561,9 @@ model EcommerceOrder {
   updatedAt         DateTime               @updatedAt
 
   connectionId String
-  connection   EcommerceConnection     @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connection   EcommerceConnection      @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   dispatch     EcommerceOrderDispatch?
-  lines        EcommerceOrderLine[]
+  events       EcommerceOrderEvent[]
 
   @@unique([connectionId, externalOrderId])
   @@index([connectionId, processedAt])
@@ -570,30 +571,26 @@ model EcommerceOrder {
   @@index([financialStatus, processedAt])
 }
 
-model EcommerceOrderLine {
-  id                String   @id @default(uuid())
-  externalLineId    String
-  externalProductId String?
-  externalVariantId String?
-  sku               String?
-  name              String
-  quantity          Int
-  unitPrice         Decimal  @db.Decimal(20, 4)
-  totalPrice        Decimal  @db.Decimal(20, 4)
-  currency          String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+model EcommerceOrderEvent {
+  id              String   @id @default(uuid())
+  orderId         String
+  providerEventId String   // always set — generated deterministically when the platform provides no ID
+  source          String   // SHOPIFY | YOUCAN | LIGHTFUNNELS | SYSTEM
+  type            String   // OrderEventType constant
+  title           String
+  message         String?
+  actor           String?
+  location        String?
+  metadata        Json?
+  occurredAt      DateTime
+  synthetic       Boolean  @default(false)
+  rawPayload      Json?
+  createdAt       DateTime @default(now())
 
-  orderId String
-  order   EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  warehouseVariantId String?
-  warehouseVariant   WarehouseVariant? @relation(fields: [warehouseVariantId], references: [id], onDelete: SetNull)
-
-  @@unique([orderId, externalLineId])
-  @@index([orderId])
-  @@index([warehouseVariantId])
-  @@index([sku])
+  @@unique([orderId, providerEventId])
+  @@index([orderId, occurredAt])
 }
 
 model EcommerceOrderDispatch {

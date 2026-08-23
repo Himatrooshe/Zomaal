@@ -64,3 +64,4 @@ gha-creds-*.json
 # Codex private notes
 CODEX_NOTES.md
 CLOUD_RUN_DEPLOYMENT_AUDIT.md
+CLAUDE.md
