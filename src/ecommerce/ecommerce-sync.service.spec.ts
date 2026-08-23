@@ -67,7 +67,7 @@ describe('EcommerceSyncService', () => {
       lightfunnelsConnection: null,
     };
     const update = jest.fn().mockResolvedValue(connection);
-    const upsert = jest.fn().mockResolvedValue({ id: 'order-id' });
+    const upsert = jest.fn().mockResolvedValue({ id: 'order-id', externalOrderId: order.externalOrderId });
     const lineDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
     const lineCreateMany = jest.fn().mockResolvedValue({ count: 1 });
     const prisma = {
@@ -77,20 +77,18 @@ describe('EcommerceSyncService', () => {
         updateMany: jest.fn(),
       },
       ecommerceOrder: { upsert },
-      $transaction: jest.fn(
-        (callback: (tx: Record<string, unknown>) => Promise<unknown>) =>
-          callback({
-            ecommerceOrder: { upsert },
-            ecommerceOrderLine: {
-              deleteMany: lineDeleteMany,
-              createMany: lineCreateMany,
-            },
-            warehouseVariant: {
-              findMany: jest
-                .fn()
-                .mockResolvedValue([{ id: 'warehouse-variant', sku: 'SKU-1' }]),
-            },
-          }),
+      ecommerceOrderLine: {
+        deleteMany: lineDeleteMany,
+        createMany: lineCreateMany,
+      },
+      warehouseVariant: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'warehouse-variant', sku: 'SKU-1' }]),
+      },
+      // Array-pattern $transaction: resolves all promises in the array
+      $transaction: jest.fn().mockImplementation(
+        (ops: unknown) => Array.isArray(ops) ? Promise.all(ops) : Promise.resolve([]),
       ),
     } as unknown as PrismaService;
     const adapter = {
@@ -120,6 +118,7 @@ describe('EcommerceSyncService', () => {
       },
       create: { connectionId: 'connection-id', ...orderData },
       update: orderData,
+      select: { id: true, externalOrderId: true },
     });
     expect(lineCreateMany).toHaveBeenCalledWith({
       data: [
@@ -129,6 +128,7 @@ describe('EcommerceSyncService', () => {
           warehouseVariantId: 'warehouse-variant',
         }),
       ],
+      skipDuplicates: true,
     });
     expect(result).toEqual({
       connectionId: 'connection-id',

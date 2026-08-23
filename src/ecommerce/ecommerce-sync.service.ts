@@ -357,6 +357,21 @@ export class EcommerceSyncService {
       ),
     );
 
+    // Build a SKU → warehouseVariantId map for this store so lines can be linked immediately
+    const allSkus = orders
+      .flatMap((o) => o.lines.map((l) => l.sku))
+      .filter((s): s is string => !!s);
+    const variantBySku = new Map<string, string>();
+    if (allSkus.length > 0) {
+      const variants = await this.prisma.warehouseVariant.findMany({
+        where: { storeId, sku: { in: allSkus } },
+        select: { id: true, sku: true },
+      });
+      for (const v of variants) {
+        if (v.sku) variantBySku.set(v.sku.toLowerCase(), v.id);
+      }
+    }
+
     // Persist order lines — replace all lines for each order (sync is authoritative)
     for (let i = 0; i < orders.length; i++) {
       const { id: orderId } = upserted[i];
@@ -376,7 +391,9 @@ export class EcommerceSyncService {
           unitPrice:         line.unitPrice,
           totalPrice:        line.totalPrice,
           currency:          line.currency,
-          warehouseVariantId: null, // linked later by linkOrderLinesForProduct
+          warehouseVariantId: line.sku
+            ? (variantBySku.get(line.sku.toLowerCase()) ?? null)
+            : null,
         })),
         skipDuplicates: true,
       });

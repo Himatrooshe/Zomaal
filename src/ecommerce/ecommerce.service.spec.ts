@@ -83,12 +83,18 @@ describe('EcommerceService', () => {
           .fn()
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
       },
-      ecommerceOrder: { findUnique: jest.fn().mockResolvedValue(order) },
+      ecommerceOrder: {
+        findUnique: jest.fn().mockResolvedValue(order),
+        update: jest.fn().mockResolvedValue({}),
+      },
       ecommerceOrderDispatch: {
         create: jest.fn().mockResolvedValue({}),
         update: jest.fn().mockResolvedValue({ status: 'DISPATCHED' }),
         updateMany: jest.fn(),
       },
+      $transaction: jest.fn().mockImplementation(
+        (ops: unknown) => Array.isArray(ops) ? Promise.all(ops) : Promise.resolve([]),
+      ),
     } as any;
     const fulfillment = {
       platform: 'SHOPIFY',
