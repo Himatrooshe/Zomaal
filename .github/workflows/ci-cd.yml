@@ -20,6 +20,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: zomaal_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:password@localhost:5432/zomaal_ci
+
     steps:
       - name: Check out the exact commit
         uses: actions/checkout@v6
@@ -45,6 +63,38 @@ jobs:
             prisma/migrations; then
             echo "::error::A destructive Prisma migration requires an explicitly reviewed deployment procedure."
             exit 1
+          fi
+
+      - name: Apply committed migrations to a throwaway database
+        run: npx prisma migrate deploy
+
+      - name: Detect schema.prisma changes missing a migration
+        shell: bash
+        run: |
+          set +e
+          npx prisma migrate diff \
+            --from-config-datasource \
+            --to-schema prisma/schema.prisma \
+            --script \
+            --exit-code > /tmp/schema-drift.sql
+          code=$?
+          set -e
+          if [ "$code" -eq 1 ]; then
+            echo "::error::Failed to compute schema drift."
+            cat /tmp/schema-drift.sql
+            exit 1
+          fi
+          if [ "$code" -eq 2 ] && grep -Eiq '^CREATE TABLE|^CREATE( UNIQUE)? INDEX|ADD COLUMN|ADD CONSTRAINT' /tmp/schema-drift.sql; then
+            echo "::error::prisma/schema.prisma declares columns/tables/indexes that no committed migration creates. This is exactly how production ends up crashing with 'column does not exist': schema.prisma was edited but 'prisma migrate dev' was never run to generate the migration. Run 'npx prisma migrate dev --name <change>' locally against a dev database, commit the generated migration folder, and push again. Missing additions:"
+            grep -Ei '^CREATE TABLE|^CREATE( UNIQUE)? INDEX|ADD COLUMN|ADD CONSTRAINT|^--' /tmp/schema-drift.sql
+            exit 1
+          fi
+          if [ "$code" -eq 2 ]; then
+            echo "::warning::prisma/schema.prisma and the committed migrations differ, but only by removals (e.g. a renamed/dropped model whose old table was never migrated away). This does not crash the app and is not blocked here, but should be cleaned up deliberately since dropping tables/columns needs the reviewed procedure this pipeline requires for destructive migrations:"
+            cat /tmp/schema-drift.sql
+          fi
+          if [ "$code" -eq 0 ]; then
+            echo "No drift: committed migrations fully account for prisma/schema.prisma."
           fi
 
       - name: Test
