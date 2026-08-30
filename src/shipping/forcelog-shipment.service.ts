@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -20,6 +21,7 @@ import {
   normalizeForceLogStatus,
   normalizeForceLogStatusCode,
 } from './forcelog-status';
+import { EcommerceOrderFinancialService } from '../ecommerce/ecommerce-order-financial.service';
 
 type ProviderRecord = Record<string, unknown>;
 
@@ -43,10 +45,13 @@ type ForceLogSnapshot = {
 
 @Injectable()
 export class ForceLogShipmentService {
+  private readonly logger = new Logger(ForceLogShipmentService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly client: ForceLogClient,
     private readonly connection: ForceLogConnectionService,
+    private readonly financialService: EcommerceOrderFinancialService,
   ) {}
 
   async persistCreatedParcel(
@@ -237,7 +242,7 @@ export class ForceLogShipmentService {
     const statusCode =
       normalizeForceLogStatusCode(snapshot.providerStatus) ?? 'UNKNOWN';
 
-    return this.prisma.$transaction(async (tx) => {
+    const shipment = await this.prisma.$transaction(async (tx) => {
       const connection = await tx.forceLogConnection.findUnique({
         where: { userId },
         select: { id: true },
@@ -299,6 +304,18 @@ export class ForceLogShipmentService {
       });
       return shipment;
     });
+
+    if (shipment.dispatchId) {
+      try {
+        await this.financialService.syncFromDispatchId(shipment.dispatchId);
+      } catch (err) {
+        this.logger.warn(
+          `Financial sync failed for dispatch ${shipment.dispatchId}: ${String(err)}`,
+        );
+      }
+    }
+
+    return shipment;
   }
 }
 

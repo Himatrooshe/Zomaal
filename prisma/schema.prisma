@@ -475,6 +475,7 @@ enum EcommercePlatform {
   SHOPIFY
   YOUCAN
   LIGHTFUNNELS
+  MANUAL // WhatsApp/phone/in-person orders entered directly in Zomaal — no external platform to sync from
 }
 
 enum EcommerceConnectionStatus {
@@ -554,6 +555,17 @@ model EcommerceOrder {
   codAmount         Decimal?               @db.Decimal(20, 4)
   codStatus         String?                // PENDING | COLLECTED | FAILED
   shippingCity      String?
+
+  // MANUAL orders only. Shopify/YouCan/Lightfunnels orders intentionally
+  // omit customer PII at rest and fetch it live from the platform via the
+  // fulfillment-preview adapters at dispatch time — a manual order has no
+  // such platform to query later, so it must be captured here at creation.
+  manualCustomerName    String?
+  manualCustomerPhone   String?
+  manualShippingAddress String?
+  manualShippingCountry String?
+  manualNotes           String?
+
   providerCreatedAt DateTime
   processedAt       DateTime
   cancelledAt       DateTime?
@@ -566,6 +578,7 @@ model EcommerceOrder {
   dispatch     EcommerceOrderDispatch?
   events       EcommerceOrderEvent[]
   lines        EcommerceOrderLine[]
+  financialEvents EcommerceOrderFinancialEvent[]
 
   @@unique([connectionId, externalOrderId])
   @@index([connectionId, processedAt])
@@ -609,6 +622,13 @@ model EcommerceOrderLine {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  // Recorded by the warehouse scan-and-condition workflow when a shipment
+  // comes back. GOOD | DAMAGED | LOST | RETURNED | MISSING. Null until scanned.
+  condition           String?
+  damageCost          Decimal?  @db.Decimal(20, 4)
+  conditionNotes      String?
+  conditionRecordedAt DateTime?
+
   orderId            String
   order              EcommerceOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -618,6 +638,34 @@ model EcommerceOrderLine {
   @@unique([orderId, externalLineId])
   @@index([orderId])
   @@index([warehouseVariantId])
+}
+
+// Immutable append-only ledger. Each row is one financial event triggered by
+// a carrier status reaching DELIVERED/CANCELLED-like, or by a DAMAGED
+// condition recorded on a return. Current totals for an order = sum of its
+// events, never a mutated snapshot — corrections add a new event rather than
+// rewriting history. revenue/productCost/shippingCost/damageCost are positive
+// magnitudes describing what this specific event represents; netProfitImpact
+// is the signed contribution to profit and is what always sums correctly
+// across events regardless of type.
+model EcommerceOrderFinancialEvent {
+  id              String   @id @default(uuid())
+  orderId         String
+  type            String   // REVENUE_RECOGNIZED | REVENUE_REVERSED | DAMAGE_LOSS
+  revenue         Decimal  @db.Decimal(20, 4)
+  productCost     Decimal  @db.Decimal(20, 4)
+  shippingCost    Decimal  @db.Decimal(20, 4)
+  damageCost      Decimal  @db.Decimal(20, 4)
+  netProfitImpact Decimal  @db.Decimal(20, 4)
+  currency        String
+  reason          String
+  idempotencyKey  String
+  createdAt       DateTime @default(now())
+
+  order EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, idempotencyKey])
+  @@index([orderId, createdAt])
 }
 
 model EcommerceOrderDispatch {
@@ -638,6 +686,7 @@ model EcommerceOrderDispatch {
   ozoneExpressShipment   OzoneExpressShipment?
 
   @@index([provider, status])
+  @@index([providerTracking])
 }
 
 enum ShopifyConnectionStatus {
@@ -928,6 +977,7 @@ model WarehouseVariant {
   id                String   @id @default(uuid())
   title             String
   sku               String?
+  productCode       String?  // internal tracking code (e.g. "DH564BJ0"), auto-generated at creation, printed on shipping tickets/QR labels instead of the full title. For bundles, this variant's productCode doubles as the pack code.
   price             Decimal  @db.Decimal(20, 4)
   costPrice         Decimal  @db.Decimal(20, 4)
   lowStockThreshold Int      @default(5)
@@ -951,6 +1001,7 @@ model WarehouseVariant {
   ecommerceOrderLines EcommerceOrderLine[]
 
   @@unique([storeId, sku])
+  @@unique([storeId, productCode])
   @@index([productId, position])
 }
 

@@ -41,6 +41,7 @@ describe('QuickLivraisonShipmentService', () => {
     {
       get: jest.fn(),
     } as never,
+    { syncFromDispatchId: jest.fn() } as never,
   );
   const request = {
     district_id: 123,

@@ -9,6 +9,7 @@ import { createHmac } from 'crypto';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { SenditConnectionService } from './sendit-connection.service';
 import { SenditShipmentService } from './sendit-shipment.service';
+import type { EcommerceOrderFinancialService } from '../ecommerce/ecommerce-order-financial.service';
 
 describe('SenditShipmentService', () => {
   let shipmentUpsertArgs: unknown;
@@ -85,7 +86,14 @@ describe('SenditShipmentService', () => {
   const connection = {
     getCredentials,
   } as unknown as SenditConnectionService;
-  const service = new SenditShipmentService(prisma, connection);
+  const financialService = {
+    syncFromDispatchId: jest.fn(),
+  } as unknown as EcommerceOrderFinancialService;
+  const service = new SenditShipmentService(
+    prisma,
+    connection,
+    financialService,
+  );
 
   const request = {
     pickup_district_id: 1,

@@ -104,6 +104,108 @@ export class InventoryService {
     );
   }
 
+  /**
+   * Store-scoped movement with an explicit InventoryMovementType, for callers
+   * that already resolved the store (e.g. the order-return workflow applying
+   * RETURN_GOOD/RETURN_DAMAGED after a warehouse scan). Unlike adjust(), this
+   * is not behind a user-facing "manual adjustment" endpoint, so the type
+   * isn't hardcoded to MANUAL_ADJUSTMENT.
+   */
+  async applyMovement(
+    storeId: string,
+    inventoryItemId: string,
+    input: {
+      type: InventoryMovementType;
+      bucket: InventoryBucket;
+      quantityDelta: number;
+      reason: string;
+      referenceType?: string;
+      referenceId?: string;
+      idempotencyKey: string;
+    },
+  ) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(
+          async (tx) => {
+            const item = await tx.inventoryItem.findFirst({
+              where: { id: inventoryItemId, storeId },
+              include: { balances: { include: { location: true } } },
+            });
+            if (!item) throw new NotFoundException('Inventory item not found');
+
+            const duplicate = await tx.inventoryMovement.findUnique({
+              where: {
+                inventoryItemId_idempotencyKey: {
+                  inventoryItemId,
+                  idempotencyKey: input.idempotencyKey,
+                },
+              },
+            });
+            if (duplicate) return duplicate;
+
+            let balance = item.balances.find(
+              (entry) => entry.location.isDefault,
+            );
+            if (!balance) {
+              const location = await tx.warehouseLocation.upsert({
+                where: { storeId_code: { storeId, code: 'MAIN' } },
+                create: {
+                  storeId,
+                  code: 'MAIN',
+                  name: 'Main Warehouse',
+                  isDefault: true,
+                },
+                update: {},
+              });
+              balance = await tx.inventoryBalance.create({
+                data: { inventoryItemId, locationId: location.id },
+                include: { location: true },
+              });
+            }
+
+            const field = bucketField(input.bucket);
+            const resultingQuantity = balance[field] + input.quantityDelta;
+            const next = { ...balance, [field]: resultingQuantity };
+            validateBalance(next);
+            await tx.inventoryBalance.update({
+              where: { id: balance.id },
+              data: {
+                [field]: resultingQuantity,
+                version: { increment: 1 },
+              },
+            });
+            return tx.inventoryMovement.create({
+              data: {
+                inventoryItemId,
+                locationId: balance.locationId,
+                type: input.type,
+                bucket: input.bucket,
+                quantityDelta: input.quantityDelta,
+                resultingQuantity,
+                reason: input.reason,
+                referenceType: input.referenceType ?? null,
+                referenceId: input.referenceId ?? null,
+                idempotencyKey: input.idempotencyKey,
+              },
+            });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error) {
+        if (!isWriteConflict(error)) throw error;
+        if (attempt === 3) {
+          throw new ConflictException(
+            'Inventory changed concurrently; retry the request',
+          );
+        }
+      }
+    }
+    throw new ConflictException(
+      'Inventory changed concurrently; retry the request',
+    );
+  }
+
   async getItem(userId: string, inventoryItemId: string) {
     const store = await this.stores.requireStore(userId);
     const item = await this.prisma.inventoryItem.findFirst({

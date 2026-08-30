@@ -34,6 +34,25 @@ export class BarcodeService {
     throw new BadRequestException('Unable to generate a unique barcode');
   }
 
+  /**
+   * Generates a unique internal Product Tracking Code for a variant, e.g. "DH564BJ0".
+   * Distinct from generateForStore() above: this is a short human-typeable product
+   * identifier printed on shipping tickets/QR labels, not a scannable barcode value.
+   */
+  async generateProductCodeForStore(storeId: string): Promise<string> {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const value = randomProductCode(8);
+      const exists = await this.prisma.warehouseVariant.findFirst({
+        where: { storeId, productCode: value },
+        select: { id: true },
+      });
+      if (!exists) {
+        return value;
+      }
+    }
+    throw new BadRequestException('Unable to generate a unique product code');
+  }
+
   async validateForUser(
     userId: string,
     rawValue: string,
@@ -165,6 +184,17 @@ export class BarcodeService {
       type,
     };
   }
+}
+
+const PRODUCT_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+function randomProductCode(length: number): string {
+  const bytes = randomBytes(length);
+  let code = '';
+  for (let i = 0; i < length; i += 1) {
+    code += PRODUCT_CODE_ALPHABET[bytes[i] % PRODUCT_CODE_ALPHABET.length];
+  }
+  return code;
 }
 
 export function normalizeScannedValue(rawValue: string): string {

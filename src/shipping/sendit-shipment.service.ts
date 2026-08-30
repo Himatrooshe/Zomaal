@@ -3,6 +3,7 @@ import {
   BadGatewayException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import {
 import type { SenditDeliveryDto } from './dto/sendit-delivery.dto';
 import type { SenditShipmentQueryDto } from './dto/sendit-shipment-query.dto';
 import { normalizeSenditStatus } from './sendit-status';
+import { EcommerceOrderFinancialService } from '../ecommerce/ecommerce-order-financial.service';
 
 type SenditDeliveryRecord = Record<string, unknown>;
 
@@ -31,9 +33,12 @@ export type SenditProviderPageResult = {
 
 @Injectable()
 export class SenditShipmentService {
+  private readonly logger = new Logger(SenditShipmentService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly senditConnection: SenditConnectionService,
+    private readonly financialService: EcommerceOrderFinancialService,
   ) {}
 
   async persistCreatedDelivery(
@@ -294,6 +299,7 @@ export class SenditShipmentService {
   ): Promise<SenditProviderPageResult> {
     const page = providerDeliveryPage(providerResponse);
     const deliveries = page.data.map(providerDeliverySnapshot);
+    const dispatchIdsToSync = new Set<string>();
 
     const counts = await this.prisma.$transaction(async (tx) => {
       const connection = await tx.senditConnection.findUnique({
@@ -429,6 +435,10 @@ export class SenditShipmentService {
           !current ||
           current.providerStatus !== delivery.providerStatus ||
           current.providerReturnStatus !== delivery.providerReturnStatus;
+        const effectiveDispatchId = dispatchId ?? current?.dispatchId ?? null;
+        if (statusChanged && effectiveDispatchId) {
+          dispatchIdsToSync.add(effectiveDispatchId);
+        }
         if (statusChanged && (!current || shouldRefresh)) {
           const eventAt =
             delivery.lastActionAt ??
@@ -469,6 +479,21 @@ export class SenditShipmentService {
       return { imported, reconciled };
     });
 
+    // Outside the transaction, and never fatal to the sync itself: a
+    // financial-calc failure must not roll back or block shipment syncing.
+    for (const dispatchId of dispatchIdsToSync) {
+      try {
+        await this.financialService.syncFromDispatchId(dispatchId);
+      } catch (err) {
+        // Best-effort; the manual POST .../financials/sync endpoint remains
+        // available to retry. Logged so a stuck financial event is actually
+        // discoverable instead of silently vanishing.
+        this.logger.warn(
+          `Financial sync failed for dispatch ${dispatchId}: ${String(err)}`,
+        );
+      }
+    }
+
     return {
       currentPage: page.currentPage,
       lastPage: page.lastPage,
@@ -492,7 +517,12 @@ export class SenditShipmentService {
     const event = parseStatusWebhook(payload);
     const shipment = await this.prisma.senditShipment.findFirst({
       where: { providerCode: event.code },
-      select: { id: true, userId: true, lastActionAt: true },
+      select: {
+        id: true,
+        userId: true,
+        lastActionAt: true,
+        dispatchId: true,
+      },
     });
 
     if (!shipment) {
@@ -562,6 +592,16 @@ export class SenditShipmentService {
         },
       });
     });
+
+    if (shipment.dispatchId) {
+      try {
+        await this.financialService.syncFromDispatchId(shipment.dispatchId);
+      } catch (err) {
+        this.logger.warn(
+          `Financial sync failed for dispatch ${shipment.dispatchId}: ${String(err)}`,
+        );
+      }
+    }
 
     return {
       success: true,

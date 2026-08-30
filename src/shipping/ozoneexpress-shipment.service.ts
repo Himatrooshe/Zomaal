@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -21,6 +22,7 @@ import {
   normalizeOzoneExpressStatusCode,
   ozoneFeeForStatus,
 } from './ozoneexpress-status';
+import { EcommerceOrderFinancialService } from '../ecommerce/ecommerce-order-financial.service';
 
 type ProviderRecord = Record<string, unknown>;
 
@@ -46,10 +48,13 @@ type ParcelInfo = {
 
 @Injectable()
 export class OzoneExpressShipmentService {
+  private readonly logger = new Logger(OzoneExpressShipmentService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly client: OzoneExpressClient,
     private readonly connection: OzoneExpressConnectionService,
+    private readonly financialService: EcommerceOrderFinancialService,
   ) {}
 
   async persistCreatedParcel(
@@ -96,6 +101,21 @@ export class OzoneExpressShipmentService {
     ]);
     await this.reconcileParcelInfo(userId, providerCode, infoResponse);
     await this.reconcileTracking(userId, trackingResponse);
+
+    const linked = await this.prisma.ozoneExpressShipment.findUnique({
+      where: { userId_providerCode: { userId, providerCode } },
+      select: { dispatchId: true },
+    });
+    if (linked?.dispatchId) {
+      try {
+        await this.financialService.syncFromDispatchId(linked.dispatchId);
+      } catch (err) {
+        this.logger.warn(
+          `Financial sync failed for dispatch ${linked.dispatchId}: ${String(err)}`,
+        );
+      }
+    }
+
     return this.getByProviderCode(userId, providerCode);
   }
 

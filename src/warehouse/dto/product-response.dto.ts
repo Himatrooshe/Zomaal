@@ -107,6 +107,14 @@ export class WarehouseVariantResponseDto {
   @ApiProperty({ nullable: true, example: 'TSHIRT-M-BLACK' })
   sku: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    example: 'DH564BJ0',
+    description:
+      'Internal Product Tracking Code. Server-generated, immutable once issued. Printed on shipping tickets/QR labels instead of the full product title. For bundle products, this doubles as the pack code.',
+  })
+  productCode: string | null;
+
   @ApiProperty({ example: 50, description: 'Retail/base selling price.' })
   price: number;
 

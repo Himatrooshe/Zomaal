@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -100,6 +101,7 @@ type ProductWithRelations = Prisma.WarehouseProductGetPayload<{
 interface PreparedVariant {
   optionValues: string[];
   sku?: string;
+  productCode?: string;
   barcode?: string;
   barcodeType?: InventoryBarcodeType;
   price: number;
@@ -111,11 +113,53 @@ interface PreparedVariant {
 
 @Injectable()
 export class ProductService {
+  private readonly logger = new Logger(ProductService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly stores: WarehouseStoreService,
     private readonly barcodes: BarcodeService,
   ) {}
+
+  /**
+   * One-time operation: assigns a Product Tracking Code to every existing
+   * variant created before this feature shipped (productCode is nullable in
+   * the DB for exactly this reason). Idempotent — safe to call multiple
+   * times; only ever touches variants that are still missing a code.
+   */
+  async backfillProductCodes(): Promise<{
+    processed: number;
+    skipped: number;
+  }> {
+    const variants = await this.prisma.warehouseVariant.findMany({
+      where: { productCode: null },
+      select: { id: true, storeId: true },
+    });
+
+    let processed = 0;
+    let skipped = 0;
+    for (const variant of variants) {
+      try {
+        const code = await this.barcodes.generateProductCodeForStore(
+          variant.storeId,
+        );
+        await this.prisma.warehouseVariant.update({
+          where: { id: variant.id },
+          data: { productCode: code },
+        });
+        processed++;
+      } catch (err) {
+        this.logger.warn(
+          `Product code backfill failed for variant ${variant.id}: ${String(err)}`,
+        );
+        skipped++;
+      }
+    }
+    this.logger.log(
+      `Product code backfill complete: ${processed} processed, ${skipped} skipped`,
+    );
+    return { processed, skipped };
+  }
 
   async create(userId: string, dto: CreateWarehouseProductDto) {
     const store = await this.stores.requireStore(userId);
@@ -140,6 +184,7 @@ export class ProductService {
     await this.requireActiveCategory(store.id, dto.categoryId);
     const prepared = prepareProduct(dto);
     await this.prepareBarcodes(store.id, prepared.variants);
+    await this.prepareProductCodes(store.id, prepared.variants);
     validateUniqueRequestValues(prepared.variants);
     await this.validateReferences(store.id, dto, prepared.variants);
 
@@ -213,6 +258,7 @@ export class ProductService {
               storeId: store.id,
               title,
               sku: input.sku?.trim() || null,
+              productCode: input.productCode!,
               price: input.price,
               costPrice: input.costPrice,
               lowStockThreshold: input.lowStockAlertThreshold,
@@ -345,7 +391,7 @@ export class ProductService {
           return this.toResponse(duplicate);
         }
         throw new ConflictException(
-          'A barcode, SKU, or idempotency key is already in use',
+          'A barcode, SKU, product code, or idempotency key is already in use',
         );
       }
       throw error;
@@ -422,6 +468,11 @@ export class ProductService {
       new Prisma.Decimal(0),
     );
 
+    // Pack code: a bundle is stored as a WarehouseProduct with its own single
+    // variant, so that variant's productCode doubles as the pack code
+    // (e.g. "PK82LQ7") — no separate field needed.
+    const packCode = await this.barcodes.generateProductCodeForStore(store.id);
+
     try {
       const product = await this.prisma.$transaction(async (tx) => {
         const created = await tx.warehouseProduct.create({
@@ -442,6 +493,7 @@ export class ProductService {
             storeId: store.id,
             title: 'Bundle',
             sku: dto.sku?.trim() || null,
+            productCode: packCode,
             price: dto.price,
             costPrice,
             lowStockThreshold: dto.lowStockAlertThreshold ?? 5,
@@ -489,7 +541,7 @@ export class ProductService {
           return this.toResponse(duplicate);
         }
         throw new ConflictException(
-          'A bundle SKU or idempotency key is already in use',
+          'A bundle SKU, product code, or idempotency key is already in use',
         );
       }
       throw error;
@@ -985,6 +1037,21 @@ export class ProductService {
     }
   }
 
+  /**
+   * Every variant gets its own internal Product Tracking Code (e.g. "DH564BJ0"),
+   * printed on shipping tickets/QR labels instead of the full product title.
+   * Always server-generated — merchants never supply this value.
+   */
+  private async prepareProductCodes(
+    storeId: string,
+    variants: PreparedVariant[],
+  ) {
+    for (const variant of variants) {
+      variant.productCode =
+        await this.barcodes.generateProductCodeForStore(storeId);
+    }
+  }
+
   private async validateReferences(
     storeId: string,
     dto: CreateWarehouseProductDto,
@@ -1197,6 +1264,7 @@ export class ProductService {
         id: variant.id,
         title: variant.title,
         sku: variant.sku,
+        productCode: variant.productCode,
         price: Number(variant.price),
         costPrice: Number(variant.costPrice),
         lowStockAlertThreshold: variant.lowStockThreshold,
@@ -1439,7 +1507,10 @@ function round2(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-export function prepareProduct(dto: CreateWarehouseProductDto) {
+export function prepareProduct(dto: CreateWarehouseProductDto): {
+  options: { name: string; values: string[] }[];
+  variants: PreparedVariant[];
+} {
   const options = normalizeOptions(dto.options ?? []);
   if (options.length === 0) {
     if (dto.variants?.length) {

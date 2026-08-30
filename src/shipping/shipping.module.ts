@@ -38,8 +38,10 @@ import { AmeexShipmentService } from './ameex-shipment.service';
 import { AmeexOverviewService } from './ameex-overview.service';
 import { ShippingProviderController } from './shipping-provider.controller';
 import { ShippingProviderService } from './shipping-provider.service';
+import { EcommerceFinancialModule } from '../ecommerce/ecommerce-financial.module';
 
 @Module({
+  imports: [EcommerceFinancialModule],
   controllers: [
     ShippingController,
     SenditWebhookController,

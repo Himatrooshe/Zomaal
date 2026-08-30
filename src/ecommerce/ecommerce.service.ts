@@ -22,7 +22,14 @@ import {
   EcommerceFulfillmentPreviewDto,
   EcommerceOrderProductsDto,
 } from './dto/ecommerce-order-response.dto';
-import { EcommercePlatform } from '@prisma/client';
+import {
+  EcommercePlatform,
+  WarehouseProductKind,
+  EcommerceOrderStatus,
+  EcommercePaymentStatus,
+} from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { CreateManualOrderDto } from './dto/create-manual-order.dto';
 import type {
   EcommerceConnectionListDto,
   RevenueAmountsDto,
@@ -34,6 +41,10 @@ import type {
 import type { RevenueRangeQueryDto } from './dto/revenue-query.dto';
 import type { EcommerceHomeResponseDto } from './dto/ecommerce-home-response.dto';
 import { ShippingService } from '../shipping/shipping.service';
+import { InventoryService } from '../warehouse/inventory.service';
+import { InventoryBucket, InventoryMovementType } from '@prisma/client';
+import { ProductCondition } from './constants/product-condition';
+import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
 
 const INCLUDED_PAYMENT_STATUSES = Prisma.sql`
   (
@@ -82,6 +93,8 @@ export class EcommerceService {
     private readonly lightfunnelsFulfillmentAdapter: LightfunnelsFulfillmentAdapter,
     private readonly currencyService: CurrencyService,
     private readonly shippingService: ShippingService,
+    private readonly inventoryService: InventoryService,
+    private readonly financialService: EcommerceOrderFinancialService,
   ) {}
 
   async listConnections(userId: string): Promise<EcommerceConnectionListDto> {
@@ -316,19 +329,19 @@ export class EcommerceService {
         status: order.status,
         financialStatus: order.financialStatus,
         fulfillmentStatus: order.fulfillmentStatus,
-        currency:          order.currency,
-        grossSales:        order.grossSales.toFixed(2),
-        discounts:         order.discounts.toFixed(2),
-        shipping:          order.shipping.toFixed(2),
-        refunds:           order.refunds.toFixed(2),
-        netSales:          order.netSales.toFixed(2),
-        totalCollected:    order.totalCollected.toFixed(2),
-        codAmount:         order.codAmount?.toFixed(2) ?? null,
-        codStatus:         order.codStatus ?? null,
-        itemCount:         order.itemCount,
-        processedAt:       order.processedAt.toISOString(),
-        cancelledAt:       order.cancelledAt?.toISOString() ?? null,
-        dispatch:          mapDispatch(order.dispatch),
+        currency: order.currency,
+        grossSales: order.grossSales.toFixed(2),
+        discounts: order.discounts.toFixed(2),
+        shipping: order.shipping.toFixed(2),
+        refunds: order.refunds.toFixed(2),
+        netSales: order.netSales.toFixed(2),
+        totalCollected: order.totalCollected.toFixed(2),
+        codAmount: order.codAmount?.toFixed(2) ?? null,
+        codStatus: order.codStatus ?? null,
+        itemCount: order.itemCount,
+        processedAt: order.processedAt.toISOString(),
+        cancelledAt: order.cancelledAt?.toISOString() ?? null,
+        dispatch: mapDispatch(order.dispatch),
       })),
       pagination: {
         total,
@@ -354,27 +367,189 @@ export class EcommerceService {
     }
 
     return {
-      id:                order.id,
-      externalOrderId:   order.externalOrderId,
-      orderName:         order.orderName,
-      platform:          order.connection.platform,
-      status:            order.status,
-      financialStatus:   order.financialStatus,
+      id: order.id,
+      externalOrderId: order.externalOrderId,
+      orderName: order.orderName,
+      platform: order.connection.platform,
+      status: order.status,
+      financialStatus: order.financialStatus,
       fulfillmentStatus: order.fulfillmentStatus,
-      currency:          order.currency,
-      grossSales:        order.grossSales.toFixed(2),
-      discounts:         order.discounts.toFixed(2),
-      shipping:          order.shipping.toFixed(2),
-      refunds:           order.refunds.toFixed(2),
-      netSales:          order.netSales.toFixed(2),
-      totalCollected:    order.totalCollected.toFixed(2),
-      codAmount:         order.codAmount?.toFixed(2) ?? null,
-      codStatus:         order.codStatus ?? null,
-      itemCount:         order.itemCount,
-      processedAt:       order.processedAt.toISOString(),
-      cancelledAt:       order.cancelledAt?.toISOString() ?? null,
-      dispatch:          mapDispatch(order.dispatch),
+      currency: order.currency,
+      grossSales: order.grossSales.toFixed(2),
+      discounts: order.discounts.toFixed(2),
+      shipping: order.shipping.toFixed(2),
+      refunds: order.refunds.toFixed(2),
+      netSales: order.netSales.toFixed(2),
+      totalCollected: order.totalCollected.toFixed(2),
+      codAmount: order.codAmount?.toFixed(2) ?? null,
+      codStatus: order.codStatus ?? null,
+      itemCount: order.itemCount,
+      processedAt: order.processedAt.toISOString(),
+      cancelledAt: order.cancelledAt?.toISOString() ?? null,
+      dispatch: mapDispatch(order.dispatch),
     };
+  }
+
+  /**
+   * Creates an order that never touched Shopify/YouCan/Lightfunnels —
+   * WhatsApp, phone, in-person. Products are resolved by Product Tracking
+   * Code (must already exist in the warehouse catalog), and customer info is
+   * captured directly since there's no platform to fetch it from later.
+   * Once created, this order goes through the exact same dispatch/timeline/
+   * financial-event machinery as any synced order — the source stops
+   * mattering after this point.
+   */
+  async createManualOrder(userId: string, dto: CreateManualOrderDto) {
+    const store = await this.requireStore(userId);
+    const currency = (dto.currency ?? store.baseCurrency).toUpperCase();
+
+    // Retry-safe when the client supplies a key: reuses the existing
+    // (connectionId, externalOrderId) uniqueness rather than a separate
+    // idempotency column, since MANUAL externalOrderId is already
+    // synthetic (see below).
+    if (dto.idempotencyKey) {
+      const existing = await this.prisma.ecommerceOrder.findFirst({
+        where: {
+          externalOrderId: `MANUAL-${dto.idempotencyKey}`,
+          connection: { storeId: store.id, platform: EcommercePlatform.MANUAL },
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        return this.getOrder(userId, existing.id);
+      }
+    }
+
+    const productCodes = dto.items.map((item) => item.productCode);
+    const variants = await this.prisma.warehouseVariant.findMany({
+      where: { storeId: store.id, productCode: { in: productCodes } },
+      select: {
+        id: true,
+        productCode: true,
+        price: true,
+        title: true,
+        product: { select: { name: true } },
+      },
+    });
+    const variantByCode = new Map(
+      variants.map((variant) => [variant.productCode as string, variant]),
+    );
+    const missing = [...new Set(productCodes)].filter(
+      (code) => !variantByCode.has(code),
+    );
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Unknown product code(s): ${missing.join(', ')}`,
+      );
+    }
+
+    const lines = dto.items.map((item, index) => {
+      const variant = variantByCode.get(item.productCode)!;
+      const unitPrice = new Prisma.Decimal(item.unitPrice ?? variant.price);
+      const totalPrice = unitPrice.times(item.quantity);
+      return {
+        externalLineId: `manual-${index}`,
+        warehouseVariantId: variant.id,
+        sku: item.productCode,
+        name: variant.product.name,
+        quantity: item.quantity,
+        unitPrice,
+        totalPrice,
+        currency,
+      };
+    });
+
+    const grossSales = lines.reduce(
+      (sum, line) => sum.plus(line.totalPrice),
+      new Prisma.Decimal(0),
+    );
+    const shipping = new Prisma.Decimal(dto.shippingCost ?? 0);
+    const netSales = grossSales;
+    const totalCollected = netSales.plus(shipping);
+    const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+    const now = new Date();
+    const orderId = randomUUID();
+    const orderName = `#${orderId.slice(0, 8).toUpperCase()}`;
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const connection = await tx.ecommerceConnection.upsert({
+          where: {
+            storeId_platform: {
+              storeId: store.id,
+              platform: EcommercePlatform.MANUAL,
+            },
+          },
+          create: {
+            storeId: store.id,
+            platform: EcommercePlatform.MANUAL,
+            externalAccountId: store.id,
+            displayName: 'Manual orders',
+            includeInRevenue: true,
+          },
+          update: {},
+        });
+
+        await tx.ecommerceOrder.create({
+          data: {
+            id: orderId,
+            connectionId: connection.id,
+            externalOrderId: dto.idempotencyKey
+              ? `MANUAL-${dto.idempotencyKey}`
+              : `MANUAL-${orderId}`,
+            orderName,
+            status: EcommerceOrderStatus.OPEN,
+            financialStatus: EcommercePaymentStatus.PENDING,
+            fulfillmentStatus: null,
+            currency,
+            itemCount,
+            grossSales,
+            discounts: new Prisma.Decimal(0),
+            refunds: new Prisma.Decimal(0),
+            netSales,
+            shipping,
+            tax: new Prisma.Decimal(0),
+            totalCollected,
+            shippingCity: dto.shippingCity ?? null,
+            manualCustomerName: dto.customerName,
+            manualCustomerPhone: dto.customerPhone,
+            manualShippingAddress: dto.shippingAddress,
+            manualShippingCountry: dto.shippingCountry ?? null,
+            manualNotes: dto.notes ?? null,
+            providerCreatedAt: now,
+            processedAt: now,
+            providerUpdatedAt: now,
+            lines: { createMany: { data: lines } },
+          },
+        });
+      });
+    } catch (error) {
+      // Two concurrent requests with the same idempotencyKey can both pass
+      // the earlier existence check before either commits — the loser hits
+      // this unique-constraint conflict instead of creating a duplicate.
+      if (
+        dto.idempotencyKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const existing = await this.prisma.ecommerceOrder.findFirst({
+          where: {
+            externalOrderId: `MANUAL-${dto.idempotencyKey}`,
+            connection: {
+              storeId: store.id,
+              platform: EcommercePlatform.MANUAL,
+            },
+          },
+          select: { id: true },
+        });
+        if (existing) {
+          return this.getOrder(userId, existing.id);
+        }
+      }
+      throw error;
+    }
+
+    return this.getOrder(userId, orderId);
   }
 
   async getOrderProducts(
@@ -384,7 +559,12 @@ export class EcommerceService {
     const store = await this.requireStore(userId);
     const order = await this.prisma.ecommerceOrder.findUnique({
       where: { id: orderId, connection: { storeId: store.id } },
-      include: { connection: { select: { platform: true } } },
+      include: {
+        connection: { select: { platform: true } },
+        lines: {
+          include: { warehouseVariant: { include: { product: true } } },
+        },
+      },
     });
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -412,6 +592,28 @@ export class EcommerceService {
             userId,
             order.externalOrderId,
           );
+        case EcommercePlatform.MANUAL:
+          // Products ARE the stored order lines — no live platform to fetch.
+          return Promise.resolve({
+            platform: EcommercePlatform.MANUAL,
+            externalOrderId: order.externalOrderId,
+            orderReference: order.orderName ?? order.externalOrderId,
+            currency: order.currency,
+            complete: true,
+            products: order.lines.map((line) => ({
+              lineItemId: line.id,
+              productId: line.warehouseVariant?.product.id ?? null,
+              variantId: line.warehouseVariantId,
+              title: line.name,
+              variantTitle: line.warehouseVariant?.title ?? null,
+              sku: line.sku,
+              quantity: line.quantity,
+              unitPrice: line.unitPrice.toFixed(4),
+              totalPrice: line.totalPrice.toFixed(4),
+              currency: line.currency,
+              imageUrl: null,
+            })),
+          });
         default:
           throw new BadRequestException(
             'Platform not supported for order products',
@@ -437,32 +639,86 @@ export class EcommerceService {
     const store = await this.requireStore(userId);
     const order = await this.prisma.ecommerceOrder.findUnique({
       where: { id: orderId, connection: { storeId: store.id } },
-      include: { connection: true },
+      include: {
+        connection: true,
+        lines: {
+          include: { warehouseVariant: { select: { productCode: true } } },
+        },
+      },
     });
 
     if (!order) {
       throw new NotFoundException('Order not found');
     }
 
-    switch (order.connection.platform) {
-      case EcommercePlatform.SHOPIFY:
-        return this.shopifyFulfillmentAdapter.fetchFulfillmentPreview(
-          userId,
-          order.externalOrderId,
-        );
-      case EcommercePlatform.YOUCAN:
-        return this.youCanFulfillmentAdapter.fetchFulfillmentPreview(
-          userId,
-          order.externalOrderId,
-        );
-      case EcommercePlatform.LIGHTFUNNELS:
-        return this.lightfunnelsFulfillmentAdapter.fetchFulfillmentPreview(
-          userId,
-          order.externalOrderId,
-        );
-      default:
-        throw new BadRequestException('Platform not supported for fulfillment');
-    }
+    const preview = await ((): Promise<EcommerceFulfillmentPreviewDto> => {
+      switch (order.connection.platform) {
+        case EcommercePlatform.SHOPIFY:
+          return this.shopifyFulfillmentAdapter.fetchFulfillmentPreview(
+            userId,
+            order.externalOrderId,
+          );
+        case EcommercePlatform.YOUCAN:
+          return this.youCanFulfillmentAdapter.fetchFulfillmentPreview(
+            userId,
+            order.externalOrderId,
+          );
+        case EcommercePlatform.LIGHTFUNNELS:
+          return this.lightfunnelsFulfillmentAdapter.fetchFulfillmentPreview(
+            userId,
+            order.externalOrderId,
+          );
+        case EcommercePlatform.MANUAL:
+          // No external platform to fetch from — everything needed was
+          // captured at order creation time (see createManualOrder()).
+          return Promise.resolve({
+            platform: EcommercePlatform.MANUAL,
+            externalOrderId: order.externalOrderId,
+            orderReference: order.orderName ?? order.externalOrderId,
+            recipientName: order.manualCustomerName,
+            recipientPhone: order.manualCustomerPhone,
+            address: order.manualShippingAddress,
+            city: order.shippingCity,
+            country: order.manualShippingCountry,
+            currency: order.currency,
+            codAmount: order.totalCollected.toFixed(2),
+            lineItems: order.lines.map((line) => ({
+              title: line.name,
+              sku: line.sku ?? '',
+              quantity: line.quantity,
+            })),
+            notes: order.manualNotes,
+            status: order.status,
+            financialStatus: order.financialStatus,
+            fulfillmentStatus: order.fulfillmentStatus,
+          });
+        default:
+          throw new BadRequestException(
+            'Platform not supported for fulfillment',
+          );
+      }
+    })();
+
+    // Resolve each platform line item to its Product Tracking Code by matching
+    // SKU against a linked warehouse variant, so dispatch can put the code —
+    // not the full title — on the shipping ticket.
+    const codeBySku = new Map(
+      order.lines
+        .filter(
+          (line): line is typeof line & { sku: string } =>
+            !!line.sku && !!line.warehouseVariant?.productCode,
+        )
+        .map((line) => [
+          line.sku,
+          line.warehouseVariant!.productCode as string,
+        ]),
+    );
+    preview.lineItems = preview.lineItems.map((item) => ({
+      ...item,
+      productCode: item.sku ? (codeBySku.get(item.sku) ?? null) : null,
+    }));
+
+    return preview;
   }
 
   async dispatchOrder(
@@ -586,6 +842,328 @@ export class EcommerceService {
     }
   }
 
+  /**
+   * Resolves whatever text a scanner just read — either a Zomaal shipment QR
+   * (JSON payload, encoded by getShipmentQrPayload) or a raw courier tracking
+   * number read straight off the carrier's own barcode — back to the order,
+   * its products, and the LIVE dispatch status. Both inputs converge on the
+   * same lookup key: trackingNumber. Status is always re-read from the
+   * database here — never trust a status baked into a printed/scanned code,
+   * it goes stale the moment it's printed.
+   */
+  async resolveScannedCode(userId: string, scannedText: string) {
+    const trimmed = scannedText.trim();
+    let trackingNumber = trimmed;
+    if (trimmed.startsWith('{')) {
+      let payload: { trackingNumber?: unknown };
+      try {
+        payload = JSON.parse(trimmed) as { trackingNumber?: unknown };
+      } catch {
+        throw new BadRequestException('Scanned QR payload is not valid JSON');
+      }
+      if (
+        typeof payload.trackingNumber !== 'string' ||
+        !payload.trackingNumber
+      ) {
+        throw new BadRequestException(
+          'Scanned QR payload is missing trackingNumber',
+        );
+      }
+      trackingNumber = payload.trackingNumber;
+    }
+
+    const store = await this.requireStore(userId);
+    const dispatch = await this.prisma.ecommerceOrderDispatch.findFirst({
+      where: {
+        providerTracking: trackingNumber,
+        order: { connection: { storeId: store.id } },
+      },
+      include: {
+        order: {
+          include: {
+            lines: {
+              include: { warehouseVariant: { include: { product: true } } },
+            },
+          },
+        },
+        // Dispatch.status only tells you whether we succeeded in HANDING
+        // the parcel to the courier (PENDING/DISPATCHED/FAILED) — it never
+        // changes again after that. The real "where is it now" status
+        // (PICKED_UP/IN_TRANSIT/DELIVERED/...) lives on whichever of these
+        // 4 courier-specific tables is linked.
+        senditShipment: { select: { normalizedStatus: true } },
+        quickLivraisonShipment: { select: { normalizedStatus: true } },
+        forceLogShipment: { select: { normalizedStatus: true } },
+        ozoneExpressShipment: { select: { normalizedStatus: true } },
+      },
+    });
+    if (!dispatch) {
+      throw new NotFoundException('No shipment found for this code');
+    }
+
+    const shipment =
+      dispatch.senditShipment ??
+      dispatch.quickLivraisonShipment ??
+      dispatch.forceLogShipment ??
+      dispatch.ozoneExpressShipment ??
+      null;
+
+    return {
+      orderId: dispatch.order.id,
+      orderName: dispatch.order.orderName,
+      provider: dispatch.provider,
+      // Guaranteed non-null: the where clause above only matches dispatches
+      // whose providerTracking equals trackingNumber.
+      trackingNumber: dispatch.providerTracking ?? trackingNumber,
+      dispatchStatus: dispatch.status,
+      // Null only if the courier hasn't sent us a status update yet (or we
+      // haven't synced/received its webhook). Never derived from dispatch
+      // status — that would silently show "PENDING" forever after delivery.
+      status: shipment?.normalizedStatus ?? null,
+      products: dispatch.order.lines
+        .filter((line) => line.warehouseVariant?.productCode)
+        .map((line) => ({
+          productCode: line.warehouseVariant!.productCode as string,
+          productName: line.warehouseVariant!.product.name,
+          quantity: line.quantity,
+          condition: line.condition,
+          damageCost: line.damageCost?.toFixed(2) ?? null,
+        })),
+    };
+  }
+
+  /**
+   * Builds the JSON payload for the shipment QR sticker Zomaal prints and
+   * attaches to the parcel (separate from the carrier's own label). Only
+   * available once the order has a tracking number — i.e. after dispatch.
+   */
+  /**
+   * The write side of the warehouse scan workflow: after resolveScannedCode()
+   * identifies the order/products, this records what condition each product
+   * came back in and, for GOOD/RETURNED/DAMAGED, applies the matching
+   * inventory movement in the same call. LOST/MISSING create no movement —
+   * there is nothing physical to place in a bucket, only the record itself.
+   */
+  async recordProductCondition(
+    userId: string,
+    orderId: string,
+    input: {
+      productCode: string;
+      condition: ProductCondition;
+      damageCost?: number;
+      notes?: string;
+    },
+  ) {
+    const store = await this.requireStore(userId);
+    const order = await this.prisma.ecommerceOrder.findUnique({
+      where: { id: orderId, connection: { storeId: store.id } },
+      include: {
+        lines: {
+          include: {
+            warehouseVariant: { include: { inventoryItem: true } },
+          },
+        },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    const line = order.lines.find(
+      (candidate) =>
+        candidate.warehouseVariant?.productCode === input.productCode,
+    );
+    if (!line) {
+      throw new NotFoundException(
+        `No line on this order matches product code ${input.productCode}`,
+      );
+    }
+
+    const damageCost =
+      input.condition === ProductCondition.DAMAGED &&
+      input.damageCost !== undefined
+        ? new Prisma.Decimal(input.damageCost)
+        : null;
+    const notes = input.notes?.trim() || null;
+    const recordedAt = new Date();
+
+    // Captured BEFORE the update below overwrites them — needed to detect
+    // whether this call is a correction (condition or cost actually changed)
+    // versus the first-ever recording or an exact repeat.
+    const previousCondition = line.condition as ProductCondition | null;
+    const previousDamageCost = line.damageCost;
+    const conditionChanged =
+      previousCondition !== null && previousCondition !== input.condition;
+    const costChanged =
+      previousDamageCost !== null &&
+      damageCost !== null &&
+      !previousDamageCost.equals(damageCost);
+
+    await this.prisma.ecommerceOrderLine.update({
+      where: { id: line.id },
+      data: {
+        condition: input.condition,
+        damageCost,
+        conditionNotes: notes,
+        conditionRecordedAt: recordedAt,
+      },
+    });
+
+    const inventoryItem = line.warehouseVariant?.inventoryItem;
+    const previousMovement = conditionChanged
+      ? movementForCondition(previousCondition)
+      : null;
+    const movement = movementForCondition(input.condition);
+    let inventoryUpdated = false;
+    if (inventoryItem) {
+      if (conditionChanged && previousMovement) {
+        // Correcting to a different condition — undo the earlier condition's
+        // stock effect first, or the unit ends up double-counted across two
+        // buckets (e.g. GOOD's +on-hand still standing after a DAMAGED
+        // correction also adds +damaged for the same physical unit).
+        await this.inventoryService.applyMovement(store.id, inventoryItem.id, {
+          type: previousMovement.type,
+          bucket: previousMovement.bucket,
+          quantityDelta: -line.quantity,
+          reason: `Correction: reversing previous condition ${previousCondition} (order ${order.orderName ?? order.id})`,
+          referenceType: 'ORDER_RETURN_CORRECTION',
+          referenceId: order.id,
+          idempotencyKey: `return-reverse:${line.id}:${previousCondition}:${recordedAt.getTime()}`,
+        });
+      }
+      if (movement) {
+        await this.inventoryService.applyMovement(store.id, inventoryItem.id, {
+          type: movement.type,
+          bucket: movement.bucket,
+          quantityDelta: line.quantity,
+          reason: `Return condition: ${input.condition} (order ${order.orderName ?? order.id})`,
+          referenceType: 'ORDER_RETURN',
+          referenceId: order.id,
+          // Re-recording the SAME condition twice reuses this stable key —
+          // idempotent, no-op on repeat. A correction (condition changed)
+          // gets a timestamp-suffixed key instead, since the stable key may
+          // already be "spent" by an earlier condition that flip-flopped
+          // back to this one.
+          idempotencyKey: conditionChanged
+            ? `return:${line.id}:${input.condition}:${recordedAt.getTime()}`
+            : `return:${line.id}:${input.condition}`,
+        });
+        inventoryUpdated = true;
+      }
+    }
+
+    if (damageCost) {
+      await this.financialService.applyDamageLoss(
+        order.id,
+        line.id,
+        order.currency,
+        damageCost,
+        conditionChanged || costChanged ? recordedAt.getTime() : undefined,
+      );
+    }
+
+    return {
+      orderId: order.id,
+      productCode: input.productCode,
+      condition: input.condition,
+      damageCost: damageCost?.toFixed(2) ?? null,
+      notes,
+      recordedAt: recordedAt.toISOString(),
+      inventoryUpdated,
+    };
+  }
+
+  async getShipmentQrPayload(userId: string, orderId: string) {
+    const store = await this.requireStore(userId);
+    const order = await this.prisma.ecommerceOrder.findUnique({
+      where: { id: orderId, connection: { storeId: store.id } },
+      include: {
+        dispatch: true,
+        lines: {
+          include: {
+            warehouseVariant: {
+              select: {
+                productCode: true,
+                product: {
+                  select: {
+                    kind: true,
+                    bundleComponents: {
+                      select: {
+                        componentVariant: { select: { productCode: true } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (!order.dispatch?.providerTracking) {
+      throw new BadRequestException(
+        'Order has not been dispatched yet — no tracking number to encode',
+      );
+    }
+
+    // A bundle/pack is ONE line whose product.kind is BUNDLE — its own variant's
+    // productCode is the pack code, and its components list the physical items
+    // inside. A plain multi-product order is a different shape: several
+    // ordinary PRODUCT lines, not a pack.
+    const items = order.lines
+      .filter((line) => line.warehouseVariant?.productCode)
+      .map((line) => {
+        const variant = line.warehouseVariant!;
+        return variant.product.kind === WarehouseProductKind.BUNDLE
+          ? {
+              type: 'PACK' as const,
+              packCode: variant.productCode as string,
+              quantity: line.quantity,
+              items: variant.product.bundleComponents
+                .map((component) => component.componentVariant.productCode)
+                .filter((code): code is string => !!code),
+            }
+          : {
+              type: 'PRODUCT' as const,
+              productCode: variant.productCode as string,
+              quantity: line.quantity,
+            };
+      });
+
+    if (items.length === 0) {
+      throw new BadRequestException(
+        "None of this order's lines are linked to a warehouse product with a product code yet",
+      );
+    }
+
+    const orderRef = order.orderName ?? order.dispatch.merchantTracking;
+    const trackingNumber = order.dispatch.providerTracking;
+
+    // Single line: emit the flat PRODUCT/PACK shape. Multiple lines: wrap them
+    // in an ORDER envelope so every item's own code/quantity is still explicit.
+    if (items.length === 1) {
+      const only = items[0];
+      return only.type === 'PACK'
+        ? {
+            type: 'PACK' as const,
+            packCode: only.packCode,
+            orderId: orderRef,
+            trackingNumber,
+            items: only.items,
+          }
+        : {
+            type: 'PRODUCT' as const,
+            productCode: only.productCode,
+            orderId: orderRef,
+            trackingNumber,
+          };
+    }
+    return { type: 'ORDER' as const, orderId: orderRef, trackingNumber, items };
+  }
+
   private createProviderShipment(
     userId: string,
     provider: EcommerceDispatchDto['provider'],
@@ -594,8 +1172,11 @@ export class EcommerceService {
     merchantTracking: string,
     codAmount: number,
   ): Promise<unknown> {
+    // Product Tracking Code on the ticket instead of the full title, wherever
+    // the line has been matched to a warehouse product; falls back to title
+    // when it hasn't (e.g. product not yet created in Zomaal's catalog).
     const contents = preview.lineItems
-      .map((item) => `${item.title} x${item.quantity}`)
+      .map((item) => `${item.productCode ?? item.title} x${item.quantity}`)
       .join(', ');
     const allowOpen = booleanOption(options, 'allowOpen', false);
 
@@ -1140,4 +1721,25 @@ function extractProviderTracking(value: unknown, depth = 0): string | null {
 function safeDispatchError(error: unknown): string {
   const message = error instanceof Error ? error.message : 'Dispatch failed';
   return message.replace(/\s+/g, ' ').trim().slice(0, 500);
+}
+
+function movementForCondition(
+  condition: ProductCondition,
+): { type: InventoryMovementType; bucket: InventoryBucket } | null {
+  switch (condition) {
+    case ProductCondition.GOOD:
+    case ProductCondition.RETURNED:
+      return {
+        type: InventoryMovementType.RETURN_GOOD,
+        bucket: InventoryBucket.ON_HAND,
+      };
+    case ProductCondition.DAMAGED:
+      return {
+        type: InventoryMovementType.RETURN_DAMAGED,
+        bucket: InventoryBucket.DAMAGED,
+      };
+    case ProductCondition.LOST:
+    case ProductCondition.MISSING:
+      return null;
+  }
 }

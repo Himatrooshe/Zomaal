@@ -124,6 +124,10 @@ export class EcommerceSyncService {
     const connections = await this.prisma.ecommerceConnection.findMany({
       where: {
         status: EcommerceConnectionStatus.ACTIVE,
+        // MANUAL connections have no external platform to poll — they'd
+        // otherwise get re-selected forever (lastSyncedAt never sets) and
+        // fail adapterFor() on every tick.
+        platform: { not: EcommercePlatform.MANUAL },
         OR: [
           { syncStartedAt: { not: null } },
           { lastSyncedAt: null },
@@ -242,7 +246,12 @@ export class EcommerceSyncService {
           syncFrom,
           syncStartedAt,
         );
-        await this.persistOrders(connection.id, connection.storeId, page.orders, connection.platform);
+        await this.persistOrders(
+          connection.id,
+          connection.storeId,
+          page.orders,
+          connection.platform,
+        );
         processedOrders += page.orders.length;
 
         if (!page.hasNextPage) {
@@ -333,7 +342,12 @@ export class EcommerceSyncService {
           connectionId,
           externalOrderId: { in: orders.map((o) => o.externalOrderId) },
         },
-        select: { id: true, externalOrderId: true, financialStatus: true, fulfillmentStatus: true },
+        select: {
+          id: true,
+          externalOrderId: true,
+          financialStatus: true,
+          fulfillmentStatus: true,
+        },
       });
       for (const row of existing) {
         previousStateMap.set(row.externalOrderId, row);
@@ -382,15 +396,15 @@ export class EcommerceSyncService {
       await this.prisma.ecommerceOrderLine.createMany({
         data: lines.map((line) => ({
           orderId,
-          externalLineId:    line.externalLineId,
+          externalLineId: line.externalLineId,
           externalProductId: line.externalProductId,
           externalVariantId: line.externalVariantId,
-          sku:               line.sku,
-          name:              line.name,
-          quantity:          line.quantity,
-          unitPrice:         line.unitPrice,
-          totalPrice:        line.totalPrice,
-          currency:          line.currency,
+          sku: line.sku,
+          name: line.name,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          totalPrice: line.totalPrice,
+          currency: line.currency,
           warehouseVariantId: line.sku
             ? (variantBySku.get(line.sku.toLowerCase()) ?? null)
             : null,
@@ -404,7 +418,8 @@ export class EcommerceSyncService {
       platform === EcommercePlatform.YOUCAN ||
       platform === EcommercePlatform.LIGHTFUNNELS
     ) {
-      const source = platform === EcommercePlatform.YOUCAN ? 'YOUCAN' : 'LIGHTFUNNELS';
+      const source =
+        platform === EcommercePlatform.YOUCAN ? 'YOUCAN' : 'LIGHTFUNNELS';
 
       for (let i = 0; i < orders.length; i++) {
         const incoming = orders[i];
@@ -415,13 +430,21 @@ export class EcommerceSyncService {
         await this.timelineService
           .detectAndStoreChanges(
             orderId,
-            { financialStatus: previous.financialStatus as any, fulfillmentStatus: previous.fulfillmentStatus },
-            { financialStatus: incoming.financialStatus, fulfillmentStatus: incoming.fulfillmentStatus },
+            {
+              financialStatus: previous.financialStatus as any,
+              fulfillmentStatus: previous.fulfillmentStatus,
+            },
+            {
+              financialStatus: incoming.financialStatus,
+              fulfillmentStatus: incoming.fulfillmentStatus,
+            },
             source,
             incoming.providerUpdatedAt,
           )
           .catch((err) =>
-            this.logger.warn(`Timeline change detection failed for order ${orderId}: ${String(err)}`),
+            this.logger.warn(
+              `Timeline change detection failed for order ${orderId}: ${String(err)}`,
+            ),
           );
       }
     }

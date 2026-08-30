@@ -128,6 +128,46 @@ export class BarcodeLabelService {
     return { body, filename: `barcode-labels-${Date.now()}.pdf` };
   }
 
+  /**
+   * Renders a generic QR code from arbitrary text (e.g. the JSON shipment
+   * payload: productCode/orderId/trackingNumber). Unlike the barcode labels
+   * above, this isn't tied to a stored InventoryBarcode row — the caller
+   * builds the payload fresh each time (order status, tracking number, etc.
+   * change after printing, so nothing here is cached).
+   */
+  async renderQrPdf(
+    text: string,
+    title: string,
+    subtitle: string | null,
+    templateName: BarcodeLabelTemplate = BarcodeLabelTemplate.THERMAL_60X40,
+  ): Promise<Buffer> {
+    const data: BarcodeLabelData = {
+      id: 'qr',
+      value: text,
+      type: InventoryBarcodeType.OTHER,
+      title,
+      subtitle,
+    };
+    const rendered = await this.prepareLabel(data, templateName, 'qrcode');
+    return this.createPdf([rendered], templateName);
+  }
+
+  renderQrSvg(
+    text: string,
+    title: string,
+    subtitle: string | null,
+    templateName: BarcodeLabelTemplate = BarcodeLabelTemplate.THERMAL_60X40,
+  ): string {
+    const data: BarcodeLabelData = {
+      id: 'qr',
+      value: text,
+      type: InventoryBarcodeType.OTHER,
+      title,
+      subtitle,
+    };
+    return this.createSvg(data, templateName, 'qrcode');
+  }
+
   private async loadLabelsForUser(userId: string, barcodeIds: string[]) {
     const store = await this.stores.requireStore(userId);
     const barcodes = await this.prisma.inventoryBarcode.findMany({
@@ -183,9 +223,10 @@ export class BarcodeLabelService {
   private async prepareLabel(
     data: BarcodeLabelData,
     templateName: BarcodeLabelTemplate,
+    bcidOverride?: string,
   ): Promise<RenderedLabel> {
     const template = requireTemplate(templateName);
-    const options = barcodeRenderOptions(data, template.heightMm);
+    const options = barcodeRenderOptions(data, template.heightMm, bcidOverride);
     let barcodePng: Buffer;
     try {
       barcodePng = await bwipjs.toBuffer(options);
@@ -201,11 +242,14 @@ export class BarcodeLabelService {
   private createSvg(
     data: BarcodeLabelData,
     templateName: BarcodeLabelTemplate,
+    bcidOverride?: string,
   ): string {
     const template = requireTemplate(templateName);
     let barcodeSvg: string;
     try {
-      barcodeSvg = bwipjs.toSVG(barcodeRenderOptions(data, template.heightMm));
+      barcodeSvg = bwipjs.toSVG(
+        barcodeRenderOptions(data, template.heightMm, bcidOverride),
+      );
     } catch {
       throw new BadRequestException(
         'This barcode value cannot be rendered as its configured barcode type',
@@ -299,15 +343,27 @@ function requireTemplate(templateName: BarcodeLabelTemplate) {
   return template;
 }
 
-function barcodeRenderOptions(data: BarcodeLabelData, labelHeightMm: number) {
+function barcodeRenderOptions(
+  data: BarcodeLabelData,
+  labelHeightMm: number,
+  bcidOverride?: string,
+) {
+  const isQr = bcidOverride === 'qrcode';
   return {
-    bcid: barcodeEncoder(data.type, data.value),
+    bcid: bcidOverride ?? barcodeEncoder(data.type, data.value),
     text: data.value,
     scale: BASE_RENDER_SCALE,
     height: labelHeightMm <= 30 ? 12 : 22,
-    includetext: true,
-    textxalign: 'center' as const,
-    textsize: labelHeightMm <= 30 ? 8 : 10,
+    // QR payloads are JSON, not human-readable — never print the raw text
+    // under the code, and use error-correction level M to stay resilient to
+    // smudged thermal printing without inflating an already-dense code.
+    ...(isQr
+      ? { includetext: false, eclevel: 'M' as const }
+      : {
+          includetext: true,
+          textxalign: 'center' as const,
+          textsize: labelHeightMm <= 30 ? 8 : 10,
+        }),
     paddingwidth: 3,
     paddingheight: 2,
     backgroundcolor: 'FFFFFF',

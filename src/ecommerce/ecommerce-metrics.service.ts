@@ -144,6 +144,9 @@ export class EcommerceMetricsService {
         return this.youCanCounts(userId);
       case EcommercePlatform.LIGHTFUNNELS:
         return this.lightfunnelsCounts(userId);
+      case EcommercePlatform.MANUAL:
+        // No external platform catalog to count against.
+        return Promise.resolve({ productCount: 0, customerCount: 0 });
     }
   }
 

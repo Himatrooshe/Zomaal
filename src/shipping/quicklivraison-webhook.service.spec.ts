@@ -39,6 +39,7 @@ describe('QuickLivraisonShipmentService webhook', () => {
   const service = new QuickLivraisonShipmentService(
     prisma as never,
     config as never,
+    { syncFromDispatchId: jest.fn() } as never,
   );
 
   beforeEach(() => {

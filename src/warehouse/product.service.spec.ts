@@ -345,7 +345,10 @@ describe('warehouse product bundles', () => {
     const stores = {
       requireStore: jest.fn().mockResolvedValue({ id: 'store-1' }),
     } as unknown as WarehouseStoreService;
-    const service = new ProductService(prisma, stores, {} as BarcodeService);
+    const barcodes = {
+      generateProductCodeForStore: jest.fn().mockResolvedValue('PACKCODE1'),
+    } as unknown as BarcodeService;
+    const service = new ProductService(prisma, stores, barcodes);
 
     const result = await service.createBundle('user-1', {
       idempotencyKey: 'bundle-create-001',
@@ -369,6 +372,69 @@ describe('warehouse product bundles', () => {
       inventory: { onHand: 3, available: 3 },
     });
     expect(result.bundleComponents).toHaveLength(2);
+  });
+});
+
+describe('warehouse product code backfill', () => {
+  it('assigns a code to every variant missing one and counts failures separately', async () => {
+    const update = jest.fn().mockResolvedValue({});
+    const findMany = jest.fn().mockResolvedValue([
+      { id: 'variant-1', storeId: 'store-1' },
+      { id: 'variant-2', storeId: 'store-1' },
+      { id: 'variant-3', storeId: 'store-2' },
+    ]);
+    const prisma = {
+      warehouseVariant: {
+        findMany,
+        update,
+      },
+    } as unknown as PrismaService;
+    const stores = {} as unknown as WarehouseStoreService;
+    const barcodes = {
+      generateProductCodeForStore: jest
+        .fn()
+        .mockResolvedValueOnce('CODE0001')
+        .mockResolvedValueOnce('CODE0002')
+        .mockRejectedValueOnce(new Error('no unique code available')),
+    } as unknown as BarcodeService;
+    const service = new ProductService(prisma, stores, barcodes);
+
+    const result = await service.backfillProductCodes();
+
+    expect(result).toEqual({ processed: 2, skipped: 1 });
+    expect(findMany).toHaveBeenCalledWith({
+      where: { productCode: null },
+      select: { id: true, storeId: true },
+    });
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'variant-1' },
+      data: { productCode: 'CODE0001' },
+    });
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'variant-2' },
+      data: { productCode: 'CODE0002' },
+    });
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it('is a no-op when every variant already has a product code', async () => {
+    const prisma = {
+      warehouseVariant: {
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn(),
+      },
+    } as unknown as PrismaService;
+    const stores = {} as unknown as WarehouseStoreService;
+    const generateProductCodeForStore = jest.fn();
+    const barcodes = {
+      generateProductCodeForStore,
+    } as unknown as BarcodeService;
+    const service = new ProductService(prisma, stores, barcodes);
+
+    const result = await service.backfillProductCodes();
+
+    expect(result).toEqual({ processed: 0, skipped: 0 });
+    expect(generateProductCodeForStore).not.toHaveBeenCalled();
   });
 });
 

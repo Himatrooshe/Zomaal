@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Res,
   UseGuards,
   applyDecorators,
 } from '@nestjs/common';
@@ -45,7 +46,14 @@ import {
   EcommerceOrderListDto,
   EcommerceFulfillmentPreviewDto,
   EcommerceOrderProductsDto,
+  ScannedShipmentResponseDto,
+  RecordedProductConditionResponseDto,
+  OrderFinancialSummaryDto,
+  FinancialSyncResultDto,
 } from './dto/ecommerce-order-response.dto';
+import { RecordProductConditionDto } from './dto/record-product-condition.dto';
+import { CreateManualOrderDto } from './dto/create-manual-order.dto';
+import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
 import {
   EcommerceDispatchDto,
   EcommerceDispatchResponseDto,
@@ -56,6 +64,14 @@ import { EcommerceMetricsService } from './ecommerce-metrics.service';
 import { EcommerceHomeResponseDto } from './dto/ecommerce-home-response.dto';
 import { EcommerceOrderTimelineService } from './ecommerce-order-timeline.service';
 import { OrderTimelineDto } from './dto/order-timeline.dto';
+import { ScanShipmentQueryDto } from './dto/scan-shipment-query.dto';
+import { BarcodeLabelService } from '../warehouse/barcode-label.service';
+import {
+  BarcodeLabelFormat,
+  BarcodeLabelQueryDto,
+  BarcodeLabelTemplate,
+} from '../warehouse/dto/barcode.dto';
+import type { Response } from 'express';
 
 const PRIVATE_NO_STORE_HEADERS = {
   'Cache-Control': {
@@ -76,6 +92,8 @@ export class EcommerceController {
     private readonly syncService: EcommerceSyncService,
     private readonly metricsService: EcommerceMetricsService,
     private readonly timelineService: EcommerceOrderTimelineService,
+    private readonly labels: BarcodeLabelService,
+    private readonly financialService: EcommerceOrderFinancialService,
   ) {}
 
   @Get('home')
@@ -256,6 +274,32 @@ export class EcommerceController {
     return this.ecommerceService.getRevenueTimeseries(user.userId, query);
   }
 
+  @Post('orders/manual')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create an order from a non-platform source',
+    description:
+      'For WhatsApp/phone/in-person orders — anything that never touched ' +
+      'Shopify/YouCan/Lightfunnels. Products are resolved by Product ' +
+      'Tracking Code (must already exist in the warehouse catalog) and ' +
+      'customer info is captured directly, since there is no external ' +
+      'platform to fetch it from later. Once created, this order goes ' +
+      'through the exact same dispatch/timeline/financial-event pipeline as ' +
+      'any synced order.',
+  })
+  @ApiOkResponse({ type: EcommerceOrderDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid payload, or one or more product codes do not exist.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  createManualOrder(
+    @CurrentUser() user: JwtPayload,
+    @Body() payload: CreateManualOrderDto,
+  ): Promise<EcommerceOrderDto> {
+    return this.ecommerceService.createManualOrder(user.userId, payload);
+  }
+
   @Get('orders')
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
@@ -274,6 +318,133 @@ export class EcommerceController {
     @Query() query: EcommerceOrderQueryDto,
   ): Promise<EcommerceOrderListDto> {
     return this.ecommerceService.listOrders(user.userId, query);
+  }
+
+  @Get('scan')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Resolve a scanned shipping barcode/QR to its order and products',
+    description:
+      'Accepts either a Zomaal-generated shipment QR (JSON payload) or a raw ' +
+      "courier tracking number read off the carrier's own barcode — both " +
+      'resolve to the same order. Camera decoding happens on the scanning ' +
+      'device; this endpoint only ever receives the already-decoded text. ' +
+      '`status` is always read live from the database, never from the scanned ' +
+      'payload, since status changes after the code was printed.',
+  })
+  @ApiOkResponse({ type: ScannedShipmentResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Scanned value is malformed or the QR JSON is invalid.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  scan(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ScanShipmentQueryDto,
+  ): Promise<ScannedShipmentResponseDto> {
+    return this.ecommerceService.resolveScannedCode(user.userId, query.value);
+  }
+
+  @Post('orders/:orderId/condition')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Record a returned product's condition",
+    description:
+      'Called after a warehouse scan identifies the order (see GET /ecommerce/scan). ' +
+      'Records Good/Damaged/Lost/Returned/Missing for one product line and, for ' +
+      'GOOD/RETURNED/DAMAGED, applies the matching inventory movement in the same ' +
+      'call — GOOD/RETURNED restock on-hand, DAMAGED moves to the damaged bucket. ' +
+      'LOST/MISSING create no movement since nothing physical came back. ' +
+      'Re-recording the same condition twice is a no-op; recording a different ' +
+      'condition for the same line applies a new correction movement.',
+  })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Zomaal internal order ID',
+    format: 'uuid',
+  })
+  @ApiOkResponse({ type: RecordedProductConditionResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid order ID format or invalid condition payload.',
+    type: ApiErrorDto,
+  })
+  @ApiNotFoundResponse({
+    description:
+      'Order not found, or no line on this order matches the given product code.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  recordCondition(
+    @CurrentUser() user: JwtPayload,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Body() payload: RecordProductConditionDto,
+  ): Promise<RecordedProductConditionResponseDto> {
+    return this.ecommerceService.recordProductCondition(
+      user.userId,
+      orderId,
+      payload,
+    );
+  }
+
+  @Get('orders/:orderId/financials')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: "Get an order's financial summary",
+    description:
+      'Sums the append-only financial event ledger for this order — revenue ' +
+      'is 0 until the carrier marks the shipment DELIVERED (see ' +
+      'POST .../financials/sync), and stays 0 forever if it never is. ' +
+      'damageCost reflects any DAMAGED conditions recorded via ' +
+      'POST .../condition. Always 200 — an order with no events yet simply ' +
+      'returns all-zero totals and an empty events array.',
+  })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Zomaal internal order ID',
+    format: 'uuid',
+  })
+  @ApiOkResponse({ type: OrderFinancialSummaryDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid order ID format.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  getOrderFinancials(
+    @CurrentUser() user: JwtPayload,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+  ): Promise<OrderFinancialSummaryDto> {
+    return this.financialService.getSummary(user.userId, orderId);
+  }
+
+  @Post('orders/:orderId/financials/sync')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Re-check the order's carrier status and apply financial events",
+    description:
+      "Reads whichever courier shipment is linked to this order's dispatch " +
+      '(Sendit/QuickLivraison/ForceLog/OzoneExpress) and, if its live status ' +
+      'is DELIVERED or a terminal failure (CANCELLED/REFUSED/' +
+      'RETURNED_TO_SELLER), applies the matching revenue event. Idempotent — ' +
+      'safe to call repeatedly. Note: this is a manual/on-demand trigger; ' +
+      'it does not yet fire automatically from courier sync or webhooks — ' +
+      'call it (or poll it) after dispatch to keep financials current.',
+  })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Zomaal internal order ID',
+    format: 'uuid',
+  })
+  @ApiOkResponse({ type: FinancialSyncResultDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid order ID format.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  syncOrderFinancials(
+    @CurrentUser() user: JwtPayload,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+  ): Promise<FinancialSyncResultDto> {
+    return this.financialService.syncFromDispatch(user.userId, orderId);
   }
 
   @Get('orders/:orderId')
@@ -399,6 +570,90 @@ export class EcommerceController {
     return this.ecommerceService.dispatchOrder(user.userId, orderId, payload);
   }
 
+  @Get('orders/:orderId/shipping-qr')
+  @ApiOperation({
+    summary: "Render the order's shipment QR sticker",
+    description:
+      'Renders a QR label Zomaal prints and attaches to the parcel — separate ' +
+      "from the carrier's own label. Encodes { productCode, orderId, " +
+      'trackingNumber } (or a PACK/ORDER envelope for bundles and multi-line ' +
+      'orders) so a later scan resolves the order and products without a ' +
+      'network round trip. Only available after dispatch, once a tracking ' +
+      'number exists.',
+  })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Zomaal internal order ID',
+    format: 'uuid',
+  })
+  @ApiOkResponse({
+    description:
+      'Binary PDF or UTF-8 SVG QR label, selected by the format query.',
+    content: {
+      'application/pdf': { schema: { type: 'string', format: 'binary' } },
+      'image/svg+xml': { schema: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Order has not been dispatched yet, or has no product-code-linked lines.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  @ApiProduces('application/pdf', 'image/svg+xml')
+  async shippingQr(
+    @CurrentUser() user: JwtPayload,
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Query() query: BarcodeLabelQueryDto,
+    @Res() response: Response,
+  ) {
+    const payload = await this.ecommerceService.getShipmentQrPayload(
+      user.userId,
+      orderId,
+    );
+    const template = query.template ?? BarcodeLabelTemplate.THERMAL_60X40;
+    const subtitle =
+      payload.type === 'PACK'
+        ? `Pack · ${payload.items.length} items`
+        : payload.trackingNumber;
+    const title =
+      payload.type === 'PRODUCT'
+        ? payload.productCode
+        : payload.type === 'PACK'
+          ? payload.packCode
+          : payload.orderId;
+
+    if (query.format === BarcodeLabelFormat.SVG) {
+      const body = this.labels.renderQrSvg(
+        JSON.stringify(payload),
+        title,
+        subtitle,
+        template,
+      );
+      response.set({
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Content-Disposition': `inline; filename="shipping-qr-${orderId}.svg"`,
+        'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
+      });
+      response.send(body);
+      return;
+    }
+    const body = await this.labels.renderQrPdf(
+      JSON.stringify(payload),
+      title,
+      subtitle,
+      template,
+    );
+    response.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="shipping-qr-${orderId}.pdf"`,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    response.send(body);
+  }
+
   @Get('orders/:orderId/timeline')
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
@@ -419,7 +674,10 @@ export class EcommerceController {
     type: OrderTimelineDto,
     headers: PRIVATE_NO_STORE_HEADERS,
   })
-  @ApiBadRequestResponse({ description: 'Invalid order ID format.', type: ApiErrorDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid order ID format.',
+    type: ApiErrorDto,
+  })
   @ApiRevenueReadErrors()
   getOrderTimeline(
     @CurrentUser() user: JwtPayload,
@@ -436,7 +694,8 @@ export class EcommerceController {
   @Post('orders/timeline/backfill')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Backfill synthetic timeline events for existing YouCan/Lightfunnels orders',
+    summary:
+      'Backfill synthetic timeline events for existing YouCan/Lightfunnels orders',
     description:
       'One-time operation. Generates synthetic events from stored timestamps for all ' +
       'YouCan/Lightfunnels orders that have no timeline events yet. Idempotent — safe to call multiple times.',
@@ -446,12 +705,21 @@ export class EcommerceController {
     schema: {
       type: 'object',
       properties: {
-        processed: { type: 'number', description: 'Orders that received synthetic events' },
-        skipped:   { type: 'number', description: 'Orders that failed to backfill' },
+        processed: {
+          type: 'number',
+          description: 'Orders that received synthetic events',
+        },
+        skipped: {
+          type: 'number',
+          description: 'Orders that failed to backfill',
+        },
       },
     },
   })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token.', type: ApiErrorDto })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid token.',
+    type: ApiErrorDto,
+  })
   backfillTimelines(): Promise<{ processed: number; skipped: number }> {
     return this.timelineService.backfillAllOrders();
   }

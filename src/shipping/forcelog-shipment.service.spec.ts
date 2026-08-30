@@ -50,6 +50,7 @@ describe('ForceLogShipmentService', () => {
     prisma as never,
     client as never,
     connection as never,
+    { syncFromDispatchId: jest.fn() } as never,
   );
 
   beforeEach(() => {

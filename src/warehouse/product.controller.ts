@@ -332,4 +332,33 @@ export class ProductController {
   ) {
     return this.products.activate(user.userId, id);
   }
+
+  @Post('backfill-product-codes')
+  @ApiOperation({
+    summary: 'Backfill Product Tracking Codes for existing variants',
+    description:
+      'One-time operation. Assigns a Product Tracking Code (e.g. "DH564BJ0") to every ' +
+      'existing variant created before this feature shipped — new variants already get ' +
+      'one automatically at creation. Idempotent — safe to call multiple times; only ' +
+      'touches variants still missing a code.',
+  })
+  @ApiOkResponse({
+    description: 'Backfill result.',
+    schema: {
+      type: 'object',
+      properties: {
+        processed: {
+          type: 'number',
+          description: 'Variants that received a new product code',
+        },
+        skipped: {
+          type: 'number',
+          description: 'Variants that failed to backfill',
+        },
+      },
+    },
+  })
+  backfillProductCodes() {
+    return this.products.backfillProductCodes();
+  }
 }

@@ -15,8 +15,10 @@ import { LightfunnelsFulfillmentAdapter } from './lightfunnels-fulfillment.adapt
 import { EcommerceSchedulerController } from './ecommerce-scheduler.controller';
 import { EcommerceSchedulerGuard } from './ecommerce-scheduler.guard';
 import { ShippingModule } from '../shipping/shipping.module';
+import { WarehouseModule } from '../warehouse/warehouse.module';
 import { EcommerceMetricsService } from './ecommerce-metrics.service';
 import { EcommerceOrderTimelineService } from './ecommerce-order-timeline.service';
+import { EcommerceFinancialModule } from './ecommerce-financial.module';
 import { ShopifyOrderTimelineAdapter } from './shopify-order-timeline.adapter';
 import { YouCanOrderTimelineAdapter } from './youcan-order-timeline.adapter';
 import { LightfunnelsOrderTimelineAdapter } from './lightfunnels-order-timeline.adapter';
@@ -28,6 +30,8 @@ import { LightfunnelsOrderTimelineAdapter } from './lightfunnels-order-timeline.
     LightfunnelsModule,
     CurrencyModule,
     ShippingModule,
+    WarehouseModule,
+    EcommerceFinancialModule,
   ],
   controllers: [EcommerceController, EcommerceSchedulerController],
   providers: [

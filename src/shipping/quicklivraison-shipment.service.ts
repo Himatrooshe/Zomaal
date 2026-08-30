@@ -2,6 +2,7 @@ import {
   BadRequestException,
   BadGatewayException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -13,14 +14,18 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { QuickLivraisonDeliveryDto } from './dto/quicklivraison-delivery.dto';
 import type { QuickLivraisonShipmentQueryDto } from './dto/quicklivraison-shipment-query.dto';
 import { normalizeQuickLivraisonStatus } from './quicklivraison-status';
+import { EcommerceOrderFinancialService } from '../ecommerce/ecommerce-order-financial.service';
 
 type ProviderRecord = Record<string, unknown>;
 
 @Injectable()
 export class QuickLivraisonShipmentService {
+  private readonly logger = new Logger(QuickLivraisonShipmentService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly financialService: EcommerceOrderFinancialService,
   ) {}
 
   async persistCreatedDelivery(
@@ -196,8 +201,9 @@ export class QuickLivraisonShipmentService {
     const deliveries = providerDeliveryList(providerResponse).map(
       providerDeliverySnapshot,
     );
+    const dispatchIdsToSync = new Set<string>();
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const connection = await tx.quickLivraisonConnection.findUnique({
         where: { userId },
         select: { id: true },
@@ -319,6 +325,10 @@ export class QuickLivraisonShipmentService {
           !current ||
           current.providerStatus !== delivery.providerStatus ||
           current.providerSecondaryStatus !== delivery.providerSecondaryStatus;
+        const effectiveDispatchId = dispatchId ?? current?.dispatchId ?? null;
+        if (statusChanged && effectiveDispatchId) {
+          dispatchIdsToSync.add(effectiveDispatchId);
+        }
         if (statusChanged) {
           const eventAt =
             delivery.lastActionAt ??
@@ -362,6 +372,18 @@ export class QuickLivraisonShipmentService {
         reconciled,
       };
     });
+
+    for (const dispatchId of dispatchIdsToSync) {
+      try {
+        await this.financialService.syncFromDispatchId(dispatchId);
+      } catch (err) {
+        this.logger.warn(
+          `Financial sync failed for dispatch ${dispatchId}: ${String(err)}`,
+        );
+      }
+    }
+
+    return result;
   }
 
   async processStatusWebhook(
@@ -373,7 +395,7 @@ export class QuickLivraisonShipmentService {
     const event = parseStatusWebhook(payload);
     const shipment = await this.prisma.quickLivraisonShipment.findFirst({
       where: { providerCode: event.providerCode },
-      select: { id: true, lastActionAt: true },
+      select: { id: true, lastActionAt: true, dispatchId: true },
     });
     if (!shipment) {
       throw new NotFoundException(
@@ -447,6 +469,16 @@ export class QuickLivraisonShipmentService {
         },
       });
     });
+
+    if (shipment.dispatchId) {
+      try {
+        await this.financialService.syncFromDispatchId(shipment.dispatchId);
+      } catch (err) {
+        this.logger.warn(
+          `Financial sync failed for dispatch ${shipment.dispatchId}: ${String(err)}`,
+        );
+      }
+    }
 
     return { success: true, message: 'QuickLivraison webhook received' };
   }
