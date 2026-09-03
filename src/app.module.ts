@@ -16,6 +16,7 @@ import { LightfunnelsModule } from './lightfunnels/lightfunnels.module';
 import { CurrencyModule } from './currency/currency.module';
 import { WarehouseModule } from './warehouse/warehouse.module';
 import { FinanceModule } from './finance/finance.module';
+import { AdsModule } from './ads/ads.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { FinanceModule } from './finance/finance.module';
     CurrencyModule,
     WarehouseModule,
     FinanceModule,
+    AdsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

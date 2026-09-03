@@ -471,6 +471,7 @@ model Store {
   packagingMaterials      PackagingMaterial[]
   expenseEntries          ExpenseEntry[]
   adSpendEntries          AdSpendEntry[]
+  adsConnections          AdsConnection[]
 }
 
 // Manual expense ledger. Nothing in the codebase produces Operational/
@@ -1266,4 +1267,135 @@ model ProductPackagingRequirement {
 
   @@unique([productId, variantId, packagingMaterialId])
   @@index([packagingMaterialId])
+}
+
+// ============================================================================
+// Ads Module — platform-agnostic. TikTok is the first implementation
+// (src/ads/tiktok/); Meta/Google/Snapchat plug into these same four models
+// later by adding their own auth/api/sync services that write into them,
+// same pattern as Shopify/YouCan/Lightfunnels sharing EcommerceConnection.
+//
+// This is unrelated to the legacy AdSpendEntry manual ledger above — that
+// table stays read-only/always-empty. Once this module is live, the
+// Expenses screen's "Advertising Cost" tile should be repointed to read
+// from AdsMetricSnapshot instead (tracked separately, not done in this pass).
+// ============================================================================
+
+enum AdsPlatform {
+  TIKTOK
+  META
+  GOOGLE
+  SNAPCHAT
+}
+
+enum AdsConnectionStatus {
+  ACTIVE
+  DISCONNECTED
+  REAUTHORIZATION_REQUIRED
+}
+
+// One authorized ad account (TikTok "advertiser", Meta "ad account", etc.)
+// linked to a Zomaal store. A store can connect multiple accounts on the
+// same platform (e.g. two TikTok advertiser IDs) — externalAdvertiserId
+// disambiguates them.
+model AdsConnection {
+  id                    String               @id @default(uuid())
+  platform              AdsPlatform
+  status                AdsConnectionStatus  @default(ACTIVE)
+  externalAdvertiserId  String
+  displayName           String?
+  currency              String?
+  timezone              String?
+  encryptedAccessToken  String?
+  encryptedRefreshToken String?
+  accessTokenExpiresAt  DateTime?
+  grantedScopes         String?
+  installedAt           DateTime             @default(now())
+  disconnectedAt        DateTime?
+  lastVerifiedAt        DateTime?
+  lastSyncedAt          DateTime?
+  lastSyncError         String?
+  syncStartedAt         DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  campaigns AdsCampaign[]
+
+  @@unique([storeId, platform, externalAdvertiserId])
+  @@index([storeId, platform])
+  @@index([platform, status])
+}
+
+// Single-use OAuth CSRF state, mirrors ShopifyOAuthState/YouCanOAuthState.
+// Not tied to Store via a Prisma relation (same as the others) — storeId is
+// looked up manually so a leftover expired row can never block a new store.
+model AdsOAuthState {
+  id        String      @id @default(uuid())
+  stateHash String      @unique
+  platform  AdsPlatform
+  expiresAt DateTime
+  userId    String
+  storeId   String
+  createdAt DateTime    @default(now())
+
+  @@index([storeId, platform])
+}
+
+// One ad campaign as known to the platform. Synced (read-only mirror) on
+// every campaign-list refresh; tracked = merchant selected it on the
+// "Select Campaigns" screen — only tracked campaigns get metric snapshots.
+model AdsCampaign {
+  id                 String    @id @default(uuid())
+  externalCampaignId String
+  name               String
+  status             String // platform's raw status string, e.g. ENABLE/DISABLE, ACTIVE/PAUSED
+  objective          String?
+  budget             Decimal?  @db.Decimal(20, 4)
+  currency           String?
+  startDate          DateTime?
+  endDate            DateTime?
+  tracked            Boolean   @default(false)
+  rawPayload         Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  connectionId String
+  connection   AdsConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  metrics AdsMetricSnapshot[]
+
+  @@unique([connectionId, externalCampaignId])
+  @@index([connectionId, tracked])
+}
+
+// One day of performance for one tracked campaign. Upserted idempotently on
+// (campaignId, date) — a re-sync of the same day overwrites rather than
+// duplicates, since platform reporting numbers can be revised for a few
+// days after the fact (attribution windows).
+model AdsMetricSnapshot {
+  id             String   @id @default(uuid())
+  date           DateTime @db.Date
+  spend          Decimal  @db.Decimal(20, 4)
+  clicks         Int      @default(0)
+  impressions    Int      @default(0)
+  results        Int      @default(0)
+  reach          Int?
+  frequency      Decimal? @db.Decimal(10, 4)
+  cpm            Decimal? @db.Decimal(20, 4)
+  ctr            Decimal? @db.Decimal(10, 4)
+  costPerResult  Decimal? @db.Decimal(20, 4)
+  conversionRate Decimal? @db.Decimal(10, 4)
+  currency       String
+  rawPayload     Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  campaignId String
+  campaign   AdsCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@index([campaignId, date])
 }
