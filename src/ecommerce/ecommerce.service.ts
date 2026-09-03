@@ -40,6 +40,8 @@ import type {
 } from './dto/ecommerce-response.dto';
 import type { RevenueRangeQueryDto } from './dto/revenue-query.dto';
 import type { EcommerceHomeResponseDto } from './dto/ecommerce-home-response.dto';
+import type { OrderStatusSummaryResponseDto } from './dto/order-status-summary.dto';
+import type { ReturnsSummaryResponseDto } from './dto/returns-summary.dto';
 import { ShippingService } from '../shipping/shipping.service';
 import { InventoryService } from '../warehouse/inventory.service';
 import { InventoryBucket, InventoryMovementType } from '@prisma/client';
@@ -55,6 +57,121 @@ const INCLUDED_PAYMENT_STATUSES = Prisma.sql`
   )
 `;
 const MAX_TIMESERIES_DAYS = 366;
+
+// Courier statuses grouped as "still moving toward delivery" for the order
+// status buckets. DELIVERED/REFUSED/CANCELLED are broken out separately.
+const IN_DELIVERY_STATUSES = Prisma.sql`(
+  'PENDING'::"ShippingShipmentStatus",
+  'CONFIRMED'::"ShippingShipmentStatus",
+  'PICKUP_PENDING'::"ShippingShipmentStatus",
+  'PICKED_UP'::"ShippingShipmentStatus",
+  'AT_WAREHOUSE'::"ShippingShipmentStatus",
+  'IN_TRANSIT'::"ShippingShipmentStatus",
+  'OUT_FOR_DELIVERY'::"ShippingShipmentStatus",
+  'POSTPONED'::"ShippingShipmentStatus",
+  'UNREACHABLE'::"ShippingShipmentStatus"
+)`;
+
+// Courier statuses meaning "a return is in progress" for the returns-pending
+// bucket. Once the item is scanned, its EcommerceOrderLine.condition is set
+// and it moves into received/damaged/missing instead.
+const RETURN_IN_PROGRESS_STATUSES = Prisma.sql`(
+  'RETURN_PENDING'::"ShippingShipmentStatus",
+  'RETURN_IN_TRANSIT'::"ShippingShipmentStatus",
+  'RETURNED_TO_WAREHOUSE'::"ShippingShipmentStatus",
+  'RETURN_INSPECTION'::"ShippingShipmentStatus"
+)`;
+
+// One dispatch has at most one linked shipment across these four courier
+// integrations (Ameex is not wired to EcommerceOrderDispatch, so it is
+// intentionally excluded — see shipping-dashboard.service.ts).
+const SHIPMENT_STATUS_CTE = Prisma.sql`
+  WITH shipment_status AS (
+    SELECT
+      dispatch."orderId" AS "orderId",
+      COALESCE(
+        sendit."normalizedStatus",
+        quick."normalizedStatus",
+        forcelog."normalizedStatus",
+        ozone."normalizedStatus"
+      ) AS "normalizedStatus"
+    FROM "EcommerceOrderDispatch" dispatch
+    LEFT JOIN "SenditShipment" sendit ON sendit."dispatchId" = dispatch."id"
+    LEFT JOIN "QuickLivraisonShipment" quick ON quick."dispatchId" = dispatch."id"
+    LEFT JOIN "ForceLogShipment" forcelog ON forcelog."dispatchId" = dispatch."id"
+    LEFT JOIN "OzoneExpressShipment" ozone ON ozone."dispatchId" = dispatch."id"
+  )
+`;
+
+interface OrderStatusBucketRow {
+  currency: string;
+  confirmedCount: number | bigint;
+  confirmedValue: Prisma.Decimal;
+  deliveredCount: number | bigint;
+  deliveredValue: Prisma.Decimal;
+  inDeliveryCount: number | bigint;
+  inDeliveryValue: Prisma.Decimal;
+  refusedCount: number | bigint;
+  refusedValue: Prisma.Decimal;
+  cancelledCount: number | bigint;
+  cancelledValue: Prisma.Decimal;
+  latestUpdatedAt: Date | null;
+}
+
+interface OrderStatusBucket {
+  count: number;
+  value: Prisma.Decimal;
+}
+
+interface OrderStatusBuckets {
+  confirmed: OrderStatusBucket;
+  delivered: OrderStatusBucket;
+  inDelivery: OrderStatusBucket;
+  refused: OrderStatusBucket;
+  cancelled: OrderStatusBucket;
+  dataUpdatedAt: string | null;
+}
+
+const ORDER_STATUS_BUCKET_KEYS = [
+  'confirmed',
+  'delivered',
+  'inDelivery',
+  'refused',
+  'cancelled',
+] as const;
+
+interface ReturnsBucketRow {
+  currency: string;
+  receivedItems: number | bigint;
+  receivedValue: Prisma.Decimal;
+  pendingItems: number | bigint;
+  pendingValue: Prisma.Decimal;
+  damagedItems: number | bigint;
+  damagedValue: Prisma.Decimal;
+  missingItems: number | bigint;
+  missingValue: Prisma.Decimal;
+  latestUpdatedAt: Date | null;
+}
+
+interface ReturnsBucket {
+  items: number;
+  value: Prisma.Decimal;
+}
+
+interface ReturnsBuckets {
+  received: ReturnsBucket;
+  pending: ReturnsBucket;
+  damaged: ReturnsBucket;
+  missing: ReturnsBucket;
+  dataUpdatedAt: string | null;
+}
+
+const RETURNS_BUCKET_KEYS = ['received', 'pending', 'damaged', 'missing'] as const;
+
+interface ProfitRow {
+  currency: string;
+  netProfit: Prisma.Decimal;
+}
 
 interface AggregateRow {
   platform?: string;
@@ -148,6 +265,8 @@ export class EcommerceService {
       recentOrders,
       warehouse,
       shippingConnections,
+      orderStatusBuckets,
+      profitRows,
     ] = await Promise.all([
       this.getRevenueSummary(userId, homeQuery),
       this.prisma.$queryRaw<HomeOrderMetricsRow[]>(Prisma.sql`
@@ -199,7 +318,40 @@ export class EcommerceService {
         this.prisma.forceLogConnection.findUnique({ where: { userId } }),
         this.prisma.ozoneExpressConnection.findUnique({ where: { userId } }),
       ]),
+      this.getOrderStatusBuckets(store, range),
+      this.prisma.$queryRaw<ProfitRow[]>(Prisma.sql`
+          SELECT
+            events."currency",
+            COALESCE(SUM(events."netProfitImpact"), 0) AS "netProfit"
+          FROM "EcommerceOrderFinancialEvent" events
+          INNER JOIN "EcommerceOrder" orders ON orders."id" = events."orderId"
+          INNER JOIN "EcommerceConnection" connection
+            ON connection."id" = orders."connectionId"
+          WHERE connection."storeId" = ${store.id}
+            ${dateFilter}
+          GROUP BY events."currency"
+        `),
     ]);
+
+    let profitValue = new Prisma.Decimal(0);
+    for (const row of profitRows) {
+      profitValue = profitValue.plus(
+        row.currency === store.baseCurrency
+          ? new Prisma.Decimal(row.netProfit)
+          : await this.currencyService.convertAmount(
+              row.netProfit,
+              row.currency,
+              store.baseCurrency,
+            ),
+      );
+    }
+    const lostOrders = {
+      orders:
+        orderStatusBuckets.refused.count + orderStatusBuckets.cancelled.count,
+      value: orderStatusBuckets.refused.value
+        .plus(orderStatusBuckets.cancelled.value)
+        .toFixed(4),
+    };
 
     const row = orderRows[0] ?? emptyHomeOrderMetrics();
     const activeConnections = connectionsResult.data.filter(
@@ -250,6 +402,8 @@ export class EcommerceService {
         dispatched: Number(row.dispatched),
         failed: Number(row.dispatchFailed),
       },
+      profit: { value: profitValue.toFixed(4) },
+      lostOrders,
       connections: connectionsResult.data,
       recentOrders: recentOrders.data,
     };
@@ -1361,6 +1515,232 @@ export class EcommerceService {
     };
   }
 
+  async getOrderStatusSummary(
+    userId: string,
+    query: RevenueRangeQueryDto,
+  ): Promise<OrderStatusSummaryResponseDto> {
+    const store = await this.requireStore(userId);
+    const range = validateRange(defaultHomeRange(query));
+    const buckets = await this.getOrderStatusBuckets(store, range);
+
+    return {
+      period: range,
+      currency: store.baseCurrency,
+      confirmed: toOrderStatusBucketDto(buckets.confirmed),
+      delivered: toOrderStatusBucketDto(buckets.delivered),
+      inDelivery: toOrderStatusBucketDto(buckets.inDelivery),
+      refused: toOrderStatusBucketDto(buckets.refused),
+      cancelled: toOrderStatusBucketDto(buckets.cancelled),
+      dataUpdatedAt: buckets.dataUpdatedAt,
+    };
+  }
+
+  async getReturnsSummary(
+    userId: string,
+    query: RevenueRangeQueryDto,
+  ): Promise<ReturnsSummaryResponseDto> {
+    const store = await this.requireStore(userId);
+    const range = validateRange(defaultHomeRange(query));
+    const buckets = await this.getReturnsBuckets(store, range);
+
+    return {
+      period: range,
+      currency: store.baseCurrency,
+      received: toReturnsBucketDto(buckets.received),
+      pending: toReturnsBucketDto(buckets.pending),
+      damaged: toReturnsBucketDto(buckets.damaged),
+      missing: toReturnsBucketDto(buckets.missing),
+      dataUpdatedAt: buckets.dataUpdatedAt,
+    };
+  }
+
+  /**
+   * Buckets orders in the period by their fulfillment/courier outcome.
+   * Shared by GET /ecommerce/orders/status-summary and the Profit/Lost-Orders
+   * rollups on GET /ecommerce/home so the two screens never disagree.
+   * "confirmed" reuses the same paid/partially-paid/refunded definition as
+   * revenue/summary; the other buckets read the dispatched courier
+   * shipment's normalizedStatus (order.status = CANCELLED also counts toward
+   * "cancelled" for orders never dispatched at all).
+   */
+  private async getOrderStatusBuckets(
+    store: { id: string; baseCurrency: string },
+    range: { from: string | null; to: string | null; timezone: string },
+  ): Promise<OrderStatusBuckets> {
+    const dateFilter = buildDateFilter(range);
+    const rows = await this.prisma.$queryRaw<OrderStatusBucketRow[]>(Prisma.sql`
+      ${SHIPMENT_STATUS_CTE}
+      SELECT
+        orders."currency",
+        COUNT(*) FILTER (
+          WHERE orders."status" <> 'CANCELLED'
+        )::int AS "confirmedCount",
+        COALESCE(SUM(orders."netSales") FILTER (
+          WHERE orders."status" <> 'CANCELLED'
+        ), 0) AS "confirmedValue",
+        COUNT(*) FILTER (
+          WHERE ss."normalizedStatus" = 'DELIVERED'::"ShippingShipmentStatus"
+        )::int AS "deliveredCount",
+        COALESCE(SUM(orders."netSales") FILTER (
+          WHERE ss."normalizedStatus" = 'DELIVERED'::"ShippingShipmentStatus"
+        ), 0) AS "deliveredValue",
+        COUNT(*) FILTER (
+          WHERE ss."normalizedStatus" IN ${IN_DELIVERY_STATUSES}
+        )::int AS "inDeliveryCount",
+        COALESCE(SUM(orders."netSales") FILTER (
+          WHERE ss."normalizedStatus" IN ${IN_DELIVERY_STATUSES}
+        ), 0) AS "inDeliveryValue",
+        COUNT(*) FILTER (
+          WHERE ss."normalizedStatus" = 'REFUSED'::"ShippingShipmentStatus"
+        )::int AS "refusedCount",
+        COALESCE(SUM(orders."netSales") FILTER (
+          WHERE ss."normalizedStatus" = 'REFUSED'::"ShippingShipmentStatus"
+        ), 0) AS "refusedValue",
+        COUNT(*) FILTER (
+          WHERE orders."status" = 'CANCELLED'
+            OR ss."normalizedStatus" = 'CANCELLED'::"ShippingShipmentStatus"
+        )::int AS "cancelledCount",
+        COALESCE(SUM(orders."netSales") FILTER (
+          WHERE orders."status" = 'CANCELLED'
+            OR ss."normalizedStatus" = 'CANCELLED'::"ShippingShipmentStatus"
+        ), 0) AS "cancelledValue",
+        MAX(orders."updatedAt") AS "latestUpdatedAt"
+      FROM "EcommerceOrder" orders
+      INNER JOIN "EcommerceConnection" connection
+        ON connection."id" = orders."connectionId"
+      LEFT JOIN shipment_status ss ON ss."orderId" = orders."id"
+      WHERE connection."storeId" = ${store.id}
+        ${dateFilter}
+      GROUP BY orders."currency"
+    `);
+
+    const buckets: OrderStatusBuckets = {
+      confirmed: { count: 0, value: new Prisma.Decimal(0) },
+      delivered: { count: 0, value: new Prisma.Decimal(0) },
+      inDelivery: { count: 0, value: new Prisma.Decimal(0) },
+      refused: { count: 0, value: new Prisma.Decimal(0) },
+      cancelled: { count: 0, value: new Prisma.Decimal(0) },
+      dataUpdatedAt: null,
+    };
+    let latestUpdatedAt: Date | null = null;
+
+    for (const row of rows) {
+      for (const key of ORDER_STATUS_BUCKET_KEYS) {
+        const countField = `${key}Count` as keyof OrderStatusBucketRow;
+        const valueField = `${key}Value` as keyof OrderStatusBucketRow;
+        buckets[key].count += Number(row[countField]);
+        const rawValue = row[valueField] as Prisma.Decimal;
+        const converted =
+          row.currency === store.baseCurrency
+            ? new Prisma.Decimal(rawValue)
+            : await this.currencyService.convertAmount(
+                rawValue,
+                row.currency,
+                store.baseCurrency,
+              );
+        buckets[key].value = buckets[key].value.plus(converted);
+      }
+      if (
+        row.latestUpdatedAt &&
+        (!latestUpdatedAt || row.latestUpdatedAt > latestUpdatedAt)
+      ) {
+        latestUpdatedAt = row.latestUpdatedAt;
+      }
+    }
+
+    buckets.dataUpdatedAt = latestUpdatedAt?.toISOString() ?? null;
+    return buckets;
+  }
+
+  /**
+   * Buckets returned order lines by outcome for the Returns screen. Period
+   * filters by the parent order's processedAt (consistent with the other
+   * dashboard endpoints), not by conditionRecordedAt — "pending" has no
+   * condition recorded yet, so it has no other timestamp to filter on.
+   */
+  private async getReturnsBuckets(
+    store: { id: string; baseCurrency: string },
+    range: { from: string | null; to: string | null; timezone: string },
+  ): Promise<ReturnsBuckets> {
+    const dateFilter = buildDateFilter(range);
+    const rows = await this.prisma.$queryRaw<ReturnsBucketRow[]>(Prisma.sql`
+      ${SHIPMENT_STATUS_CTE}
+      SELECT
+        lines."currency",
+        COALESCE(SUM(lines."quantity") FILTER (
+          WHERE lines."condition" IN ('GOOD', 'RETURNED')
+        ), 0)::int AS "receivedItems",
+        COALESCE(SUM(lines."totalPrice") FILTER (
+          WHERE lines."condition" IN ('GOOD', 'RETURNED')
+        ), 0) AS "receivedValue",
+        COALESCE(SUM(lines."quantity") FILTER (
+          WHERE lines."condition" IS NULL
+            AND ss."normalizedStatus" IN ${RETURN_IN_PROGRESS_STATUSES}
+        ), 0)::int AS "pendingItems",
+        COALESCE(SUM(lines."totalPrice") FILTER (
+          WHERE lines."condition" IS NULL
+            AND ss."normalizedStatus" IN ${RETURN_IN_PROGRESS_STATUSES}
+        ), 0) AS "pendingValue",
+        COALESCE(SUM(lines."quantity") FILTER (
+          WHERE lines."condition" = 'DAMAGED'
+        ), 0)::int AS "damagedItems",
+        COALESCE(SUM(COALESCE(lines."damageCost", lines."totalPrice")) FILTER (
+          WHERE lines."condition" = 'DAMAGED'
+        ), 0) AS "damagedValue",
+        COALESCE(SUM(lines."quantity") FILTER (
+          WHERE lines."condition" IN ('MISSING', 'LOST')
+        ), 0)::int AS "missingItems",
+        COALESCE(SUM(lines."totalPrice") FILTER (
+          WHERE lines."condition" IN ('MISSING', 'LOST')
+        ), 0) AS "missingValue",
+        MAX(lines."updatedAt") AS "latestUpdatedAt"
+      FROM "EcommerceOrderLine" lines
+      INNER JOIN "EcommerceOrder" orders ON orders."id" = lines."orderId"
+      INNER JOIN "EcommerceConnection" connection
+        ON connection."id" = orders."connectionId"
+      LEFT JOIN shipment_status ss ON ss."orderId" = orders."id"
+      WHERE connection."storeId" = ${store.id}
+        ${dateFilter}
+      GROUP BY lines."currency"
+    `);
+
+    const buckets: ReturnsBuckets = {
+      received: { items: 0, value: new Prisma.Decimal(0) },
+      pending: { items: 0, value: new Prisma.Decimal(0) },
+      damaged: { items: 0, value: new Prisma.Decimal(0) },
+      missing: { items: 0, value: new Prisma.Decimal(0) },
+      dataUpdatedAt: null,
+    };
+    let latestUpdatedAt: Date | null = null;
+
+    for (const row of rows) {
+      for (const key of RETURNS_BUCKET_KEYS) {
+        const itemsField = `${key}Items` as keyof ReturnsBucketRow;
+        const valueField = `${key}Value` as keyof ReturnsBucketRow;
+        buckets[key].items += Number(row[itemsField]);
+        const rawValue = row[valueField] as Prisma.Decimal;
+        const converted =
+          row.currency === store.baseCurrency
+            ? new Prisma.Decimal(rawValue)
+            : await this.currencyService.convertAmount(
+                rawValue,
+                row.currency,
+                store.baseCurrency,
+              );
+        buckets[key].value = buckets[key].value.plus(converted);
+      }
+      if (
+        row.latestUpdatedAt &&
+        (!latestUpdatedAt || row.latestUpdatedAt > latestUpdatedAt)
+      ) {
+        latestUpdatedAt = row.latestUpdatedAt;
+      }
+    }
+
+    buckets.dataUpdatedAt = latestUpdatedAt?.toISOString() ?? null;
+    return buckets;
+  }
+
   private async requireStore(
     userId: string,
   ): Promise<{ id: string; baseCurrency: string }> {
@@ -1541,6 +1921,14 @@ function toAmounts(row: AggregateRow): RevenueAmountsDto {
     tax: row.tax.toFixed(4),
     totalCollected: row.totalCollected.toFixed(4),
   };
+}
+
+function toOrderStatusBucketDto(bucket: OrderStatusBucket) {
+  return { orders: bucket.count, value: bucket.value.toFixed(4) };
+}
+
+function toReturnsBucketDto(bucket: ReturnsBucket) {
+  return { items: bucket.items, value: bucket.value.toFixed(4) };
 }
 
 function zeroAmounts(): Record<keyof RevenueAmountsDto, Prisma.Decimal> {

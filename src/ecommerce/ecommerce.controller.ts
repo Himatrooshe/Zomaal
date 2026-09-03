@@ -62,6 +62,8 @@ import { EcommerceSyncService } from './ecommerce-sync.service';
 import { EcommerceService } from './ecommerce.service';
 import { EcommerceMetricsService } from './ecommerce-metrics.service';
 import { EcommerceHomeResponseDto } from './dto/ecommerce-home-response.dto';
+import { OrderStatusSummaryResponseDto } from './dto/order-status-summary.dto';
+import { ReturnsSummaryResponseDto } from './dto/returns-summary.dto';
 import { EcommerceOrderTimelineService } from './ecommerce-order-timeline.service';
 import { OrderTimelineDto } from './dto/order-timeline.dto';
 import { ScanShipmentQueryDto } from './dto/scan-shipment-query.dto';
@@ -272,6 +274,62 @@ export class EcommerceController {
     @Query() query: RevenueRangeQueryDto,
   ): Promise<RevenueTimeseriesDto> {
     return this.ecommerceService.getRevenueTimeseries(user.userId, query);
+  }
+
+  @Get('orders/status-summary')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Get order counts and value by fulfillment/courier outcome',
+    description:
+      'Backs the Orders screen status tiles (Delivered / In Delivery / Refused / Canceled). ' +
+      '"confirmed" is every non-cancelled order in the period (payment status is not used — ' +
+      'COD orders stay unpaid until the courier collects on delivery); ' +
+      'the other buckets read the normalized status of the courier shipment dispatched via ' +
+      'Sendit/QuickLivraison/ForceLog/OzoneExpress. Orders never dispatched through one of ' +
+      'our courier integrations (a 3rd-party plugin or manual fulfillment) only ever count ' +
+      'toward "confirmed" or "cancelled" (via order.status). Defaults to the current calendar month.',
+  })
+  @ApiOkResponse({
+    type: OrderStatusSummaryResponseDto,
+    headers: PRIVATE_NO_STORE_HEADERS,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid date range or timezone.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  getOrderStatusSummary(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: RevenueRangeQueryDto,
+  ): Promise<OrderStatusSummaryResponseDto> {
+    return this.ecommerceService.getOrderStatusSummary(user.userId, query);
+  }
+
+  @Get('returns/summary')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Get returned-item counts and value by outcome',
+    description:
+      'Backs the Returns screen tiles (Received / Pending / Damaged / Missing). Built from ' +
+      'the per-line condition recorded via POST /ecommerce/orders/:orderId/condition — ' +
+      '"pending" additionally reads the courier shipment status for orders whose return is ' +
+      'in transit but not yet scanned. Defaults to the current calendar month, filtered by ' +
+      "the parent order's processedAt.",
+  })
+  @ApiOkResponse({
+    type: ReturnsSummaryResponseDto,
+    headers: PRIVATE_NO_STORE_HEADERS,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid date range or timezone.',
+    type: ApiErrorDto,
+  })
+  @ApiRevenueReadErrors()
+  getReturnsSummary(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: RevenueRangeQueryDto,
+  ): Promise<ReturnsSummaryResponseDto> {
+    return this.ecommerceService.getReturnsSummary(user.userId, query);
   }
 
   @Post('orders/manual')

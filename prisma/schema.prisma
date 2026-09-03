@@ -469,6 +469,66 @@ model Store {
   inventoryBarcodes       InventoryBarcode[]
   mediaAssets             MediaAsset[]
   packagingMaterials      PackagingMaterial[]
+  expenseEntries          ExpenseEntry[]
+  adSpendEntries          AdSpendEntry[]
+}
+
+// Manual expense ledger. Nothing in the codebase produces Operational/
+// Purchases/Packaging cost automatically yet, so the merchant logs these
+// directly (mirrors how COD amounts are entered today). "Advertising Cost"
+// on the Expenses screen is NOT stored here — it is the sum of AdSpendEntry
+// for the same period, so ad spend is only ever entered once.
+enum ExpenseCategory {
+  OPERATIONAL
+  PURCHASES
+  PACKAGING
+  OTHER
+}
+
+model ExpenseEntry {
+  id          String          @id @default(uuid())
+  category    ExpenseCategory
+  amount      Decimal         @db.Decimal(20, 4)
+  currency    String
+  quantity    Int? // e.g. packaging piece count. Null where a category has no natural unit count.
+  description String?
+  incurredAt  DateTime
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, incurredAt])
+  @@index([storeId, category])
+}
+
+// Manual ad-spend ledger. No Meta/TikTok/Google/Snapchat integration exists
+// yet, so the merchant logs spend and results per platform themselves.
+enum AdPlatform {
+  META
+  TIKTOK
+  GOOGLE
+  SNAPCHAT
+  OTHER
+}
+
+model AdSpendEntry {
+  id          String     @id @default(uuid())
+  platform    AdPlatform
+  amount      Decimal    @db.Decimal(20, 4)
+  currency    String
+  results     Int? // conversions/leads/clicks - whatever the merchant tracks per platform
+  description String?
+  spentAt     DateTime
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, spentAt])
+  @@index([storeId, platform])
 }
 
 enum EcommercePlatform {

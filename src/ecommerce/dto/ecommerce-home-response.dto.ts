@@ -72,6 +72,32 @@ export class EcommerceHomeShippingMetricsDto {
   failed!: number;
 }
 
+export class EcommerceHomeProfitDto {
+  @ApiProperty({
+    example: '8442.00',
+    description:
+      "Sum of every order's netProfitImpact from the financial-event ledger for orders " +
+      'processed in the period, converted to the store base currency.',
+  })
+  value!: string;
+}
+
+export class EcommerceHomeLostOrdersDto {
+  @ApiProperty({
+    example: 78,
+    description:
+      'Count of orders in the period that were cancelled, or whose dispatched courier ' +
+      'shipment was refused or cancelled.',
+  })
+  orders!: number;
+
+  @ApiProperty({
+    example: '4842.00',
+    description: 'Sum of netSales for the lost orders above, in the store base currency.',
+  })
+  value!: string;
+}
+
 export class EcommerceHomeResponseDto {
   @ApiProperty({ example: 'MAD' })
   baseCurrency!: string;
@@ -87,6 +113,12 @@ export class EcommerceHomeResponseDto {
 
   @ApiProperty({ type: EcommerceHomeShippingMetricsDto })
   shipping!: EcommerceHomeShippingMetricsDto;
+
+  @ApiProperty({ type: EcommerceHomeProfitDto })
+  profit!: EcommerceHomeProfitDto;
+
+  @ApiProperty({ type: EcommerceHomeLostOrdersDto })
+  lostOrders!: EcommerceHomeLostOrdersDto;
 
   @ApiProperty({ type: [EcommerceConnectionDto] })
   connections!: EcommerceConnectionDto[];
