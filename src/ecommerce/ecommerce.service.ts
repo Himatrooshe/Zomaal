@@ -46,6 +46,7 @@ import { ShippingService } from '../shipping/shipping.service';
 import { InventoryService } from '../warehouse/inventory.service';
 import { InventoryBucket, InventoryMovementType } from '@prisma/client';
 import { ProductCondition } from './constants/product-condition';
+import { deriveCurrentStatus, deriveTerminalOutcome } from './order-status.util';
 import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
 
 const INCLUDED_PAYMENT_STATUSES = Prisma.sql`
@@ -1051,38 +1052,81 @@ export class EcommerceService {
         ozoneExpressShipment: { select: { normalizedStatus: true } },
       },
     });
-    if (!dispatch) {
+    if (dispatch) {
+      const shipment =
+        dispatch.senditShipment ??
+        dispatch.quickLivraisonShipment ??
+        dispatch.forceLogShipment ??
+        dispatch.ozoneExpressShipment ??
+        null;
+
+      return {
+        orderId: dispatch.order.id,
+        orderName: dispatch.order.orderName,
+        source: 'ZOMAAL_COURIER' as const,
+        provider: dispatch.provider,
+        // Guaranteed non-null: the where clause above only matches dispatches
+        // whose providerTracking equals trackingNumber.
+        trackingNumber: dispatch.providerTracking ?? trackingNumber,
+        dispatchStatus: dispatch.status,
+        // Null only if the courier hasn't sent us a status update yet (or we
+        // haven't synced/received its webhook). Never derived from dispatch
+        // status — that would silently show "PENDING" forever after delivery.
+        status: shipment?.normalizedStatus ?? null,
+        products: mapScannedLines(dispatch.order.lines),
+      };
+    }
+
+    // No Zomaal dispatch matched — try the order's Timeline tracking info
+    // instead (fulfilled via a 3rd-party shipping plugin on the platform;
+    // any carrier, e.g. FedEx). The GIN index on EcommerceOrderEvent.metadata
+    // keeps this a fast lookup rather than a table scan.
+    const trackingEvent = await this.prisma.ecommerceOrderEvent.findFirst({
+      where: {
+        order: { connection: { storeId: store.id } },
+        metadata: { path: ['number'], equals: trackingNumber },
+      },
+      select: {
+        metadata: true,
+        order: {
+          select: {
+            id: true,
+            orderName: true,
+            events: { select: { type: true, occurredAt: true } },
+            lines: {
+              include: { warehouseVariant: { include: { product: true } } },
+            },
+          },
+        },
+      },
+    });
+    if (!trackingEvent) {
       throw new NotFoundException('No shipment found for this code');
     }
 
-    const shipment =
-      dispatch.senditShipment ??
-      dispatch.quickLivraisonShipment ??
-      dispatch.forceLogShipment ??
-      dispatch.ozoneExpressShipment ??
-      null;
+    const metadata = trackingEvent.metadata as {
+      carrier?: unknown;
+      number?: unknown;
+    } | null;
+    const carrier =
+      typeof metadata?.carrier === 'string' ? metadata.carrier : 'Unknown carrier';
 
     return {
-      orderId: dispatch.order.id,
-      orderName: dispatch.order.orderName,
-      provider: dispatch.provider,
-      // Guaranteed non-null: the where clause above only matches dispatches
-      // whose providerTracking equals trackingNumber.
-      trackingNumber: dispatch.providerTracking ?? trackingNumber,
-      dispatchStatus: dispatch.status,
-      // Null only if the courier hasn't sent us a status update yet (or we
-      // haven't synced/received its webhook). Never derived from dispatch
-      // status — that would silently show "PENDING" forever after delivery.
-      status: shipment?.normalizedStatus ?? null,
-      products: dispatch.order.lines
-        .filter((line) => line.warehouseVariant?.productCode)
-        .map((line) => ({
-          productCode: line.warehouseVariant!.productCode as string,
-          productName: line.warehouseVariant!.product.name,
-          quantity: line.quantity,
-          condition: line.condition,
-          damageCost: line.damageCost?.toFixed(2) ?? null,
-        })),
+      orderId: trackingEvent.order.id,
+      orderName: trackingEvent.order.orderName,
+      source: 'PLATFORM_TRACKING' as const,
+      provider: carrier,
+      trackingNumber,
+      dispatchStatus: null,
+      // deriveTerminalOutcome first — correctly resolves a delivered-then-
+      // returned order to RETURNED, which deriveCurrentStatus's severity
+      // ranking never would (DELIVERED always outranks RETURNED there).
+      // Falls back to deriveCurrentStatus only when no terminal outcome
+      // exists yet, to still show an in-progress status like IN_TRANSIT.
+      status:
+        deriveTerminalOutcome(trackingEvent.order.events) ??
+        deriveCurrentStatus(trackingEvent.order.events),
+      products: mapScannedLines(trackingEvent.order.lines),
     };
   }
 
@@ -1133,6 +1177,73 @@ export class EcommerceService {
       );
     }
 
+    const result = await this.applyProductCondition(store, order, line, input);
+    return { ...result, productCode: input.productCode };
+  }
+
+  /**
+   * Same recording + inventory-movement + damage-loss logic as
+   * recordProductCondition above, keyed by orderLineId instead of
+   * productCode — used by the Returns module (ReturnRequestService) so it
+   * can record a condition for ANY order line, including ones with no
+   * matched warehouse product/productCode (recordProductCondition can't
+   * reach those). Single source of truth: recordProductCondition and this
+   * both delegate to applyProductCondition below — never duplicated.
+   */
+  async recordProductConditionByLineId(
+    userId: string,
+    orderId: string,
+    orderLineId: string,
+    input: {
+      condition: ProductCondition;
+      damageCost?: number;
+      notes?: string;
+    },
+  ) {
+    const store = await this.requireStore(userId);
+    const order = await this.prisma.ecommerceOrder.findUnique({
+      where: { id: orderId, connection: { storeId: store.id } },
+      include: {
+        lines: {
+          include: {
+            warehouseVariant: { include: { inventoryItem: true } },
+          },
+        },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    const line = order.lines.find((candidate) => candidate.id === orderLineId);
+    if (!line) {
+      throw new NotFoundException('Order line not found on this order');
+    }
+    return this.applyProductCondition(store, order, line, input);
+  }
+
+  private async applyProductCondition(
+    store: { id: string },
+    order: {
+      id: string;
+      orderName: string | null;
+      currency: string;
+    },
+    line: {
+      id: string;
+      quantity: number;
+      condition: string | null;
+      damageCost: Prisma.Decimal | null;
+      totalPrice: Prisma.Decimal;
+      warehouseVariant: {
+        inventoryItem: { id: string } | null;
+      } | null;
+    },
+    input: {
+      condition: ProductCondition;
+      damageCost?: number;
+      notes?: string;
+    },
+  ) {
     const damageCost =
       input.condition === ProductCondition.DAMAGED &&
       input.damageCost !== undefined
@@ -1214,11 +1325,30 @@ export class EcommerceService {
         damageCost,
         conditionChanged || costChanged ? recordedAt.getTime() : undefined,
       );
+    } else if (
+      input.condition === ProductCondition.LOST ||
+      input.condition === ProductCondition.MISSING
+    ) {
+      // Nothing physical came back — the full line value is lost, not just
+      // a damage estimate. Previously this recorded no financial event at
+      // all for LOST/MISSING (only DAMAGED did), so the ledger silently
+      // omitted these losses; the Returns screen's Loss Summary already
+      // counts full totalPrice as netLoss for these conditions (see
+      // ReturnRequestService.computeLoss), so the persisted ledger needs
+      // to agree with what that screen shows.
+      await this.financialService.applyDamageLoss(
+        order.id,
+        line.id,
+        order.currency,
+        line.totalPrice,
+        conditionChanged ? recordedAt.getTime() : undefined,
+        `Product returned ${input.condition.toLowerCase()}`,
+      );
     }
 
     return {
       orderId: order.id,
-      productCode: input.productCode,
+      orderLineId: line.id,
       condition: input.condition,
       damageCost: damageCost?.toFixed(2) ?? null,
       notes,
@@ -1977,6 +2107,28 @@ function formatSqlDate(value: Date | string | undefined): string {
   return value instanceof Date
     ? value.toISOString().slice(0, 10)
     : String(value).slice(0, 10);
+}
+
+function mapScannedLines(
+  lines: {
+    quantity: number;
+    condition: string | null;
+    damageCost: Prisma.Decimal | null;
+    warehouseVariant: {
+      productCode: string | null;
+      product: { name: string };
+    } | null;
+  }[],
+) {
+  return lines
+    .filter((line) => line.warehouseVariant?.productCode)
+    .map((line) => ({
+      productCode: line.warehouseVariant!.productCode as string,
+      productName: line.warehouseVariant!.product.name,
+      quantity: line.quantity,
+      condition: line.condition,
+      damageCost: line.damageCost?.toFixed(2) ?? null,
+    }));
 }
 
 function mapDispatch(

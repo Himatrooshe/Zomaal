@@ -477,15 +477,19 @@ export class EcommerceController {
   @Post('orders/:orderId/financials/sync')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Re-check the order's carrier status and apply financial events",
+    summary: "Re-check the order's shipping status and apply financial events",
     description:
-      "Reads whichever courier shipment is linked to this order's dispatch " +
-      '(Sendit/QuickLivraison/ForceLog/OzoneExpress) and, if its live status ' +
-      'is DELIVERED or a terminal failure (CANCELLED/REFUSED/' +
-      'RETURNED_TO_SELLER), applies the matching revenue event. Idempotent — ' +
-      'safe to call repeatedly. Note: this is a manual/on-demand trigger; ' +
-      'it does not yet fire automatically from courier sync or webhooks — ' +
-      'call it (or poll it) after dispatch to keep financials current.',
+      "If the order was dispatched via one of Zomaal's own couriers " +
+      '(Sendit/QuickLivraison/ForceLog/OzoneExpress), reads that shipment\'s live status ' +
+      'and, if DELIVERED or a terminal failure (CANCELLED/REFUSED/RETURNED_TO_SELLER), ' +
+      "applies the matching revenue event. Otherwise — fulfilled via a 3rd-party " +
+      'shipping plugin on the platform (any carrier) — falls back to the ' +
+      "order's Timeline currentStatus (GET .../timeline) for the same DELIVERED/terminal-" +
+      'failure check; call GET .../timeline?refresh=true first to make sure it reflects ' +
+      "the platform's latest state before syncing. Idempotent — safe to call repeatedly. " +
+      'Note: this is a manual/on-demand trigger; it does not yet fire automatically from ' +
+      'courier sync, webhooks, or timeline refreshes — call it (or poll it) after ' +
+      'dispatch/fulfillment to keep financials current.',
   })
   @ApiParam({
     name: 'orderId',

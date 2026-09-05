@@ -640,6 +640,7 @@ model EcommerceOrder {
   events       EcommerceOrderEvent[]
   lines        EcommerceOrderLine[]
   financialEvents EcommerceOrderFinancialEvent[]
+  returnRequests  ReturnRequest[]
 
   @@unique([connectionId, externalOrderId])
   @@index([connectionId, processedAt])
@@ -667,6 +668,16 @@ model EcommerceOrderEvent {
 
   @@unique([orderId, providerEventId])
   @@index([orderId, occurredAt])
+  // A GIN index on `metadata` was tried here first but doesn't help: the
+  // lookup this supports (EcommerceService.resolveScannedCode,
+  // ReturnRequestService.resolveOrder — resolving a 3rd-party carrier's
+  // tracking number to its order) filters via Prisma's `path`+`equals`,
+  // which compiles to the `#>` path-extraction operator, not the
+  // containment/existence operators (`@>`/`?`/`?|`/`?&`) a default GIN
+  // index actually accelerates. The real index is a btree expression index
+  // matching that exact `#>` expression, added via a hand-written raw-SQL
+  // migration since Prisma's DSL can't express it — see
+  // prisma/migrations/*_metadata_number_btree_index/migration.sql.
 }
 
 model EcommerceOrderLine {
@@ -696,9 +707,73 @@ model EcommerceOrderLine {
   warehouseVariantId String?
   warehouseVariant   WarehouseVariant? @relation(fields: [warehouseVariantId], references: [id], onDelete: SetNull)
 
+  returnRequestLines ReturnRequestLine[]
+
   @@unique([orderId, externalLineId])
   @@index([orderId])
   @@index([warehouseVariantId])
+}
+
+// ============================================================================
+// Returns module — the warehouse-facing "a parcel came back, verify what's
+// inside" workflow (Scan → Return Detected → Manual Verification screens).
+// Separate from EcommerceOrderLine.condition above, which this module
+// reads/writes through the existing recordProductCondition() write path —
+// a ReturnRequest is the wrapper around "this order has a return event in
+// progress", condition/damageCost per line stay on EcommerceOrderLine as
+// the single source of truth (never duplicated here).
+// ============================================================================
+
+enum ReturnRequestStatus {
+  NEED_VERIFICATION // detected, not every line has a recorded condition yet
+  PROCESSED         // every line in this request has a recorded condition
+}
+
+// One "a parcel for this order came back" event. detectedVia/scannedValue
+// are audit trail only. DELAYED (shown on the Returns list tabs) is not a
+// stored status — it's NEED_VERIFICATION older than a threshold, computed
+// at read time in ecommerce-return-request.service.ts, so there is no
+// background job needed to flip it.
+model ReturnRequest {
+  id           String              @id @default(uuid())
+  status       ReturnRequestStatus @default(NEED_VERIFICATION)
+  reason       String?
+  detectedVia  String // SCAN | MANUAL
+  scannedValue String?
+  verifiedAt   DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  orderId String
+  order   EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  lines ReturnRequestLine[]
+
+  @@index([orderId])
+  @@index([status, createdAt])
+}
+
+// Which order lines are part of this specific return event. A line can
+// appear in more than one ReturnRequest across its lifetime (e.g. a
+// mis-scan corrected later), but only one at a time should be
+// NEED_VERIFICATION — enforced by a partial unique index on
+// ReturnRequest(orderId) WHERE status = 'NEED_VERIFICATION', added via a
+// hand-written raw-SQL migration (see
+// prisma/migrations/*_add_return_request_open_unique_index/migration.sql)
+// since Prisma's schema DSL cannot express a filtered/partial index.
+// ReturnRequestService.detect() relies on this to survive two concurrent
+// scans of the same order racing past its findFirst check.
+model ReturnRequestLine {
+  id       String @id @default(uuid())
+  quantity Int
+
+  returnRequestId String
+  returnRequest   ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+
+  orderLineId String
+  orderLine   EcommerceOrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+
+  @@unique([returnRequestId, orderLineId])
 }
 
 // Immutable append-only ledger. Each row is one financial event triggered by

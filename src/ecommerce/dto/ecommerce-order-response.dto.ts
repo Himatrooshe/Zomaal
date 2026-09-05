@@ -323,45 +323,50 @@ export class ScannedShipmentResponseDto {
   orderName: string | null;
 
   @ApiProperty({
-    enum: ['SENDIT', 'QUICKLIVRAISON', 'FORCELOG', 'OZONEEXPRESS'],
+    enum: ['ZOMAAL_COURIER', 'PLATFORM_TRACKING'],
+    description:
+      'ZOMAAL_COURIER — dispatched through one of our own courier integrations ' +
+      '(Sendit/QuickLivraison/ForceLog/OzoneExpress); dispatchStatus is meaningful. ' +
+      'PLATFORM_TRACKING — fulfilled via a 3rd-party shipping plugin on the ' +
+      "e-commerce platform (any carrier); resolved from the order's Timeline " +
+      'tracking data instead of a Zomaal dispatch — dispatchStatus is always null here.',
+  })
+  source: 'ZOMAAL_COURIER' | 'PLATFORM_TRACKING';
+
+  @ApiProperty({
+    example: 'SENDIT',
+    description:
+      'One of SENDIT/QUICKLIVRAISON/FORCELOG/OZONEEXPRESS for source=ZOMAAL_COURIER, ' +
+      'or the carrier name as reported by the platform (e.g. "FedEx", "DHL") for ' +
+      'source=PLATFORM_TRACKING — open-ended, not a fixed enum.',
   })
   provider: string;
 
   @ApiProperty({ example: 'SH92831' })
   trackingNumber: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
+    nullable: true,
     enum: ['PENDING', 'DISPATCHED', 'FAILED'],
     description:
-      'Whether we succeeded in handing the parcel to the courier. Does not change again after that — this is NOT the shipment tracking status, see `status` for that.',
+      'Whether we succeeded in handing the parcel to the courier. Only present for ' +
+      'source=ZOMAAL_COURIER — always null for source=PLATFORM_TRACKING, which has no ' +
+      'Zomaal dispatch step. Does not change again after that — this is NOT the shipment ' +
+      'tracking status, see `status` for that.',
   })
-  dispatchStatus: string;
+  dispatchStatus: string | null;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     nullable: true,
-    enum: [
-      'PENDING',
-      'CONFIRMED',
-      'PICKUP_PENDING',
-      'PICKED_UP',
-      'AT_WAREHOUSE',
-      'IN_TRANSIT',
-      'OUT_FOR_DELIVERY',
-      'POSTPONED',
-      'UNREACHABLE',
-      'DELIVERED',
-      'CANCELLED',
-      'REFUSED',
-      'RETURN_PENDING',
-      'RETURN_IN_TRANSIT',
-      'RETURNED_TO_WAREHOUSE',
-      'RETURN_INSPECTION',
-      'RETURNED_TO_STOCK',
-      'RETURNED_TO_SELLER',
-      'UNKNOWN',
-    ],
+    example: 'IN_TRANSIT',
     description:
-      'The live carrier shipment status — what the mockup\'s "Current Status: 🟢 In Transit" refers to. Always read fresh from the database, never from a scanned QR payload (status changes after printing). Null only when the courier hasn\'t sent a status update yet.',
+      'The live shipment status — what the mockup\'s "Current Status: 🟢 In Transit" ' +
+      'refers to. For source=ZOMAAL_COURIER this is a ShippingShipmentStatus value ' +
+      '(IN_TRANSIT/OUT_FOR_DELIVERY/DELIVERED/...); for source=PLATFORM_TRACKING this is ' +
+      "the order's Timeline currentStatus (an OrderEventType value, e.g. " +
+      'OUT_FOR_DELIVERY/DELIVERED/DELIVERY_FAILED) — same shape, different vocabulary. ' +
+      'Always read fresh from the database, never from a scanned QR payload (status ' +
+      "changes after printing). Null only when there's no status yet.",
   })
   status: string | null;
 
@@ -440,14 +445,24 @@ export class OrderFinancialSummaryDto {
 
   @ApiProperty({
     example: '600.00',
-    description: 'Recognized revenue net of any reversal — 0 until DELIVERED.',
+    description:
+      'Recognized revenue net of any reversal — 0 until DELIVERED. For orders with no ' +
+      "Zomaal dispatch, DELIVERED is read from the order's Timeline currentStatus instead " +
+      'of a courier shipment status.',
   })
   revenue: string;
 
   @ApiProperty({ example: '150.00' })
   productCost: string;
 
-  @ApiProperty({ example: '50.00' })
+  @ApiProperty({
+    example: '50.00',
+    description:
+      "For orders dispatched via one of Zomaal's own couriers, the actual courier fee. " +
+      'For orders fulfilled via a 3rd-party shipping plugin (any carrier — Zomaal has no ' +
+      'visibility into what that carrier charged the merchant), this falls back to the ' +
+      'amount charged to the customer for shipping — a proxy for the real cost, not it.',
+  })
   shippingCost: string;
 
   @ApiProperty({ example: '0.00' })

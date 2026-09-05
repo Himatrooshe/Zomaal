@@ -22,6 +22,8 @@ import { EcommerceFinancialModule } from './ecommerce-financial.module';
 import { ShopifyOrderTimelineAdapter } from './shopify-order-timeline.adapter';
 import { YouCanOrderTimelineAdapter } from './youcan-order-timeline.adapter';
 import { LightfunnelsOrderTimelineAdapter } from './lightfunnels-order-timeline.adapter';
+import { ReturnRequestController } from './return-request.controller';
+import { ReturnRequestService } from './return-request.service';
 
 @Module({
   imports: [
@@ -33,9 +35,14 @@ import { LightfunnelsOrderTimelineAdapter } from './lightfunnels-order-timeline.
     WarehouseModule,
     EcommerceFinancialModule,
   ],
-  controllers: [EcommerceController, EcommerceSchedulerController],
+  controllers: [
+    EcommerceController,
+    EcommerceSchedulerController,
+    ReturnRequestController,
+  ],
   providers: [
     EcommerceService,
+    ReturnRequestService,
     EcommerceSyncService,
     EcommerceMetricsService,
     EcommerceSchedulerGuard,

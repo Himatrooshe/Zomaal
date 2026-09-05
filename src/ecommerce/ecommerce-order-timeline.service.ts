@@ -6,6 +6,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderEventType } from './constants/order-event-type';
+import { deriveCurrentStatus } from './order-status.util';
 import { ShopifyOrderTimelineAdapter } from './shopify-order-timeline.adapter';
 import { YouCanOrderTimelineAdapter } from './youcan-order-timeline.adapter';
 import { LightfunnelsOrderTimelineAdapter } from './lightfunnels-order-timeline.adapter';
@@ -467,43 +468,9 @@ function isValidDate(d: unknown): d is Date {
   return d instanceof Date && !isNaN(d.getTime());
 }
 
-/**
- * Returns the most advanced lifecycle status present in the event list.
- * Uses a fixed priority list so that a late-arriving ORDER_CREATED notification
- * (e.g. Shopify's "Received new order" event timestamped after payment) never
- * overwrites a PAYMENT_PAID or DELIVERED status.
- */
-const STATUS_PRIORITY: string[] = [
-  OrderEventType.DELIVERED,
-  OrderEventType.RETURN_IN_TRANSIT,
-  OrderEventType.RETURNED,
-  OrderEventType.RETURN_REQUESTED,
-  OrderEventType.OUT_FOR_DELIVERY,
-  OrderEventType.DELIVERY_FAILED,
-  OrderEventType.IN_TRANSIT,
-  OrderEventType.PICKED_UP,
-  OrderEventType.LABEL_CREATED,
-  OrderEventType.FULFILLMENT_CANCELLED,
-  OrderEventType.FULFILLMENT_CREATED,
-  OrderEventType.FULFILLMENT_PENDING,
-  OrderEventType.ORDER_CANCELLED,
-  OrderEventType.PAYMENT_REFUNDED,
-  OrderEventType.PAYMENT_VOIDED,
-  OrderEventType.PAYMENT_PAID,
-  OrderEventType.PAYMENT_PARTIALLY_PAID,
-  OrderEventType.PAYMENT_AUTHORIZED,
-  OrderEventType.PAYMENT_PENDING,
-  OrderEventType.ORDER_CLOSED,
-  OrderEventType.ORDER_CONFIRMED,
-  OrderEventType.ORDER_CREATED,
-  OrderEventType.OTHER,
-];
-
-function deriveCurrentStatus(events: Array<{ type: string }>): string | null {
-  if (events.length === 0) return null;
-  const present = new Set(events.map((e) => e.type));
-  return STATUS_PRIORITY.find((s) => present.has(s)) ?? events[0].type;
-}
+// deriveCurrentStatus moved to order-status.util.ts — also used by
+// ecommerce-order-financial.service.ts for the 3rd-party-carrier revenue
+// fallback, so both stay on the exact same definition of "current status".
 
 // ---------------------------------------------------------------------------
 // Status maps (kept here to avoid a separate file for such small data)

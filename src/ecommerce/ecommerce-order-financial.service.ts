@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ShippingShipmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { OrderEventType } from './constants/order-event-type';
+import {
+  deriveTerminalOutcome,
+  TERMINAL_FAILURE_EVENT_TYPES,
+} from './order-status.util';
 
 const TERMINAL_FAILURE_STATUSES = new Set<ShippingShipmentStatus>([
   ShippingShipmentStatus.CANCELLED,
@@ -104,15 +109,101 @@ export class EcommerceOrderFinancialService {
   async syncFromDispatch(userId: string, orderId: string) {
     const order = await this.prisma.ecommerceOrder.findFirst({
       where: { id: orderId, connection: { store: { userId } } },
-      select: { dispatch: { select: { id: true } } },
+      select: { id: true, dispatch: { select: { id: true } } },
     });
     if (!order) {
       throw new NotFoundException('Order not found');
     }
     if (!order.dispatch) {
-      return { applied: false, reason: 'NOT_DISPATCHED' as SyncReason };
+      // No Zomaal courier dispatch — most likely fulfilled via a 3rd-party
+      // shipping plugin on Shopify/YouCan/Lightfunnels (any carrier: FedEx,
+      // DHL, local couriers). Fall back to the order's Timeline data
+      // instead of leaving revenue stuck at 0 forever.
+      return this.syncFromTimelineEvents(order.id);
     }
     return this.syncFromDispatchId(order.dispatch.id);
+  }
+
+  /**
+   * Fallback revenue-recognition path for orders with no Zomaal dispatch.
+   * Reads whichever OrderEventType events are already stored for this order
+   * (populated by the Order Timeline feature — see
+   * ecommerce-order-timeline.service.ts) and applies the exact same
+   * revenue/reversal math as the dispatch-based path via
+   * applyRevenueRecognition/applyRevenueReversal below, with one honest
+   * substitution: we have no visibility into what a 3rd-party carrier
+   * actually charged the merchant, so shippingCost falls back to
+   * order.shipping (what the CUSTOMER was charged for shipping) exactly the
+   * same way applyRevenueRecognition already falls back when shipmentFee is
+   * null — this is a proxy, not necessarily the merchant's real cost, and
+   * is documented as such on OrderFinancialSummaryDto.shippingCost.
+   *
+   * Does not fire automatically on its own — call it (or poll
+   * POST .../financials/sync, which now reaches here for undispatched
+   * orders) after the order's Timeline has been refreshed. Wiring this to
+   * fire automatically whenever the Timeline discovers a new terminal
+   * status is a natural next step, deliberately left out of this pass to
+   * keep it scoped to "make the existing sync endpoint actually work for
+   * these orders" rather than also changing when it runs.
+   */
+  private async syncFromTimelineEvents(orderId: string) {
+    const events = await this.prisma.ecommerceOrderEvent.findMany({
+      where: { orderId },
+      select: { type: true, occurredAt: true },
+    });
+    if (events.length === 0) {
+      return { applied: false, reason: 'NOT_DISPATCHED' as SyncReason };
+    }
+
+    // deriveTerminalOutcome, not deriveCurrentStatus — the latter's
+    // severity-ranked priority list puts DELIVERED ahead of RETURNED
+    // unconditionally, which would leave a delivered-then-returned order's
+    // revenue permanently recognized and never reversed. This picks
+    // whichever of DELIVERED/terminal-failure actually happened last.
+    const currentStatus = deriveTerminalOutcome(events);
+
+    if (currentStatus === OrderEventType.DELIVERED) {
+      const order = await this.prisma.ecommerceOrder.findUniqueOrThrow({
+        where: { id: orderId },
+        select: {
+          id: true,
+          currency: true,
+          totalCollected: true,
+          shipping: true,
+          lines: {
+            select: {
+              quantity: true,
+              warehouseVariant: { select: { costPrice: true } },
+            },
+          },
+        },
+      });
+      const event = await this.applyRevenueRecognition(order, null);
+      return {
+        applied: event !== null,
+        reason: 'DELIVERED' as SyncReason,
+        shipmentStatus: currentStatus ?? undefined,
+      };
+    }
+
+    if (currentStatus && TERMINAL_FAILURE_EVENT_TYPES.has(currentStatus)) {
+      const order = await this.prisma.ecommerceOrder.findUniqueOrThrow({
+        where: { id: orderId },
+        select: { id: true, currency: true },
+      });
+      const event = await this.applyRevenueReversal(order.id, order.currency);
+      return {
+        applied: event !== null,
+        reason: 'CANCELLED' as SyncReason,
+        shipmentStatus: currentStatus ?? undefined,
+      };
+    }
+
+    return {
+      applied: false,
+      reason: 'IN_PROGRESS' as SyncReason,
+      shipmentStatus: currentStatus ?? undefined,
+    };
   }
 
   /**
@@ -125,6 +216,35 @@ export class EcommerceOrderFinancialService {
    * errors — only NOT_DISPATCHED/NO_CARRIER_STATUS_YET/IN_PROGRESS can occur
    * here since dispatchId is presumed to already exist.
    */
+  /**
+   * The real courier fee if dispatched via one of Zomaal's own couriers,
+   * else the amount charged to the customer for shipping (order.shipping)
+   * as a proxy — same fallback rule syncFromDispatchId/
+   * applyRevenueRecognition use internally. Public so other features
+   * needing "what did shipping actually cost this order" (currently
+   * ReturnRequestService's Loss Summary preview) read the exact same
+   * number the financial ledger does, rather than re-implementing the
+   * courier-fee fallback chain a second time.
+   */
+  async resolveEffectiveShippingCost(orderId: string): Promise<Prisma.Decimal> {
+    const order = await this.prisma.ecommerceOrder.findUniqueOrThrow({
+      where: { id: orderId },
+      select: {
+        shipping: true,
+        dispatch: {
+          select: {
+            senditShipment: { select: { fee: true } },
+            quickLivraisonShipment: { select: { fee: true } },
+            forceLogShipment: { select: { fee: true } },
+            ozoneExpressShipment: { select: { fee: true } },
+          },
+        },
+      },
+    });
+    const fee = pickShipmentFee(order.dispatch);
+    return fee ?? order.shipping;
+  }
+
   async syncFromDispatchId(dispatchId: string) {
     const dispatch = await this.prisma.ecommerceOrderDispatch.findUnique({
       where: { id: dispatchId },
@@ -150,12 +270,7 @@ export class EcommerceOrderFinancialService {
       return { applied: false, reason: 'NOT_DISPATCHED' as SyncReason };
     }
 
-    const shipment =
-      dispatch.senditShipment ??
-      dispatch.quickLivraisonShipment ??
-      dispatch.forceLogShipment ??
-      dispatch.ozoneExpressShipment ??
-      null;
+    const shipment = pickCourierShipment(dispatch);
     if (!shipment) {
       return { applied: false, reason: 'NO_CARRIER_STATUS_YET' as SyncReason };
     }
@@ -200,6 +315,7 @@ export class EcommerceOrderFinancialService {
     currency: string,
     damageCost: Prisma.Decimal,
     correctionSuffix?: number,
+    reason: string = 'Product returned damaged',
   ) {
     // A plain re-record (same condition, same cost) reuses the stable key —
     // idempotent, no-op on repeat. A genuine correction (condition or cost
@@ -222,7 +338,7 @@ export class EcommerceOrderFinancialService {
         damageCost,
         netProfitImpact: damageCost.negated(),
         currency,
-        reason: 'Product returned damaged',
+        reason,
         idempotencyKey,
       },
       update: {}, // events are immutable once stored — never overwrite
@@ -330,4 +446,33 @@ export class EcommerceOrderFinancialService {
       },
     });
   }
+}
+
+// The single "which courier actually shipped this" rule, shared by
+// syncFromDispatchId (needs the shipment's normalizedStatus too) and
+// resolveEffectiveShippingCost (only needs the fee) — never duplicated.
+type CourierShipmentFields<T> = {
+  senditShipment: T | null;
+  quickLivraisonShipment: T | null;
+  forceLogShipment: T | null;
+  ozoneExpressShipment: T | null;
+};
+
+function pickCourierShipment<T>(
+  dispatch: CourierShipmentFields<T>,
+): T | null {
+  return (
+    dispatch.senditShipment ??
+    dispatch.quickLivraisonShipment ??
+    dispatch.forceLogShipment ??
+    dispatch.ozoneExpressShipment ??
+    null
+  );
+}
+
+function pickShipmentFee(
+  dispatch: CourierShipmentFields<{ fee: Prisma.Decimal | null }> | null,
+): Prisma.Decimal | null {
+  if (!dispatch) return null;
+  return pickCourierShipment(dispatch)?.fee ?? null;
 }
