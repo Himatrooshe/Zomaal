@@ -41,6 +41,11 @@ jobs:
     steps:
       - name: Check out the exact commit
         uses: actions/checkout@v6
+        with:
+          # Full history, not the default shallow clone — the destructive-
+          # migration check below needs to diff against the previous
+          # commit/base ref to find only NEWLY added migration files.
+          fetch-depth: 0
 
       - name: Use Node.js 22
         uses: actions/setup-node@v6
@@ -58,10 +63,52 @@ jobs:
       - name: Reject destructive production migrations
         shell: bash
         run: |
-          if grep -ERni \
+          # Only scans migration files newly ADDED in this push/PR — not the
+          # entire accumulated history. Once a destructive migration has
+          # gone through the reviewed manual deployment procedure this gate
+          # requires and is merged, it must never cause every subsequent,
+          # unrelated push to fail this same check forever. Existing
+          # migration files are also never expected to be edited in place
+          # (Prisma's own convention), so a diff-filter=A (Added) is the
+          # correct scope, not a red flag if some future migration touches
+          # an old file — that would be caught by other review, not this gate.
+          base="${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base" 2>/dev/null; then
+            echo "::warning::No valid previous commit to diff against (first push to a new branch, or force-push) — checking every migration file as a fallback."
+            new_migrations="$(find prisma/migrations -name '*.sql')"
+          else
+            new_migrations="$(git diff --name-only --diff-filter=A "$base" HEAD -- 'prisma/migrations/*.sql')"
+          fi
+          if [ -z "$new_migrations" ]; then
+            exit 0
+          fi
+          destructive="$(grep -ERnli \
             'DROP[[:space:]]+(DATABASE|SCHEMA|TABLE|COLUMN)|TRUNCATE([[:space:]]+TABLE)?|DELETE[[:space:]]+FROM' \
-            prisma/migrations; then
-            echo "::error::A destructive Prisma migration requires an explicitly reviewed deployment procedure."
+            $new_migrations || true)"
+          if [ -z "$destructive" ]; then
+            exit 0
+          fi
+          # The "explicitly reviewed deployment procedure" this gate requires:
+          # a REVIEWED.md file committed in the SAME migration folder as the
+          # destructive SQL, written by a human who has actually checked
+          # prod's real data for the affected tables/columns (see
+          # docs/destructive-migrations.md for the checklist). Its presence
+          # is itself the audit trail — git blame on it shows who reviewed
+          # it and when, and its content should say what was checked and
+          # what was found. This does not skip prisma migrate deploy — the
+          # normal deploy-time entrypoint still runs it; this only clears the
+          # CI gate that would otherwise block the merge unconditionally.
+          missing_review=0
+          for file in $destructive; do
+            dir="$(dirname "$file")"
+            if [ ! -f "$dir/REVIEWED.md" ]; then
+              echo "::error file=$file::Destructive migration is missing a reviewed sign-off. Add $dir/REVIEWED.md documenting who checked prod's real data for the affected tables/columns, what they found, and why it's safe to run. See docs/destructive-migrations.md."
+              missing_review=1
+            else
+              echo "::notice file=$file::Destructive migration has a review sign-off at $dir/REVIEWED.md — allowed through."
+            fi
+          done
+          if [ "$missing_review" -eq 1 ]; then
             exit 1
           fi
 

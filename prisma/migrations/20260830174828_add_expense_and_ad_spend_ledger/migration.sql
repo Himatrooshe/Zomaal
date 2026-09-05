@@ -1,11 +1,26 @@
 /*
-  Warnings:
+  NOTE (2026-09-06): This migration originally also dropped the `Product`,
+  `ProductImage`, `ProductListing`, and `ProductVariant` tables. Those drops
+  were NOT part of this feature — Prisma generated them automatically because
+  those models had been removed from schema.prisma in an earlier commit
+  without a migration, and `prisma migrate dev` reconciled that drift here.
 
-  - You are about to drop the `Product` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `ProductImage` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `ProductListing` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `ProductVariant` table. If the table is not empty, all the data it contains will be lost.
+  They have been removed from this migration deliberately. Those four tables
+  were created in production by 20260728092500_add_missing_ecommerce_models,
+  and code that wrote to them (`prisma.product.create`, `productListing`,
+  `productVariant`) was live in main and deployed to production between
+  2026-07-27 and 2026-08-09 — so they may contain real production rows. No
+  one has verified prod's actual row counts for them yet.
 
+  The tables are inert: nothing in the current codebase reads or writes them,
+  so leaving them in place costs nothing but a small amount of storage. This
+  leaves schema.prisma intentionally drifted from the database by those four
+  removals, which the CI drift check tolerates (removal-only drift warns, it
+  does not fail).
+
+  To actually drop them later: follow docs/destructive-migrations.md — verify
+  prod's row counts first, then add a dedicated migration that does only that,
+  with a REVIEWED.md alongside it.
 */
 -- CreateEnum
 CREATE TYPE "ExpenseCategory" AS ENUM ('OPERATIONAL', 'PURCHASES', 'PACKAGING', 'OTHER');
@@ -13,35 +28,8 @@ CREATE TYPE "ExpenseCategory" AS ENUM ('OPERATIONAL', 'PURCHASES', 'PACKAGING', 
 -- CreateEnum
 CREATE TYPE "AdPlatform" AS ENUM ('META', 'TIKTOK', 'GOOGLE', 'SNAPCHAT', 'OTHER');
 
--- DropForeignKey
-ALTER TABLE "Product" DROP CONSTRAINT "Product_storeId_fkey";
-
--- DropForeignKey
-ALTER TABLE "ProductImage" DROP CONSTRAINT "ProductImage_productId_fkey";
-
--- DropForeignKey
-ALTER TABLE "ProductListing" DROP CONSTRAINT "ProductListing_connectionId_fkey";
-
--- DropForeignKey
-ALTER TABLE "ProductListing" DROP CONSTRAINT "ProductListing_productId_fkey";
-
--- DropForeignKey
-ALTER TABLE "ProductVariant" DROP CONSTRAINT "ProductVariant_productId_fkey";
-
 -- DropIndex
 DROP INDEX "EcommerceOrderLine_sku_idx";
-
--- DropTable
-DROP TABLE "Product";
-
--- DropTable
-DROP TABLE "ProductImage";
-
--- DropTable
-DROP TABLE "ProductListing";
-
--- DropTable
-DROP TABLE "ProductVariant";
 
 -- CreateTable
 CREATE TABLE "ExpenseEntry" (
