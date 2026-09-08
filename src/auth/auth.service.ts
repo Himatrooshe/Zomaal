@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { StaffStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import type { OtpProvider } from '../interfaces/otp-provider.interface';
@@ -92,7 +93,10 @@ export class AuthService {
       'Too many login attempts. Please try again later.',
     );
 
-    const user = await this.prisma.user.findUnique({ where: { phone } });
+    const user = await this.prisma.user.findUnique({
+      where: { phone },
+      include: { staffMembership: true },
+    });
     const passwordMatches =
       user?.passwordHash && (await bcrypt.compare(password, user.passwordHash));
 
@@ -100,9 +104,29 @@ export class AuthService {
       throw new UnauthorizedException('Invalid phone number or password');
     }
 
+    // A deactivated staff member keeps their credentials (per the deactivate-
+    // only removal policy) but cannot sign in at all — checked here, not just
+    // at resource-access time, so the mobile app doesn't hand them a session
+    // token it then rejects on the very next request.
+    if (
+      user.staffMembership &&
+      user.staffMembership.status !== StaffStatus.ACTIVE
+    ) {
+      throw new UnauthorizedException('This staff account has been deactivated');
+    }
+
     const tokens = await this.generateTokens(user.id, user.phone);
     await this.updateRefreshToken(user.id, tokens.refreshToken);
     await this.clearRateLimit(`auth:login:${phone}`);
+
+    if (user.staffMembership) {
+      await this.prisma.staffMember
+        .update({
+          where: { id: user.staffMembership.id },
+          data: { lastLoginAt: new Date(), lastActiveAt: new Date() },
+        })
+        .catch(() => undefined);
+    }
 
     return {
       ...tokens,

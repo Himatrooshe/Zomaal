@@ -19,6 +19,11 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  // A user is EITHER a store owner (via `store`, the pre-existing 1:1) OR a
+  // staff member of someone else's store (via `staffMembership`) — never
+  // both. StoreAccessService resolves whichever applies; nothing else in the
+  // codebase should reach for either relation directly.
+  staffMembership            StaffMember?
   store                      Store?
   senditConnection           SenditConnection?
   quickLivraisonConnection   QuickLivraisonConnection?
@@ -469,68 +474,13 @@ model Store {
   inventoryBarcodes       InventoryBarcode[]
   mediaAssets             MediaAsset[]
   packagingMaterials      PackagingMaterial[]
-  expenseEntries          ExpenseEntry[]
-  adSpendEntries          AdSpendEntry[]
   adsConnections          AdsConnection[]
+  roles                   Role[]
+  staffMembers            StaffMember[]
+  expenseCategories       ExpenseCategory[]
+  expenses                Expense[]
 }
 
-// Manual expense ledger. Nothing in the codebase produces Operational/
-// Purchases/Packaging cost automatically yet, so the merchant logs these
-// directly (mirrors how COD amounts are entered today). "Advertising Cost"
-// on the Expenses screen is NOT stored here — it is the sum of AdSpendEntry
-// for the same period, so ad spend is only ever entered once.
-enum ExpenseCategory {
-  OPERATIONAL
-  PURCHASES
-  PACKAGING
-  OTHER
-}
-
-model ExpenseEntry {
-  id          String          @id @default(uuid())
-  category    ExpenseCategory
-  amount      Decimal         @db.Decimal(20, 4)
-  currency    String
-  quantity    Int? // e.g. packaging piece count. Null where a category has no natural unit count.
-  description String?
-  incurredAt  DateTime
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  storeId String
-  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
-
-  @@index([storeId, incurredAt])
-  @@index([storeId, category])
-}
-
-// Manual ad-spend ledger. No Meta/TikTok/Google/Snapchat integration exists
-// yet, so the merchant logs spend and results per platform themselves.
-enum AdPlatform {
-  META
-  TIKTOK
-  GOOGLE
-  SNAPCHAT
-  OTHER
-}
-
-model AdSpendEntry {
-  id          String     @id @default(uuid())
-  platform    AdPlatform
-  amount      Decimal    @db.Decimal(20, 4)
-  currency    String
-  results     Int? // conversions/leads/clicks - whatever the merchant tracks per platform
-  description String?
-  spentAt     DateTime
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  storeId String
-  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
-
-  @@index([storeId, spentAt])
-  @@index([storeId, platform])
-}
 
 enum EcommercePlatform {
   SHOPIFY
@@ -1473,4 +1423,264 @@ model AdsMetricSnapshot {
 
   @@unique([campaignId, date])
   @@index([campaignId, date])
+}
+
+// ============================================================================
+// Staff, roles and access control
+//
+// Until now a store had exactly one user (Store.userId, unique). A store can
+// now also have staff: separate User accounts that log in with their own
+// phone + password (POST /auth/login already supports this) and reach the
+// store through StaffMember instead of through ownership.
+//
+// A person belongs to at most one store (StaffMember.userId is unique).
+// Managing staff and roles is owner-only and is NOT expressible as a
+// permission — see src/access/permissions.ts.
+// ============================================================================
+
+// A named permission preset, e.g. "Operations Manager". Permissions are the
+// string keys from src/access/permissions.ts ("orders.view", "returns.scan",
+// ...) rather than boolean columns, so adding a sub-action later needs no
+// migration. Roles are per-store: one store's "Manager" is unrelated to
+// another's.
+model Role {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  permissions String[]
+  // Seeded defaults a store starts with. Editable, but not deletable, so a
+  // store can never end up with zero roles to assign.
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  staffMembers StaffMember[]
+
+  @@unique([storeId, name])
+  @@index([storeId])
+}
+
+enum StaffStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// The staff-specific profile hanging off a User. Deactivating sets status
+// INACTIVE (the "Deactive" button) — staff are never hard-deleted, so their
+// salary history and the audit trail on expenses they created stay intact.
+model StaffMember {
+  id       String      @id @default(uuid())
+  // The User model only carries `phone` (the login identifier) — no name.
+  // Every Staff list/details screen needs a display name, so it lives here.
+  name     String
+  jobTitle String? // "Operations Manager" — a label, not a permission source
+  photoUrl String?
+  status   StaffStatus @default(ACTIVE)
+  // Staff Details shows these as two separate rows — "Last Active 2 hours
+  // ago" in the header and "Last Login: Apr 26, 2026, 2:30 PM" under
+  // Activity — so they are two fields: lastActiveAt is touched by any
+  // authenticated request, lastLoginAt only by a successful login.
+  lastActiveAt DateTime?
+  lastLoginAt  DateTime?
+  joinedAt     DateTime    @default(now())
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Unique: a person belongs to at most one store.
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  // Nullable so a staff member can exist before a role is assigned, and so
+  // deleting a role doesn't cascade-delete people.
+  roleId String?
+  role   Role?   @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  // Per-person exception to the role's preset. EMPTY means "inherit the role
+  // exactly", which is the normal case — that's the whole point of roles
+  // being real: edit the role once and everyone on it changes. Non-empty
+  // replaces the role's list entirely for this one person, which is what the
+  // per-staff toggles on Add/Edit Staff write to when an owner deviates.
+  // Effective permissions are resolved in one place (StoreAccessService), so
+  // nothing else needs to know this rule.
+  permissionOverrides String[]
+
+  salaryProfile  StaffSalaryProfile?
+  salaryPayments StaffSalaryPayment[]
+  salaryExpenses Expense[]            @relation("SalaryExpensesFor")
+
+  @@index([storeId, status])
+}
+
+enum SalaryFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum SalaryPaymentMethod {
+  BANK_TRANSFER
+  CASH
+}
+
+// AUTOMATIC: paying a salary also writes the matching Expense row.
+// MANUAL: the owner records that expense themselves later.
+enum SalaryExpenseHandling {
+  AUTOMATIC
+  MANUAL
+}
+
+// The recurring salary agreement — the "Manage Salary Info" screen. One per
+// staff member; individual payments live in StaffSalaryPayment.
+model StaffSalaryProfile {
+  id              String                @id @default(uuid())
+  baseSalary      Decimal               @db.Decimal(20, 4)
+  frequency       SalaryFrequency
+  paymentMethod   SalaryPaymentMethod
+  expenseHandling SalaryExpenseHandling @default(AUTOMATIC)
+  startDate       DateTime
+  // Derived and stored so the staff list can show "Next: 16-05-2026" and
+  // filter overdue without recomputing a schedule per row.
+  nextPaymentDate DateTime?
+  notes           String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  staffMemberId String      @unique
+  staffMember   StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+}
+
+enum SalaryPaymentStatus {
+  PENDING
+  PAID
+}
+
+// One salary payment. OVERDUE is deliberately NOT a stored status — it is
+// PENDING with paymentDate in the past, derived at read time, so nothing has
+// to run on a schedule to keep it truthful (same approach as ReturnRequest's
+// DELAYED).
+model StaffSalaryPayment {
+  id            String              @id @default(uuid())
+  amount        Decimal             @db.Decimal(20, 4)
+  paymentDate   DateTime
+  paidAt        DateTime?
+  paymentMethod SalaryPaymentMethod
+  status        SalaryPaymentStatus @default(PENDING)
+  notes         String?
+  receiptUrl    String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  staffMemberId String
+  staffMember   StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+
+  // Set when expenseHandling was AUTOMATIC — links the payment to the expense
+  // it generated, so the Expenses screen never double-counts it and deleting
+  // one can clean up the other.
+  expenseId String?  @unique
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  @@index([staffMemberId, paymentDate])
+  @@index([status, paymentDate])
+}
+
+// ============================================================================
+// Expenses
+//
+// The Expenses screen is a hybrid: each category unions rows entered by hand
+// here with figures already owned by other modules (courier fees, real ad
+// spend, warehouse purchases, salary payments). Those are read from their
+// source at query time and never copied into Expense, so the two can't drift
+// apart or double-count.
+// ============================================================================
+
+// The Expenses screen has TWO levels of category and they are not the same
+// list:
+//
+//   • The summary screen groups everything into 5 fixed buckets —
+//     Shipping Costs / Ad spend / Staff Salary / Purchase Costs /
+//     Other Expenses. That is ExpenseGroup below.
+//   • "Add Expense" offers granular categories — Rent, Bills, Supplies,
+//     Marketing, Maintenance, Employee salary, plus anything created via
+//     "+ Create Category". Those are ExpenseCategory rows.
+//
+// Most granular categories roll up into OTHER (the Other Expenses detail
+// screen shows "Equipment Repair" tagged "Maintenance"), which is why every
+// category carries the bucket it belongs to.
+enum ExpenseGroup {
+  SHIPPING
+  ADS
+  SALARY
+  PURCHASES
+  OTHER
+}
+
+// Seeded system categories (Rent, Bills, Supplies, Marketing, Maintenance,
+// Employee salary) plus anything the merchant adds via "+ Create Category".
+model ExpenseCategory {
+  id   String       @id @default(uuid())
+  name String
+  // Which of the 5 summary buckets this category totals into. Custom
+  // categories default to OTHER.
+  group     ExpenseGroup @default(OTHER)
+  icon      String?
+  color     String?
+  isSystem  Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  expenses Expense[]
+
+  @@unique([storeId, name])
+  @@index([storeId])
+}
+
+enum ExpensePaymentMethod {
+  CASH
+  BANK
+}
+
+// A manually recorded expense — the "Add Expense" screen.
+model Expense {
+  id            String               @id @default(uuid())
+  title         String
+  amount        Decimal              @db.Decimal(20, 4)
+  paymentMethod ExpensePaymentMethod
+  spentAt       DateTime
+  notes         String?
+  receiptUrl    String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  categoryId String
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  // Required when the category's group is SALARY, ignored otherwise: which
+  // staff member this salary expense is for. Set automatically when a salary
+  // payment on AUTOMATIC generates its expense, and chosen by the owner when
+  // they record a MANUAL one by hand. Having it here is what makes the
+  // "don't let a manual salary expense double-count an automatic one" check
+  // possible at all.
+  staffMemberId String?
+  staffFor      StaffMember? @relation("SalaryExpensesFor", fields: [staffMemberId], references: [id], onDelete: SetNull)
+
+  // Audit: which user recorded it. Nullable and SetNull so removing a user
+  // never destroys the expense record itself.
+  createdByUserId String?
+
+  salaryPayment StaffSalaryPayment?
+
+  @@index([storeId, spentAt])
+  @@index([storeId, categoryId])
 }

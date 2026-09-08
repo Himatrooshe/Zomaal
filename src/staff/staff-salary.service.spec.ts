@@ -1,0 +1,205 @@
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  SalaryExpenseHandling,
+  SalaryFrequency,
+  SalaryPaymentMethod,
+  StaffStatus,
+} from '@prisma/client';
+import { StaffSalaryService } from './staff-salary.service';
+
+const STORE_ACCESS = { storeId: 'store-1', isOwner: true };
+
+function decimal(value: string) {
+  // Minimal stand-in for Prisma.Decimal — only the methods this service calls.
+  return {
+    toString: () => value,
+    toFixed: (n: number) => Number(value).toFixed(n),
+    plus: (other: unknown) =>
+      decimal((Number(value) + Number((other as { toString(): string }).toString())).toString()),
+  };
+}
+
+function build() {
+  const prisma = {
+    staffMember: { findFirst: jest.fn(), findMany: jest.fn() },
+    staffSalaryProfile: { findUnique: jest.fn(), upsert: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+    staffSalaryPayment: { findMany: jest.fn(), count: jest.fn(), create: jest.fn() },
+    expenseCategory: { findFirst: jest.fn(), create: jest.fn() },
+  };
+  const storeAccess = { requireOwner: jest.fn().mockResolvedValue(STORE_ACCESS) };
+  const service = new StaffSalaryService(prisma as never, storeAccess as never);
+  return { service, prisma, storeAccess };
+}
+
+describe('StaffSalaryService', () => {
+  it('404s a salary profile lookup for a staff member outside this store', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findFirst.mockResolvedValue(null);
+
+    await expect(service.getProfile('owner-user', 'staff-x')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('blocks a manual payment for every staff member whose profile is AUTOMATIC', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findMany.mockResolvedValue([
+      {
+        id: 'staff-1',
+        name: 'Auto Staff',
+        salaryProfile: { expenseHandling: SalaryExpenseHandling.AUTOMATIC, baseSalary: decimal('100') },
+      },
+    ]);
+
+    await expect(
+      service.createPayments('owner-user', {
+        staffMemberIds: ['staff-1'],
+        paymentDate: '2026-09-01',
+        paymentMethod: SalaryPaymentMethod.CASH,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.staffSalaryPayment.create).not.toHaveBeenCalled();
+  });
+
+  it('404s a bulk payment when a staffMemberId does not belong to this store', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findMany.mockResolvedValue([]); // none found for either id
+
+    await expect(
+      service.createPayments('owner-user', {
+        staffMemberIds: ['staff-missing'],
+        paymentDate: '2026-09-01',
+        paymentMethod: SalaryPaymentMethod.CASH,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('requires an explicit amount when a staff member has no salary profile set', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findMany.mockResolvedValue([
+      { id: 'staff-1', name: 'No Profile Staff', salaryProfile: null },
+    ]);
+
+    await expect(
+      service.createPayments('owner-user', {
+        staffMemberIds: ['staff-1'],
+        paymentDate: '2026-09-01',
+        paymentMethod: SalaryPaymentMethod.CASH,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('creates a manual payment linked to a generated expense for a MANUAL staff member', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findMany.mockResolvedValue([
+      {
+        id: 'staff-1',
+        name: 'Manual Staff',
+        salaryProfile: { expenseHandling: SalaryExpenseHandling.MANUAL, baseSalary: decimal('3000') },
+      },
+    ]);
+    prisma.expenseCategory.findFirst.mockResolvedValue({ id: 'cat-salary' });
+    prisma.staffSalaryPayment.create.mockResolvedValue({
+      id: 'payment-1',
+      staffMemberId: 'staff-1',
+      amount: decimal('3000'),
+      paymentDate: new Date('2026-09-01'),
+      paidAt: new Date('2026-09-01'),
+      paymentMethod: SalaryPaymentMethod.CASH,
+      status: 'PAID',
+      notes: null,
+      receiptUrl: null,
+    });
+
+    const result = await service.createPayments('owner-user', {
+      staffMemberIds: ['staff-1'],
+      paymentDate: '2026-09-01',
+      paymentMethod: SalaryPaymentMethod.CASH,
+    });
+
+    expect(result.payments).toHaveLength(1);
+    expect(result.payments[0].amount).toBe('3000.00');
+    const createArgs = prisma.staffSalaryPayment.create.mock.calls[0][0];
+    expect(createArgs.data.expense.create.storeId).toBe('store-1');
+    expect(createArgs.data.expense.create.categoryId).toBe('cat-salary');
+  });
+
+  it('skips a deactivated staff member during automatic processing without erroring', async () => {
+    const { service, prisma } = build();
+    prisma.staffSalaryProfile.findMany.mockResolvedValue([
+      {
+        id: 'profile-1',
+        staffMemberId: 'staff-1',
+        baseSalary: decimal('100'),
+        frequency: SalaryFrequency.MONTHLY,
+        paymentMethod: SalaryPaymentMethod.CASH,
+        nextPaymentDate: new Date('2026-09-01'),
+        staffMember: { id: 'staff-1', name: 'X', storeId: 'store-1', status: StaffStatus.INACTIVE },
+      },
+    ]);
+
+    const result = await service.runAutomaticPayments();
+
+    expect(result.processed).toBe(0);
+    expect(prisma.staffSalaryPayment.create).not.toHaveBeenCalled();
+  });
+
+  it('advances nextPaymentDate and creates a linked expense for a due AUTOMATIC profile', async () => {
+    const { service, prisma } = build();
+    prisma.staffSalaryProfile.findMany.mockResolvedValue([
+      {
+        id: 'profile-1',
+        staffMemberId: 'staff-1',
+        baseSalary: decimal('100'),
+        frequency: SalaryFrequency.MONTHLY,
+        paymentMethod: SalaryPaymentMethod.CASH,
+        nextPaymentDate: new Date('2026-09-01T00:00:00.000Z'),
+        staffMember: { id: 'staff-1', name: 'Auto Staff', storeId: 'store-1', status: StaffStatus.ACTIVE },
+      },
+    ]);
+    prisma.expenseCategory.findFirst.mockResolvedValue({ id: 'cat-salary' });
+    prisma.staffSalaryPayment.create.mockResolvedValue({});
+
+    const result = await service.runAutomaticPayments();
+
+    expect(result.processed).toBe(1);
+    expect(prisma.staffSalaryProfile.update).toHaveBeenCalledWith({
+      where: { id: 'profile-1' },
+      data: { nextPaymentDate: new Date('2026-10-01T00:00:00.000Z') },
+    });
+  });
+
+  it('creates a fallback "Salaries" category when a store has none yet', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findMany.mockResolvedValue([
+      {
+        id: 'staff-1',
+        name: 'Manual Staff',
+        salaryProfile: { expenseHandling: SalaryExpenseHandling.MANUAL, baseSalary: decimal('3000') },
+      },
+    ]);
+    prisma.expenseCategory.findFirst.mockResolvedValue(null);
+    prisma.expenseCategory.create.mockResolvedValue({ id: 'new-cat' });
+    prisma.staffSalaryPayment.create.mockResolvedValue({
+      id: 'payment-1',
+      staffMemberId: 'staff-1',
+      amount: decimal('3000'),
+      paymentDate: new Date(),
+      paidAt: new Date(),
+      paymentMethod: SalaryPaymentMethod.CASH,
+      status: 'PAID',
+      notes: null,
+      receiptUrl: null,
+    });
+
+    await service.createPayments('owner-user', {
+      staffMemberIds: ['staff-1'],
+      paymentDate: '2026-09-01',
+      paymentMethod: SalaryPaymentMethod.CASH,
+    });
+
+    expect(prisma.expenseCategory.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ group: 'SALARY' }) }),
+    );
+  });
+});

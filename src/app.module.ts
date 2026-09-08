@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
+import { AccessModule } from './access/access.module';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -15,8 +16,10 @@ import { YouCanModule } from './youcan/youcan.module';
 import { LightfunnelsModule } from './lightfunnels/lightfunnels.module';
 import { CurrencyModule } from './currency/currency.module';
 import { WarehouseModule } from './warehouse/warehouse.module';
-import { FinanceModule } from './finance/finance.module';
 import { AdsModule } from './ads/ads.module';
+import { RolesModule } from './roles/roles.module';
+import { StaffModule } from './staff/staff.module';
+import { ExpensesModule } from './expenses/expenses.module';
 
 @Module({
   imports: [
@@ -25,6 +28,7 @@ import { AdsModule } from './ads/ads.module';
       validate: validateEnvironment,
     }),
     PrismaModule,
+    AccessModule,
     RedisModule,
     AuthModule,
     UsersModule,
@@ -36,8 +40,10 @@ import { AdsModule } from './ads/ads.module';
     LightfunnelsModule,
     CurrencyModule,
     WarehouseModule,
-    FinanceModule,
     AdsModule,
+    RolesModule,
+    StaffModule,
+    ExpensesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

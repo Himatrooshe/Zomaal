@@ -6729,25 +6729,37 @@ paths:
                 example: private, no-store
           description: ''
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/EcommerceHomeResponseDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/EcommerceHomeResponseDto'
         '400':
           description: Invalid date range or timezone.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
           description: The current user has not created a Zomaal store.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
@@ -6770,19 +6782,28 @@ paths:
                 type: string
                 example: private, no-store
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/EcommerceConnectionListDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/EcommerceConnectionListDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
           description: The current user has not created a Zomaal store.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
@@ -6812,49 +6833,73 @@ paths:
                 type: string
                 example: private, no-store
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/EcommerceSyncResponseDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/EcommerceSyncResponseDto'
         '400':
           description: '`connectionId` is not a valid UUID.'
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '403':
           description: The provider token is missing a required order-read permission. Reconnect with the documented scopes.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
           description: The connection does not exist or does not belong to the current user.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '409':
           description: The provider account must be reconnected before syncing.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '502':
           description: Shopify, YouCan, or Lightfunnels returned malformed order, monetary, or pagination data.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '503':
           description: The selected provider is throttled or temporarily unavailable.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
@@ -6878,25 +6923,37 @@ paths:
         '200':
           description: ''
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/EcommerceMetricsRefreshDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/EcommerceMetricsRefreshDto'
         '400':
           description: connectionId is not a valid UUID.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
           description: The current user has not created a Zomaal store.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
@@ -6944,25 +7001,37 @@ paths:
                 type: string
                 example: private, no-store
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/RevenueSummaryDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/RevenueSummaryDto'
         '400':
           description: Invalid calendar date, date order, timezone, or unexpected query parameter.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
           description: The current user has not created a Zomaal store.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
@@ -7010,30 +7079,251 @@ paths:
                 type: string
                 example: private, no-store
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/RevenueTimeseriesDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/RevenueTimeseriesDto'
         '400':
           description: Invalid calendar date, date order, timezone, range over 366 days, or unexpected query parameter.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
           description: The current user has not created a Zomaal store.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
       summary: Get daily combined revenue
+      tags:
+        - E-commerce Revenue
+  /ecommerce/orders/status-summary:
+    get:
+      description: Backs the Orders screen status tiles (Delivered / In Delivery / Refused / Canceled). "confirmed" is every non-cancelled order in the period (payment status is not used — COD orders stay unpaid until the courier collects on delivery); the other buckets read the normalized status of the courier shipment dispatched via Sendit/QuickLivraison/ForceLog/OzoneExpress. Orders never dispatched through one of our courier integrations (a 3rd-party plugin or manual fulfillment) only ever count toward "confirmed" or "cancelled" (via order.status). Defaults to the current calendar month.
+      operationId: Ecommerce_getOrderStatusSummary
+      parameters:
+        - name: from
+          required: false
+          in: query
+          description: Inclusive first reporting date in the requested timezone. Omit for an all-time summary.
+          schema:
+            pattern: ^\d{4}-\d{2}-\d{2}$
+            example: '2026-07-01'
+            type: string
+        - name: to
+          required: false
+          in: query
+          description: Inclusive last reporting date in the requested timezone. Omit for an all-time summary.
+          schema:
+            pattern: ^\d{4}-\d{2}-\d{2}$
+            example: '2026-07-31'
+            type: string
+        - name: timezone
+          required: false
+          in: query
+          description: IANA timezone used for date boundaries and daily grouping. Times are stored in UTC.
+          schema:
+            maxLength: 64
+            default: UTC
+            example: Africa/Casablanca
+            type: string
+      responses:
+        '200':
+          headers:
+            Cache-Control:
+              description: Revenue and connection data is private to the authenticated store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          description: ''
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/OrderStatusSummaryResponseDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/OrderStatusSummaryResponseDto'
+        '400':
+          description: Invalid date range or timezone.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get order counts and value by fulfillment/courier outcome
+      tags:
+        - E-commerce Revenue
+  /ecommerce/returns/summary:
+    get:
+      description: Backs the Returns screen tiles (Received / Pending / Damaged / Missing). Built from the per-line condition recorded via POST /ecommerce/orders/:orderId/condition — "pending" additionally reads the courier shipment status for orders whose return is in transit but not yet scanned. Defaults to the current calendar month, filtered by the parent order's processedAt.
+      operationId: Ecommerce_getReturnsSummary
+      parameters:
+        - name: from
+          required: false
+          in: query
+          description: Inclusive first reporting date in the requested timezone. Omit for an all-time summary.
+          schema:
+            pattern: ^\d{4}-\d{2}-\d{2}$
+            example: '2026-07-01'
+            type: string
+        - name: to
+          required: false
+          in: query
+          description: Inclusive last reporting date in the requested timezone. Omit for an all-time summary.
+          schema:
+            pattern: ^\d{4}-\d{2}-\d{2}$
+            example: '2026-07-31'
+            type: string
+        - name: timezone
+          required: false
+          in: query
+          description: IANA timezone used for date boundaries and daily grouping. Times are stored in UTC.
+          schema:
+            maxLength: 64
+            default: UTC
+            example: Africa/Casablanca
+            type: string
+      responses:
+        '200':
+          headers:
+            Cache-Control:
+              description: Revenue and connection data is private to the authenticated store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          description: ''
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ReturnsSummaryResponseDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ReturnsSummaryResponseDto'
+        '400':
+          description: Invalid date range or timezone.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get returned-item counts and value by outcome
+      tags:
+        - E-commerce Revenue
+  /ecommerce/orders/manual:
+    post:
+      description: For WhatsApp/phone/in-person orders — anything that never touched Shopify/YouCan/Lightfunnels. Products are resolved by Product Tracking Code (must already exist in the warehouse catalog) and customer info is captured directly, since there is no external platform to fetch it from later. Once created, this order goes through the exact same dispatch/timeline/financial-event pipeline as any synced order.
+      operationId: Ecommerce_createManualOrder
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateManualOrderDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/EcommerceOrderDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/EcommerceOrderDto'
+        '400':
+          description: Invalid payload, or one or more product codes do not exist.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Create an order from a non-platform source
       tags:
         - E-commerce Revenue
   /ecommerce/orders:
@@ -7050,6 +7340,7 @@ paths:
               - SHOPIFY
               - YOUCAN
               - LIGHTFUNNELS
+              - MANUAL
         - name: search
           required: false
           in: query
@@ -7123,30 +7414,269 @@ paths:
         '200':
           description: ''
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/EcommerceOrderListDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/EcommerceOrderListDto'
         '400':
           description: Invalid query parameters.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
           description: The current user has not created a Zomaal store.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
       summary: List synchronized e-commerce orders
+      tags:
+        - E-commerce Revenue
+  /ecommerce/scan:
+    get:
+      description: Accepts either a Zomaal-generated shipment QR (JSON payload) or a raw courier tracking number read off the carrier's own barcode — both resolve to the same order. Camera decoding happens on the scanning device; this endpoint only ever receives the already-decoded text. `status` is always read live from the database, never from the scanned payload, since status changes after the code was printed.
+      operationId: Ecommerce_scan
+      parameters:
+        - name: value
+          required: true
+          in: query
+          description: Exact text decoded by the scanner. Either a Zomaal-generated shipment QR (JSON payload containing productCode/orderId/trackingNumber) or a raw courier tracking number read off the carrier's own barcode. Both resolve to the same order.
+          schema:
+            minLength: 3
+            maxLength: 2000
+            example: SH92831
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ScannedShipmentResponseDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ScannedShipmentResponseDto'
+        '400':
+          description: Scanned value is malformed or the QR JSON is invalid.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Resolve a scanned shipping barcode/QR to its order and products
+      tags:
+        - E-commerce Revenue
+  /ecommerce/orders/{orderId}/condition:
+    post:
+      description: Called after a warehouse scan identifies the order (see GET /ecommerce/scan). Records Good/Damaged/Lost/Returned/Missing for one product line and, for GOOD/RETURNED/DAMAGED, applies the matching inventory movement in the same call — GOOD/RETURNED restock on-hand, DAMAGED moves to the damaged bucket. LOST/MISSING create no movement since nothing physical came back. Re-recording the same condition twice is a no-op; recording a different condition for the same line applies a new correction movement.
+      operationId: Ecommerce_recordCondition
+      parameters:
+        - name: orderId
+          required: true
+          in: path
+          description: Zomaal internal order ID
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordProductConditionDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/RecordedProductConditionResponseDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/RecordedProductConditionResponseDto'
+        '400':
+          description: Invalid order ID format or invalid condition payload.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: |-
+            The current user has not created a Zomaal store.
+
+            Order not found, or no line on this order matches the given product code.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Record a returned product's condition
+      tags:
+        - E-commerce Revenue
+  /ecommerce/orders/{orderId}/financials:
+    get:
+      description: Sums the append-only financial event ledger for this order — revenue is 0 until the carrier marks the shipment DELIVERED (see POST .../financials/sync), and stays 0 forever if it never is. damageCost reflects any DAMAGED conditions recorded via POST .../condition. Always 200 — an order with no events yet simply returns all-zero totals and an empty events array.
+      operationId: Ecommerce_getOrderFinancials
+      parameters:
+        - name: orderId
+          required: true
+          in: path
+          description: Zomaal internal order ID
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/OrderFinancialSummaryDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/OrderFinancialSummaryDto'
+        '400':
+          description: Invalid order ID format.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get an order's financial summary
+      tags:
+        - E-commerce Revenue
+  /ecommerce/orders/{orderId}/financials/sync:
+    post:
+      description: 'If the order was dispatched via one of Zomaal''s own couriers (Sendit/QuickLivraison/ForceLog/OzoneExpress), reads that shipment''s live status and, if DELIVERED or a terminal failure (CANCELLED/REFUSED/RETURNED_TO_SELLER), applies the matching revenue event. Otherwise — fulfilled via a 3rd-party shipping plugin on the platform (any carrier) — falls back to the order''s Timeline currentStatus (GET .../timeline) for the same DELIVERED/terminal-failure check; call GET .../timeline?refresh=true first to make sure it reflects the platform''s latest state before syncing. Idempotent — safe to call repeatedly. Note: this is a manual/on-demand trigger; it does not yet fire automatically from courier sync, webhooks, or timeline refreshes — call it (or poll it) after dispatch/fulfillment to keep financials current.'
+      operationId: Ecommerce_syncOrderFinancials
+      parameters:
+        - name: orderId
+          required: true
+          in: path
+          description: Zomaal internal order ID
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/FinancialSyncResultDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/FinancialSyncResultDto'
+        '400':
+          description: Invalid order ID format.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Re-check the order's shipping status and apply financial events
       tags:
         - E-commerce Revenue
   /ecommerce/orders/{orderId}:
@@ -7171,25 +7701,37 @@ paths:
                 type: string
                 example: private, no-store
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/EcommerceOrderDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/EcommerceOrderDto'
         '400':
           description: Invalid order ID format.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
           description: The current user has not created a Zomaal store.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
@@ -7219,43 +7761,64 @@ paths:
                 example: private, no-store
           description: ''
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/EcommerceOrderProductsDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/EcommerceOrderProductsDto'
         '400':
           description: Invalid order ID format or unsupported platform.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '403':
           description: The source-platform token lacks order-read access.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
           description: The current user has not created a Zomaal store.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '409':
           description: The source-platform connection is not active.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '502':
           description: The source platform returned an invalid order response.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
@@ -7285,25 +7848,37 @@ paths:
                 example: private, no-store
           description: ''
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/EcommerceFulfillmentPreviewDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/EcommerceFulfillmentPreviewDto'
         '400':
           description: Invalid order ID format.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
           description: The current user has not created a Zomaal store.
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
@@ -7333,11 +7908,334 @@ paths:
         '200':
           description: ''
           content:
-            application/json:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/EcommerceDispatchResponseDto'
+            image/svg+xml:
               schema:
                 $ref: '#/components/schemas/EcommerceDispatchResponseDto'
         '400':
           description: Invalid order ID format or invalid dispatch payload.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Dispatch an order to a courier
+      tags:
+        - E-commerce Revenue
+  /ecommerce/orders/{orderId}/shipping-qr:
+    get:
+      description: Renders a QR label Zomaal prints and attaches to the parcel — separate from the carrier's own label. Encodes { productCode, orderId, trackingNumber } (or a PACK/ORDER envelope for bundles and multi-line orders) so a later scan resolves the order and products without a network round trip. Only available after dispatch, once a tracking number exists.
+      operationId: Ecommerce_shippingQr
+      parameters:
+        - name: orderId
+          required: true
+          in: path
+          description: Zomaal internal order ID
+          schema:
+            format: uuid
+            type: string
+        - name: format
+          required: false
+          in: query
+          description: PDF is the printer-neutral production format. SVG is intended for browser preview and client-side printing.
+          schema:
+            default: pdf
+            type: string
+            enum:
+              - pdf
+              - svg
+        - name: template
+          required: false
+          in: query
+          description: Physical sticker size in millimetres.
+          schema:
+            default: THERMAL_60X40
+            type: string
+            enum:
+              - THERMAL_50X30
+              - THERMAL_60X40
+              - THERMAL_100X50
+      responses:
+        '200':
+          description: Binary PDF or UTF-8 SVG QR label, selected by the format query.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Order has not been dispatched yet, or has no product-code-linked lines.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Render the order's shipment QR sticker
+      tags:
+        - E-commerce Revenue
+  /ecommerce/orders/{orderId}/timeline:
+    get:
+      description: Returns all order lifecycle and shipping events sourced from the connected e-commerce platform. Works regardless of which shipping carrier or plugin the merchant uses, as long as the platform reflects the shipment updates. Pass ?refresh=true to re-fetch from the platform; otherwise cached events are returned. Always returns 200 — check `available` to determine whether events exist.
+      operationId: Ecommerce_getOrderTimeline
+      parameters:
+        - name: orderId
+          required: true
+          in: path
+          description: Zomaal internal order ID
+          schema:
+            format: uuid
+            type: string
+        - name: refresh
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 'Order timeline. `available: false` when no events exist yet.'
+          headers:
+            Cache-Control:
+              description: Revenue and connection data is private to the authenticated store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/OrderTimelineDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/OrderTimelineDto'
+        '400':
+          description: Invalid order ID format.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get the event timeline for an order
+      tags:
+        - E-commerce Revenue
+  /ecommerce/orders/timeline/backfill:
+    post:
+      description: One-time operation. Generates synthetic events from stored timestamps for all YouCan/Lightfunnels orders that have no timeline events yet. Idempotent — safe to call multiple times.
+      operationId: Ecommerce_backfillTimelines
+      parameters: []
+      responses:
+        '200':
+          description: Backfill result.
+          content:
+            application/pdf:
+              schema:
+                type: object
+                properties:
+                  processed:
+                    type: number
+                    description: Orders that received synthetic events
+                  skipped:
+                    type: number
+                    description: Orders that failed to backfill
+            image/svg+xml:
+              schema:
+                type: object
+                properties:
+                  processed:
+                    type: number
+                    description: Orders that received synthetic events
+                  skipped:
+                    type: number
+                    description: Orders that failed to backfill
+        '401':
+          description: Missing or invalid token.
+          content:
+            application/pdf:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/svg+xml:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Backfill synthetic timeline events for existing YouCan/Lightfunnels orders
+      tags:
+        - E-commerce Revenue
+  /ecommerce/returns:
+    get:
+      description: Backs the summary cards (Total Returns / Pending Verification / Total Order Confirm) and the tabbed, searchable list. DELAYED is a NEED_VERIFICATION request older than 2 days — computed on read, not a stored status.
+      operationId: ReturnRequest_list
+      parameters:
+        - name: status
+          required: false
+          in: query
+          schema:
+            default: ALL
+            type: string
+            enum:
+              - ALL
+              - NEED_VERIFICATION
+              - DELAYED
+              - PROCESSED
+        - name: search
+          required: false
+          in: query
+          description: Matches order ID/name.
+          schema:
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          headers:
+            Cache-Control:
+              description: Return data is private to the authenticated store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReturnListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List return requests (Returns screen)
+      tags:
+        - E-commerce Returns
+  /ecommerce/returns/search:
+    get:
+      description: Order ID/name matches every platform. Phone/customer-name matches ONLY manually created orders — Shopify/YouCan/Lightfunnels orders intentionally omit customer PII at rest (see EcommerceOrder in schema.prisma), so there is nothing to search there without a live per-candidate platform call, which this endpoint does not do.
+      operationId: ReturnRequest_search
+      parameters:
+        - name: q
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Up to 20 matching orders.
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Search orders for Manual Verification
+      tags:
+        - E-commerce Returns
+  /ecommerce/returns/detect:
+    post:
+      description: Resolves value the same way GET /ecommerce/scan does (Zomaal QR, courier tracking number — covers both our own couriers and 3rd-party carriers — or a typed order ID/name), then finds or creates the open ReturnRequest for that order, covering every line on it. lossSummary is a live preview based on whatever condition is already recorded — recompute by calling this again after partial verification.
+      operationId: ReturnRequest_detect
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DetectReturnDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectedReturnResponseDto'
+        '400':
+          description: Invalid payload.
           content:
             application/json:
               schema:
@@ -7349,16 +8247,63 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
-          description: The current user has not created a Zomaal store.
+          description: No order matches this code.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
-      summary: Dispatch an order to a courier
+      summary: Resolve a scan/manual code to a return (Scan + Return Detected screens)
       tags:
-        - E-commerce Revenue
+        - E-commerce Returns
+  /ecommerce/returns/{returnRequestId}/verify:
+    post:
+      description: Records each line's condition via the same engine as POST /orders/:orderId/condition — the matching inventory movement and, for DAMAGED, financial event apply in the same call. Once every line on the request has a recorded condition, status advances to PROCESSED automatically.
+      operationId: ReturnRequest_verify
+      parameters:
+        - name: returnRequestId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyReturnDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedReturnResponseDto'
+        '400':
+          description: Invalid payload, or a line does not belong to this return request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Return request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Record conditions and confirm a return (Return Detected screen "Confirm")
+      tags:
+        - E-commerce Returns
   /youcan/auth/start:
     post:
       description: Returns a short-lived authorization URL. Open it in the seller’s browser; do not request it server-to-server.
@@ -9668,6 +10613,36 @@ paths:
       summary: Activate or restore a warehouse product
       tags:
         - Warehouse Products
+  /warehouse/products/backfill-product-codes:
+    post:
+      description: One-time operation. Assigns a Product Tracking Code (e.g. "DH564BJ0") to every existing variant created before this feature shipped — new variants already get one automatically at creation. Idempotent — safe to call multiple times; only touches variants still missing a code.
+      operationId: Product_backfillProductCodes
+      parameters: []
+      responses:
+        '200':
+          description: Backfill result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processed:
+                    type: number
+                    description: Variants that received a new product code
+                  skipped:
+                    type: number
+                    description: Variants that failed to backfill
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Backfill Product Tracking Codes for existing variants
+      tags:
+        - Warehouse Products
   /warehouse/inventory/items/{id}:
     get:
       description: Use inventoryItemId returned on each product variant. Returns scanner identifiers and per-location quantities. available is always onHand - reserved - damaged.
@@ -9974,6 +10949,1379 @@ paths:
       summary: Read an owned packaging material image
       tags:
         - Warehouse Packaging
+  /ads/connections:
+    get:
+      description: Backs the "Ads Platforms" screen's connect/connected state per platform.
+      operationId: Ads_listConnections
+      parameters:
+        - name: platform
+          required: false
+          in: query
+          schema:
+            enum:
+              - TIKTOK
+              - META
+              - GOOGLE
+              - SNAPCHAT
+            type: string
+      responses:
+        '200':
+          headers:
+            Cache-Control:
+              description: Ads data is private to the authenticated store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdsConnectionListDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List connected ad platform accounts
+      tags:
+        - Ads
+  /ads/connections/{id}:
+    delete:
+      operationId: Ads_disconnect
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdsConnectionDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Disconnect an ad platform account
+      tags:
+        - Ads
+  /ads/campaigns:
+    get:
+      description: Backs the Metrics tab campaign cards (Spent/Clicks/Results/Cost-R + expandable detail). available is false when the platform has no ACTIVE connection yet.
+      operationId: Ads_getCampaigns
+      parameters:
+        - name: platform
+          required: true
+          in: query
+          schema:
+            type: string
+            enum:
+              - TIKTOK
+              - META
+              - GOOGLE
+              - SNAPCHAT
+        - name: days
+          required: false
+          in: query
+          description: Rolling reporting window ending today. Use 1 for Today.
+          schema:
+            default: 1
+            type: number
+            enum:
+              - 1
+              - 7
+              - 30
+              - 90
+      responses:
+        '200':
+          headers:
+            Cache-Control:
+              description: Ads data is private to the authenticated store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdsCampaignListResponseDto'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get tracked campaigns with performance metrics for one platform
+      tags:
+        - Ads
+  /ads/statistics:
+    get:
+      description: Backs the Statistic tab ring chart + per-platform legend for one selected metric. Platforms with no ACTIVE connection report available:false and a 0 share.
+      operationId: Ads_getStatistics
+      parameters:
+        - name: period
+          required: false
+          in: query
+          schema:
+            default: month
+            type: string
+            enum:
+              - week
+              - month
+              - quarter
+        - name: metric
+          required: false
+          in: query
+          schema:
+            default: spent
+            type: string
+            enum:
+              - linkClicks
+              - spent
+              - results
+              - costPerResult
+              - cpm
+              - frequency
+              - ctr
+              - reach
+              - impressions
+              - conversionRate
+      responses:
+        '200':
+          headers:
+            Cache-Control:
+              description: Ads data is private to the authenticated store and must not be cached.
+              schema:
+                type: string
+                example: private, no-store
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdsStatisticsResponseDto'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get the cross-platform metric breakdown ring chart
+      tags:
+        - Ads
+  /ads/tiktok/auth/start:
+    post:
+      description: Returns a short-lived authorization URL ("Continue with TikTok"). Open it in the merchant's browser; do not request it server-to-server.
+      operationId: TikTokAds_begin
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TikTokAuthStartResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: TikTok Ads OAuth is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Start connecting a TikTok Ads account
+      tags:
+        - Ads — TikTok
+  /ads/tiktok/campaigns/{connectionId}:
+    get:
+      description: Pass refresh=true to re-fetch the live list from TikTok first (the spinning-refresh state on the mockup); omit it to read the last-known list from our DB.
+      operationId: TikTokAds_listCampaigns
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+        - name: refresh
+          required: false
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TikTokCampaignListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Reconnect TikTok Ads before using this feature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List campaigns for the "Select Campaigns" screen
+      tags:
+        - Ads — TikTok
+  /ads/tiktok/campaigns/{connectionId}/selection:
+    post:
+      description: Only tracked campaigns are synced for metrics — untracked campaigns are ignored by the sync.
+      operationId: TikTokAds_saveSelection
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveTikTokCampaignSelectionDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TikTokCampaignListResponseDto'
+        '400':
+          description: Invalid payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Save which campaigns to track ("Save Campaigns")
+      tags:
+        - Ads — TikTok
+  /auth/tiktok/callback:
+    get:
+      description: Public browser callback invoked by TikTok. Validates and consumes the single-use OAuth state, exchanges the auth code, and stores one AdsConnection per advertiser account TikTok granted access to. Do not add a Zomaal bearer token.
+      operationId: TikTokAdsOAuth_callback
+      parameters:
+        - name: error
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: state
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: auth_code
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connection result when no frontend success redirect is configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TikTokAuthCompleteResponseDto'
+        '302':
+          description: Redirects to TIKTOK_ADS_AUTH_SUCCESS_REDIRECT_URL with tiktok_ads=connected.
+        '400':
+          description: A required callback parameter is missing or malformed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Authorization was rejected, or OAuth state is invalid, expired, or reused.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Complete TikTok Ads OAuth authorization
+      tags:
+        - Ads — TikTok OAuth
+  /roles:
+    get:
+      description: Owner-only. Role management can never be delegated to a staff member.
+      operationId: Roles_list
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage roles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List roles for the store (Staff management screen)
+      tags:
+        - Roles
+    post:
+      operationId: Roles_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage roles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: A role with this name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Create a role (owner-only)
+      tags:
+        - Roles
+  /roles/{roleId}:
+    patch:
+      operationId: Roles_update
+      parameters:
+        - name: roleId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage roles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Role not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: A role with this name already exists, or the role is a system role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Update a role (owner-only)
+      tags:
+        - Roles
+    delete:
+      description: Blocked while any staff member is still assigned to this role.
+      operationId: Roles_remove
+      parameters:
+        - name: roleId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '204':
+          description: ''
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage roles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Role not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The role is a system role, or still has staff assigned to it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Delete a role (owner-only)
+      tags:
+        - Roles
+  /staff:
+    get:
+      operationId: Staff_list
+      parameters:
+        - name: search
+          required: false
+          in: query
+          description: Matches name or phone.
+          schema:
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - ACTIVE
+              - INACTIVE
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage staff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List/search staff (Staff management screen)
+      tags:
+        - Staff
+    post:
+      description: Creates a login (phone + password) and a staff profile in one call. The phone must not already belong to another account.
+      operationId: Staff_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStaffDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffDetailResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage staff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: This phone number is already registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Add a new staff member (Add New Staff screen)
+      tags:
+        - Staff
+  /staff/{staffId}:
+    get:
+      operationId: Staff_details
+      parameters:
+        - name: staffId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffDetailResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage staff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Staff member not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Staff details (Staff Details screen)
+      tags:
+        - Staff
+    patch:
+      description: Leave `password` blank/omitted to keep it unchanged. It is never returned in any response.
+      operationId: Staff_update
+      parameters:
+        - name: staffId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStaffDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffDetailResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage staff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Staff member or role not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: This phone number is already registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Edit a staff member (Edit Staff info screen)
+      tags:
+        - Staff
+  /staff/{staffId}/status:
+    patch:
+      description: Removal is deactivate-only — staff members are never deleted.
+      operationId: Staff_setStatus
+      parameters:
+        - name: staffId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStaffStatusDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffDetailResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage staff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Staff member not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Deactivate or reactivate a staff member
+      tags:
+        - Staff
+  /staff/{staffId}/salary:
+    get:
+      operationId: StaffSalary_getProfile
+      parameters:
+        - name: staffId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalaryProfileWrapperDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Staff member not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get a staff member's salary profile (Manage Salary Info screen)
+      tags:
+        - Staff Salary
+    put:
+      description: AUTOMATIC generates the salary expense on schedule and blocks manual entries for this person; MANUAL requires the owner to record each payment.
+      operationId: StaffSalary_setProfile
+      parameters:
+        - name: staffId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetSalaryProfileDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalaryProfileResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Staff member not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Set/update a staff member's salary profile
+      tags:
+        - Staff Salary
+  /staff/{staffId}/salary/payments:
+    get:
+      operationId: StaffSalary_listPayments
+      parameters:
+        - name: staffId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalaryPaymentListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Staff member not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List salary payment history for a staff member
+      tags:
+        - Staff Salary
+  /staff/salary/payments:
+    post:
+      description: Supports multi-select. Blocked, per staff member, when their salary profile is AUTOMATIC.
+      operationId: StaffSalary_createPayments
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSalaryPaymentDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalaryPaymentBatchResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: One or more staff members not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Manual entry is blocked for one or more staff members because automatic is on.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Record manual salary payment(s) (Add Salary Record: choose staff, then add salary)'
+      tags:
+        - Staff Salary
+  /expenses/categories:
+    get:
+      operationId: Expenses_listCategories
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseCategoryListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List expense categories (Add Expense / Create Category screens)
+      tags:
+        - Expenses
+    post:
+      operationId: Expenses_createCategory
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExpenseCategoryDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseCategoryResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: A category with this name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Create an expense category (Create Category screen)
+      tags:
+        - Expenses
+  /expenses/categories/{categoryId}:
+    patch:
+      operationId: Expenses_updateCategory
+      parameters:
+        - name: categoryId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateExpenseCategoryDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseCategoryResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Category not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: A category with this name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Update an expense category
+      tags:
+        - Expenses
+    delete:
+      operationId: Expenses_removeCategory
+      parameters:
+        - name: categoryId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '204':
+          description: ''
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Category not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The category is a system category, or still has expenses recorded against it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Delete an expense category
+      tags:
+        - Expenses
+  /expenses/summary:
+    get:
+      operationId: Expenses_summary
+      parameters:
+        - name: dateFrom
+          required: false
+          in: query
+          description: ISO date, inclusive.
+          schema:
+            type: string
+        - name: dateTo
+          required: false
+          in: query
+          description: ISO date, inclusive.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseSummaryResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Totals by group (Expenses Breakdown screen)
+      tags:
+        - Expenses
+  /expenses:
+    get:
+      operationId: Expenses_list
+      parameters:
+        - name: search
+          required: false
+          in: query
+          description: Matches title
+          schema:
+            type: string
+        - name: categoryId
+          required: false
+          in: query
+          schema:
+            format: uuid
+            type: string
+        - name: group
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - SHIPPING
+              - ADS
+              - SALARY
+              - PURCHASES
+              - OTHER
+        - name: dateFrom
+          required: false
+          in: query
+          description: ISO date, inclusive.
+          schema:
+            type: string
+        - name: dateTo
+          required: false
+          in: query
+          description: ISO date, inclusive.
+          schema:
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List/search expenses (Expenses screen)
+      tags:
+        - Expenses
+    post:
+      description: Categories in the SALARY group are rejected here — record those from Staff Salary instead.
+      operationId: Expenses_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExpenseDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Category not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The category is a SALARY-group category.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Add an expense (Add Expense screen)
+      tags:
+        - Expenses
+  /expenses/{expenseId}:
+    patch:
+      operationId: Expenses_update
+      parameters:
+        - name: expenseId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateExpenseDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Expense or category not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The expense was generated from a salary payment, or the new category is SALARY-group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Edit an expense
+      tags:
+        - Expenses
+    delete:
+      operationId: Expenses_remove
+      parameters:
+        - name: expenseId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '204':
+          description: ''
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Expense not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The expense was generated from a salary payment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Delete an expense
+      tags:
+        - Expenses
 info:
   title: Zomaal API
   description: |-
@@ -15450,6 +17798,29 @@ components:
         - pending
         - dispatched
         - failed
+    EcommerceHomeProfitDto:
+      type: object
+      properties:
+        value:
+          type: string
+          example: '8442.00'
+          description: Sum of every order's netProfitImpact from the financial-event ledger for orders processed in the period, converted to the store base currency.
+      required:
+        - value
+    EcommerceHomeLostOrdersDto:
+      type: object
+      properties:
+        orders:
+          type: number
+          example: 78
+          description: Count of orders in the period that were cancelled, or whose dispatched courier shipment was refused or cancelled.
+        value:
+          type: string
+          example: '4842.00'
+          description: Sum of netSales for the lost orders above, in the store base currency.
+      required:
+        - orders
+        - value
     EcommerceConnectionDto:
       type: object
       properties:
@@ -15581,6 +17952,7 @@ components:
             - SHOPIFY
             - YOUCAN
             - LIGHTFUNNELS
+            - MANUAL
           description: Source platform
         status:
           type: string
@@ -15609,16 +17981,51 @@ components:
           description: Order currency
         grossSales:
           type: string
-          description: Order gross sales
+          description: Gross sales before discounts
+          example: '249.98'
+        discounts:
+          type: string
+          description: Total discount amount
+          example: '25.00'
+        shipping:
+          type: string
+          description: Shipping cost charged to the customer
+          example: '10.00'
+        refunds:
+          type: string
+          description: Total refunded amount
+          example: '0.00'
+        netSales:
+          type: string
+          description: Net sales after discounts and refunds
+          example: '224.98'
         totalCollected:
           type: string
-          description: Order total collected
+          description: Total amount collected from customer
+          example: '234.98'
+        codAmount:
+          type: object
+          nullable: true
+          description: Cash on delivery amount (MAD)
+          example: '234.98'
+        codStatus:
+          type: string
+          nullable: true
+          enum:
+            - PENDING
+            - COLLECTED
+            - FAILED
         itemCount:
           type: number
           description: Number of items
         processedAt:
           type: string
           description: When the order was processed
+          format: date-time
+        cancelledAt:
+          type: object
+          nullable: true
+          format: date-time
         dispatch:
           nullable: true
           type: object
@@ -15634,6 +18041,10 @@ components:
         - fulfillmentStatus
         - currency
         - grossSales
+        - discounts
+        - shipping
+        - refunds
+        - netSales
         - totalCollected
         - itemCount
         - processedAt
@@ -15651,6 +18062,10 @@ components:
           $ref: '#/components/schemas/EcommerceHomeCatalogMetricsDto'
         shipping:
           $ref: '#/components/schemas/EcommerceHomeShippingMetricsDto'
+        profit:
+          $ref: '#/components/schemas/EcommerceHomeProfitDto'
+        lostOrders:
+          $ref: '#/components/schemas/EcommerceHomeLostOrdersDto'
         connections:
           type: array
           items:
@@ -15665,6 +18080,8 @@ components:
         - orders
         - catalog
         - shipping
+        - profit
+        - lostOrders
         - connections
         - recentOrders
     EcommerceConnectionListDto:
@@ -15796,6 +18213,180 @@ components:
       required:
         - period
         - data
+    OrderStatusBucketDto:
+      type: object
+      properties:
+        orders:
+          type: number
+          example: 198
+          description: Order count in this bucket.
+        value:
+          type: string
+          example: '34842.00'
+          description: Sum of netSales for orders in this bucket, in `currency`.
+      required:
+        - orders
+        - value
+    OrderStatusSummaryResponseDto:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/RevenuePeriodDto'
+        currency:
+          type: string
+          example: MAD
+          description: The store's base currency. All bucket values are converted into it.
+        confirmed:
+          description: Orders in the period that were not cancelled on the platform. Most stores here are COD-first, so financialStatus stays PENDING until the courier collects payment on delivery — payment status is not a usable "confirmed" signal.
+          allOf:
+            - $ref: '#/components/schemas/OrderStatusBucketDto'
+        delivered:
+          description: Orders whose dispatched courier shipment (Sendit/QuickLivraison/ForceLog/OzoneExpress) reports DELIVERED.
+          allOf:
+            - $ref: '#/components/schemas/OrderStatusBucketDto'
+        inDelivery:
+          description: Orders dispatched to a courier and still moving toward delivery (confirmed/picked up/in transit/out for delivery/postponed/unreachable).
+          allOf:
+            - $ref: '#/components/schemas/OrderStatusBucketDto'
+        refused:
+          description: Orders the courier reports as refused by the recipient.
+          allOf:
+            - $ref: '#/components/schemas/OrderStatusBucketDto'
+        cancelled:
+          description: Orders cancelled on the e-commerce platform, or whose courier shipment was cancelled.
+          allOf:
+            - $ref: '#/components/schemas/OrderStatusBucketDto'
+        dataUpdatedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: Most recent update timestamp among the included orders.
+      required:
+        - period
+        - currency
+        - confirmed
+        - delivered
+        - inDelivery
+        - refused
+        - cancelled
+        - dataUpdatedAt
+    ReturnsBucketDto:
+      type: object
+      properties:
+        items:
+          type: number
+          example: 5
+          description: Item quantity in this bucket.
+        value:
+          type: string
+          example: '38.00'
+          description: Value of the items in this bucket, in `currency`.
+      required:
+        - items
+        - value
+    ReturnsSummaryResponseDto:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/RevenuePeriodDto'
+        currency:
+          type: string
+          example: MAD
+          description: The store's base currency. All bucket values are converted into it.
+        received:
+          description: Order lines scanned back in as GOOD or RETURNED (restocked) via POST /ecommerce/orders/:orderId/condition.
+          allOf:
+            - $ref: '#/components/schemas/ReturnsBucketDto'
+        pending:
+          description: Order lines on orders whose courier shipment is in a return-in-progress state (return pending/in transit/at warehouse/inspection) but no condition has been recorded yet.
+          allOf:
+            - $ref: '#/components/schemas/ReturnsBucketDto'
+        damaged:
+          description: Order lines scanned in as DAMAGED. Value uses the recorded damageCost when present, falling back to the line total.
+          allOf:
+            - $ref: '#/components/schemas/ReturnsBucketDto'
+        missing:
+          description: Order lines scanned in as MISSING or LOST.
+          allOf:
+            - $ref: '#/components/schemas/ReturnsBucketDto'
+        dataUpdatedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: Most recent order-line update timestamp among the included orders.
+      required:
+        - period
+        - currency
+        - received
+        - pending
+        - damaged
+        - missing
+        - dataUpdatedAt
+    ManualOrderItemDto:
+      type: object
+      properties:
+        productCode:
+          type: string
+          example: DH564BJ0
+          description: Must match an existing warehouse product/variant code.
+        quantity:
+          type: number
+          minimum: 1
+          maximum: 1000
+          example: 2
+        unitPrice:
+          type: number
+          example: 300
+          description: Price actually charged for this line. Defaults to the product's stored price when omitted.
+      required:
+        - productCode
+        - quantity
+    CreateManualOrderDto:
+      type: object
+      properties:
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 100
+          example: whatsapp-msg-018f8d5a
+          description: Optional client-generated retry key. Resending the identical request with the same key returns the existing order instead of creating a duplicate — protects against double-submit on a flaky connection. Omit it and every call creates a new order.
+        customerName:
+          type: string
+          example: Ahmed
+        customerPhone:
+          type: string
+          example: '+212612345678'
+        shippingAddress:
+          type: string
+          example: 123 Rue Al Massira, Casablanca
+        shippingCity:
+          type: string
+          example: Casablanca
+        shippingCountry:
+          type: string
+          example: Morocco
+        notes:
+          type: string
+          example: Call before delivery
+        currency:
+          type: string
+          example: MAD
+          default: MAD
+        shippingCost:
+          type: number
+          example: 0
+          description: Shipping fee charged to the customer, if any.
+        items:
+          minItems: 1
+          maxItems: 100
+          type: array
+          items:
+            $ref: '#/components/schemas/ManualOrderItemDto'
+      required:
+        - customerName
+        - customerPhone
+        - shippingAddress
+        - items
     PaginationDto:
       type: object
       properties:
@@ -15831,6 +18422,277 @@ components:
       required:
         - data
         - pagination
+    ScannedShipmentProductDto:
+      type: object
+      properties:
+        productCode:
+          type: string
+          example: DH564BJ0
+        productName:
+          type: string
+          example: Nike T-Shirt Black M
+        quantity:
+          type: number
+          example: 2
+        condition:
+          type: string
+          nullable: true
+          enum:
+            - GOOD
+            - DAMAGED
+            - LOST
+            - RETURNED
+            - MISSING
+          description: Null until a condition has been recorded for this line.
+        damageCost:
+          type: object
+          nullable: true
+          example: '120.00'
+      required:
+        - productCode
+        - productName
+        - quantity
+        - condition
+        - damageCost
+    ScannedShipmentResponseDto:
+      type: object
+      properties:
+        orderId:
+          type: string
+          format: uuid
+          description: Zomaal internal order ID
+        orderName:
+          type: object
+          nullable: true
+          example: '#10482'
+          description: Visible order reference shown to the merchant
+        source:
+          type: string
+          enum:
+            - ZOMAAL_COURIER
+            - PLATFORM_TRACKING
+          description: ZOMAAL_COURIER — dispatched through one of our own courier integrations (Sendit/QuickLivraison/ForceLog/OzoneExpress); dispatchStatus is meaningful. PLATFORM_TRACKING — fulfilled via a 3rd-party shipping plugin on the e-commerce platform (any carrier); resolved from the order's Timeline tracking data instead of a Zomaal dispatch — dispatchStatus is always null here.
+        provider:
+          type: string
+          example: SENDIT
+          description: One of SENDIT/QUICKLIVRAISON/FORCELOG/OZONEEXPRESS for source=ZOMAAL_COURIER, or the carrier name as reported by the platform (e.g. "FedEx", "DHL") for source=PLATFORM_TRACKING — open-ended, not a fixed enum.
+        trackingNumber:
+          type: string
+          example: SH92831
+        dispatchStatus:
+          type: string
+          nullable: true
+          enum:
+            - PENDING
+            - DISPATCHED
+            - FAILED
+          description: Whether we succeeded in handing the parcel to the courier. Only present for source=ZOMAAL_COURIER — always null for source=PLATFORM_TRACKING, which has no Zomaal dispatch step. Does not change again after that — this is NOT the shipment tracking status, see `status` for that.
+        status:
+          type: object
+          nullable: true
+          example: IN_TRANSIT
+          description: 'The live shipment status — what the mockup''s "Current Status: 🟢 In Transit" refers to. For source=ZOMAAL_COURIER this is a ShippingShipmentStatus value (IN_TRANSIT/OUT_FOR_DELIVERY/DELIVERED/...); for source=PLATFORM_TRACKING this is the order''s Timeline currentStatus (an OrderEventType value, e.g. OUT_FOR_DELIVERY/DELIVERED/DELIVERY_FAILED) — same shape, different vocabulary. Always read fresh from the database, never from a scanned QR payload (status changes after printing). Null only when there''s no status yet.'
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScannedShipmentProductDto'
+      required:
+        - orderId
+        - orderName
+        - source
+        - provider
+        - trackingNumber
+        - products
+    RecordProductConditionDto:
+      type: object
+      properties:
+        productCode:
+          type: string
+          example: DH564BJ0
+          description: Must match a product code on one of this order's lines.
+        condition:
+          type: string
+          enum:
+            - GOOD
+            - DAMAGED
+            - LOST
+            - RETURNED
+            - MISSING
+          example: DAMAGED
+        damageCost:
+          type: number
+          example: 120
+          description: Only meaningful when condition is DAMAGED; ignored (stored as null) for every other condition.
+        notes:
+          type: string
+          example: Tear on left sleeve
+      required:
+        - productCode
+        - condition
+    RecordedProductConditionResponseDto:
+      type: object
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        productCode:
+          type: string
+          example: DH564BJ0
+        condition:
+          type: string
+          enum:
+            - GOOD
+            - DAMAGED
+            - LOST
+            - RETURNED
+            - MISSING
+        damageCost:
+          type: object
+          nullable: true
+          example: '120.00'
+        notes:
+          type: object
+          nullable: true
+          example: Tear on left sleeve
+        recordedAt:
+          type: string
+          format: date-time
+        inventoryUpdated:
+          type: boolean
+          description: True when this recorded a stock movement (GOOD/RETURNED restock on-hand, DAMAGED moves to the damaged bucket). False for LOST/MISSING — nothing physical came back — or when the line has no linked inventory item.
+      required:
+        - orderId
+        - productCode
+        - condition
+        - damageCost
+        - notes
+        - recordedAt
+        - inventoryUpdated
+    OrderFinancialEventDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - REVENUE_RECOGNIZED
+            - REVENUE_REVERSED
+            - DAMAGE_LOSS
+        revenue:
+          type: string
+          example: '600.00'
+        productCost:
+          type: string
+          example: '150.00'
+        shippingCost:
+          type: string
+          example: '50.00'
+        damageCost:
+          type: string
+          example: '0.00'
+        netProfitImpact:
+          type: string
+          example: '400.00'
+          description: Signed contribution to profit from this event.
+        reason:
+          type: string
+          example: Carrier marked shipment as delivered
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - revenue
+        - productCost
+        - shippingCost
+        - damageCost
+        - netProfitImpact
+        - reason
+        - createdAt
+    OrderFinancialSummaryDto:
+      type: object
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        currency:
+          type: string
+          example: MAD
+        revenue:
+          type: string
+          example: '600.00'
+          description: Recognized revenue net of any reversal — 0 until DELIVERED. For orders with no Zomaal dispatch, DELIVERED is read from the order's Timeline currentStatus instead of a courier shipment status.
+        productCost:
+          type: string
+          example: '150.00'
+        shippingCost:
+          type: string
+          example: '50.00'
+          description: For orders dispatched via one of Zomaal's own couriers, the actual courier fee. For orders fulfilled via a 3rd-party shipping plugin (any carrier — Zomaal has no visibility into what that carrier charged the merchant), this falls back to the amount charged to the customer for shipping — a proxy for the real cost, not it.
+        damageCost:
+          type: string
+          example: '0.00'
+        netProfit:
+          type: string
+          example: '400.00'
+          description: Sum of every event's netProfitImpact — always correct regardless of event mix.
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderFinancialEventDto'
+      required:
+        - orderId
+        - currency
+        - revenue
+        - productCost
+        - shippingCost
+        - damageCost
+        - netProfit
+        - events
+    FinancialSyncResultDto:
+      type: object
+      properties:
+        applied:
+          type: boolean
+          description: True when this call created a new financial event.
+        reason:
+          type: string
+          enum:
+            - NOT_DISPATCHED
+            - NO_CARRIER_STATUS_YET
+            - IN_PROGRESS
+            - DELIVERED
+            - CANCELLED
+          description: NOT_DISPATCHED/NO_CARRIER_STATUS_YET/IN_PROGRESS all mean applied=false with no error — they are expected states, not failures.
+        shipmentStatus:
+          type: string
+          enum:
+            - PENDING
+            - CONFIRMED
+            - PICKUP_PENDING
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - UNREACHABLE
+            - DELIVERED
+            - CANCELLED
+            - REFUSED
+            - RETURN_PENDING
+            - RETURN_IN_TRANSIT
+            - RETURNED_TO_WAREHOUSE
+            - RETURN_INSPECTION
+            - RETURNED_TO_STOCK
+            - RETURNED_TO_SELLER
+            - UNKNOWN
+          description: The live carrier status this decision was based on. Omitted when there is no linked shipment yet.
+      required:
+        - applied
+        - reason
     EcommerceOrderProductDto:
       type: object
       properties:
@@ -15888,6 +18750,7 @@ components:
             - SHOPIFY
             - YOUCAN
             - LIGHTFUNNELS
+            - MANUAL
         externalOrderId:
           type: string
           description: Source-platform order identifier
@@ -15932,6 +18795,11 @@ components:
         quantity:
           type: number
           description: Quantity to fulfill
+        productCode:
+          type: object
+          nullable: true
+          example: DH564BJ0
+          description: Internal Product Tracking Code, resolved by matching SKU against a linked warehouse variant. Null when the line has no matching warehouse product yet — the courier contents field falls back to the title in that case.
       required:
         - title
         - sku
@@ -15945,6 +18813,7 @@ components:
             - SHOPIFY
             - YOUCAN
             - LIGHTFUNNELS
+            - MANUAL
           description: Source platform
         externalOrderId:
           type: string
@@ -16067,6 +18936,365 @@ components:
         - status
         - provider
         - merchantTracking
+    OrderTimelineTrackingDto:
+      type: object
+      properties:
+        carrier:
+          type: object
+          nullable: true
+          description: Carrier name as reported by the platform
+        number:
+          type: object
+          nullable: true
+          description: Tracking number
+        url:
+          type: object
+          nullable: true
+          format: uri
+          description: Public tracking URL
+    OrderTimelineEventDto:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Zomaal internal event ID
+          format: uuid
+        type:
+          type: string
+          description: Normalized event type
+          example: IN_TRANSIT
+        title:
+          type: string
+          description: Human-readable event title
+          example: In transit
+        message:
+          type: object
+          nullable: true
+          description: Additional detail from the platform
+        actor:
+          type: object
+          nullable: true
+          description: Who performed the action (carrier, merchant, platform)
+        location:
+          type: object
+          nullable: true
+          description: City or region where the event occurred
+        occurredAt:
+          type: string
+          description: When this event occurred on the platform
+          format: date-time
+        synthetic:
+          type: boolean
+          description: True when reconstructed from stored order timestamps rather than a real platform event
+      required:
+        - id
+        - type
+        - title
+        - occurredAt
+        - synthetic
+    OrderTimelineDto:
+      type: object
+      properties:
+        orderId:
+          type: string
+          description: Zomaal internal order ID
+          format: uuid
+        platform:
+          type: string
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+        available:
+          type: boolean
+          description: True when timeline data is available for this order
+        reason:
+          type: object
+          nullable: true
+          description: Why timeline is unavailable. Only present when available is false.
+          example: NO_EVENTS
+        currentStatus:
+          type: object
+          nullable: true
+          description: Normalized type of the most recent event
+          example: DELIVERED
+        stale:
+          type: boolean
+          description: True when the platform API failed and cached events are being returned
+        dataUpdatedAt:
+          type: object
+          nullable: true
+          format: date-time
+          description: When the timeline data was last successfully fetched from the platform
+        tracking:
+          nullable: true
+          description: Shipping tracking info from the platform carrier plugin (Shopify only)
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/OrderTimelineTrackingDto'
+        events:
+          description: Events newest-first
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderTimelineEventDto'
+      required:
+        - orderId
+        - platform
+        - available
+        - stale
+        - events
+    ReturnSummaryCardDto:
+      type: object
+      properties:
+        value:
+          type: string
+          example: '34842.00'
+        orders:
+          type: number
+          example: 198
+      required:
+        - value
+        - orders
+    ReturnListSummaryDto:
+      type: object
+      properties:
+        totalReturns:
+          $ref: '#/components/schemas/ReturnSummaryCardDto'
+        pendingVerification:
+          $ref: '#/components/schemas/ReturnSummaryCardDto'
+        totalOrderConfirm:
+          description: Interpreted as orders awaiting COD confirmation (financialStatus PENDING with a codAmount set) — a different concept from returns, grouped onto the same screen per the mockup. Flag if this interpretation is wrong.
+          allOf:
+            - $ref: '#/components/schemas/ReturnSummaryCardDto'
+      required:
+        - totalReturns
+        - pendingVerification
+        - totalOrderConfirm
+    ReturnListItemDto:
+      type: object
+      properties:
+        returnRequestId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        orderName:
+          type: object
+          nullable: true
+        customerName:
+          type: object
+          nullable: true
+        customerPhone:
+          type: object
+          nullable: true
+        productSummary:
+          type: string
+          description: First returned line's product name, plus a count of any others.
+          example: Adidas Running Shoes - Black
+        status:
+          type: string
+          enum:
+            - NEED_VERIFICATION
+            - DELAYED
+            - PROCESSED
+        value:
+          type: string
+          example: '249.99'
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - returnRequestId
+        - orderId
+        - productSummary
+        - status
+        - value
+        - createdAt
+    ReturnListResponseDto:
+      type: object
+      properties:
+        summary:
+          $ref: '#/components/schemas/ReturnListSummaryDto'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReturnListItemDto'
+        total:
+          type: number
+          example: 42
+        page:
+          type: number
+          example: 1
+        limit:
+          type: number
+          example: 20
+      required:
+        - summary
+        - data
+        - total
+        - page
+        - limit
+    DetectReturnDto:
+      type: object
+      properties:
+        value:
+          type: string
+          example: DH245411F4E
+          description: 'Same input as GET /ecommerce/scan: a Zomaal shipment QR payload, a raw courier tracking number, or (for Manual Verification) an order ID/name typed by hand. Ignored when orderId is given. Still required by the request shape — pass the order''s own reference (orderName) when using orderId, for the audit trail.'
+        orderId:
+          type: string
+          format: uuid
+          description: Skips scan/reference resolution entirely and uses this order directly — set by the client after GET /ecommerce/returns/search returns candidates and the user taps one.
+      required:
+        - value
+    DetectedReturnLineDto:
+      type: object
+      properties:
+        orderLineId:
+          type: string
+          format: uuid
+        productCode:
+          type: object
+          nullable: true
+        name:
+          type: string
+        quantity:
+          type: number
+        totalPrice:
+          type: string
+          example: '249.99'
+        imageUrl:
+          type: object
+          nullable: true
+          format: uri
+        condition:
+          type: string
+          nullable: true
+          enum:
+            - GOOD
+            - DAMAGED
+            - LOST
+            - RETURNED
+            - MISSING
+          description: Already-recorded condition from a previous verification, if any.
+      required:
+        - orderLineId
+        - name
+        - quantity
+        - totalPrice
+    ReturnLossPreviewDto:
+      type: object
+      properties:
+        originalOrderValue:
+          type: string
+          example: '249.99'
+          description: Sum of the returned lines' totalPrice — what the customer paid for these items.
+        deliveryCost:
+          type: string
+          example: '10.00'
+          description: The order's own courier fee if dispatched via Zomaal, otherwise the shipping amount charged to the customer (we have no visibility into a 3rd-party carrier's real cost) — same proxy convention as OrderFinancialSummaryDto.
+        netLoss:
+          type: string
+          example: '10.00'
+          description: 'deliveryCost, plus each line''s loss based on its CURRENT recorded condition: 0 for GOOD/RETURNED (restocked), damageCost for DAMAGED (0 if not entered yet), full line value for LOST/MISSING. Lines with no condition recorded yet contribute 0 beyond deliveryCost — this is a live preview, not a final figure.'
+      required:
+        - originalOrderValue
+        - deliveryCost
+        - netLoss
+    DetectedReturnResponseDto:
+      type: object
+      properties:
+        returnRequestId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        orderName:
+          type: object
+          nullable: true
+        status:
+          type: string
+          enum:
+            - NEED_VERIFICATION
+            - DELAYED
+            - PROCESSED
+        customerName:
+          type: object
+          description: Customer name — from platform data (Shopify/YouCan/Lightfunnels) or the manual order.
+        customerPhone:
+          type: object
+          nullable: true
+        address:
+          type: object
+          nullable: true
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetectedReturnLineDto'
+        lossSummary:
+          $ref: '#/components/schemas/ReturnLossPreviewDto'
+      required:
+        - returnRequestId
+        - orderId
+        - status
+        - customerName
+        - customerPhone
+        - address
+        - products
+        - lossSummary
+    VerifyReturnLineDto:
+      type: object
+      properties:
+        orderLineId:
+          type: string
+          format: uuid
+        condition:
+          type: string
+          enum:
+            - GOOD
+            - DAMAGED
+            - LOST
+            - RETURNED
+            - MISSING
+          example: DAMAGED
+        damageCost:
+          type: number
+          example: 120
+      required:
+        - orderLineId
+        - condition
+    VerifyReturnDto:
+      type: object
+      properties:
+        reason:
+          type: string
+          example: Item was damaged during shipping
+          description: Free-text return reason shown on the Return Detected screen.
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerifyReturnLineDto'
+      required:
+        - lines
+    VerifiedReturnResponseDto:
+      type: object
+      properties:
+        returnRequestId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - NEED_VERIFICATION
+            - PROCESSED
+        lossSummary:
+          $ref: '#/components/schemas/ReturnLossPreviewDto'
+      required:
+        - returnRequestId
+        - status
+        - lossSummary
     YouCanAuthorizationResponseDto:
       type: object
       properties:
@@ -17085,6 +20313,11 @@ components:
           type: object
           nullable: true
           example: TSHIRT-M-BLACK
+        productCode:
+          type: object
+          nullable: true
+          example: DH564BJ0
+          description: Internal Product Tracking Code. Server-generated, immutable once issued. Printed on shipping tickets/QR labels instead of the full product title. For bundle products, this doubles as the pack code.
         price:
           type: number
           example: 50
@@ -17123,6 +20356,7 @@ components:
         - id
         - title
         - sku
+        - productCode
         - price
         - costPrice
         - lowStockAlertThreshold
@@ -17984,3 +21218,1113 @@ components:
         - available
         - createdAt
         - updatedAt
+    AdsConnectionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum:
+            - TIKTOK
+            - META
+            - GOOGLE
+            - SNAPCHAT
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISCONNECTED
+            - REAUTHORIZATION_REQUIRED
+        externalAdvertiserId:
+          type: string
+        displayName:
+          type: object
+          nullable: true
+        currency:
+          type: object
+          nullable: true
+        installedAt:
+          type: string
+          format: date-time
+        lastSyncedAt:
+          type: object
+          nullable: true
+          format: date-time
+        lastSyncError:
+          type: object
+          nullable: true
+      required:
+        - id
+        - platform
+        - status
+        - externalAdvertiserId
+        - installedAt
+    AdsConnectionListDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdsConnectionDto'
+      required:
+        - data
+    AdsCampaignMetricsDto:
+      type: object
+      properties:
+        spent:
+          type: string
+          example: '820.0000'
+        clicks:
+          type: number
+          example: 88
+        results:
+          type: number
+          example: 5
+        costPerResult:
+          type: object
+          example: '5.0000'
+          nullable: true
+        cpm:
+          type: object
+          example: '5.0000'
+          nullable: true
+        ctr:
+          type: object
+          example: '5.0000'
+          nullable: true
+        frequency:
+          type: object
+          example: '1.2000'
+          nullable: true
+        budget:
+          type: object
+          example: '820.0000'
+          nullable: true
+        reach:
+          type: object
+          example: 1000
+          nullable: true
+        impressions:
+          type: number
+          example: 1200
+        conversionRate:
+          type: object
+          example: '60.0000'
+          nullable: true
+      required:
+        - spent
+        - clicks
+        - results
+        - impressions
+    AdsCampaignCardDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          description: Raw platform status, e.g. TikTok's ENABLE/DISABLE
+        active:
+          type: boolean
+          description: Whether the campaign is in a running/enabled state.
+        metrics:
+          $ref: '#/components/schemas/AdsCampaignMetricsDto'
+      required:
+        - id
+        - name
+        - status
+        - active
+        - metrics
+    AdsCampaignListResponseDto:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum:
+            - TIKTOK
+            - META
+            - GOOGLE
+            - SNAPCHAT
+        available:
+          type: boolean
+          description: False when there is no ACTIVE connection for this platform yet.
+        currency:
+          type: string
+          example: MAD
+        period:
+          type: object
+          example:
+            days: 1
+            from: '2026-08-30T00:00:00.000Z'
+            to: '2026-08-30T23:59:59.999Z'
+        campaigns:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdsCampaignCardDto'
+        dataUpdatedAt:
+          type: string
+          nullable: true
+          format: date-time
+      required:
+        - platform
+        - available
+        - currency
+        - period
+        - campaigns
+        - dataUpdatedAt
+    AdsPlatformBreakdownDto:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum:
+            - TIKTOK
+            - META
+            - GOOGLE
+            - SNAPCHAT
+        value:
+          type: number
+          example: 25
+        sharePercentage:
+          type: number
+          example: 25
+        available:
+          type: boolean
+          description: False when there is no ACTIVE connection for this platform.
+      required:
+        - platform
+        - value
+        - sharePercentage
+        - available
+    AdsStatisticsResponseDto:
+      type: object
+      properties:
+        period:
+          type: string
+          enum:
+            - week
+            - month
+            - quarter
+        metric:
+          type: string
+          enum:
+            - linkClicks
+            - spent
+            - results
+            - costPerResult
+            - cpm
+            - frequency
+            - ctr
+            - reach
+            - impressions
+            - conversionRate
+        total:
+          type: number
+          example: 100
+        byPlatform:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdsPlatformBreakdownDto'
+        dataUpdatedAt:
+          type: string
+          nullable: true
+          format: date-time
+      required:
+        - period
+        - metric
+        - total
+        - byPlatform
+        - dataUpdatedAt
+    TikTokAuthStartResponseDto:
+      type: object
+      properties:
+        authorizationUrl:
+          type: string
+          description: Single-use authorization URL. Open it in the browser — do not request server-to-server.
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - authorizationUrl
+        - expiresAt
+    TikTokCampaignSelectionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        externalCampaignId:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          description: TikTok's raw campaign status string
+        objective:
+          type: object
+          nullable: true
+        budget:
+          type: object
+          nullable: true
+        currency:
+          type: object
+          nullable: true
+        startDate:
+          type: object
+          nullable: true
+          format: date-time
+        endDate:
+          type: object
+          nullable: true
+          format: date-time
+        tracked:
+          type: boolean
+          description: Selected on the "Select Campaigns" screen — only tracked campaigns get synced.
+      required:
+        - id
+        - externalCampaignId
+        - name
+        - status
+        - tracked
+    TikTokCampaignListResponseDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TikTokCampaignSelectionDto'
+      required:
+        - data
+    SaveTikTokCampaignSelectionDto:
+      type: object
+      properties:
+        externalCampaignIds:
+          description: externalCampaignId values to mark tracked. Every other campaign on this connection is un-tracked.
+          example:
+            - '1234567890123456'
+          type: array
+          items:
+            type: string
+      required:
+        - externalCampaignIds
+    TikTokAuthCompleteResponseDto:
+      type: object
+      properties:
+        connections:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdsConnectionDto'
+      required:
+        - connections
+    RoleResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        permissions:
+          type: array
+          items:
+            type: string
+            enum:
+              - orders.view
+              - orders.edit
+              - orders.cancel
+              - orders.export
+              - returns.view
+              - returns.process
+              - returns.scan
+              - products.view
+              - products.add
+              - products.edit
+              - products.delete
+              - expenses.view
+              - expenses.add
+              - expenses.edit
+              - expenses.delete
+              - ads.view
+              - customers.view
+              - customers.blacklist
+              - analytics.view
+              - analytics.export
+              - shop.view
+              - shop.purchase
+        isSystem:
+          type: boolean
+        staffCount:
+          type: number
+          description: Number of active staff currently on this role.
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - permissions
+        - isSystem
+        - staffCount
+        - createdAt
+        - updatedAt
+    RoleListResponseDto:
+      type: object
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleResponseDto'
+      required:
+        - roles
+    CreateRoleDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Warehouse Staff
+          maxLength: 80
+        description:
+          type: string
+          example: Packs and ships orders from the warehouse.
+        permissions:
+          type: array
+          example:
+            - orders.view
+            - returns.scan
+          description: Sub-action permission keys this role grants. An empty array is a role with no access — valid, but the UI should warn.
+          items:
+            type: string
+            enum:
+              - orders.view
+              - orders.edit
+              - orders.cancel
+              - orders.export
+              - returns.view
+              - returns.process
+              - returns.scan
+              - products.view
+              - products.add
+              - products.edit
+              - products.delete
+              - expenses.view
+              - expenses.add
+              - expenses.edit
+              - expenses.delete
+              - ads.view
+              - customers.view
+              - customers.blacklist
+              - analytics.view
+              - analytics.export
+              - shop.view
+              - shop.purchase
+      required:
+        - name
+        - permissions
+    UpdateRoleDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Warehouse Staff
+          maxLength: 80
+        description:
+          type: string
+          example: Packs and ships orders from the warehouse.
+        permissions:
+          type: array
+          example:
+            - orders.view
+            - returns.scan
+          description: Sub-action permission keys this role grants. An empty array is a role with no access — valid, but the UI should warn.
+          items:
+            type: string
+            enum:
+              - orders.view
+              - orders.edit
+              - orders.cancel
+              - orders.export
+              - returns.view
+              - returns.process
+              - returns.scan
+              - products.view
+              - products.add
+              - products.edit
+              - products.delete
+              - expenses.view
+              - expenses.add
+              - expenses.edit
+              - expenses.delete
+              - ads.view
+              - customers.view
+              - customers.blacklist
+              - analytics.view
+              - analytics.export
+              - shop.view
+              - shop.purchase
+    StaffRoleSummaryDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - name
+    StaffResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        jobTitle:
+          type: string
+          nullable: true
+        photoUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - INACTIVE
+        role:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/StaffRoleSummaryDto'
+        joinedAt:
+          type: string
+        lastActiveAt:
+          type: string
+          nullable: true
+        lastLoginAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - phone
+        - status
+        - joinedAt
+    StaffListResponseDto:
+      type: object
+      properties:
+        staff:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffResponseDto'
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+      required:
+        - staff
+        - total
+        - page
+        - limit
+    StaffDetailResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        jobTitle:
+          type: string
+          nullable: true
+        photoUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - INACTIVE
+        role:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/StaffRoleSummaryDto'
+        joinedAt:
+          type: string
+        lastActiveAt:
+          type: string
+          nullable: true
+        lastLoginAt:
+          type: string
+          nullable: true
+        effectivePermissions:
+          type: array
+          description: Effective permissions after applying any per-staff overrides.
+          items:
+            type: string
+            enum:
+              - orders.view
+              - orders.edit
+              - orders.cancel
+              - orders.export
+              - returns.view
+              - returns.process
+              - returns.scan
+              - products.view
+              - products.add
+              - products.edit
+              - products.delete
+              - expenses.view
+              - expenses.add
+              - expenses.edit
+              - expenses.delete
+              - ads.view
+              - customers.view
+              - customers.blacklist
+              - analytics.view
+              - analytics.export
+              - shop.view
+              - shop.purchase
+        hasOverrides:
+          type: boolean
+          description: True when permissionOverrides is non-empty (this person deviates from their role).
+        nextPaymentDate:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - phone
+        - status
+        - joinedAt
+        - effectivePermissions
+        - hasOverrides
+    CreateStaffDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Sara Amrani
+          maxLength: 120
+        phone:
+          type: string
+          description: Login phone number, E.164 format. Must not already belong to another account.
+          example: '+212600000002'
+        password:
+          type: string
+          minLength: 8
+          format: password
+          writeOnly: true
+        jobTitle:
+          type: string
+          example: Operations Manager
+        photoUrl:
+          type: string
+        roleId:
+          type: string
+          format: uuid
+          description: Must belong to this store.
+        permissionOverrides:
+          type: array
+          description: Per-person exception list. Non-empty REPLACES the role permissions entirely for this person. Leave empty to inherit the role.
+          items:
+            type: string
+            enum:
+              - orders.view
+              - orders.edit
+              - orders.cancel
+              - orders.export
+              - returns.view
+              - returns.process
+              - returns.scan
+              - products.view
+              - products.add
+              - products.edit
+              - products.delete
+              - expenses.view
+              - expenses.add
+              - expenses.edit
+              - expenses.delete
+              - ads.view
+              - customers.view
+              - customers.blacklist
+              - analytics.view
+              - analytics.export
+              - shop.view
+              - shop.purchase
+      required:
+        - name
+        - phone
+        - password
+    UpdateStaffDto:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        phone:
+          type: string
+          description: Login phone number, E.164 format.
+        password:
+          type: string
+          minLength: 8
+          format: password
+          writeOnly: true
+          description: Leave blank to keep the current password unchanged.
+        jobTitle:
+          type: string
+          maxLength: 120
+        photoUrl:
+          type: string
+        roleId:
+          type: object
+          format: uuid
+          nullable: true
+        permissionOverrides:
+          type: array
+          items:
+            type: string
+            enum:
+              - orders.view
+              - orders.edit
+              - orders.cancel
+              - orders.export
+              - returns.view
+              - returns.process
+              - returns.scan
+              - products.view
+              - products.add
+              - products.edit
+              - products.delete
+              - expenses.view
+              - expenses.add
+              - expenses.edit
+              - expenses.delete
+              - ads.view
+              - customers.view
+              - customers.blacklist
+              - analytics.view
+              - analytics.export
+              - shop.view
+              - shop.purchase
+    UpdateStaffStatusDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - INACTIVE
+          description: Staff removal is deactivate-only — there is no delete.
+      required:
+        - status
+    SalaryProfileResponseDto:
+      type: object
+      properties:
+        baseSalary:
+          type: string
+        frequency:
+          type: string
+          enum:
+            - DAILY
+            - WEEKLY
+            - MONTHLY
+        paymentMethod:
+          type: string
+          enum:
+            - BANK_TRANSFER
+            - CASH
+        expenseHandling:
+          type: string
+          enum:
+            - AUTOMATIC
+            - MANUAL
+        startDate:
+          type: string
+        nextPaymentDate:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required:
+        - baseSalary
+        - frequency
+        - paymentMethod
+        - expenseHandling
+        - startDate
+    SalaryProfileWrapperDto:
+      type: object
+      properties:
+        profile:
+          nullable: true
+          description: null when no salary profile has been set yet.
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/SalaryProfileResponseDto'
+    SetSalaryProfileDto:
+      type: object
+      properties:
+        baseSalary:
+          type: string
+          example: '3500.00'
+          description: Base salary amount in the store currency.
+        frequency:
+          type: string
+          enum:
+            - DAILY
+            - WEEKLY
+            - MONTHLY
+        paymentMethod:
+          type: string
+          enum:
+            - BANK_TRANSFER
+            - CASH
+        expenseHandling:
+          type: string
+          enum:
+            - AUTOMATIC
+            - MANUAL
+          default: AUTOMATIC
+          description: 'AUTOMATIC: the system generates the salary expense on schedule and manual entries are blocked. MANUAL: the owner records each payment by hand.'
+        startDate:
+          type: string
+          description: ISO date the salary schedule starts from.
+        notes:
+          type: string
+      required:
+        - baseSalary
+        - frequency
+        - paymentMethod
+        - startDate
+    SalaryPaymentResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        staffMemberId:
+          type: string
+        staffName:
+          type: string
+        amount:
+          type: string
+        paymentDate:
+          type: string
+        paidAt:
+          type: string
+          nullable: true
+        paymentMethod:
+          type: string
+          enum:
+            - BANK_TRANSFER
+            - CASH
+        status:
+          type: string
+          enum:
+            - PENDING
+            - PAID
+        notes:
+          type: string
+          nullable: true
+        receiptUrl:
+          type: string
+          nullable: true
+      required:
+        - id
+        - staffMemberId
+        - staffName
+        - amount
+        - paymentDate
+        - paymentMethod
+        - status
+    SalaryPaymentListResponseDto:
+      type: object
+      properties:
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/SalaryPaymentResponseDto'
+        total:
+          type: number
+      required:
+        - payments
+        - total
+    CreateSalaryPaymentDto:
+      type: object
+      properties:
+        staffMemberIds:
+          description: Staff members to pay in this batch (Select Staff Member screen — usually one, but supports multi-select).
+          type: array
+          items:
+            type: string
+        amount:
+          type: string
+          description: Amount per staff member. Defaults to each staff member's configured base salary when omitted.
+        paymentDate:
+          type: string
+          description: ISO date this payment is for.
+        paymentMethod:
+          type: string
+          enum:
+            - BANK_TRANSFER
+            - CASH
+        notes:
+          type: string
+        receiptUrl:
+          type: string
+      required:
+        - staffMemberIds
+        - paymentDate
+        - paymentMethod
+    SalaryPaymentBatchResponseDto:
+      type: object
+      properties:
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/SalaryPaymentResponseDto'
+      required:
+        - payments
+    ExpenseCategoryResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        group:
+          type: string
+          enum:
+            - SHIPPING
+            - ADS
+            - SALARY
+            - PURCHASES
+            - OTHER
+        icon:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+        isSystem:
+          type: boolean
+      required:
+        - id
+        - name
+        - group
+        - isSystem
+    ExpenseCategoryListResponseDto:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpenseCategoryResponseDto'
+      required:
+        - categories
+    CreateExpenseCategoryDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Packaging Supplies
+          maxLength: 80
+        group:
+          type: string
+          enum:
+            - SHIPPING
+            - ADS
+            - SALARY
+            - PURCHASES
+            - OTHER
+          default: OTHER
+          description: Which of the 5 summary buckets this category rolls into.
+        icon:
+          type: string
+          description: Icon identifier for the mobile app.
+        color:
+          type: string
+          example: '#FF6B00'
+      required:
+        - name
+    UpdateExpenseCategoryDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Packaging Supplies
+          maxLength: 80
+        group:
+          type: string
+          enum:
+            - SHIPPING
+            - ADS
+            - SALARY
+            - PURCHASES
+            - OTHER
+          default: OTHER
+          description: Which of the 5 summary buckets this category rolls into.
+        icon:
+          type: string
+          description: Icon identifier for the mobile app.
+        color:
+          type: string
+          example: '#FF6B00'
+    ExpenseGroupTotalDto:
+      type: object
+      properties:
+        group:
+          type: string
+          enum:
+            - SHIPPING
+            - ADS
+            - SALARY
+            - PURCHASES
+            - OTHER
+        total:
+          type: string
+      required:
+        - group
+        - total
+    ExpenseSummaryResponseDto:
+      type: object
+      properties:
+        totalAmount:
+          type: string
+        byGroup:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpenseGroupTotalDto'
+      required:
+        - totalAmount
+        - byGroup
+    ExpenseResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        amount:
+          type: string
+        paymentMethod:
+          type: string
+          enum:
+            - CASH
+            - BANK
+        spentAt:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        receiptUrl:
+          type: string
+          nullable: true
+        category:
+          $ref: '#/components/schemas/ExpenseCategoryResponseDto'
+        staffMemberId:
+          type: string
+          nullable: true
+        isSalaryGenerated:
+          type: boolean
+          description: True for expenses generated from a staff salary payment — edit/delete from Staff Salary instead.
+        createdAt:
+          type: string
+      required:
+        - id
+        - title
+        - amount
+        - paymentMethod
+        - spentAt
+        - category
+        - isSalaryGenerated
+        - createdAt
+    ExpenseListResponseDto:
+      type: object
+      properties:
+        expenses:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpenseResponseDto'
+        total:
+          type: number
+        totalAmount:
+          type: string
+        page:
+          type: number
+        limit:
+          type: number
+      required:
+        - expenses
+        - total
+        - totalAmount
+        - page
+        - limit
+    CreateExpenseDto:
+      type: object
+      properties:
+        title:
+          type: string
+          example: Bubble wrap restock
+          maxLength: 120
+        amount:
+          type: string
+          example: '450.00'
+        paymentMethod:
+          type: string
+          enum:
+            - CASH
+            - BANK
+        spentAt:
+          type: string
+          description: ISO date this was spent.
+        categoryId:
+          type: string
+          format: uuid
+        notes:
+          type: string
+        receiptUrl:
+          type: string
+      required:
+        - title
+        - amount
+        - paymentMethod
+        - spentAt
+        - categoryId
+    UpdateExpenseDto:
+      type: object
+      properties:
+        title:
+          type: string
+          example: Bubble wrap restock
+          maxLength: 120
+        amount:
+          type: string
+          example: '450.00'
+        paymentMethod:
+          type: string
+          enum:
+            - CASH
+            - BANK
+        spentAt:
+          type: string
+          description: ISO date this was spent.
+        categoryId:
+          type: string
+          format: uuid
+        notes:
+          type: string
+        receiptUrl:
+          type: string

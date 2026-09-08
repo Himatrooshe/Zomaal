@@ -6,6 +6,10 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
+import {
+  defaultExpenseCategorySeeds,
+  defaultRoleSeeds,
+} from '../access/store-defaults.util';
 
 @Injectable()
 export class StoresService {
@@ -24,6 +28,8 @@ export class StoresService {
       data: {
         ...createStoreDto,
         userId,
+        roles: { create: defaultRoleSeeds() },
+        expenseCategories: { create: defaultExpenseCategorySeeds() },
       },
     });
 
