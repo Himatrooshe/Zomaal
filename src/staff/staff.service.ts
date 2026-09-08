@@ -8,6 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreAccessService, resolvePermissions } from '../access/store-access.service';
 import type { Permission } from '../access/permissions';
+import { isUniqueConstraintError } from '../common/prisma-errors.util';
 import {
   CreateStaffDto,
   StaffDetailResponseDto,
@@ -103,26 +104,32 @@ export class StaffService {
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
-    const user = await this.prisma.user.create({
-      data: {
-        phone: dto.phone,
-        passwordHash,
-        onboardingComplete: true,
-        staffMembership: {
-          create: {
-            storeId,
-            name: dto.name,
-            jobTitle: dto.jobTitle ?? null,
-            photoUrl: dto.photoUrl ?? null,
-            roleId: dto.roleId ?? null,
-            permissionOverrides: dto.permissionOverrides ?? [],
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          phone: dto.phone,
+          passwordHash,
+          onboardingComplete: true,
+          staffMembership: {
+            create: {
+              storeId,
+              name: dto.name,
+              jobTitle: dto.jobTitle ?? null,
+              photoUrl: dto.photoUrl ?? null,
+              roleId: dto.roleId ?? null,
+              permissionOverrides: dto.permissionOverrides ?? [],
+            },
           },
         },
-      },
-      include: { staffMembership: { include: STAFF_DETAIL_INCLUDE } },
-    });
-
-    return toStaffDetailResponse(user.staffMembership as StaffWithDetail);
+        include: { staffMembership: { include: STAFF_DETAIL_INCLUDE } },
+      });
+      return toStaffDetailResponse(user.staffMembership as StaffWithDetail);
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        throw new ConflictException('This phone number is already registered');
+      }
+      throw err;
+    }
   }
 
   async update(
@@ -158,25 +165,31 @@ export class StaffService {
           ? { disconnect: true }
           : { connect: { id: dto.roleId } };
 
-    const updated = await this.prisma.staffMember.update({
-      where: { id: staffId },
-      data: {
-        name: dto.name,
-        jobTitle: dto.jobTitle,
-        photoUrl: dto.photoUrl,
-        role: roleOp,
-        permissionOverrides: dto.permissionOverrides as Permission[] | undefined,
-        user: {
-          update: {
-            phone: dto.phone,
-            passwordHash,
+    try {
+      const updated = await this.prisma.staffMember.update({
+        where: { id: staffId },
+        data: {
+          name: dto.name,
+          jobTitle: dto.jobTitle,
+          photoUrl: dto.photoUrl,
+          role: roleOp,
+          permissionOverrides: dto.permissionOverrides as Permission[] | undefined,
+          user: {
+            update: {
+              phone: dto.phone,
+              passwordHash,
+            },
           },
         },
-      },
-      include: STAFF_DETAIL_INCLUDE,
-    });
-
-    return toStaffDetailResponse(updated);
+        include: STAFF_DETAIL_INCLUDE,
+      });
+      return toStaffDetailResponse(updated);
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        throw new ConflictException('This phone number is already registered');
+      }
+      throw err;
+    }
   }
 
   /**

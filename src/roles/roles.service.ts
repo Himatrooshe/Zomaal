@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StoreAccessService } from '../access/store-access.service';
 import { CreateRoleDto, UpdateRoleDto, RoleResponseDto } from './dto/role.dto';
 import type { Permission } from '../access/permissions';
+import { isUniqueConstraintError } from '../common/prisma-errors.util';
 
 @Injectable()
 export class RolesService {
@@ -37,17 +38,26 @@ export class RolesService {
       throw new ConflictException('A role with this name already exists');
     }
 
-    const role = await this.prisma.role.create({
-      data: {
-        storeId,
-        name: dto.name,
-        description: dto.description ?? null,
-        permissions: dto.permissions,
-      },
-      include: { _count: { select: { staffMembers: true } } },
-    });
-
-    return toRoleResponse(role);
+    // The check above closes the common case with a clean message; this
+    // catch is the safety net for the race where two requests pass it
+    // concurrently and only one INSERT wins at the DB's unique constraint.
+    try {
+      const role = await this.prisma.role.create({
+        data: {
+          storeId,
+          name: dto.name,
+          description: dto.description ?? null,
+          permissions: dto.permissions,
+        },
+        include: { _count: { select: { staffMembers: true } } },
+      });
+      return toRoleResponse(role);
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        throw new ConflictException('A role with this name already exists');
+      }
+      throw err;
+    }
   }
 
   async update(
@@ -67,17 +77,23 @@ export class RolesService {
       }
     }
 
-    const updated = await this.prisma.role.update({
-      where: { id: roleId },
-      data: {
-        name: dto.name,
-        description: dto.description,
-        permissions: dto.permissions as Permission[] | undefined,
-      },
-      include: { _count: { select: { staffMembers: true } } },
-    });
-
-    return toRoleResponse(updated);
+    try {
+      const updated = await this.prisma.role.update({
+        where: { id: roleId },
+        data: {
+          name: dto.name,
+          description: dto.description,
+          permissions: dto.permissions as Permission[] | undefined,
+        },
+        include: { _count: { select: { staffMembers: true } } },
+      });
+      return toRoleResponse(updated);
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        throw new ConflictException('A role with this name already exists');
+      }
+      throw err;
+    }
   }
 
   async remove(userId: string, roleId: string): Promise<void> {

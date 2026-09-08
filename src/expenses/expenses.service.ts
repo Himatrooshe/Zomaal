@@ -6,6 +6,7 @@ import {
 import { ExpenseGroup, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { StoreAccess } from '../access/store-access.service';
+import { isUniqueConstraintError } from '../common/prisma-errors.util';
 import {
   CreateExpenseCategoryDto,
   ExpenseCategoryResponseDto,
@@ -52,16 +53,23 @@ export class ExpensesService {
       throw new ConflictException('A category with this name already exists');
     }
 
-    const category = await this.prisma.expenseCategory.create({
-      data: {
-        storeId,
-        name: dto.name,
-        group: dto.group ?? ExpenseGroup.OTHER,
-        icon: dto.icon ?? null,
-        color: dto.color ?? null,
-      },
-    });
-    return toCategoryResponse(category);
+    try {
+      const category = await this.prisma.expenseCategory.create({
+        data: {
+          storeId,
+          name: dto.name,
+          group: dto.group ?? ExpenseGroup.OTHER,
+          icon: dto.icon ?? null,
+          color: dto.color ?? null,
+        },
+      });
+      return toCategoryResponse(category);
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        throw new ConflictException('A category with this name already exists');
+      }
+      throw err;
+    }
   }
 
   async updateCategory(
@@ -80,16 +88,23 @@ export class ExpensesService {
       }
     }
 
-    const updated = await this.prisma.expenseCategory.update({
-      where: { id: categoryId },
-      data: {
-        name: dto.name,
-        group: dto.group,
-        icon: dto.icon,
-        color: dto.color,
-      },
-    });
-    return toCategoryResponse(updated);
+    try {
+      const updated = await this.prisma.expenseCategory.update({
+        where: { id: categoryId },
+        data: {
+          name: dto.name,
+          group: dto.group,
+          icon: dto.icon,
+          color: dto.color,
+        },
+      });
+      return toCategoryResponse(updated);
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        throw new ConflictException('A category with this name already exists');
+      }
+      throw err;
+    }
   }
 
   async removeCategory(storeId: string, categoryId: string): Promise<void> {

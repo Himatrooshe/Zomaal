@@ -1,6 +1,14 @@
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { RolesService } from './roles.service';
 import { PERMISSIONS } from '../access/permissions';
+
+function uniqueConstraintError() {
+  return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+    code: 'P2002',
+    clientVersion: 'test',
+  });
+}
 
 const STORE_ACCESS = { storeId: 'store-1', isOwner: true };
 
@@ -136,5 +144,28 @@ describe('RolesService', () => {
 
     await service.remove('owner-user', 'role-1');
     expect(prisma.role.delete).toHaveBeenCalledWith({ where: { id: 'role-1' } });
+  });
+
+  it('converts a racing duplicate-name INSERT into a clean 409, not a raw 500', async () => {
+    const { service, prisma } = build();
+    // Pre-check passes (no clash seen yet) — but the concurrent request wins
+    // the race at the DB's unique constraint.
+    prisma.role.findUnique.mockResolvedValue(null);
+    prisma.role.create.mockRejectedValue(uniqueConstraintError());
+
+    await expect(
+      service.create('owner-user', { name: 'Manager', permissions: [] }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('converts a racing duplicate-name UPDATE into a clean 409, not a raw 500', async () => {
+    const { service, prisma } = build();
+    prisma.role.findFirst.mockResolvedValue(ROLE_ROW);
+    prisma.role.findUnique.mockResolvedValue(null);
+    prisma.role.update.mockRejectedValue(uniqueConstraintError());
+
+    await expect(
+      service.update('owner-user', 'role-1', { name: 'Taken Name' }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

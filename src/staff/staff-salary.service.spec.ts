@@ -5,7 +5,7 @@ import {
   SalaryPaymentMethod,
   StaffStatus,
 } from '@prisma/client';
-import { StaffSalaryService } from './staff-salary.service';
+import { StaffSalaryService, advance } from './staff-salary.service';
 
 const STORE_ACCESS = { storeId: 'store-1', isOwner: true };
 
@@ -153,6 +153,7 @@ describe('StaffSalaryService', () => {
         baseSalary: decimal('100'),
         frequency: SalaryFrequency.MONTHLY,
         paymentMethod: SalaryPaymentMethod.CASH,
+        startDate: new Date('2026-01-01T00:00:00.000Z'),
         nextPaymentDate: new Date('2026-09-01T00:00:00.000Z'),
         staffMember: { id: 'staff-1', name: 'Auto Staff', storeId: 'store-1', status: StaffStatus.ACTIVE },
       },
@@ -201,5 +202,30 @@ describe('StaffSalaryService', () => {
     expect(prisma.expenseCategory.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ group: 'SALARY' }) }),
     );
+  });
+});
+
+describe('advance', () => {
+  it('clamps into a shorter month rather than overflowing (Jan 31 -> Feb 28, not Mar 3)', () => {
+    const next = advance(new Date('2026-01-31T00:00:00.000Z'), SalaryFrequency.MONTHLY, 31);
+    expect(next.toISOString()).toBe('2026-02-28T00:00:00.000Z');
+  });
+
+  it('returns to the anchor day once a long-enough month comes back around', () => {
+    // Anchored on the 31st: Jan 31 -> Feb 28 (clamped) -> Mar 31 (back to
+    // anchor, not stuck at 28 forever) -> Apr 30 (clamped again).
+    const feb = advance(new Date('2026-01-31T00:00:00.000Z'), SalaryFrequency.MONTHLY, 31);
+    const mar = advance(feb, SalaryFrequency.MONTHLY, 31);
+    const apr = advance(mar, SalaryFrequency.MONTHLY, 31);
+
+    expect(mar.toISOString()).toBe('2026-03-31T00:00:00.000Z');
+    expect(apr.toISOString()).toBe('2026-04-30T00:00:00.000Z');
+  });
+
+  it('DAILY and WEEKLY advance by fixed offsets regardless of anchorDay', () => {
+    const daily = advance(new Date('2026-09-01T00:00:00.000Z'), SalaryFrequency.DAILY, 1);
+    const weekly = advance(new Date('2026-09-01T00:00:00.000Z'), SalaryFrequency.WEEKLY, 1);
+    expect(daily.toISOString()).toBe('2026-09-02T00:00:00.000Z');
+    expect(weekly.toISOString()).toBe('2026-09-08T00:00:00.000Z');
   });
 });

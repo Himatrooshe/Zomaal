@@ -259,7 +259,13 @@ export class StaffSalaryService {
 
       await this.prisma.staffSalaryProfile.update({
         where: { id: profile.id },
-        data: { nextPaymentDate: advance(paymentDate, profile.frequency) },
+        data: {
+          nextPaymentDate: advance(
+            paymentDate,
+            profile.frequency,
+            profile.startDate.getUTCDate(),
+          ),
+        },
       });
 
       processed += 1;
@@ -293,20 +299,49 @@ export class StaffSalaryService {
   }
 }
 
-function advance(date: Date, frequency: SalaryFrequency): Date {
-  const next = new Date(date);
+/**
+ * `anchorDay` is the day-of-month the schedule is meant to land on — the
+ * profile's original startDate, NOT the previous payment's date. Deriving
+ * the anchor from the previous payment instead would permanently drift a
+ * schedule once it's clamped by a short month (Jan 31 -> Feb 28 -> Mar 28
+ * forever, since 28 becomes the new "day"). Anchoring to startDate instead
+ * gives Jan 31 -> Feb 28 -> Mar 31 -> Apr 30 -> May 31 — it returns to the
+ * 31st every time a long-enough month comes back around.
+ */
+export function advance(date: Date, frequency: SalaryFrequency, anchorDay: number): Date {
   switch (frequency) {
-    case SalaryFrequency.DAILY:
-      next.setDate(next.getDate() + 1);
-      break;
-    case SalaryFrequency.WEEKLY:
-      next.setDate(next.getDate() + 7);
-      break;
+    case SalaryFrequency.DAILY: {
+      const next = new Date(date);
+      next.setUTCDate(next.getUTCDate() + 1);
+      return next;
+    }
+    case SalaryFrequency.WEEKLY: {
+      const next = new Date(date);
+      next.setUTCDate(next.getUTCDate() + 7);
+      return next;
+    }
     case SalaryFrequency.MONTHLY:
-      next.setMonth(next.getMonth() + 1);
-      break;
+      return addMonthClamped(date, anchorDay);
   }
-  return next;
+}
+
+function addMonthClamped(date: Date, anchorDay: number): Date {
+  const firstOfTargetMonth = new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth() + 1,
+      1,
+      date.getUTCHours(),
+      date.getUTCMinutes(),
+      date.getUTCSeconds(),
+      date.getUTCMilliseconds(),
+    ),
+  );
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(firstOfTargetMonth.getUTCFullYear(), firstOfTargetMonth.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  firstOfTargetMonth.setUTCDate(Math.min(anchorDay, lastDayOfTargetMonth));
+  return firstOfTargetMonth;
 }
 
 function toProfileResponse(profile: StaffSalaryProfile): SalaryProfileResponseDto {
