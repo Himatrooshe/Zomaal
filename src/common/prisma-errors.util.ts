@@ -16,3 +16,18 @@ export function isUniqueConstraintError(err: unknown): boolean {
     err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'
   );
 }
+
+/**
+ * True when `err` is a Prisma foreign-key constraint violation (P2003).
+ *
+ * Same race shape as isUniqueConstraintError but on delete: a count()-then-
+ * delete check for "nothing references this row" isn't atomic either — a
+ * concurrent insert can land between the check and the delete, and the
+ * delete then fails at an `onDelete: Restrict` constraint. Without this,
+ * that surfaces as a raw 500 instead of the same 409 the pre-check gives.
+ */
+export function isForeignKeyConstraintError(err: unknown): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003'
+  );
+}

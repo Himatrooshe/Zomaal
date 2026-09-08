@@ -3,6 +3,7 @@ import {
   ArrayUnique,
   IsArray,
   IsIn,
+  IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
@@ -12,6 +13,7 @@ import { ALL_PERMISSIONS, type Permission } from '../../access/permissions';
 export class CreateRoleDto {
   @ApiProperty({ example: 'Warehouse Staff', maxLength: 80 })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(80)
   name!: string;
 

@@ -1,10 +1,11 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { ExpenseGroup } from '@prisma/client';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateExpenseCategoryDto {
   @ApiProperty({ example: 'Packaging Supplies', maxLength: 80 })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(80)
   name!: string;
 

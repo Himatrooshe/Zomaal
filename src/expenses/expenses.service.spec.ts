@@ -2,6 +2,20 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ExpenseGroup, ExpensePaymentMethod, Prisma } from '@prisma/client';
 import { ExpensesService } from './expenses.service';
 
+function foreignKeyConstraintError() {
+  return new Prisma.PrismaClientKnownRequestError('Foreign key constraint failed', {
+    code: 'P2003',
+    clientVersion: 'test',
+  });
+}
+
+function uniqueConstraintError() {
+  return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+    code: 'P2002',
+    clientVersion: 'test',
+  });
+}
+
 function decimal(value: string) {
   return {
     toString: () => value,
@@ -189,6 +203,59 @@ describe('ExpensesService', () => {
         { group: ExpenseGroup.SALARY, total: '0.00' },
         { group: ExpenseGroup.PURCHASES, total: '0.00' },
       ]),
+    );
+  });
+
+  it('rejects creating a custom category directly in the SALARY group', async () => {
+    const { service, prisma } = build();
+
+    await expect(
+      service.createCategory('store-1', { name: 'My Bonuses', group: ExpenseGroup.SALARY }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.expenseCategory.create).not.toHaveBeenCalled();
+    // Must reject before even checking name uniqueness against the DB.
+    expect(prisma.expenseCategory.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects reassigning an existing category into the SALARY group', async () => {
+    const { service, prisma } = build();
+    prisma.expenseCategory.findFirst.mockResolvedValue(CATEGORY); // group: OTHER
+
+    await expect(
+      service.updateCategory('store-1', 'cat-1', { group: ExpenseGroup.SALARY }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.expenseCategory.update).not.toHaveBeenCalled();
+  });
+
+  it('allows a no-op update to the seeded SALARY category itself', async () => {
+    const { service, prisma } = build();
+    prisma.expenseCategory.findFirst.mockResolvedValue(SALARY_CATEGORY);
+    prisma.expenseCategory.update.mockResolvedValue(SALARY_CATEGORY);
+
+    await expect(
+      service.updateCategory('store-1', 'cat-salary', { group: ExpenseGroup.SALARY, color: '#000' }),
+    ).resolves.toBeDefined();
+    expect(prisma.expenseCategory.update).toHaveBeenCalled();
+  });
+
+  it('converts a racing category-name INSERT into a clean 409, not a raw 500', async () => {
+    const { service, prisma } = build();
+    prisma.expenseCategory.findUnique.mockResolvedValue(null);
+    prisma.expenseCategory.create.mockRejectedValue(uniqueConstraintError());
+
+    await expect(
+      service.createCategory('store-1', { name: 'Packaging' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('converts a racing concurrent-expense-insert-during-delete into a clean 409, not a raw 500', async () => {
+    const { service, prisma } = build();
+    prisma.expenseCategory.findFirst.mockResolvedValue(CATEGORY);
+    prisma.expense.count.mockResolvedValue(0); // pre-check saw nothing in use
+    prisma.expenseCategory.delete.mockRejectedValue(foreignKeyConstraintError()); // but lost the race
+
+    await expect(service.removeCategory('store-1', 'cat-1')).rejects.toBeInstanceOf(
+      ConflictException,
     );
   });
 });

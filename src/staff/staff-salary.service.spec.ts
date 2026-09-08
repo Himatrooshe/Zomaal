@@ -41,6 +41,84 @@ describe('StaffSalaryService', () => {
     );
   });
 
+  it('setProfile: new AUTOMATIC profile uses startDate as the first nextPaymentDate', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findFirst.mockResolvedValue({ id: 'staff-1' });
+    prisma.staffSalaryProfile.findUnique.mockResolvedValue(null);
+    prisma.staffSalaryProfile.upsert.mockImplementation((args: any) => ({ ...args.create, baseSalary: decimal(args.create.baseSalary) }));
+
+    const result = await service.setProfile('owner-user', 'staff-1', {
+      baseSalary: '3000',
+      frequency: SalaryFrequency.MONTHLY,
+      paymentMethod: SalaryPaymentMethod.CASH,
+      expenseHandling: SalaryExpenseHandling.AUTOMATIC,
+      startDate: '2026-01-31T00:00:00.000Z',
+    });
+
+    expect(result.nextPaymentDate).toBe('2026-01-31T00:00:00.000Z');
+  });
+
+  it('setProfile: editing an unrelated field on an already-AUTOMATIC profile preserves the running schedule', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findFirst.mockResolvedValue({ id: 'staff-1' });
+    prisma.staffSalaryProfile.findUnique.mockResolvedValue({
+      startDate: new Date('2026-01-31T00:00:00.000Z'),
+      nextPaymentDate: new Date('2026-06-30T00:00:00.000Z'), // schedule has already advanced past startDate
+    });
+    prisma.staffSalaryProfile.upsert.mockImplementation((args: any) => ({ ...args.update, baseSalary: decimal(args.update.baseSalary) }));
+
+    const result = await service.setProfile('owner-user', 'staff-1', {
+      baseSalary: '3500', // only the amount changed
+      frequency: SalaryFrequency.MONTHLY,
+      paymentMethod: SalaryPaymentMethod.CASH,
+      expenseHandling: SalaryExpenseHandling.AUTOMATIC,
+      startDate: '2026-01-31T00:00:00.000Z', // unchanged
+    });
+
+    // Must NOT reset to startDate — that would silently rewind an in-flight schedule.
+    expect(result.nextPaymentDate).toBe('2026-06-30T00:00:00.000Z');
+  });
+
+  it('setProfile: deliberately changing startDate on an AUTOMATIC profile resets the schedule to it', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findFirst.mockResolvedValue({ id: 'staff-1' });
+    prisma.staffSalaryProfile.findUnique.mockResolvedValue({
+      startDate: new Date('2026-01-31T00:00:00.000Z'),
+      nextPaymentDate: new Date('2026-06-30T00:00:00.000Z'),
+    });
+    prisma.staffSalaryProfile.upsert.mockImplementation((args: any) => ({ ...args.update, baseSalary: decimal(args.update.baseSalary) }));
+
+    const result = await service.setProfile('owner-user', 'staff-1', {
+      baseSalary: '3000',
+      frequency: SalaryFrequency.MONTHLY,
+      paymentMethod: SalaryPaymentMethod.CASH,
+      expenseHandling: SalaryExpenseHandling.AUTOMATIC,
+      startDate: '2026-08-01T00:00:00.000Z', // deliberately moved
+    });
+
+    expect(result.nextPaymentDate).toBe('2026-08-01T00:00:00.000Z');
+  });
+
+  it('setProfile: switching to MANUAL clears the schedule', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findFirst.mockResolvedValue({ id: 'staff-1' });
+    prisma.staffSalaryProfile.findUnique.mockResolvedValue({
+      startDate: new Date('2026-01-31T00:00:00.000Z'),
+      nextPaymentDate: new Date('2026-06-30T00:00:00.000Z'),
+    });
+    prisma.staffSalaryProfile.upsert.mockImplementation((args: any) => ({ ...args.update, baseSalary: decimal(args.update.baseSalary) }));
+
+    const result = await service.setProfile('owner-user', 'staff-1', {
+      baseSalary: '3000',
+      frequency: SalaryFrequency.MONTHLY,
+      paymentMethod: SalaryPaymentMethod.CASH,
+      expenseHandling: SalaryExpenseHandling.MANUAL,
+      startDate: '2026-01-31T00:00:00.000Z',
+    });
+
+    expect(result.nextPaymentDate).toBeNull();
+  });
+
   it('blocks a manual payment for every staff member whose profile is AUTOMATIC', async () => {
     const { service, prisma } = build();
     prisma.staffMember.findMany.mockResolvedValue([
@@ -133,7 +211,8 @@ describe('StaffSalaryService', () => {
         baseSalary: decimal('100'),
         frequency: SalaryFrequency.MONTHLY,
         paymentMethod: SalaryPaymentMethod.CASH,
-        nextPaymentDate: new Date('2026-09-01'),
+        startDate: new Date('2026-01-01T00:00:00.000Z'),
+        nextPaymentDate: new Date('2026-09-01T00:00:00.000Z'),
         staffMember: { id: 'staff-1', name: 'X', storeId: 'store-1', status: StaffStatus.INACTIVE },
       },
     ]);
@@ -142,6 +221,30 @@ describe('StaffSalaryService', () => {
 
     expect(result.processed).toBe(0);
     expect(prisma.staffSalaryPayment.create).not.toHaveBeenCalled();
+  });
+
+  it('advances an inactive staff member\'s schedule instead of freezing it, so reactivation never back-pays', async () => {
+    const { service, prisma } = build();
+    prisma.staffSalaryProfile.findMany.mockResolvedValue([
+      {
+        id: 'profile-1',
+        staffMemberId: 'staff-1',
+        baseSalary: decimal('100'),
+        frequency: SalaryFrequency.MONTHLY,
+        paymentMethod: SalaryPaymentMethod.CASH,
+        startDate: new Date('2026-01-01T00:00:00.000Z'),
+        nextPaymentDate: new Date('2026-09-01T00:00:00.000Z'),
+        staffMember: { id: 'staff-1', name: 'X', storeId: 'store-1', status: StaffStatus.INACTIVE },
+      },
+    ]);
+
+    const result = await service.runAutomaticPayments();
+
+    expect(result.skippedInactive).toBe(1);
+    expect(prisma.staffSalaryProfile.update).toHaveBeenCalledWith({
+      where: { id: 'profile-1' },
+      data: { nextPaymentDate: new Date('2026-10-01T00:00:00.000Z') },
+    });
   });
 
   it('advances nextPaymentDate and creates a linked expense for a due AUTOMATIC profile', async () => {

@@ -12,7 +12,7 @@ export class StaffSalarySchedulerController {
   @Post('run')
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
-  run(): Promise<{ processed: number }> {
+  run(): Promise<{ processed: number; skippedInactive: number }> {
     return this.salary.runAutomaticPayments();
   }
 }

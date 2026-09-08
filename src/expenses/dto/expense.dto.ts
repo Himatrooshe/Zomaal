@@ -5,6 +5,7 @@ import {
   IsDateString,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsNumberString,
   IsOptional,
   IsString,
@@ -14,15 +15,18 @@ import {
   Min,
 } from 'class-validator';
 import { ExpenseCategoryResponseDto } from './expense-category.dto';
+import { IsPositiveAmount } from '../../common/validators/is-positive-amount.validator';
 
 export class CreateExpenseDto {
   @ApiProperty({ example: 'Bubble wrap restock', maxLength: 120 })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(120)
   title!: string;
 
   @ApiProperty({ example: '450.00' })
   @IsNumberString()
+  @IsPositiveAmount()
   amount!: string;
 
   @ApiProperty({ enum: ExpensePaymentMethod })

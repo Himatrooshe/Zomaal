@@ -18,10 +18,12 @@ import {
   IsUUID,
   MaxLength,
 } from 'class-validator';
+import { IsPositiveAmount } from '../../common/validators/is-positive-amount.validator';
 
 export class SetSalaryProfileDto {
   @ApiProperty({ example: '3500.00', description: 'Base salary amount in the store currency.' })
   @IsNumberString()
+  @IsPositiveAmount()
   baseSalary!: string;
 
   @ApiProperty({ enum: SalaryFrequency })
@@ -90,6 +92,7 @@ export class CreateSalaryPaymentDto {
   })
   @IsOptional()
   @IsNumberString()
+  @IsPositiveAmount()
   amount?: string;
 
   @ApiProperty({ description: 'ISO date this payment is for.' })

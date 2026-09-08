@@ -6,7 +6,10 @@ import {
 import { ExpenseGroup, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { StoreAccess } from '../access/store-access.service';
-import { isUniqueConstraintError } from '../common/prisma-errors.util';
+import {
+  isForeignKeyConstraintError,
+  isUniqueConstraintError,
+} from '../common/prisma-errors.util';
 import {
   CreateExpenseCategoryDto,
   ExpenseCategoryResponseDto,
@@ -46,6 +49,18 @@ export class ExpensesService {
     storeId: string,
     dto: CreateExpenseCategoryDto,
   ): Promise<ExpenseCategoryResponseDto> {
+    // SALARY is exclusively system-managed: resolveSalaryCategoryId() picks
+    // "the" SALARY category for a store with a plain findFirst. A second,
+    // user-created SALARY category would make that pick nondeterministic —
+    // some salary expenses could land in the wrong one. And a category that
+    // can never receive a directly-created expense (rejectSalaryCategory in
+    // create()/update() below) is a dead end for the owner anyway.
+    if ((dto.group ?? ExpenseGroup.OTHER) === ExpenseGroup.SALARY) {
+      throw new ConflictException(
+        'The SALARY category is managed automatically by Staff Salary and cannot be created directly.',
+      );
+    }
+
     const existing = await this.prisma.expenseCategory.findUnique({
       where: { storeId_name: { storeId, name: dto.name } },
     });
@@ -78,6 +93,16 @@ export class ExpensesService {
     dto: UpdateExpenseCategoryDto,
   ): Promise<ExpenseCategoryResponseDto> {
     const category = await this.requireCategory(storeId, categoryId);
+
+    // Allow a no-op resubmission of the seeded SALARY category's own group,
+    // but never let a DIFFERENT category be reassigned into SALARY — same
+    // "only one SALARY category, resolved deterministically" reasoning as
+    // createCategory().
+    if (dto.group === ExpenseGroup.SALARY && category.group !== ExpenseGroup.SALARY) {
+      throw new ConflictException(
+        'The SALARY category is managed automatically by Staff Salary and cannot be assigned directly.',
+      );
+    }
 
     if (dto.name && dto.name !== category.name) {
       const clash = await this.prisma.expenseCategory.findUnique({
@@ -120,7 +145,16 @@ export class ExpensesService {
       );
     }
 
-    await this.prisma.expenseCategory.delete({ where: { id: categoryId } });
+    try {
+      await this.prisma.expenseCategory.delete({ where: { id: categoryId } });
+    } catch (err) {
+      if (isForeignKeyConstraintError(err)) {
+        throw new ConflictException(
+          'This category has expenses recorded against it. Move or delete them first.',
+        );
+      }
+      throw err;
+    }
   }
 
   // ---- Expenses -----------------------------------------------------------

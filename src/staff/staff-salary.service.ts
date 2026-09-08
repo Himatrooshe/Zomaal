@@ -87,13 +87,12 @@ export class StaffSalaryService {
         expenseHandling,
         startDate,
         notes: dto.notes,
-        // Switching MANUAL -> AUTOMATIC (re)starts the schedule from today if
-        // nothing is already pending; switching to MANUAL clears it, since a
-        // human is now responsible for every entry.
         nextPaymentDate:
           expenseHandling === SalaryExpenseHandling.AUTOMATIC
-            ? (existing?.nextPaymentDate ?? startDate)
-            : null,
+            ? resolveNextPaymentDateOnUpdate(existing, startDate)
+            : // Switching to MANUAL clears the schedule — a human is now
+              // responsible for every entry.
+              null,
       },
     });
 
@@ -217,7 +216,7 @@ export class StaffSalaryService {
    * across every store. One period per run; a run that fires at least as
    * often as the shortest frequency (DAILY) never falls behind.
    */
-  async runAutomaticPayments(): Promise<{ processed: number }> {
+  async runAutomaticPayments(): Promise<{ processed: number; skippedInactive: number }> {
     const due = await this.prisma.staffSalaryProfile.findMany({
       where: {
         expenseHandling: SalaryExpenseHandling.AUTOMATIC,
@@ -227,13 +226,25 @@ export class StaffSalaryService {
     });
 
     let processed = 0;
+    let skippedInactive = 0;
     for (const profile of due) {
-      // A deactivated staff member's automatic schedule stops generating
-      // expenses, but the profile is left alone in case they're reactivated.
-      if (profile.staffMember.status !== StaffStatus.ACTIVE) continue;
+      const paymentDate = profile.nextPaymentDate!;
+      const nextPaymentDate = advance(paymentDate, profile.frequency, profile.startDate.getUTCDate());
+
+      // A deactivated staff member's automatic schedule must still tick
+      // forward — leaving nextPaymentDate frozen in the past would, on
+      // reactivation, suddenly generate a back-dated payment for a period
+      // they were inactive for the whole time. Advance without paying.
+      if (profile.staffMember.status !== StaffStatus.ACTIVE) {
+        await this.prisma.staffSalaryProfile.update({
+          where: { id: profile.id },
+          data: { nextPaymentDate },
+        });
+        skippedInactive += 1;
+        continue;
+      }
 
       const categoryId = await this.resolveSalaryCategoryId(profile.staffMember.storeId);
-      const paymentDate = profile.nextPaymentDate!;
 
       await this.prisma.staffSalaryPayment.create({
         data: {
@@ -259,19 +270,13 @@ export class StaffSalaryService {
 
       await this.prisma.staffSalaryProfile.update({
         where: { id: profile.id },
-        data: {
-          nextPaymentDate: advance(
-            paymentDate,
-            profile.frequency,
-            profile.startDate.getUTCDate(),
-          ),
-        },
+        data: { nextPaymentDate },
       });
 
       processed += 1;
     }
 
-    return { processed };
+    return { processed, skippedInactive };
   }
 
   private async requireStaff(storeId: string, staffId: string) {
@@ -308,6 +313,24 @@ export class StaffSalaryService {
  * gives Jan 31 -> Feb 28 -> Mar 31 -> Apr 30 -> May 31 — it returns to the
  * 31st every time a long-enough month comes back around.
  */
+function resolveNextPaymentDateOnUpdate(
+  existing: StaffSalaryProfile | null,
+  newStartDate: Date,
+): Date {
+  // No profile yet, or it was MANUAL (nextPaymentDate already null): the
+  // schedule starts fresh from the (possibly just-set) startDate.
+  if (!existing || existing.nextPaymentDate === null) {
+    return newStartDate;
+  }
+  // Already AUTOMATIC and startDate hasn't changed: this is an edit to some
+  // other field (baseSalary, notes, ...) — leave the running schedule alone
+  // rather than resetting it back to startDate on every unrelated save.
+  if (existing.startDate.getTime() === newStartDate.getTime()) {
+    return existing.nextPaymentDate;
+  }
+  // startDate was deliberately changed while already AUTOMATIC: honor it.
+  return newStartDate;
+}
 export function advance(date: Date, frequency: SalaryFrequency, anchorDay: number): Date {
   switch (frequency) {
     case SalaryFrequency.DAILY: {

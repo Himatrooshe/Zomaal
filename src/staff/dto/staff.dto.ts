@@ -6,6 +6,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsPhoneNumber,
   IsString,
@@ -20,6 +21,7 @@ import { ALL_PERMISSIONS, type Permission } from '../../access/permissions';
 export class CreateStaffDto {
   @ApiProperty({ example: 'Sara Amrani', maxLength: 120 })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(120)
   name!: string;
 
@@ -69,6 +71,7 @@ export class UpdateStaffDto {
   @ApiPropertyOptional({ maxLength: 120 })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MaxLength(120)
   name?: string;
 
