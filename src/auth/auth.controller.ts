@@ -5,9 +5,11 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiBody,
   ApiConsumes,
   ApiOkResponse,
@@ -29,6 +31,9 @@ import {
   MessageResponseDto,
   TokenPairDto,
 } from './dto/auth-response.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CurrentUser } from './decorators/current-user.decorator';
+import type { JwtPayload } from './interfaces/jwt-payload.interface';
 
 const tokenResponseHeaders = {
   'Cache-Control': {
@@ -202,5 +207,23 @@ export class AuthController {
   })
   refreshTokens(@Body() refreshDto: RefreshTokenDto) {
     return this.authService.refreshTokens(refreshDto.refreshToken);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Log out the current device',
+    description:
+      'Revokes the refresh token, ending the session. The current access token remains valid until its normal 15-minute expiry.',
+  })
+  @ApiOkResponse({ description: 'Logged out.', type: MessageResponseDto })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, expired, or non-access bearer token.',
+    type: ApiErrorDto,
+  })
+  logout(@CurrentUser() user: JwtPayload) {
+    return this.authService.logout(user.userId);
   }
 }

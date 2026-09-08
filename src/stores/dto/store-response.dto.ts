@@ -7,6 +7,14 @@ export class StoreResponseDto {
   @ApiProperty({ example: 'John Doe' })
   ownerName: string;
 
+  @ApiProperty({
+    description: 'Owner’s personal profile photo, set via PATCH /users/me.',
+    example: 'https://example.com/avatar.png',
+    nullable: true,
+    type: String,
+  })
+  ownerPhotoUrl: string | null;
+
   @ApiProperty({ example: 'John Electronics' })
   businessName: string;
 

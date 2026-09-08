@@ -112,7 +112,9 @@ export class AuthService {
       user.staffMembership &&
       user.staffMembership.status !== StaffStatus.ACTIVE
     ) {
-      throw new UnauthorizedException('This staff account has been deactivated');
+      throw new UnauthorizedException(
+        'This staff account has been deactivated',
+      );
     }
 
     const tokens = await this.generateTokens(user.id, user.phone);
@@ -132,6 +134,19 @@ export class AuthService {
       ...tokens,
       isProfileCompleted: user.onboardingComplete,
     };
+  }
+
+  async logout(userId: string) {
+    // Revoking the refresh token is what actually ends the session — the
+    // access token already issued keeps working until its normal 15-minute
+    // expiry, same tradeoff as changing the password. Idempotent: a token
+    // for an already-deleted user still gets a clean 200 rather than a 500.
+    await this.prisma.user.updateMany({
+      where: { id: userId },
+      data: { hashedRefreshToken: null },
+    });
+
+    return { message: 'Logged out successfully' };
   }
 
   async refreshTokens(refreshToken: string) {

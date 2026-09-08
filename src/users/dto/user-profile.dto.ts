@@ -8,6 +8,24 @@ export class UserProfileDto {
   @ApiProperty({ example: '+212612345678' })
   phone: string;
 
+  @ApiProperty({
+    description:
+      'Display name, resolved from the store (owner) or staff record backing this user. Null until one exists.',
+    example: 'Ahmed Alaoui',
+    nullable: true,
+    type: String,
+  })
+  name: string | null;
+
+  @ApiProperty({
+    description:
+      'Personal profile photo, resolved the same way as `name`. Null until set.',
+    example: 'https://example.com/avatar.png',
+    nullable: true,
+    type: String,
+  })
+  photoUrl: string | null;
+
   @ApiProperty({ example: true })
   isPhoneVerified: boolean;
 

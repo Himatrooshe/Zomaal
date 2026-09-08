@@ -446,6 +446,10 @@ model ShippingCourierSuggestion {
 model Store {
   id           String   @id @default(uuid())
   ownerName    String
+  // Owner's personal profile photo (Settings > Edit Profile "Add Your
+  // Photo") — distinct from `logoUrl`, which is the customer-facing
+  // business logo set on the Create/Edit Store screen.
+  ownerPhotoUrl String?
   businessName String
   address      String
   city         String
@@ -457,7 +461,9 @@ model Store {
   updatedAt    DateTime @updatedAt
 
   userId String @unique
-  user   User   @relation(fields: [userId], references: [id])
+  // Cascade to match every other 1:1 user relation in this schema — without
+  // it, deleting a User who owns a store fails at the FK (was RESTRICT).
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   shopifyConnection       ShopifyConnection?
   shopifyOAuthStates      ShopifyOAuthState[]
