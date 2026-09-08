@@ -21,4 +21,23 @@ export class UpdateUserProfileDto {
   @IsString()
   @IsUrl()
   photoUrl?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Personal address. For a store owner this is the store’s pickup address (same field PUT /stores/me edits); for a staff member it is personal to them.',
+    example: '123 Rue Hassan II',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  address?: string;
+
+  @ApiPropertyOptional({
+    description: 'Personal city, same mapping as `address`.',
+    example: 'Casablanca',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  city?: string;
 }

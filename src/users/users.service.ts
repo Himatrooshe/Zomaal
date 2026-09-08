@@ -33,12 +33,14 @@ export class UsersService {
     return this.toProfileResponse(user);
   }
 
-  // `name`/`photoUrl` never live on User directly — every other part of this
-  // codebase keeps display fields on the store-scoped record instead (see
-  // StaffMember.name's own comment for why). This resolves the same way:
-  // the store owner edits Store.ownerName/ownerPhotoUrl, a staff member
-  // edits their own StaffMember.name/photoUrl. A user with neither yet
-  // (mid-onboarding) has nothing to write to.
+  // name/photo/address/city never live on User directly — every other part
+  // of this codebase keeps display fields on the store-scoped record
+  // instead (see StaffMember.name's own comment for why). This resolves
+  // the same way: the store owner edits Store's own fields, a staff member
+  // edits their own StaffMember fields. A user with neither yet
+  // (mid-onboarding) has nothing to write to. Phone is deliberately not
+  // handled here — see AuthService.requestPhoneChange/confirmPhoneChange,
+  // since changing the login identifier needs OTP re-verification.
   async updateProfile(userId: string, dto: UpdateUserProfileDto) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -49,7 +51,12 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (dto.name === undefined && dto.photoUrl === undefined) {
+    if (
+      dto.name === undefined &&
+      dto.photoUrl === undefined &&
+      dto.address === undefined &&
+      dto.city === undefined
+    ) {
       throw new BadRequestException('Provide at least one field to update');
     }
 
@@ -59,6 +66,8 @@ export class UsersService {
         data: {
           ...(dto.name !== undefined && { ownerName: dto.name }),
           ...(dto.photoUrl !== undefined && { ownerPhotoUrl: dto.photoUrl }),
+          ...(dto.address !== undefined && { address: dto.address }),
+          ...(dto.city !== undefined && { city: dto.city }),
         },
       });
     } else if (user.staffMembership) {
@@ -67,6 +76,8 @@ export class UsersService {
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.photoUrl !== undefined && { photoUrl: dto.photoUrl }),
+          ...(dto.address !== undefined && { address: dto.address }),
+          ...(dto.city !== undefined && { city: dto.city }),
         },
       });
     } else {
@@ -153,6 +164,8 @@ export class UsersService {
       ...result,
       name: user.store?.ownerName ?? staffMembership?.name ?? null,
       photoUrl: user.store?.ownerPhotoUrl ?? staffMembership?.photoUrl ?? null,
+      address: user.store?.address ?? staffMembership?.address ?? null,
+      city: user.store?.city ?? staffMembership?.city ?? null,
     };
   }
 }

@@ -1494,6 +1494,10 @@ model StaffMember {
   name     String
   jobTitle String? // "Operations Manager" — a label, not a permission source
   photoUrl String?
+  // Personal address, not the store's pickup address (Store.address/city) —
+  // set by the staff member themselves via Edit Profile, never by the owner.
+  address  String?
+  city     String?
   status   StaffStatus @default(ACTIVE)
   // Staff Details shows these as two separate rows — "Last Active 2 hours
   // ago" in the header and "Last Login: Apr 26, 2026, 2:30 PM" under

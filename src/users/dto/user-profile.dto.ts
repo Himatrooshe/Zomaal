@@ -26,6 +26,22 @@ export class UserProfileDto {
   })
   photoUrl: string | null;
 
+  @ApiProperty({
+    description: 'Personal address, resolved the same way as `name`.',
+    example: '123 Rue Hassan II',
+    nullable: true,
+    type: String,
+  })
+  address: string | null;
+
+  @ApiProperty({
+    description: 'Personal city, resolved the same way as `name`.',
+    example: 'Casablanca',
+    nullable: true,
+    type: String,
+  })
+  city: string | null;
+
   @ApiProperty({ example: true })
   isPhoneVerified: boolean;
 

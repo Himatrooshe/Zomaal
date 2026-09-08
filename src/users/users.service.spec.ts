@@ -57,7 +57,7 @@ describe('UsersService', () => {
       );
     });
 
-    it('resolves name/photoUrl from the store for an owner and strips secrets', async () => {
+    it('resolves name/photoUrl/address/city from the store for an owner and strips secrets', async () => {
       const { service, prisma } = build();
       prisma.user.findUnique.mockResolvedValue({
         ...BASE_USER,
@@ -65,6 +65,8 @@ describe('UsersService', () => {
           id: 'store-1',
           ownerName: 'Ahmed Alaoui',
           ownerPhotoUrl: 'https://example.com/avatar.png',
+          address: '123 Rue Hassan II',
+          city: 'Casablanca',
         },
         staffMembership: null,
       });
@@ -73,11 +75,13 @@ describe('UsersService', () => {
 
       expect(profile.name).toBe('Ahmed Alaoui');
       expect(profile.photoUrl).toBe('https://example.com/avatar.png');
+      expect(profile.address).toBe('123 Rue Hassan II');
+      expect(profile.city).toBe('Casablanca');
       expect(profile).not.toHaveProperty('passwordHash');
       expect(profile).not.toHaveProperty('hashedRefreshToken');
     });
 
-    it('resolves name/photoUrl from the staff record for a staff member', async () => {
+    it('resolves name/photoUrl/address/city from the staff record for a staff member', async () => {
       const { service, prisma } = build();
       prisma.user.findUnique.mockResolvedValue({
         ...BASE_USER,
@@ -86,6 +90,8 @@ describe('UsersService', () => {
           id: 'staff-1',
           name: 'Sara Amrani',
           photoUrl: null,
+          address: null,
+          city: null,
         },
       });
 
@@ -93,9 +99,11 @@ describe('UsersService', () => {
 
       expect(profile.name).toBe('Sara Amrani');
       expect(profile.photoUrl).toBeNull();
+      expect(profile.address).toBeNull();
+      expect(profile.city).toBeNull();
     });
 
-    it('returns null name/photoUrl for a user with neither a store nor a staff membership', async () => {
+    it('returns null name/photoUrl/address/city for a user with neither a store nor a staff membership', async () => {
       const { service, prisma } = build();
       prisma.user.findUnique.mockResolvedValue({
         ...BASE_USER,
@@ -107,6 +115,8 @@ describe('UsersService', () => {
 
       expect(profile.name).toBeNull();
       expect(profile.photoUrl).toBeNull();
+      expect(profile.address).toBeNull();
+      expect(profile.city).toBeNull();
     });
   });
 
@@ -157,6 +167,66 @@ describe('UsersService', () => {
       });
       expect(prisma.staffMember.update).not.toHaveBeenCalled();
       expect(profile.name).toBe('New Name');
+    });
+
+    it('writes address/city to the store for an owner', async () => {
+      const { service, prisma } = build();
+      prisma.user.findUnique
+        .mockResolvedValueOnce({
+          ...BASE_USER,
+          store: { id: 'store-1' },
+          staffMembership: null,
+        })
+        .mockResolvedValueOnce({
+          ...BASE_USER,
+          store: {
+            id: 'store-1',
+            address: '45 Boulevard Zerktouni',
+            city: 'Casablanca',
+          },
+          staffMembership: null,
+        });
+
+      await service.updateProfile('user-1', {
+        address: '45 Boulevard Zerktouni',
+        city: 'Casablanca',
+      });
+
+      expect(prisma.store.update).toHaveBeenCalledWith({
+        where: { id: 'store-1' },
+        data: { address: '45 Boulevard Zerktouni', city: 'Casablanca' },
+      });
+    });
+
+    it('writes address/city to the staff record for a staff member', async () => {
+      const { service, prisma } = build();
+      prisma.user.findUnique
+        .mockResolvedValueOnce({
+          ...BASE_USER,
+          store: null,
+          staffMembership: { id: 'staff-1' },
+        })
+        .mockResolvedValueOnce({
+          ...BASE_USER,
+          store: null,
+          staffMembership: {
+            id: 'staff-1',
+            name: 'Sara Amrani',
+            address: '45 Boulevard Zerktouni',
+            city: 'Casablanca',
+          },
+        });
+
+      await service.updateProfile('user-1', {
+        address: '45 Boulevard Zerktouni',
+        city: 'Casablanca',
+      });
+
+      expect(prisma.staffMember.update).toHaveBeenCalledWith({
+        where: { id: 'staff-1' },
+        data: { address: '45 Boulevard Zerktouni', city: 'Casablanca' },
+      });
+      expect(prisma.store.update).not.toHaveBeenCalled();
     });
 
     it('writes name/photo to the staff record for a staff member', async () => {

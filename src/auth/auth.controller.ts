@@ -11,7 +11,9 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConflictResponse,
   ApiConsumes,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiProduces,
@@ -225,5 +227,105 @@ export class AuthController {
   })
   logout(@CurrentUser() user: JwtPayload) {
     return this.authService.logout(user.userId);
+  }
+
+  @Post('change-phone/request')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Edit Profile — request a phone number change',
+    description:
+      'Sends an OTP to the new phone number. The number must differ from the current one and not already belong to another account. Limited to three requests per user in ten minutes.',
+  })
+  @ApiBody({
+    type: SendOtpDto,
+    examples: {
+      sms: {
+        summary: 'Send by SMS',
+        value: { phone: '+212612345678', channel: 'sms' },
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'OTP sent to the new phone number.',
+    type: MessageResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Invalid phone/channel, or the new number matches the current one.',
+    type: ApiErrorDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, expired, or non-access bearer token.',
+    type: ApiErrorDto,
+  })
+  @ApiConflictResponse({
+    description: 'The phone number already belongs to another account.',
+    type: ApiErrorDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'User no longer exists.',
+    type: ApiErrorDto,
+  })
+  @ApiTooManyRequestsResponse({
+    description: 'More than 3 change requests in 10 minutes.',
+    type: ApiErrorDto,
+  })
+  requestPhoneChange(@CurrentUser() user: JwtPayload, @Body() dto: SendOtpDto) {
+    return this.authService.requestPhoneChange(user.userId, dto);
+  }
+
+  @Post('change-phone/confirm')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
+  @ApiOperation({
+    summary: 'Edit Profile — confirm a phone number change',
+    description:
+      'Verifies the OTP sent to the new phone number and swaps it in. Reissues the access/refresh token pair since the old ones carry the previous number — store the newly returned tokens.',
+  })
+  @ApiBody({
+    type: VerifyOtpDto,
+    examples: {
+      default: {
+        summary: 'Confirm with the six-digit OTP',
+        value: { phone: '+212612345678', otp: '123456' },
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'Phone number updated. New access and refresh tokens.',
+    type: AuthTokensResponseDto,
+    headers: tokenResponseHeaders,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid input or invalid/expired OTP.',
+    type: ApiErrorDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, expired, or non-access bearer token.',
+    type: ApiErrorDto,
+  })
+  @ApiConflictResponse({
+    description:
+      'The phone number was claimed by another account between request and confirm.',
+    type: ApiErrorDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'User no longer exists.',
+    type: ApiErrorDto,
+  })
+  @ApiTooManyRequestsResponse({
+    description: 'More than 5 confirmation attempts in 10 minutes.',
+    type: ApiErrorDto,
+  })
+  confirmPhoneChange(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: VerifyOtpDto,
+  ) {
+    return this.authService.confirmPhoneChange(user.userId, dto);
   }
 }

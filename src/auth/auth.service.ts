@@ -2,6 +2,8 @@ import {
   Injectable,
   Inject,
   BadRequestException,
+  ConflictException,
+  NotFoundException,
   UnauthorizedException,
   HttpException,
   HttpStatus,
@@ -129,6 +131,88 @@ export class AuthService {
         })
         .catch(() => undefined);
     }
+
+    return {
+      ...tokens,
+      isProfileCompleted: user.onboardingComplete,
+    };
+  }
+
+  // Edit Profile's Phone Number field: phone is the login identifier and
+  // must stay unique, so — unlike name/photo/address — it cannot just be
+  // written directly. Request sends an OTP to the *new* number; confirm
+  // verifies it before the swap actually happens, exactly like sign-up.
+  async requestPhoneChange(userId: string, dto: SendOtpDto) {
+    const { phone, channel } = dto;
+
+    await this.assertRateLimit(
+      `auth:phone-change:request:${userId}`,
+      3,
+      10 * 60,
+      'Too many phone number change requests. Please try again later.',
+    );
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (phone === user.phone) {
+      throw new BadRequestException(
+        'New phone number must be different from the current one',
+      );
+    }
+
+    const existing = await this.prisma.user.findUnique({ where: { phone } });
+    if (existing) {
+      throw new ConflictException('Phone number already in use');
+    }
+
+    await this.otpProvider.sendOtp(phone, channel);
+
+    return { message: 'OTP sent successfully' };
+  }
+
+  async confirmPhoneChange(userId: string, dto: VerifyOtpDto) {
+    const { phone, otp } = dto;
+
+    await this.assertRateLimit(
+      `auth:phone-change:confirm:${userId}`,
+      5,
+      10 * 60,
+      'Too many phone number change attempts. Please request a new OTP later.',
+    );
+
+    const isValid = await this.otpProvider.verifyOtp(phone, otp);
+    if (!isValid) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Re-check uniqueness at commit time: another account could have taken
+    // this number in the gap between request and confirm.
+    const existing = await this.prisma.user.findUnique({ where: { phone } });
+    if (existing && existing.id !== userId) {
+      throw new ConflictException('Phone number already in use');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { phone, isPhoneVerified: true },
+    });
+    await this.clearRateLimit(`auth:phone-change:confirm:${userId}`);
+
+    // The access/refresh tokens already issued carry the old phone in their
+    // payload — reissue both so the client's session reflects the new one,
+    // same "revoke and reissue" shape as every other identity-changing flow
+    // here (this also invalidates the old refresh token, same one-session-
+    // at-a-time model login/verify-otp already use).
+    const tokens = await this.generateTokens(userId, phone);
+    await this.updateRefreshToken(userId, tokens.refreshToken);
 
     return {
       ...tokens,

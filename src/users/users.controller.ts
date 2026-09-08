@@ -58,9 +58,9 @@ export class UsersController {
 
   @Patch('me')
   @ApiOperation({
-    summary: 'Edit Profile — update name and/or photo',
+    summary: 'Edit Profile — update name, photo, and/or address',
     description:
-      "Updates the display name and personal photo shown on the Edit Profile screen. Backs onto the store owner's record or the staff member's record, whichever applies to the current user. At least one field is required.",
+      "Updates the fields shown on the Edit Profile screen other than phone (see POST /auth/change-phone/request and /confirm for that). Backs onto the store owner's record or the staff member's record, whichever applies to the current user. At least one field is required.",
   })
   @ApiBody({
     type: UpdateUserProfileDto,
@@ -71,6 +71,10 @@ export class UsersController {
           name: 'Ahmed Alaoui',
           photoUrl: 'https://example.com/avatar.png',
         },
+      },
+      updateAddress: {
+        summary: 'Update address and city',
+        value: { address: '123 Rue Hassan II', city: 'Casablanca' },
       },
     },
   })
