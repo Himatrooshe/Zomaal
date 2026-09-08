@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   ExpensePaymentMethod,
+  Prisma,
   SalaryExpenseHandling,
   SalaryFrequency,
   SalaryPaymentMethod,
@@ -16,6 +17,12 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreAccessService } from '../access/store-access.service';
+import { attachReceipt, receiptPreviewPath } from '../common/media/attach-receipt.util';
+import { calculateTrend, lastNMonthKeys, monthKey, monthsAgoStart } from '../common/trend.util';
+import {
+  MonthlyTrendQueryDto,
+  MonthlyTrendResponseDto,
+} from '../common/dto/monthly-trend.dto';
 import {
   CreateSalaryPaymentDto,
   SalaryPaymentBatchResponseDto,
@@ -126,6 +133,35 @@ export class StaffSalaryService {
     };
   }
 
+  /** Monthly payout totals across all staff (Salary bar chart). */
+  async trend(userId: string, query: MonthlyTrendQueryDto): Promise<MonthlyTrendResponseDto> {
+    const { storeId } = await this.storeAccess.requireOwner(userId);
+    const months = query.months ?? 6;
+    const keys = lastNMonthKeys(months);
+    const since = monthsAgoStart(months);
+
+    const payments = await this.prisma.staffSalaryPayment.findMany({
+      where: { staffMember: { storeId }, paymentDate: { gte: since } },
+      select: { amount: true, paymentDate: true },
+    });
+
+    const totals = new Map<string, Prisma.Decimal>();
+    for (const payment of payments) {
+      const key = monthKey(payment.paymentDate);
+      totals.set(key, (totals.get(key) ?? new Prisma.Decimal(0)).plus(payment.amount));
+    }
+
+    const points = keys.map((month) => ({
+      month,
+      total: (totals.get(month) ?? new Prisma.Decimal(0)).toFixed(2),
+    }));
+
+    const current = Number(points[points.length - 1]?.total ?? 0);
+    const previous = Number(points[points.length - 2]?.total ?? 0);
+
+    return { points, trend: calculateTrend(current, previous) };
+  }
+
   /**
    * Manual salary entry (Add Salary Record: choose staff, then enter the
    * payment). Blocked per staff member whose profile is AUTOMATIC — that
@@ -175,35 +211,53 @@ export class StaffSalaryService {
     const categoryId = await this.resolveSalaryCategoryId(storeId);
     const paymentDate = new Date(dto.paymentDate);
 
-    const payments = await Promise.all(
-      staffMembers.map((staff) => {
-        const amount = dto.amount ?? staff.salaryProfile!.baseSalary.toString();
-        return this.prisma.staffSalaryPayment.create({
-          data: {
-            staffMember: { connect: { id: staff.id } },
-            amount,
-            paymentDate,
-            paidAt: new Date(),
-            paymentMethod: dto.paymentMethod,
-            status: SalaryPaymentStatus.PAID,
-            notes: dto.notes ?? null,
-            receiptUrl: dto.receiptUrl ?? null,
-            expense: {
-              create: {
-                storeId,
-                title: `Salary — ${staff.name}`,
-                amount,
-                paymentMethod: SALARY_PAYMENT_METHOD_TO_EXPENSE[dto.paymentMethod],
-                spentAt: paymentDate,
-                categoryId,
-                staffMemberId: staff.id,
-                createdByUserId: userId,
+    const payments = await this.prisma.$transaction(async (tx) => {
+      const created = await Promise.all(
+        staffMembers.map((staff, index) => {
+          const amount = dto.amount ?? staff.salaryProfile!.baseSalary.toString();
+          return tx.staffSalaryPayment.create({
+            data: {
+              staffMember: { connect: { id: staff.id } },
+              amount,
+              paymentDate,
+              paidAt: new Date(),
+              paymentMethod: dto.paymentMethod,
+              status: SalaryPaymentStatus.PAID,
+              notes: dto.notes ?? null,
+              // One receipt (e.g. a single bank-transfer batch confirmation)
+              // commonly covers the whole batch, but the schema is 1 receipt
+              // : 1 payment. Rather than duplicate the upload across every
+              // payment, attach it to the first one only — the others in the
+              // batch are still clearly linked by shared paymentDate/notes.
+              receiptUrl:
+                dto.receiptAssetId && index === 0
+                  ? receiptPreviewPath(dto.receiptAssetId)
+                  : (dto.receiptUrl ?? null),
+              expense: {
+                create: {
+                  storeId,
+                  title: `Salary — ${staff.name}`,
+                  amount,
+                  paymentMethod: SALARY_PAYMENT_METHOD_TO_EXPENSE[dto.paymentMethod],
+                  spentAt: paymentDate,
+                  categoryId,
+                  staffMemberId: staff.id,
+                  createdByUserId: userId,
+                },
               },
             },
-          },
+          });
+        }),
+      );
+
+      if (dto.receiptAssetId) {
+        await attachReceipt(tx, storeId, dto.receiptAssetId, {
+          salaryPaymentId: created[0].id,
         });
-      }),
-    );
+      }
+
+      return created;
+    });
 
     return {
       payments: payments.map((p, i) => toPaymentResponse(p, staffMembers[i].name)),

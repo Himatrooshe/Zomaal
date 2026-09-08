@@ -1,15 +1,24 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ExpenseGroup, Prisma } from '@prisma/client';
+import { ExpenseGroup, MediaAssetPurpose, Prisma } from '@prisma/client';
+import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import type { StoreAccess } from '../access/store-access.service';
+import { MediaService, type WarehouseMediaUploadFile } from '../warehouse/media.service';
+import { attachReceipt, receiptPreviewPath } from '../common/media/attach-receipt.util';
 import {
   isForeignKeyConstraintError,
   isUniqueConstraintError,
 } from '../common/prisma-errors.util';
+import { calculateTrend, lastNMonthKeys, monthKey, monthsAgoStart } from '../common/trend.util';
+import {
+  MonthlyTrendQueryDto,
+  MonthlyTrendResponseDto,
+} from '../common/dto/monthly-trend.dto';
 import {
   CreateExpenseCategoryDto,
   ExpenseCategoryResponseDto,
@@ -19,6 +28,7 @@ import {
   CreateExpenseDto,
   ExpenseListQueryDto,
   ExpenseListResponseDto,
+  ExpenseReceiptResponseDto,
   ExpenseResponseDto,
   ExpenseSummaryQueryDto,
   ExpenseSummaryResponseDto,
@@ -33,7 +43,39 @@ type ExpenseWithCategory = Prisma.ExpenseGetPayload<{ include: typeof EXPENSE_IN
 
 @Injectable()
 export class ExpensesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly media: MediaService,
+  ) {}
+
+  // ---- Receipts (shared by Expenses and Staff Salary Payments) ----------
+
+  /**
+   * Uploads a private receipt photo, unattached. The returned id is passed
+   * as receiptAssetId when creating an expense or a manual salary payment,
+   * which attaches it (and clears its 24h TTL) in the same write.
+   */
+  async uploadReceipt(
+    access: StoreAccess,
+    file?: WarehouseMediaUploadFile,
+  ): Promise<ExpenseReceiptResponseDto> {
+    const asset = await this.media.uploadForStore(
+      access.storeId,
+      MediaAssetPurpose.RECEIPT,
+      file,
+    );
+    return {
+      id: asset.id,
+      contentType: asset.contentType,
+      sizeBytes: asset.sizeBytes,
+      previewPath: receiptPreviewPath(asset.id),
+      expiresAt: asset.expiresAt,
+    };
+  }
+
+  async streamReceipt(access: StoreAccess, assetId: string, response: Response): Promise<void> {
+    return this.media.streamForStore(access.storeId, assetId, response);
+  }
 
   // ---- Categories -------------------------------------------------------
 
@@ -237,23 +279,58 @@ export class ExpensesService {
     };
   }
 
+  /** Monthly totals for the Expenses trend/line chart. */
+  async trend(storeId: string, query: MonthlyTrendQueryDto): Promise<MonthlyTrendResponseDto> {
+    const months = query.months ?? 6;
+    const keys = lastNMonthKeys(months);
+    const since = monthsAgoStart(months);
+
+    const expenses = await this.prisma.expense.findMany({
+      where: { storeId, spentAt: { gte: since } },
+      select: { amount: true, spentAt: true },
+    });
+
+    const totals = new Map<string, Prisma.Decimal>();
+    for (const expense of expenses) {
+      const key = monthKey(expense.spentAt);
+      totals.set(key, (totals.get(key) ?? new Prisma.Decimal(0)).plus(expense.amount));
+    }
+
+    const points = keys.map((month) => ({
+      month,
+      total: (totals.get(month) ?? new Prisma.Decimal(0)).toFixed(2),
+    }));
+
+    const current = Number(points[points.length - 1]?.total ?? 0);
+    const previous = Number(points[points.length - 2]?.total ?? 0);
+
+    return { points, trend: calculateTrend(current, previous) };
+  }
+
   async create(access: StoreAccess, dto: CreateExpenseDto): Promise<ExpenseResponseDto> {
     const category = await this.requireCategory(access.storeId, dto.categoryId);
     this.rejectSalaryCategory(category.group);
 
-    const expense = await this.prisma.expense.create({
-      data: {
-        storeId: access.storeId,
-        title: dto.title,
-        amount: dto.amount,
-        paymentMethod: dto.paymentMethod,
-        spentAt: new Date(dto.spentAt),
-        categoryId: dto.categoryId,
-        notes: dto.notes ?? null,
-        receiptUrl: dto.receiptUrl ?? null,
-        createdByUserId: access.userId,
-      },
-      include: EXPENSE_INCLUDE,
+    const expense = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.expense.create({
+        data: {
+          storeId: access.storeId,
+          title: dto.title,
+          amount: dto.amount,
+          paymentMethod: dto.paymentMethod,
+          spentAt: new Date(dto.spentAt),
+          categoryId: dto.categoryId,
+          notes: dto.notes ?? null,
+          receiptUrl: dto.receiptAssetId ? receiptPreviewPath(dto.receiptAssetId) : (dto.receiptUrl ?? null),
+          createdByUserId: access.userId,
+        },
+      });
+
+      if (dto.receiptAssetId) {
+        await attachReceipt(tx, access.storeId, dto.receiptAssetId, { expenseId: created.id });
+      }
+
+      return tx.expense.findUniqueOrThrow({ where: { id: created.id }, include: EXPENSE_INCLUDE });
     });
 
     return toExpenseResponse(expense);
@@ -272,18 +349,34 @@ export class ExpensesService {
       this.rejectSalaryCategory(category.group);
     }
 
-    const updated = await this.prisma.expense.update({
-      where: { id: expenseId },
-      data: {
-        title: dto.title,
-        amount: dto.amount,
-        paymentMethod: dto.paymentMethod,
-        spentAt: dto.spentAt ? new Date(dto.spentAt) : undefined,
-        categoryId: dto.categoryId,
-        notes: dto.notes,
-        receiptUrl: dto.receiptUrl,
-      },
-      include: EXPENSE_INCLUDE,
+    if (dto.receiptAssetId) {
+      // expenseId is @unique on MediaAsset — replacing the receipt means
+      // freeing the old one first (best-effort GCS delete, same as remove()),
+      // done outside the transaction since the GCS call can't roll back with it.
+      const existingReceipt = await this.prisma.mediaAsset.findUnique({ where: { expenseId } });
+      if (existingReceipt && existingReceipt.id !== dto.receiptAssetId) {
+        await this.media.deleteAttachedAsset(existingReceipt.id).catch(() => undefined);
+      }
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (dto.receiptAssetId) {
+        await attachReceipt(tx, access.storeId, dto.receiptAssetId, { expenseId });
+      }
+
+      return tx.expense.update({
+        where: { id: expenseId },
+        data: {
+          title: dto.title,
+          amount: dto.amount,
+          paymentMethod: dto.paymentMethod,
+          spentAt: dto.spentAt ? new Date(dto.spentAt) : undefined,
+          categoryId: dto.categoryId,
+          notes: dto.notes,
+          receiptUrl: dto.receiptAssetId ? receiptPreviewPath(dto.receiptAssetId) : dto.receiptUrl,
+        },
+        include: EXPENSE_INCLUDE,
+      });
     });
 
     return toExpenseResponse(updated);
@@ -292,6 +385,14 @@ export class ExpensesService {
   async remove(access: StoreAccess, expenseId: string): Promise<void> {
     const expense = await this.requireExpense(access.storeId, expenseId);
     this.rejectIfSalaryGenerated(expense);
+
+    // The FK is SetNull, not Cascade, so deleting the expense wouldn't clean
+    // up an attached receipt on its own — do it explicitly so nothing is
+    // left orphaned in Cloud Storage.
+    const receipt = await this.prisma.mediaAsset.findUnique({ where: { expenseId } });
+    if (receipt) {
+      await this.media.deleteAttachedAsset(receipt.id).catch(() => undefined);
+    }
     await this.prisma.expense.delete({ where: { id: expenseId } });
   }
 

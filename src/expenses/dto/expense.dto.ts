@@ -47,13 +47,39 @@ export class CreateExpenseDto {
   @MaxLength(500)
   notes?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'A raw external receipt URL. Ignored when receiptAssetId is also provided — upload through POST /expenses/receipts instead.',
+  })
   @IsOptional()
   @IsString()
   receiptUrl?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'ID returned by POST /expenses/receipts. Attaches that upload to this expense and takes precedence over receiptUrl.',
+  })
+  @IsOptional()
+  @IsUUID()
+  receiptAssetId?: string;
 }
 
 export class UpdateExpenseDto extends PartialType(CreateExpenseDto) {}
+
+export class ExpenseReceiptResponseDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ example: 'image/webp' }) contentType!: string;
+  @ApiProperty({ example: 182430 }) sizeBytes!: number;
+  @ApiProperty({ example: '/expenses/receipts/6ee20108-004a-49c8-bff1-f197b7b67939' })
+  previewPath!: string;
+  @ApiPropertyOptional({
+    nullable: true,
+    format: 'date-time',
+    description: 'Temporary uploads expire after 24 hours if never attached to an expense or payment.',
+  })
+  expiresAt!: string | null;
+}
 
 export class ExpenseListQueryDto {
   @ApiPropertyOptional({ description: 'Matches title' })

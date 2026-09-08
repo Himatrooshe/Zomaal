@@ -11858,6 +11858,43 @@ paths:
       summary: List salary payment history for a staff member
       tags:
         - Staff Salary
+  /staff/salary/trend:
+    get:
+      operationId: StaffSalary_trend
+      parameters:
+        - name: months
+          required: false
+          in: query
+          description: How many months to include, ending at the current month.
+          schema:
+            minimum: 1
+            maximum: 24
+            default: 6
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthlyTrendResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Monthly payout totals across all staff (Salary bar chart)
+      tags:
+        - Staff Salary
   /staff/salary/payments:
     post:
       description: Supports multi-select. Blocked, per staff member, when their salary profile is AUTOMATIC.
@@ -12065,6 +12102,127 @@ paths:
       summary: Delete an expense category
       tags:
         - Expenses
+  /expenses/receipts:
+    post:
+      description: Stores the image privately and returns an id valid for 24 hours. Pass it as receiptAssetId when creating the expense or salary payment to attach it permanently.
+      operationId: Expenses_uploadReceipt
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - receipt
+              properties:
+                receipt:
+                  type: string
+                  format: binary
+                  description: Real JPEG, PNG, or WebP bytes, maximum 5 MiB.
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseReceiptResponseDto'
+        '400':
+          description: Missing file or unsupported/corrupt image.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: Private image storage is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Upload a receipt photo (Add Expense / Add Salary Record screens)
+      tags:
+        - Expenses
+  /expenses/receipts/{assetId}:
+    get:
+      operationId: Expenses_streamReceipt
+      parameters:
+        - name: assetId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: Raw image bytes.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Receipt not found.
+          content:
+            image/jpeg:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/png:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/webp:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: The private image could not be read.
+          content:
+            image/jpeg:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/png:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+            image/webp:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Read a private receipt photo
+      tags:
+        - Expenses
   /expenses/summary:
     get:
       operationId: Expenses_summary
@@ -12103,6 +12261,43 @@ paths:
       security:
         - bearer: []
       summary: Totals by group (Expenses Breakdown screen)
+      tags:
+        - Expenses
+  /expenses/trend:
+    get:
+      operationId: Expenses_trend
+      parameters:
+        - name: months
+          required: false
+          in: query
+          description: How many months to include, ending at the current month.
+          schema:
+            minimum: 1
+            maximum: 24
+            default: 6
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthlyTrendResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Monthly totals (Expenses line chart)
       tags:
         - Expenses
   /expenses:
@@ -22061,6 +22256,47 @@ components:
       required:
         - payments
         - total
+    MonthlyTrendPointDto:
+      type: object
+      properties:
+        month:
+          type: string
+          example: 2026-09
+          description: UTC year-month.
+        total:
+          type: string
+          example: '4250.00'
+      required:
+        - month
+        - total
+    MonthlyTrendDto:
+      type: object
+      properties:
+        changePercent:
+          type: object
+          nullable: true
+          description: Percent change of the most recent month vs the one before it. Null when the prior month was zero and this one is not — growth from a zero baseline has no defined percentage.
+        direction:
+          type: string
+          enum:
+            - up
+            - down
+            - flat
+      required:
+        - direction
+    MonthlyTrendResponseDto:
+      type: object
+      properties:
+        points:
+          description: Oldest first. Every month in range appears even if its total is zero.
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthlyTrendPointDto'
+        trend:
+          $ref: '#/components/schemas/MonthlyTrendDto'
+      required:
+        - points
+        - trend
     CreateSalaryPaymentDto:
       type: object
       properties:
@@ -22084,6 +22320,11 @@ components:
           type: string
         receiptUrl:
           type: string
+          description: A raw external receipt URL. Ignored when receiptAssetId is also provided — upload through POST /expenses/receipts instead.
+        receiptAssetId:
+          type: string
+          format: uuid
+          description: ID returned by POST /expenses/receipts. Attaches that upload to the first payment created in this batch and takes precedence over receiptUrl.
       required:
         - staffMemberIds
         - paymentDate
@@ -22182,6 +22423,31 @@ components:
         color:
           type: string
           example: '#FF6B00'
+    ExpenseReceiptResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        contentType:
+          type: string
+          example: image/webp
+        sizeBytes:
+          type: number
+          example: 182430
+        previewPath:
+          type: string
+          example: /expenses/receipts/6ee20108-004a-49c8-bff1-f197b7b67939
+        expiresAt:
+          type: object
+          nullable: true
+          format: date-time
+          description: Temporary uploads expire after 24 hours if never attached to an expense or payment.
+      required:
+        - id
+        - contentType
+        - sizeBytes
+        - previewPath
     ExpenseGroupTotalDto:
       type: object
       properties:
@@ -22297,6 +22563,11 @@ components:
           type: string
         receiptUrl:
           type: string
+          description: A raw external receipt URL. Ignored when receiptAssetId is also provided — upload through POST /expenses/receipts instead.
+        receiptAssetId:
+          type: string
+          format: uuid
+          description: ID returned by POST /expenses/receipts. Attaches that upload to this expense and takes precedence over receiptUrl.
       required:
         - title
         - amount
@@ -22328,3 +22599,8 @@ components:
           type: string
         receiptUrl:
           type: string
+          description: A raw external receipt URL. Ignored when receiptAssetId is also provided — upload through POST /expenses/receipts instead.
+        receiptAssetId:
+          type: string
+          format: uuid
+          description: ID returned by POST /expenses/receipts. Attaches that upload to this expense and takes precedence over receiptUrl.

@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import {
+  Prisma,
   SalaryExpenseHandling,
   SalaryFrequency,
   SalaryPaymentMethod,
@@ -20,12 +21,18 @@ function decimal(value: string) {
 }
 
 function build() {
-  const prisma = {
+  const prisma: any = {
     staffMember: { findFirst: jest.fn(), findMany: jest.fn() },
     staffSalaryProfile: { findUnique: jest.fn(), upsert: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     staffSalaryPayment: { findMany: jest.fn(), count: jest.fn(), create: jest.fn() },
     expenseCategory: { findFirst: jest.fn(), create: jest.fn() },
+    mediaAsset: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
   };
+  // createPayments runs through $transaction(tx => ...) — reuse the same
+  // mocked model methods as the "tx" client (standard trick for testing
+  // Prisma interactive transactions without a real DB).
+  prisma.$transaction = jest.fn((cb: (tx: unknown) => unknown) => cb(prisma));
+
   const storeAccess = { requireOwner: jest.fn().mockResolvedValue(STORE_ACCESS) };
   const service = new StaffSalaryService(prisma as never, storeAccess as never);
   return { service, prisma, storeAccess };
@@ -305,6 +312,88 @@ describe('StaffSalaryService', () => {
     expect(prisma.expenseCategory.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ group: 'SALARY' }) }),
     );
+  });
+
+  it('attaches a receiptAssetId to only the first payment in a bulk batch', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findMany.mockResolvedValue([
+      {
+        id: 'staff-1',
+        name: 'A',
+        salaryProfile: { expenseHandling: SalaryExpenseHandling.MANUAL, baseSalary: decimal('1000') },
+      },
+      {
+        id: 'staff-2',
+        name: 'B',
+        salaryProfile: { expenseHandling: SalaryExpenseHandling.MANUAL, baseSalary: decimal('1000') },
+      },
+    ]);
+    prisma.expenseCategory.findFirst.mockResolvedValue({ id: 'cat-salary' });
+    prisma.staffSalaryPayment.create
+      .mockResolvedValueOnce({ id: 'payment-1', staffMemberId: 'staff-1', amount: decimal('1000'), paymentDate: new Date(), paidAt: new Date(), paymentMethod: SalaryPaymentMethod.CASH, status: 'PAID', notes: null, receiptUrl: '/expenses/receipts/asset-1' })
+      .mockResolvedValueOnce({ id: 'payment-2', staffMemberId: 'staff-2', amount: decimal('1000'), paymentDate: new Date(), paidAt: new Date(), paymentMethod: SalaryPaymentMethod.CASH, status: 'PAID', notes: null, receiptUrl: null });
+
+    const result = await service.createPayments('owner-user', {
+      staffMemberIds: ['staff-1', 'staff-2'],
+      paymentDate: '2026-09-01',
+      paymentMethod: SalaryPaymentMethod.CASH,
+      receiptAssetId: 'asset-1',
+    });
+
+    expect(result.payments[0].receiptUrl).toBe('/expenses/receipts/asset-1');
+    expect(result.payments[1].receiptUrl).toBeNull();
+    expect(prisma.mediaAsset.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 'asset-1' }),
+        data: expect.objectContaining({ salaryPaymentId: 'payment-1' }),
+      }),
+    );
+  });
+
+  it('rejects the whole batch when the receiptAssetId is stale/already used', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findMany.mockResolvedValue([
+      {
+        id: 'staff-1',
+        name: 'A',
+        salaryProfile: { expenseHandling: SalaryExpenseHandling.MANUAL, baseSalary: decimal('1000') },
+      },
+    ]);
+    prisma.expenseCategory.findFirst.mockResolvedValue({ id: 'cat-salary' });
+    prisma.staffSalaryPayment.create.mockResolvedValue({ id: 'payment-1' });
+    prisma.mediaAsset.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.createPayments('owner-user', {
+        staffMemberIds: ['staff-1'],
+        paymentDate: '2026-09-01',
+        paymentMethod: SalaryPaymentMethod.CASH,
+        receiptAssetId: 'stale-asset',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('trend: sums payouts across all staff per month, scoped to this store', async () => {
+    const { service, prisma } = build();
+    const now = new Date('2026-09-15T00:00:00.000Z');
+    prisma.staffSalaryPayment.findMany.mockResolvedValue([
+      { amount: new Prisma.Decimal('1000'), paymentDate: new Date('2026-08-01T00:00:00.000Z') },
+      { amount: new Prisma.Decimal('500'), paymentDate: new Date('2026-08-15T00:00:00.000Z') },
+      { amount: new Prisma.Decimal('1500'), paymentDate: new Date('2026-09-01T00:00:00.000Z') },
+    ]);
+    jest.useFakeTimers().setSystemTime(now);
+
+    const result = await service.trend('owner-user', { months: 2 });
+
+    expect(prisma.staffSalaryPayment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ staffMember: { storeId: 'store-1' } }) }),
+    );
+    expect(result.points).toEqual([
+      { month: '2026-08', total: '1500.00' },
+      { month: '2026-09', total: '1500.00' },
+    ]);
+    expect(result.trend).toEqual({ changePercent: 0, direction: 'flat' });
+    jest.useRealTimers();
   });
 });
 

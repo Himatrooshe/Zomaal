@@ -33,6 +33,6 @@ import { WarehouseStoreService } from './warehouse-store.service';
     InventoryService,
     PackagingService,
   ],
-  exports: [PackagingService, BarcodeLabelService, InventoryService],
+  exports: [PackagingService, BarcodeLabelService, InventoryService, MediaService],
 })
 export class WarehouseModule {}

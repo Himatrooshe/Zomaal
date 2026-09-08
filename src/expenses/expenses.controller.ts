@@ -10,20 +10,31 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
+  ApiConsumes,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiProduces,
+  ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../access/permission.guard';
 import { RequirePermission } from '../access/require-permission.decorator';
@@ -31,6 +42,11 @@ import { CurrentStoreAccess } from '../access/current-store-access.decorator';
 import type { StoreAccess } from '../access/store-access.service';
 import { PERMISSIONS } from '../access/permissions';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
+import type { WarehouseMediaUploadFile } from '../warehouse/media.service';
+import {
+  MonthlyTrendQueryDto,
+  MonthlyTrendResponseDto,
+} from '../common/dto/monthly-trend.dto';
 import { ExpensesService } from './expenses.service';
 import {
   CreateExpenseCategoryDto,
@@ -42,6 +58,7 @@ import {
   CreateExpenseDto,
   ExpenseListQueryDto,
   ExpenseListResponseDto,
+  ExpenseReceiptResponseDto,
   ExpenseResponseDto,
   ExpenseSummaryQueryDto,
   ExpenseSummaryResponseDto,
@@ -114,6 +131,56 @@ export class ExpensesController {
     return this.expenses.removeCategory(access.storeId, categoryId);
   }
 
+  // ---- Receipts (also before :expenseId; shared by Expenses and Staff Salary) --
+
+  @Post('receipts')
+  @RequirePermission(PERMISSIONS.EXPENSES_ADD)
+  @UseInterceptors(FileInterceptor('receipt', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['receipt'],
+      properties: {
+        receipt: {
+          type: 'string',
+          format: 'binary',
+          description: 'Real JPEG, PNG, or WebP bytes, maximum 5 MiB.',
+        },
+      },
+    },
+  })
+  @ApiOperation({
+    summary: 'Upload a receipt photo (Add Expense / Add Salary Record screens)',
+    description:
+      'Stores the image privately and returns an id valid for 24 hours. Pass it as receiptAssetId when creating the expense or salary payment to attach it permanently.',
+  })
+  @ApiCreatedResponse({ type: ExpenseReceiptResponseDto })
+  @ApiBadRequestResponse({ description: 'Missing file or unsupported/corrupt image.', type: ApiErrorDto })
+  @ApiServiceUnavailableResponse({ description: 'Private image storage is unavailable.', type: ApiErrorDto })
+  uploadReceipt(
+    @CurrentStoreAccess() access: StoreAccess,
+    @UploadedFile() file?: WarehouseMediaUploadFile,
+  ): Promise<ExpenseReceiptResponseDto> {
+    return this.expenses.uploadReceipt(access, file);
+  }
+
+  @Get('receipts/:assetId')
+  @RequirePermission(PERMISSIONS.EXPENSES_VIEW)
+  @ApiParam({ name: 'assetId', format: 'uuid' })
+  @ApiProduces('image/jpeg', 'image/png', 'image/webp')
+  @ApiOperation({ summary: 'Read a private receipt photo' })
+  @ApiOkResponse({ description: 'Raw image bytes.', schema: { type: 'string', format: 'binary' } })
+  @ApiNotFoundResponse({ description: 'Receipt not found.', type: ApiErrorDto })
+  @ApiServiceUnavailableResponse({ description: 'The private image could not be read.', type: ApiErrorDto })
+  streamReceipt(
+    @CurrentStoreAccess() access: StoreAccess,
+    @Param('assetId', new ParseUUIDPipe()) assetId: string,
+    @Res() response: Response,
+  ): Promise<void> {
+    return this.expenses.streamReceipt(access, assetId, response);
+  }
+
   // ---- Summary (also before :expenseId) -----------------------------------
 
   @Get('summary')
@@ -125,6 +192,17 @@ export class ExpensesController {
     @Query() query: ExpenseSummaryQueryDto,
   ): Promise<ExpenseSummaryResponseDto> {
     return this.expenses.summary(access.storeId, query);
+  }
+
+  @Get('trend')
+  @RequirePermission(PERMISSIONS.EXPENSES_VIEW)
+  @ApiOperation({ summary: 'Monthly totals (Expenses line chart)' })
+  @ApiOkResponse({ type: MonthlyTrendResponseDto })
+  trend(
+    @CurrentStoreAccess() access: StoreAccess,
+    @Query() query: MonthlyTrendQueryDto,
+  ): Promise<MonthlyTrendResponseDto> {
+    return this.expenses.trend(access.storeId, query);
   }
 
   // ---- Expenses ------------------------------------------------------------

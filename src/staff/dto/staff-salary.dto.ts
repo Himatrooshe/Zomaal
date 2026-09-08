@@ -109,10 +109,22 @@ export class CreateSalaryPaymentDto {
   @MaxLength(500)
   notes?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'A raw external receipt URL. Ignored when receiptAssetId is also provided — upload through POST /expenses/receipts instead.',
+  })
   @IsOptional()
   @IsString()
   receiptUrl?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'ID returned by POST /expenses/receipts. Attaches that upload to the first payment created in this batch and takes precedence over receiptUrl.',
+  })
+  @IsOptional()
+  @IsUUID()
+  receiptAssetId?: string;
 }
 
 export class SalaryPaymentResponseDto {

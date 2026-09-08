@@ -979,6 +979,7 @@ enum MediaAssetPurpose {
   PRODUCT_MAIN
   PRODUCT_GALLERY
   VARIANT
+  RECEIPT
 }
 
 model ProductCategory {
@@ -1238,6 +1239,15 @@ model MediaAsset {
   product   WarehouseProduct? @relation(fields: [productId], references: [id], onDelete: Cascade)
   variantId String?
   variant   WarehouseVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  // RECEIPT purpose only. @unique keeps it a clean 1:1 — at most one photo
+  // per expense/payment. SetNull (not Cascade): deleting the expense/payment
+  // shouldn't error just because a receipt is still attached; the media row
+  // is cleaned up explicitly by the service instead (see ExpensesService).
+  expenseId String? @unique
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  salaryPaymentId String? @unique
+  salaryPayment   StaffSalaryPayment? @relation(fields: [salaryPaymentId], references: [id], onDelete: SetNull)
 
   @@index([storeId, status, expiresAt])
   @@index([productId, position])
@@ -1585,6 +1595,8 @@ model StaffSalaryPayment {
   expenseId String?  @unique
   expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
 
+  receiptMedia MediaAsset?
+
   @@index([staffMemberId, paymentDate])
   @@index([status, paymentDate])
 }
@@ -1680,6 +1692,7 @@ model Expense {
   createdByUserId String?
 
   salaryPayment StaffSalaryPayment?
+  receiptMedia  MediaAsset?
 
   @@index([storeId, spentAt])
   @@index([storeId, categoryId])

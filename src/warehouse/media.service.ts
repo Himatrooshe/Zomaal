@@ -38,16 +38,28 @@ export class MediaService {
     purpose: MediaAssetPurpose,
     file?: WarehouseMediaUploadFile,
   ) {
+    // WarehouseStoreService.requireStore only resolves an owner (it predates
+    // staff). Callers that already resolved a staff-aware store — e.g.
+    // Expenses, via StoreAccessService + PermissionGuard — should call
+    // uploadForStore directly instead of going through this method.
+    const store = await this.stores.requireStore(userId);
+    return this.uploadForStore(store.id, purpose, file);
+  }
+
+  async uploadForStore(
+    storeId: string,
+    purpose: MediaAssetPurpose,
+    file?: WarehouseMediaUploadFile,
+  ) {
     if (!file) throw new BadRequestException('Image file is required');
     validateImage(file);
-    const store = await this.stores.requireStore(userId);
     // Cloud Run may have multiple short-lived instances, so cleanup cannot rely
     // on an in-process timer. Every upload performs a bounded, best-effort sweep.
-    await this.cleanupExpired(store.id).catch(() => undefined);
+    await this.cleanupExpired(storeId).catch(() => undefined);
     const bucket = this.bucket();
     const extension = extensionFor(file.mimetype);
     const assetId = randomUUID();
-    const objectName = `stores/${store.id}/media/${assetId}.${extension}`;
+    const objectName = `stores/${storeId}/media/${assetId}.${extension}`;
     const checksum = createHash('sha256').update(file.buffer).digest('hex');
 
     try {
@@ -57,7 +69,7 @@ export class MediaService {
         metadata: {
           contentType: file.mimetype,
           cacheControl: 'private, max-age=3600',
-          metadata: { sha256: checksum, storeId: store.id },
+          metadata: { sha256: checksum, storeId },
         },
       });
     } catch {
@@ -68,7 +80,7 @@ export class MediaService {
       const asset = await this.prisma.mediaAsset.create({
         data: {
           id: assetId,
-          storeId: store.id,
+          storeId,
           objectName,
           originalName: safeFileName(file.originalname),
           contentType: file.mimetype,
@@ -90,8 +102,12 @@ export class MediaService {
 
   async stream(userId: string, assetId: string, response: Response) {
     const store = await this.stores.requireStore(userId);
+    return this.streamForStore(store.id, assetId, response);
+  }
+
+  async streamForStore(storeId: string, assetId: string, response: Response) {
     const asset = await this.prisma.mediaAsset.findFirst({
-      where: { id: assetId, storeId: store.id },
+      where: { id: assetId, storeId },
     });
     if (!asset) throw new NotFoundException('Image not found');
 
@@ -157,6 +173,24 @@ export class MediaService {
     }
     await this.prisma.mediaAsset.delete({ where: { id: asset.id } });
     return { deleted: true };
+  }
+
+  /**
+   * Hard-deletes an ATTACHED asset (GCS object + row) unconditionally — used
+   * when the thing it was attached to (e.g. an Expense) is itself deleted.
+   * The MediaAsset.expenseId/salaryPaymentId FKs are SetNull, not Cascade,
+   * specifically so the caller can do this cleanup deliberately rather than
+   * having it happen implicitly. Scoping is the caller's responsibility
+   * (they already looked the asset up via their own store-scoped record).
+   */
+  async deleteAttachedAsset(assetId: string): Promise<void> {
+    const asset = await this.prisma.mediaAsset.findUnique({ where: { id: assetId } });
+    if (!asset) return;
+    await this.bucket()
+      .file(asset.objectName)
+      .delete({ ignoreNotFound: true })
+      .catch(() => undefined);
+    await this.prisma.mediaAsset.delete({ where: { id: assetId } }).catch(() => undefined);
   }
 
   async cleanupExpired(

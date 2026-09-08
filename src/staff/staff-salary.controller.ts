@@ -14,6 +14,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
+import {
+  MonthlyTrendQueryDto,
+  MonthlyTrendResponseDto,
+} from '../common/dto/monthly-trend.dto';
 import { StaffSalaryService } from './staff-salary.service';
 import {
   CreateSalaryPaymentDto,
@@ -74,6 +78,16 @@ export class StaffSalaryController {
     @Query() query: SalaryPaymentListQueryDto,
   ): Promise<SalaryPaymentListResponseDto> {
     return this.salary.listPayments(user.userId, staffId, query);
+  }
+
+  @Get('salary/trend')
+  @ApiOperation({ summary: 'Monthly payout totals across all staff (Salary bar chart)' })
+  @ApiOkResponse({ type: MonthlyTrendResponseDto })
+  trend(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: MonthlyTrendQueryDto,
+  ): Promise<MonthlyTrendResponseDto> {
+    return this.salary.trend(user.userId, query);
   }
 
   @Post('salary/payments')
