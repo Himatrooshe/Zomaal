@@ -67,12 +67,31 @@ describe('ShopifyWebhookService', () => {
     },
     warehouseVariant: { findMany: jest.fn().mockResolvedValue([]) },
   };
+  const shopifyOAuthStateDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
+  const ecommerceConnectionDeleteMany = jest
+    .fn()
+    .mockResolvedValue({ count: 0 });
+  const shopifyConnectionDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
+  const webhookReceiptDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
+  const ecommerceConnectionFindFirst = jest.fn().mockResolvedValue(null);
+  const customerFindMany = jest.fn().mockResolvedValue([]);
+  const customerDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
   const prisma = {
-    shopifyWebhookReceipt: { findUnique: receiptFindUnique },
+    shopifyWebhookReceipt: {
+      findUnique: receiptFindUnique,
+      deleteMany: webhookReceiptDeleteMany,
+    },
     shopifyConnection: {
       findUnique: connectionFindUnique,
       updateMany: connectionUpdateMany,
+      deleteMany: shopifyConnectionDeleteMany,
     },
+    shopifyOAuthState: { deleteMany: shopifyOAuthStateDeleteMany },
+    ecommerceConnection: {
+      deleteMany: ecommerceConnectionDeleteMany,
+      findFirst: ecommerceConnectionFindFirst,
+    },
+    customer: { findMany: customerFindMany, deleteMany: customerDeleteMany },
     $transaction: jest.fn(async (input: unknown) => {
       if (typeof input === 'function') {
         return (
@@ -241,6 +260,118 @@ describe('ShopifyWebhookService', () => {
     });
     expect(connectionFindUnique).not.toHaveBeenCalled();
     expect(graphqlForShopDomain).not.toHaveBeenCalled();
+  });
+
+  describe('GDPR compliance topics', () => {
+    it('CUSTOMERS_REDACT erases the matching Customer row, phone matched digits-only', async () => {
+      mockWebhook('CUSTOMERS_REDACT');
+      customerFindMany.mockResolvedValue([
+        { id: 'customer-1', phone: '+212 612-345-678' },
+        { id: 'customer-2', phone: '+212600000000' },
+      ]);
+
+      const response = await service.handle(
+        {} as Request,
+        Buffer.from(
+          JSON.stringify({ customer: { id: 1, phone: '0612345678' } }),
+        ),
+      );
+
+      expect(customerFindMany).toHaveBeenCalledWith({
+        where: { storeId: 'store-id' },
+        select: { id: true, phone: true },
+      });
+      expect(customerDeleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['customer-1'] } },
+      });
+      expect(response).toMatchObject({ received: true });
+    });
+
+    it('CUSTOMERS_REDACT deletes nothing when no stored phone matches', async () => {
+      mockWebhook('CUSTOMERS_REDACT');
+      customerFindMany.mockResolvedValue([
+        { id: 'customer-1', phone: '+212611111111' },
+      ]);
+
+      await service.handle(
+        {} as Request,
+        Buffer.from(
+          JSON.stringify({ customer: { id: 1, phone: '0699999999' } }),
+        ),
+      );
+
+      expect(customerDeleteMany).not.toHaveBeenCalled();
+    });
+
+    it('CUSTOMERS_REDACT is a no-op (but still acknowledged) when the payload has no phone', async () => {
+      mockWebhook('CUSTOMERS_REDACT');
+
+      const response = await service.handle(
+        {} as Request,
+        Buffer.from(JSON.stringify({ customer: { id: 1 } })),
+      );
+
+      expect(customerFindMany).not.toHaveBeenCalled();
+      expect(customerDeleteMany).not.toHaveBeenCalled();
+      expect(response).toMatchObject({ received: true });
+    });
+
+    it('CUSTOMERS_REDACT never matches on a too-short phone (avoids coincidental collisions)', async () => {
+      mockWebhook('CUSTOMERS_REDACT');
+      customerFindMany.mockResolvedValue([{ id: 'customer-1', phone: '123' }]);
+
+      await service.handle(
+        {} as Request,
+        Buffer.from(JSON.stringify({ customer: { id: 1, phone: '123' } })),
+      );
+
+      expect(customerFindMany).not.toHaveBeenCalled();
+      expect(customerDeleteMany).not.toHaveBeenCalled();
+    });
+
+    it('CUSTOMERS_DATA_REQUEST acknowledges without deleting or reading any customer data', async () => {
+      mockWebhook('CUSTOMERS_DATA_REQUEST');
+
+      const response = await service.handle(
+        {} as Request,
+        Buffer.from(
+          JSON.stringify({ customer: { id: 1, phone: '0612345678' } }),
+        ),
+      );
+
+      expect(customerFindMany).not.toHaveBeenCalled();
+      expect(customerDeleteMany).not.toHaveBeenCalled();
+      expect(response).toMatchObject({ received: true });
+    });
+
+    it('SHOP_REDACT purges only orphaned customers (zero remaining orders) for that store', async () => {
+      mockWebhook('SHOP_REDACT');
+      ecommerceConnectionFindFirst.mockResolvedValue({ storeId: 'store-id' });
+
+      await service.handle({} as Request, Buffer.from('{"shop_id":1}'));
+
+      expect(shopifyOAuthStateDeleteMany).toHaveBeenCalledWith({
+        where: { shopDomain: 'atlas-market.myshopify.com' },
+      });
+      expect(ecommerceConnectionDeleteMany).toHaveBeenCalledWith({
+        where: {
+          platform: 'SHOPIFY',
+          externalAccountId: 'atlas-market.myshopify.com',
+        },
+      });
+      expect(customerDeleteMany).toHaveBeenCalledWith({
+        where: { storeId: 'store-id', orders: { none: {} } },
+      });
+    });
+
+    it('SHOP_REDACT skips the customer purge when the shop was never connected here', async () => {
+      mockWebhook('SHOP_REDACT');
+      ecommerceConnectionFindFirst.mockResolvedValue(null);
+
+      await service.handle({} as Request, Buffer.from('{"shop_id":1}'));
+
+      expect(customerDeleteMany).not.toHaveBeenCalled();
+    });
   });
 
   function mockWebhook(topic: string) {

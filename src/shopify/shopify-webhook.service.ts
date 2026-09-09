@@ -492,14 +492,14 @@ export class ShopifyWebhookService {
     const phone = customerPhoneFromPayload(payload);
 
     if (connection && phone) {
-      const targetDigits = normalizeDigits(phone);
-      if (targetDigits) {
+      const targetKey = phoneMatchKey(phone);
+      if (targetKey) {
         const candidates = await this.prisma.customer.findMany({
           where: { storeId: connection.storeId },
           select: { id: true, phone: true },
         });
         const matchIds = candidates
-          .filter((c) => normalizeDigits(c.phone) === targetDigits)
+          .filter((c) => phoneMatchKey(c.phone) === targetKey)
           .map((c) => c.id);
         if (matchIds.length > 0) {
           await this.prisma.customer.deleteMany({
@@ -600,8 +600,21 @@ function customerPhoneFromPayload(
   return typeof phone === 'string' && phone.trim() ? phone.trim() : null;
 }
 
-function normalizeDigits(phone: string): string {
-  return phone.replace(/\D/g, '');
+// Matches on the trailing subscriber number rather than the full digit
+// string — "0612345678" (local) and "+212612345678" (international) are
+// the same real number but differ everywhere except their last 9 digits.
+// A full-string digit match would silently miss real redact requests
+// whenever the two formats disagree, which is the wrong failure mode for
+// a legal erasure obligation; matching too broadly (a coincidental 9-digit
+// suffix collision) is the safer direction to err in here. Too-short
+// numbers return null rather than a match key that could pair up
+// unrelated short strings.
+const PHONE_MATCH_DIGITS = 9;
+function phoneMatchKey(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= PHONE_MATCH_DIGITS
+    ? digits.slice(-PHONE_MATCH_DIGITS)
+    : null;
 }
 
 function requiredCount(value: unknown, resource: string): number {
