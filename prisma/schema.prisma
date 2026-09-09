@@ -485,6 +485,8 @@ model Store {
   staffMembers            StaffMember[]
   expenseCategories       ExpenseCategory[]
   expenses                Expense[]
+  customers               Customer[]
+  blacklistSettings       BlacklistSettings?
 }
 
 
@@ -573,10 +575,13 @@ model EcommerceOrder {
   codStatus         String?                // PENDING | COLLECTED | FAILED
   shippingCity      String?
 
-  // MANUAL orders only. Shopify/YouCan/Lightfunnels orders intentionally
-  // omit customer PII at rest and fetch it live from the platform via the
-  // fulfillment-preview adapters at dispatch time — a manual order has no
-  // such platform to query later, so it must be captured here at creation.
+  // MANUAL orders only — captured at creation since there's no platform to
+  // query later. Shopify/YouCan/Lightfunnels orders used to omit customer
+  // PII entirely and fetch it live at dispatch time; as of the Customer
+  // module, `customerId` below now captures phone/name for those platforms
+  // too (at sync time), so the Customer list/risk-score feature doesn't
+  // depend on a live per-order platform call. See Customer's own comment
+  // for the compliance implications (Shopify Protected Customer Data).
   manualCustomerName    String?
   manualCustomerPhone   String?
   manualShippingAddress String?
@@ -598,10 +603,18 @@ model EcommerceOrder {
   financialEvents EcommerceOrderFinancialEvent[]
   returnRequests  ReturnRequest[]
 
+  // Nullable: set at sync/creation time once the customer is resolved by
+  // phone. Null for orders synced before this field existed, until a
+  // backfill/re-sync resolves it. SetNull (not Cascade) — deleting a
+  // Customer (e.g. via a GDPR redact) must never take the order with it.
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
   @@unique([connectionId, externalOrderId])
   @@index([connectionId, processedAt])
   @@index([connectionId, providerUpdatedAt])
   @@index([financialStatus, processedAt])
+  @@index([customerId])
 }
 
 model EcommerceOrderEvent {
@@ -779,6 +792,75 @@ model EcommerceOrderDispatch {
 
   @@index([provider, status])
   @@index([providerTracking])
+}
+
+// ============================================================================
+// Customer module — one Customer per (store, phone), resolved from whichever
+// source identifies them first: a Shopify/YouCan/Lightfunnels order synced
+// with a phone, a manual order, or a Zomaal courier shipment's recipient
+// phone. Risk counters and blacklist state live here, not per-order.
+//
+// Compliance note: the Shopify-sourced slice of this data is Shopify
+// "Protected Customer Data" — see CUSTOMERS_REDACT/CUSTOMERS_DATA_REQUEST
+// handling in shopify-webhook.service.ts, both mandatory once any row here
+// is fed from a Shopify order.
+// ============================================================================
+
+model Customer {
+  id      String @id @default(uuid())
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  phone   String // normalized E.164 — the cross-platform identity key
+  name    String?
+  address String?
+  city    String?
+
+  totalOrders        Int @default(0)
+  returnsCount        Int @default(0)
+  cancellationsCount  Int @default(0)
+  refusalsCount       Int @default(0) // Zomaal-dispatched shipments only — see CustomerRiskService
+  noAnswerCount       Int @default(0) // same scope as refusalsCount
+
+  isBlacklisted   Boolean   @default(false)
+  blacklistReason String?
+  blacklistedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders EcommerceOrder[]
+
+  @@unique([storeId, phone])
+  @@index([storeId, isBlacklisted])
+}
+
+// One per store — the Blacklist Settings screen. All four category limits
+// default to 0, meaning "does not auto-blacklist on its own" (a merchant
+// opts in per category). useCombinedLimit switches the auto-blacklist check
+// from "any single category crosses its own limit" to "the sum of all four
+// counters crosses combinedLimit" — CustomerRiskService reads whichever mode
+// is active, never both.
+model BlacklistSettings {
+  id      String @id @default(uuid())
+  storeId String @unique
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  returnsLimit       Int @default(0)
+  cancellationsLimit Int @default(0)
+  refusalsLimit      Int @default(0)
+  noAnswerLimit      Int @default(0)
+
+  useCombinedLimit Boolean @default(false)
+  combinedLimit    Int     @default(0)
+
+  // "Show warning when a blacklisted customer places a new order" — surfaced
+  // as a SYSTEM order-timeline event (OrderEventType.CUSTOMER_BLACKLISTED_WARNING),
+  // not a separate notification system.
+  warnOnNewOrder Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum ShopifyConnectionStatus {

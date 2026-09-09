@@ -55,6 +55,7 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     await expect(
@@ -142,6 +143,7 @@ describe('EcommerceService', () => {
       shipping as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     const result = await service.dispatchOrder('user-id', order.id, {
@@ -216,6 +218,7 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     const result = await service.getRevenueSummary('user-id', {
@@ -271,6 +274,7 @@ describe('EcommerceService', () => {
           .fn()
           .mockImplementation(async (amount, from, to) => amount),
       } as any,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,
@@ -360,6 +364,10 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
+      {
+        upsertCustomer: jest.fn().mockResolvedValue(null),
+        recordNewOrder: jest.fn(),
+      } as any,
     );
 
     const result = await service.createManualOrder('user-id', {
@@ -403,6 +411,10 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
+      {
+        upsertCustomer: jest.fn().mockResolvedValue(null),
+        recordNewOrder: jest.fn(),
+      } as any,
     );
 
     await expect(
@@ -469,6 +481,10 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
+      {
+        upsertCustomer: jest.fn().mockResolvedValue(null),
+        recordNewOrder: jest.fn(),
+      } as any,
     );
 
     const result = await service.createManualOrder('user-id', {
@@ -531,6 +547,7 @@ describe('EcommerceService', () => {
       {} as any,
       inventoryService,
       financialService,
+      {} as any,
     );
 
     await service.recordProductCondition('user-id', 'order-1', {

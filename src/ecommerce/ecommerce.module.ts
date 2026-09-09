@@ -24,6 +24,7 @@ import { YouCanOrderTimelineAdapter } from './youcan-order-timeline.adapter';
 import { LightfunnelsOrderTimelineAdapter } from './lightfunnels-order-timeline.adapter';
 import { ReturnRequestController } from './return-request.controller';
 import { ReturnRequestService } from './return-request.service';
+import { CustomersModule } from '../customers/customers.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { ReturnRequestService } from './return-request.service';
     ShippingModule,
     WarehouseModule,
     EcommerceFinancialModule,
+    CustomersModule,
   ],
   controllers: [
     EcommerceController,

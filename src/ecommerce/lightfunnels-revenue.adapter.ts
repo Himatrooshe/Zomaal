@@ -37,7 +37,8 @@ const ORDERS_QUERY = `
           net_payment
           currency
           test
-          shipping_address { city }
+          phone
+          shipping_address { name phone city }
           items {
             __typename
             ... on VariantSnapshot {
@@ -179,6 +180,14 @@ function normalizeOrder(
     totalCollected: totalCollected.toFixed(4),
     shippingCity:
       optionalString(asOptionalRecord(order.shipping_address)?.city) ?? null,
+    // Same precedence as lightfunnels-fulfillment.adapter.ts: shipping
+    // address first, order-level phone as fallback.
+    customerName:
+      optionalString(asOptionalRecord(order.shipping_address)?.name) ?? null,
+    customerPhone:
+      optionalString(asOptionalRecord(order.shipping_address)?.phone) ??
+      optionalString(order.phone) ??
+      null,
     providerCreatedAt,
     processedAt: providerCreatedAt,
     cancelledAt,
@@ -276,7 +285,8 @@ function timestamp(value: unknown, field: string): Date {
       const parts = trimmed.split(' ');
       // "a month ago" / "an hour ago" → treat as 1
       const rawAmount = parts[0].toLowerCase();
-      const amount = rawAmount === 'a' || rawAmount === 'an' ? 1 : parseInt(rawAmount, 10);
+      const amount =
+        rawAmount === 'a' || rawAmount === 'an' ? 1 : parseInt(rawAmount, 10);
       const unit = parts[1]?.toLowerCase();
       let multiplier = 0;
       if (unit.startsWith('sec')) multiplier = 1000;

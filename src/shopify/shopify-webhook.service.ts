@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import {
   EcommerceConnectionStatus,
+  EcommerceOrderStatus,
   EcommercePlatform,
   Prisma,
   ShopifyConnectionStatus,
@@ -9,6 +10,7 @@ import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopifyApiService } from './shopify-api.service';
 import { ShopifyConnectionService } from './shopify-connection.service';
+import { CustomerRiskService } from '../customers/customer-risk.service';
 import {
   normalizeShopifyOrder,
   type RawShopifyRevenueOrder,
@@ -73,6 +75,7 @@ export class ShopifyWebhookService {
     private readonly prisma: PrismaService,
     private readonly shopifyApi: ShopifyApiService,
     private readonly connectionService: ShopifyConnectionService,
+    private readonly customerRisk: CustomerRiskService,
   ) {}
 
   async handle(request: Request, rawBody: Buffer | undefined) {
@@ -120,6 +123,23 @@ export class ShopifyWebhookService {
   ): Promise<void> {
     if (webhook.topic === 'SHOP_REDACT') {
       await this.processShopRedact(webhook.domain);
+      return;
+    }
+    if (webhook.topic === 'CUSTOMERS_REDACT') {
+      // Must be honored even for a disconnected/reauthorization-required
+      // shop — handled before the ACTIVE-connection gate below.
+      await this.processCustomerRedact(webhook, payload);
+      return;
+    }
+    if (webhook.topic === 'CUSTOMERS_DATA_REQUEST') {
+      // Shopify's docs treat actually disclosing the data to the customer
+      // as a merchant/support responsibility, not something the webhook
+      // response itself must return synchronously. No PII is deleted here;
+      // this just acknowledges receipt so the webhook doesn't retry.
+      this.logger.log(
+        `Shopify customer data request received for shop ${webhook.domain}`,
+      );
+      await this.recordReceipt(webhook, null);
       return;
     }
 
@@ -196,7 +216,16 @@ export class ShopifyWebhookService {
     }
 
     const order = normalizeShopifyOrder(response.order);
-    await this.prisma.$transaction(async (transaction) => {
+    // Resolved outside the transaction below — CustomerRiskService's own
+    // upsert is already idempotent/self-contained, and doing it first lets
+    // the order write include customerId directly.
+    const customer = await this.customerRisk.upsertCustomer({
+      storeId: connection.storeId,
+      phone: order.customerPhone,
+      name: order.customerName,
+    });
+
+    const risk = await this.prisma.$transaction(async (transaction) => {
       const existing = await transaction.ecommerceOrder.findUnique({
         where: {
           connectionId_externalOrderId: {
@@ -204,14 +233,23 @@ export class ShopifyWebhookService {
             externalOrderId: order.externalOrderId,
           },
         },
-        select: { providerUpdatedAt: true },
+        select: { providerUpdatedAt: true, status: true },
       });
       if (
         !existing ||
         existing.providerUpdatedAt.getTime() <=
           order.providerUpdatedAt.getTime()
       ) {
-        const { lines, ...orderData } = order;
+        // customerName/customerPhone aren't EcommerceOrder columns (customerId
+        // resolved above is) — stripped from the spread, never read directly.
+        /* eslint-disable @typescript-eslint/no-unused-vars */
+        const {
+          lines,
+          customerName: _cn,
+          customerPhone: _cp,
+          ...orderData
+        } = order;
+        /* eslint-enable @typescript-eslint/no-unused-vars */
         const saved = await transaction.ecommerceOrder.upsert({
           where: {
             connectionId_externalOrderId: {
@@ -222,8 +260,9 @@ export class ShopifyWebhookService {
           create: {
             connectionId: connection.ecommerceConnectionId,
             ...orderData,
+            customerId: customer?.id ?? null,
           },
-          update: orderData,
+          update: { ...orderData, customerId: customer?.id ?? null },
         });
         const skus = lines
           .map((line) => line.sku)
@@ -261,9 +300,47 @@ export class ShopifyWebhookService {
             skipDuplicates: true,
           });
         }
+
+        await this.recordProcessed(transaction, webhook, connection.id);
+        return {
+          orderId: saved.id,
+          isNewOrder: !existing,
+          justCancelled:
+            !!existing &&
+            existing.status !== EcommerceOrderStatus.CANCELLED &&
+            order.status === EcommerceOrderStatus.CANCELLED,
+        };
       }
       await this.recordProcessed(transaction, webhook, connection.id);
+      return null;
     });
+
+    if (!risk || !customer) {
+      return;
+    }
+    if (risk.isNewOrder) {
+      await this.customerRisk
+        .recordNewOrder({
+          storeId: connection.storeId,
+          customerId: customer.id,
+          isBlacklisted: customer.isBlacklisted,
+          orderId: risk.orderId,
+          occurredAt: order.providerUpdatedAt,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `Customer risk tracking failed for order ${risk.orderId}: ${String(err)}`,
+          ),
+        );
+    } else if (risk.justCancelled) {
+      await this.customerRisk
+        .incrementRiskCounter(connection.storeId, customer.id, 'CANCELLATIONS')
+        .catch((err) =>
+          this.logger.warn(
+            `Cancellation risk tracking failed for order ${risk.orderId}: ${String(err)}`,
+          ),
+        );
+    }
   }
 
   private async deleteOrder(
@@ -362,8 +439,19 @@ export class ShopifyWebhookService {
   }
 
   private async processShopRedact(shopDomain: string): Promise<void> {
+    const connection = await this.prisma.ecommerceConnection.findFirst({
+      where: {
+        platform: EcommercePlatform.SHOPIFY,
+        externalAccountId: shopDomain,
+      },
+      select: { storeId: true },
+    });
+
     await this.prisma.$transaction([
       this.prisma.shopifyOAuthState.deleteMany({ where: { shopDomain } }),
+      // Cascades to every EcommerceOrder for this connection (see the
+      // connection FK's onDelete: Cascade) — order/financial history for
+      // this shop goes with it, per shop/redact's scope.
       this.prisma.ecommerceConnection.deleteMany({
         where: {
           platform: EcommercePlatform.SHOPIFY,
@@ -373,6 +461,55 @@ export class ShopifyWebhookService {
       this.prisma.shopifyConnection.deleteMany({ where: { shopDomain } }),
       this.prisma.shopifyWebhookReceipt.deleteMany({ where: { shopDomain } }),
     ]);
+
+    // Customer rows are store-scoped, not connection-scoped (a phone can be
+    // shared across platforms), so they don't cascade with the connection
+    // above. Only purge ones now orphaned by it — a customer who also has a
+    // YouCan/Lightfunnels/manual order keeps that (non-Shopify-sourced)
+    // record; a Shopify-only customer's orders just cascaded to zero.
+    if (connection) {
+      await this.prisma.customer.deleteMany({
+        where: { storeId: connection.storeId, orders: { none: {} } },
+      });
+    }
+  }
+
+  /**
+   * CUSTOMERS_REDACT — the mandatory per-customer GDPR erasure. Matches by
+   * phone (digits-only, since Shopify's payload format can differ from
+   * however the number was originally captured) since that's this
+   * module's cross-platform identity key; there is no local email field to
+   * match against instead.
+   */
+  private async processCustomerRedact(
+    webhook: VerifiedWebhook,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const connection = await this.prisma.shopifyConnection.findUnique({
+      where: { shopDomain: webhook.domain },
+      select: { id: true, storeId: true },
+    });
+    const phone = customerPhoneFromPayload(payload);
+
+    if (connection && phone) {
+      const targetDigits = normalizeDigits(phone);
+      if (targetDigits) {
+        const candidates = await this.prisma.customer.findMany({
+          where: { storeId: connection.storeId },
+          select: { id: true, phone: true },
+        });
+        const matchIds = candidates
+          .filter((c) => normalizeDigits(c.phone) === targetDigits)
+          .map((c) => c.id);
+        if (matchIds.length > 0) {
+          await this.prisma.customer.deleteMany({
+            where: { id: { in: matchIds } },
+          });
+        }
+      }
+    }
+
+    await this.recordReceipt(webhook, connection?.id ?? null);
   }
 
   private async recordReceipt(
@@ -450,6 +587,21 @@ function orderIdFromPayload(
   return identifier.startsWith('gid://shopify/Order/')
     ? identifier
     : `gid://shopify/Order/${identifier}`;
+}
+
+function customerPhoneFromPayload(
+  payload: Record<string, unknown>,
+): string | null {
+  const customer = payload.customer;
+  if (!customer || typeof customer !== 'object') {
+    return null;
+  }
+  const phone = (customer as Record<string, unknown>).phone;
+  return typeof phone === 'string' && phone.trim() ? phone.trim() : null;
+}
+
+function normalizeDigits(phone: string): string {
+  return phone.replace(/\D/g, '');
 }
 
 function requiredCount(value: unknown, resource: string): number {

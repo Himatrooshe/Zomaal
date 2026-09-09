@@ -20,6 +20,7 @@ import { AdsModule } from './ads/ads.module';
 import { RolesModule } from './roles/roles.module';
 import { StaffModule } from './staff/staff.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { CustomersModule } from './customers/customers.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { ExpensesModule } from './expenses/expenses.module';
     RolesModule,
     StaffModule,
     ExpensesModule,
+    CustomersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

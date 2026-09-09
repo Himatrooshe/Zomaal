@@ -25,6 +25,8 @@ export const OrderEventType = {
   RETURN_REQUESTED:       'RETURN_REQUESTED',
   RETURN_IN_TRANSIT:      'RETURN_IN_TRANSIT',
   RETURNED:               'RETURNED',
+  // Customer risk — SYSTEM-sourced, emitted by CustomerRiskService
+  CUSTOMER_BLACKLISTED_WARNING: 'CUSTOMER_BLACKLISTED_WARNING',
   // Catch-all
   OTHER:                  'OTHER',
 } as const;

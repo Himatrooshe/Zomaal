@@ -7,6 +7,7 @@ import { Prisma, ReturnRequestStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EcommerceService } from './ecommerce.service';
 import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
+import { CustomerRiskService } from '../customers/customer-risk.service';
 import { ProductCondition } from './constants/product-condition';
 import type {
   DetectReturnDto,
@@ -36,6 +37,7 @@ export class ReturnRequestService {
     private readonly prisma: PrismaService,
     private readonly ecommerceService: EcommerceService,
     private readonly financialService: EcommerceOrderFinancialService,
+    private readonly customerRisk: CustomerRiskService,
   ) {}
 
   /**
@@ -58,9 +60,16 @@ export class ReturnRequestService {
     const order = await this.resolveOrder(store.id, dto);
 
     let returnRequest = await this.prisma.returnRequest.findFirst({
-      where: { orderId: order.id, status: ReturnRequestStatus.NEED_VERIFICATION },
+      where: {
+        orderId: order.id,
+        status: ReturnRequestStatus.NEED_VERIFICATION,
+      },
       include: { lines: { include: { orderLine: true } } },
     });
+    // True only when THIS call's create() actually won — not when it lost
+    // the race below and re-read someone else's row, which would otherwise
+    // double-count the same return against the customer's risk score.
+    let isNewReturn = false;
 
     if (!returnRequest) {
       try {
@@ -78,6 +87,7 @@ export class ReturnRequestService {
           },
           include: { lines: { include: { orderLine: true } } },
         });
+        isNewReturn = true;
       } catch (error) {
         // Two concurrent detect() calls for the same order (double-tap on
         // the Scan screen, two staff scanning the same parcel) can both
@@ -91,7 +101,10 @@ export class ReturnRequestService {
           error.code === 'P2002'
         ) {
           returnRequest = await this.prisma.returnRequest.findFirstOrThrow({
-            where: { orderId: order.id, status: ReturnRequestStatus.NEED_VERIFICATION },
+            where: {
+              orderId: order.id,
+              status: ReturnRequestStatus.NEED_VERIFICATION,
+            },
             include: { lines: { include: { orderLine: true } } },
           });
         } else {
@@ -101,7 +114,11 @@ export class ReturnRequestService {
     }
 
     const customer = await this.resolveCustomer(userId, order);
-    const deliveryCost = await this.financialService.resolveEffectiveShippingCost(order.id);
+    if (isNewReturn) {
+      await this.recordReturnRisk(store.id, order, customer);
+    }
+    const deliveryCost =
+      await this.financialService.resolveEffectiveShippingCost(order.id);
     const lines = returnRequest.lines.map((rl) => rl.orderLine);
 
     return {
@@ -140,7 +157,10 @@ export class ReturnRequestService {
   ): Promise<VerifiedReturnResponseDto> {
     const store = await this.requireStore(userId);
     const returnRequest = await this.prisma.returnRequest.findFirst({
-      where: { id: returnRequestId, order: { connection: { storeId: store.id } } },
+      where: {
+        id: returnRequestId,
+        order: { connection: { storeId: store.id } },
+      },
       include: { lines: true, order: { select: { id: true } } },
     });
     if (!returnRequest) {
@@ -159,7 +179,7 @@ export class ReturnRequestService {
         returnRequest.orderId,
         input.orderLineId,
         {
-          condition: input.condition as ProductCondition,
+          condition: input.condition,
           damageCost: input.damageCost,
         },
       );
@@ -180,7 +200,10 @@ export class ReturnRequestService {
       });
     }
 
-    const deliveryCost = await this.financialService.resolveEffectiveShippingCost(returnRequest.orderId);
+    const deliveryCost =
+      await this.financialService.resolveEffectiveShippingCost(
+        returnRequest.orderId,
+      );
 
     return {
       returnRequestId: updated.id,
@@ -196,7 +219,10 @@ export class ReturnRequestService {
    * PENDING with a codAmount), a different concept bundled onto the same
    * screen per the mockup — flagged on the DTO for the same reason.
    */
-  async list(userId: string, query: ReturnListQueryDto): Promise<ReturnListResponseDto> {
+  async list(
+    userId: string,
+    query: ReturnListQueryDto,
+  ): Promise<ReturnListResponseDto> {
     const store = await this.requireStore(userId);
     const delayedCutoff = new Date(Date.now() - DELAYED_AFTER_MS);
 
@@ -233,7 +259,14 @@ export class ReturnRequestService {
         skip: (page - 1) * limit,
         take: limit,
         include: {
-          order: { select: { id: true, orderName: true, manualCustomerName: true, manualCustomerPhone: true } },
+          order: {
+            select: {
+              id: true,
+              orderName: true,
+              manualCustomerName: true,
+              manualCustomerPhone: true,
+            },
+          },
           lines: { include: { orderLine: true } },
         },
       }),
@@ -241,7 +274,12 @@ export class ReturnRequestService {
       // every-return-ever-then-sum-in-JS pass — cost scales with what's
       // actually being summed, not with total return history size.
       this.prisma.$queryRaw<
-        { totalCount: bigint; totalValue: Prisma.Decimal; pendingCount: bigint; pendingValue: Prisma.Decimal }[]
+        {
+          totalCount: bigint;
+          totalValue: Prisma.Decimal;
+          pendingCount: bigint;
+          pendingValue: Prisma.Decimal;
+        }[]
       >(Prisma.sql`
         SELECT
           COUNT(DISTINCT rr."id")::int AS "totalCount",
@@ -280,7 +318,9 @@ export class ReturnRequestService {
           orders: Number(summaryRow?.pendingCount ?? 0),
         },
         totalOrderConfirm: {
-          value: (confirmOrders._sum.totalCollected ?? new Prisma.Decimal(0)).toFixed(2),
+          value: (
+            confirmOrders._sum.totalCollected ?? new Prisma.Decimal(0)
+          ).toFixed(2),
           orders: confirmOrders._count,
         },
       },
@@ -299,7 +339,9 @@ export class ReturnRequestService {
               : first.name
             : 'No products',
           status: this.presentStatus(r),
-          value: lines.reduce((sum, l) => sum.plus(l.totalPrice), new Prisma.Decimal(0)).toFixed(2),
+          value: lines
+            .reduce((sum, l) => sum.plus(l.totalPrice), new Prisma.Decimal(0))
+            .toFixed(2),
           createdAt: r.createdAt.toISOString(),
         };
       }),
@@ -379,14 +421,22 @@ export class ReturnRequestService {
       } catch {
         throw new BadRequestException('Scanned QR payload is not valid JSON');
       }
-      if (typeof payload.trackingNumber !== 'string' || !payload.trackingNumber) {
-        throw new BadRequestException('Scanned QR payload is missing trackingNumber');
+      if (
+        typeof payload.trackingNumber !== 'string' ||
+        !payload.trackingNumber
+      ) {
+        throw new BadRequestException(
+          'Scanned QR payload is missing trackingNumber',
+        );
       }
       trackingNumber = payload.trackingNumber;
     }
 
     const byDispatch = await this.prisma.ecommerceOrderDispatch.findFirst({
-      where: { providerTracking: trackingNumber, order: { connection: { storeId } } },
+      where: {
+        providerTracking: trackingNumber,
+        order: { connection: { storeId } },
+      },
       include: { order: { include: { lines: true } } },
     });
     if (byDispatch) return byDispatch.order;
@@ -413,6 +463,37 @@ export class ReturnRequestService {
     throw new NotFoundException('No order matches this code');
   }
 
+  /**
+   * Prefers the order's already-linked customerId (set at sync/creation
+   * time); falls back to resolving by phone for orders synced before the
+   * Customer module existed. Never fails detect() over risk tracking.
+   */
+  private async recordReturnRisk(
+    storeId: string,
+    order: { id: string; customerId: string | null },
+    customer: {
+      name: string | null;
+      phone: string | null;
+      address: string | null;
+    },
+  ): Promise<void> {
+    const customerId =
+      order.customerId ??
+      (
+        await this.customerRisk.upsertCustomer({
+          storeId,
+          phone: customer.phone,
+          name: customer.name,
+          address: customer.address,
+        })
+      )?.id;
+    if (!customerId) return;
+
+    await this.customerRisk
+      .incrementRiskCounter(storeId, customerId, 'RETURNS')
+      .catch(() => undefined);
+  }
+
   private async resolveCustomer(
     userId: string,
     order: {
@@ -431,11 +512,17 @@ export class ReturnRequestService {
       };
     }
     try {
-      const preview = await this.ecommerceService.getFulfillmentPreview(userId, order.id);
+      const preview = await this.ecommerceService.getFulfillmentPreview(
+        userId,
+        order.id,
+      );
       return {
         name: preview.recipientName,
         phone: preview.recipientPhone,
-        address: [preview.address, preview.city, preview.country].filter(Boolean).join(', ') || null,
+        address:
+          [preview.address, preview.city, preview.country]
+            .filter(Boolean)
+            .join(', ') || null,
       };
     } catch {
       // Platform temporarily unreachable — the return can still be
@@ -443,7 +530,6 @@ export class ReturnRequestService {
       return { name: null, phone: null, address: null };
     }
   }
-
 
   private computeLoss(lines: OrderLineForLoss[], deliveryCost: Prisma.Decimal) {
     const originalOrderValue = lines.reduce(
@@ -492,4 +578,3 @@ export class ReturnRequestService {
     return store;
   }
 }
-

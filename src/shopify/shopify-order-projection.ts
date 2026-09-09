@@ -23,7 +23,8 @@ export const SHOPIFY_REVENUE_ORDER_FIELDS = `
   currentShippingPriceSet { shopMoney { amount currencyCode } }
   currentTotalTaxSet { shopMoney { amount currencyCode } }
   netPaymentSet { shopMoney { amount currencyCode } }
-  shippingAddress { city }
+  phone
+  shippingAddress { city name phone }
   lineItems(first: 250) {
     nodes {
       id
@@ -64,7 +65,12 @@ export interface RawShopifyRevenueOrder {
   currentShippingPriceSet: RawMoneyBag;
   currentTotalTaxSet: RawMoneyBag;
   netPaymentSet: RawMoneyBag;
-  shippingAddress?: { city: string | null } | null;
+  phone: string | null;
+  shippingAddress?: {
+    city: string | null;
+    name: string | null;
+    phone: string | null;
+  } | null;
   lineItems?: {
     nodes: Array<{
       id: string;
@@ -118,6 +124,12 @@ export function normalizeShopifyOrder(
     tax: decimal(order.currentTotalTaxSet.shopMoney.amount).toFixed(4),
     totalCollected: decimal(order.netPaymentSet.shopMoney.amount).toFixed(4),
     shippingCity: order.shippingAddress?.city?.trim() || null,
+    // Same precedence the fulfillment-preview adapter already uses:
+    // shipping address first (what the driver actually needs), order-level
+    // phone as fallback.
+    customerName: order.shippingAddress?.name?.trim() || null,
+    customerPhone:
+      order.shippingAddress?.phone?.trim() || order.phone?.trim() || null,
     providerCreatedAt: parseShopifyDate(order.createdAt),
     processedAt: parseShopifyDate(order.processedAt ?? order.createdAt),
     cancelledAt: order.cancelledAt ? parseShopifyDate(order.cancelledAt) : null,

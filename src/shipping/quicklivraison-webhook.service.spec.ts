@@ -40,6 +40,7 @@ describe('QuickLivraisonShipmentService webhook', () => {
     prisma as never,
     config as never,
     { syncFromDispatchId: jest.fn() } as never,
+    { recordShipmentOutcome: jest.fn().mockResolvedValue(undefined) } as never,
   );
 
   beforeEach(() => {

@@ -30,6 +30,7 @@ interface RawYouCanOrder {
   payment?: unknown;
   shipping?: unknown;
   shipping_address?: unknown;
+  customer?: unknown;
   refunds?: unknown;
   variants?: unknown;
 }
@@ -63,7 +64,7 @@ export class YouCanRevenueAdapter implements EcommerceRevenueAdapter {
           limit: YOUCAN_SYNC_PAGE_SIZE,
           sort_field: 'created_at',
           sort_order: 'asc',
-          include: 'payment,shipping,discount,refunds,variants',
+          include: 'payment,shipping,discount,refunds,variants,customer',
         },
       ),
       this.youCanConnectionService.getStoreCurrency(userId),
@@ -158,6 +159,17 @@ function normalizeYouCanOrder(
     tax: tax.toFixed(4),
     totalCollected: totalCollected.toFixed(4),
     shippingCity: recordString(order.shipping_address, 'city'),
+    // Same precedence as youcan-fulfillment.adapter.ts: shipping address
+    // first, order-level customer record as fallback.
+    customerName: joinName(
+      recordString(order.shipping_address, 'first_name') ??
+        recordString(order.customer, 'first_name'),
+      recordString(order.shipping_address, 'last_name') ??
+        recordString(order.customer, 'last_name'),
+    ),
+    customerPhone:
+      recordString(order.shipping_address, 'phone') ??
+      recordString(order.customer, 'phone'),
     providerCreatedAt: createdAt,
     processedAt: createdAt,
     cancelledAt: status === EcommerceOrderStatus.CANCELLED ? updatedAt : null,
@@ -395,6 +407,11 @@ function requiredString(value: unknown, field: string): string {
     throw new BadGatewayException(`YouCan order is missing ${field}`);
   }
   return result;
+}
+
+function joinName(first: string | null, last: string | null): string | null {
+  const joined = [first, last].filter(Boolean).join(' ').trim();
+  return joined || null;
 }
 
 function optionalString(value: unknown): string | null {

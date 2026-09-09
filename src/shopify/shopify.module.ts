@@ -11,8 +11,10 @@ import { ShopifyDataService } from './shopify-data.service';
 import { ShopifyTokenEncryptionService } from './shopify-token-encryption.service';
 import { ShopifyWebhookController } from './shopify-webhook.controller';
 import { ShopifyWebhookService } from './shopify-webhook.service';
+import { CustomersModule } from '../customers/customers.module';
 
 @Module({
+  imports: [CustomersModule],
   controllers: [
     ShopifyController,
     ShopifyDataController,

@@ -23,6 +23,7 @@ import {
   ozoneFeeForStatus,
 } from './ozoneexpress-status';
 import { EcommerceOrderFinancialService } from '../ecommerce/ecommerce-order-financial.service';
+import { CustomerRiskService } from '../customers/customer-risk.service';
 
 type ProviderRecord = Record<string, unknown>;
 
@@ -55,6 +56,7 @@ export class OzoneExpressShipmentService {
     private readonly client: OzoneExpressClient,
     private readonly connection: OzoneExpressConnectionService,
     private readonly financialService: EcommerceOrderFinancialService,
+    private readonly customerRisk: CustomerRiskService,
   ) {}
 
   async persistCreatedParcel(
@@ -357,86 +359,118 @@ export class OzoneExpressShipmentService {
     const normalizedStatus = normalizeOzoneExpressStatus(providerStatus);
     const lastActionAt = trackingDate(latestRecord) ?? new Date();
 
-    return this.prisma.$transaction(async (tx) => {
-      const [connection, current] = await Promise.all([
-        tx.ozoneExpressConnection.findUnique({
-          where: { userId },
-          select: { id: true },
-        }),
-        tx.ozoneExpressShipment.findUnique({
-          where: { userId_providerCode: { userId, providerCode } },
-          select: {
-            deliveredPrice: true,
-            returnedPrice: true,
-            refusedPrice: true,
-          },
-        }),
-      ]);
-      const prices = {
-        deliveredPrice: current?.deliveredPrice ?? null,
-        returnedPrice: current?.returnedPrice ?? null,
-        refusedPrice: current?.refusedPrice ?? null,
-      };
-      const shipment = await tx.ozoneExpressShipment.upsert({
-        where: { userId_providerCode: { userId, providerCode } },
-        create: {
-          userId,
-          connectionId: connection?.id,
-          providerCode,
-          providerStatus,
-          normalizedStatus,
-          reference: providerCode,
-          fee: ozoneFeeForStatus(normalizedStatus, prices),
-          lastActionAt,
-        },
-        update: {
-          connectionId: connection?.id,
-          providerStatus,
-          normalizedStatus,
-          fee: ozoneFeeForStatus(normalizedStatus, prices),
-          lastActionAt,
-        },
-      });
-      const events = history.length
-        ? appendLatestTracking(history, latestRecord)
-        : [{ key: 'latest', record: latestRecord }];
-      for (const item of events) {
-        const status =
-          optionalString(first(item.record, 'STATUT', 'STATUS')) ??
-          providerStatus;
-        const eventAt = trackingDate(item.record) ?? lastActionAt;
-        const statusCode = normalizeOzoneExpressStatusCode(status) ?? 'UNKNOWN';
-        const timeKey =
-          optionalString(item.record.TIME) ??
-          optionalString(item.record.TIME_STR) ??
-          item.key;
-        await tx.ozoneExpressTrackingEvent.upsert({
-          where: {
-            shipmentId_providerEventKey: {
-              shipmentId: shipment.id,
-              providerEventKey: `tracking:${timeKey}:${statusCode}`,
+    const { shipment, previousStatus, previousPhone, previousName } =
+      await this.prisma.$transaction(async (tx) => {
+        const [connection, current] = await Promise.all([
+          tx.ozoneExpressConnection.findUnique({
+            where: { userId },
+            select: { id: true },
+          }),
+          tx.ozoneExpressShipment.findUnique({
+            where: { userId_providerCode: { userId, providerCode } },
+            select: {
+              deliveredPrice: true,
+              returnedPrice: true,
+              refusedPrice: true,
+              normalizedStatus: true,
+              recipientPhone: true,
+              recipientName: true,
             },
-          },
+          }),
+        ]);
+        const prices = {
+          deliveredPrice: current?.deliveredPrice ?? null,
+          returnedPrice: current?.returnedPrice ?? null,
+          refusedPrice: current?.refusedPrice ?? null,
+        };
+        const shipment = await tx.ozoneExpressShipment.upsert({
+          where: { userId_providerCode: { userId, providerCode } },
           create: {
-            shipmentId: shipment.id,
-            providerEventKey: `tracking:${timeKey}:${statusCode}`,
-            eventType: 'parcel.status',
-            providerStatus: status,
-            normalizedStatus: normalizeOzoneExpressStatus(status),
-            message: optionalString(item.record.COMMENT),
-            actor: 'OzoneExpress',
-            eventAt,
-            rawPayload: jsonValue(item.record),
+            userId,
+            connectionId: connection?.id,
+            providerCode,
+            providerStatus,
+            normalizedStatus,
+            reference: providerCode,
+            fee: ozoneFeeForStatus(normalizedStatus, prices),
+            lastActionAt,
           },
           update: {
-            normalizedStatus: normalizeOzoneExpressStatus(status),
-            message: optionalString(item.record.COMMENT),
-            rawPayload: jsonValue(item.record),
+            connectionId: connection?.id,
+            providerStatus,
+            normalizedStatus,
+            fee: ozoneFeeForStatus(normalizedStatus, prices),
+            lastActionAt,
           },
         });
-      }
-      return shipment;
-    });
+        const events = history.length
+          ? appendLatestTracking(history, latestRecord)
+          : [{ key: 'latest', record: latestRecord }];
+        for (const item of events) {
+          const status =
+            optionalString(first(item.record, 'STATUT', 'STATUS')) ??
+            providerStatus;
+          const eventAt = trackingDate(item.record) ?? lastActionAt;
+          const statusCode =
+            normalizeOzoneExpressStatusCode(status) ?? 'UNKNOWN';
+          const timeKey =
+            optionalString(item.record.TIME) ??
+            optionalString(item.record.TIME_STR) ??
+            item.key;
+          await tx.ozoneExpressTrackingEvent.upsert({
+            where: {
+              shipmentId_providerEventKey: {
+                shipmentId: shipment.id,
+                providerEventKey: `tracking:${timeKey}:${statusCode}`,
+              },
+            },
+            create: {
+              shipmentId: shipment.id,
+              providerEventKey: `tracking:${timeKey}:${statusCode}`,
+              eventType: 'parcel.status',
+              providerStatus: status,
+              normalizedStatus: normalizeOzoneExpressStatus(status),
+              message: optionalString(item.record.COMMENT),
+              actor: 'OzoneExpress',
+              eventAt,
+              rawPayload: jsonValue(item.record),
+            },
+            update: {
+              normalizedStatus: normalizeOzoneExpressStatus(status),
+              message: optionalString(item.record.COMMENT),
+              rawPayload: jsonValue(item.record),
+            },
+          });
+        }
+        return {
+          shipment,
+          previousStatus: current?.normalizedStatus ?? null,
+          previousPhone: current?.recipientPhone ?? null,
+          previousName: current?.recipientName ?? null,
+        };
+      });
+
+    if (
+      previousStatus !== normalizedStatus &&
+      (normalizedStatus === ShippingShipmentStatus.REFUSED ||
+        normalizedStatus === ShippingShipmentStatus.UNREACHABLE)
+    ) {
+      await this.customerRisk
+        .recordShipmentOutcome({
+          userId,
+          phone: previousPhone,
+          name: previousName,
+          outcome:
+            normalizedStatus === ShippingShipmentStatus.REFUSED
+              ? 'REFUSALS'
+              : 'NO_ANSWER',
+        })
+        .catch((err) =>
+          this.logger.warn(`Customer risk tracking failed: ${String(err)}`),
+        );
+    }
+
+    return shipment;
   }
 }
 

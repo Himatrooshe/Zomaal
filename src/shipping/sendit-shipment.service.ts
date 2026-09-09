@@ -7,7 +7,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, ShippingShipmentStatus } from '@prisma/client';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -18,6 +18,7 @@ import type { SenditDeliveryDto } from './dto/sendit-delivery.dto';
 import type { SenditShipmentQueryDto } from './dto/sendit-shipment-query.dto';
 import { normalizeSenditStatus } from './sendit-status';
 import { EcommerceOrderFinancialService } from '../ecommerce/ecommerce-order-financial.service';
+import { CustomerRiskService } from '../customers/customer-risk.service';
 
 type SenditDeliveryRecord = Record<string, unknown>;
 
@@ -39,6 +40,7 @@ export class SenditShipmentService {
     private readonly prisma: PrismaService,
     private readonly senditConnection: SenditConnectionService,
     private readonly financialService: EcommerceOrderFinancialService,
+    private readonly customerRisk: CustomerRiskService,
   ) {}
 
   async persistCreatedDelivery(
@@ -300,6 +302,11 @@ export class SenditShipmentService {
     const page = providerDeliveryPage(providerResponse);
     const deliveries = page.data.map(providerDeliverySnapshot);
     const dispatchIdsToSync = new Set<string>();
+    const riskOutcomesToRecord: Array<{
+      phone: string | null;
+      name: string | null;
+      outcome: 'REFUSALS' | 'NO_ANSWER';
+    }> = [];
 
     const counts = await this.prisma.$transaction(async (tx) => {
       const connection = await tx.senditConnection.findUnique({
@@ -439,6 +446,22 @@ export class SenditShipmentService {
         if (statusChanged && effectiveDispatchId) {
           dispatchIdsToSync.add(effectiveDispatchId);
         }
+        // Customer risk: only on a genuine transition into REFUSED/
+        // UNREACHABLE, not every re-sync of an already-refused shipment.
+        if (
+          statusChanged &&
+          (normalizedStatus === ShippingShipmentStatus.REFUSED ||
+            normalizedStatus === ShippingShipmentStatus.UNREACHABLE)
+        ) {
+          riskOutcomesToRecord.push({
+            phone: delivery.recipientPhone,
+            name: delivery.recipientName,
+            outcome:
+              normalizedStatus === ShippingShipmentStatus.REFUSED
+                ? 'REFUSALS'
+                : 'NO_ANSWER',
+          });
+        }
         if (statusChanged && (!current || shouldRefresh)) {
           const eventAt =
             delivery.lastActionAt ??
@@ -493,6 +516,18 @@ export class SenditShipmentService {
         );
       }
     }
+    for (const outcome of riskOutcomesToRecord) {
+      await this.customerRisk
+        .recordShipmentOutcome({
+          userId,
+          phone: outcome.phone,
+          name: outcome.name,
+          outcome: outcome.outcome,
+        })
+        .catch((err) =>
+          this.logger.warn(`Customer risk tracking failed: ${String(err)}`),
+        );
+    }
 
     return {
       currentPage: page.currentPage,
@@ -522,6 +557,9 @@ export class SenditShipmentService {
         userId: true,
         lastActionAt: true,
         dispatchId: true,
+        normalizedStatus: true,
+        recipientPhone: true,
+        recipientName: true,
       },
     });
 
@@ -547,8 +585,8 @@ export class SenditShipmentService {
       : null;
     const providerEventKey = webhookEventKey(event);
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.senditShipment.updateMany({
+    const applied = await this.prisma.$transaction(async (tx) => {
+      const updateResult = await tx.senditShipment.updateMany({
         where: {
           id: shipment.id,
           OR: [{ lastActionAt: null }, { lastActionAt: { lte: eventAt } }],
@@ -591,6 +629,8 @@ export class SenditShipmentService {
           rawPayload: jsonValue(payload),
         },
       });
+
+      return updateResult.count > 0;
     });
 
     if (shipment.dispatchId) {
@@ -601,6 +641,26 @@ export class SenditShipmentService {
           `Financial sync failed for dispatch ${shipment.dispatchId}: ${String(err)}`,
         );
       }
+    }
+    if (
+      applied &&
+      shipment.normalizedStatus !== normalizedStatus &&
+      (normalizedStatus === ShippingShipmentStatus.REFUSED ||
+        normalizedStatus === ShippingShipmentStatus.UNREACHABLE)
+    ) {
+      await this.customerRisk
+        .recordShipmentOutcome({
+          userId: shipment.userId,
+          phone: shipment.recipientPhone,
+          name: shipment.recipientName,
+          outcome:
+            normalizedStatus === ShippingShipmentStatus.REFUSED
+              ? 'REFUSALS'
+              : 'NO_ANSWER',
+        })
+        .catch((err) =>
+          this.logger.warn(`Customer risk tracking failed: ${String(err)}`),
+        );
     }
 
     return {

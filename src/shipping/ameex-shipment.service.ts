@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -18,15 +19,19 @@ import type {
   AmeexSyncQueryDto,
 } from './dto/ameex-shipment-query.dto';
 import { normalizeAmeexStatus, normalizeAmeexStatusCode } from './ameex-status';
+import { CustomerRiskService } from '../customers/customer-risk.service';
 
 type ProviderRecord = Record<string, unknown>;
 
 @Injectable()
 export class AmeexShipmentService {
+  private readonly logger = new Logger(AmeexShipmentService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly client: AmeexClient,
     private readonly connection: AmeexConnectionService,
+    private readonly customerRisk: CustomerRiskService,
   ) {}
 
   async persistCreatedParcel(
@@ -269,84 +274,113 @@ export class AmeexShipmentService {
     const providerUpdatedAt = providerDate(
       first(value, 'UPDATED_AT', 'DATE_UPDATE', 'MODIFIED_AT'),
     );
-    return this.prisma.$transaction(async (tx) => {
-      const connection = await tx.ameexConnection.findUnique({
-        where: { userId },
-        select: { id: true },
-      });
-      const shipment = await tx.ameexShipment.upsert({
-        where: { userId_providerCode: { userId, providerCode: code } },
-        create: {
-          userId,
-          connectionId: connection?.id,
-          providerCode: code,
-          providerStatus: status,
-          providerSubStatus: subStatus,
-          normalizedStatus,
-          reference:
-            request?.orderNumber ??
-            text(first(value, 'ORDER_NUM', 'ORDER_NUMBER')),
-          recipientName:
-            request?.receiver ?? text(first(value, 'RECEIVER', 'NAME')),
-          recipientPhone: request?.phone ?? text(value.PHONE),
-          address: request?.address ?? text(value.ADDRESS),
-          city: text(first(value, 'CITY_NAME', 'CITY')),
-          cityId:
-            integer(first(value, 'CITY_ID', 'CITY')) ?? integer(request?.city),
-          codAmount:
-            decimal(first(value, 'COD', 'PRICE')) ?? decimal(request?.cod),
-          note: request?.comment ?? text(first(value, 'COMMENT', 'HOW')),
-          nature: request?.product ?? text(first(value, 'PRODUCT', 'NATURE')),
-          lastActionAt: now,
-          providerCreatedAt,
-          providerUpdatedAt,
-        },
-        update: {
-          connectionId: connection?.id,
-          providerStatus: status,
-          providerSubStatus: subStatus,
-          normalizedStatus,
-          lastActionAt: now,
-          ...(providerCreatedAt ? { providerCreatedAt } : {}),
-          ...(providerUpdatedAt ? { providerUpdatedAt } : {}),
-          ...(request
-            ? {
-                reference: request.orderNumber,
-                recipientName: request.receiver,
-                recipientPhone: request.phone,
-                address: request.address,
-                cityId: integer(request.city),
-                codAmount: decimal(request.cod),
-                note: request.comment,
-                nature: request.product,
-              }
-            : {}),
-        },
-      });
-      if (options.created) {
-        await tx.ameexTrackingEvent.upsert({
-          where: {
-            shipmentId_providerEventKey: {
-              shipmentId: shipment.id,
-              providerEventKey: 'created',
-            },
-          },
+    const { shipment, previousStatus } = await this.prisma.$transaction(
+      async (tx) => {
+        const connection = await tx.ameexConnection.findUnique({
+          where: { userId },
+          select: { id: true },
+        });
+        const previous = await tx.ameexShipment.findUnique({
+          where: { userId_providerCode: { userId, providerCode: code } },
+          select: { normalizedStatus: true },
+        });
+        const shipment = await tx.ameexShipment.upsert({
+          where: { userId_providerCode: { userId, providerCode: code } },
           create: {
-            shipmentId: shipment.id,
-            providerEventKey: 'created',
-            eventType: 'parcel.created',
+            userId,
+            connectionId: connection?.id,
+            providerCode: code,
             providerStatus: status,
             providerSubStatus: subStatus,
             normalizedStatus,
-            actor: 'Ameex',
-            eventAt: now,
-            rawPayload: json(options.rawPayload),
+            reference:
+              request?.orderNumber ??
+              text(first(value, 'ORDER_NUM', 'ORDER_NUMBER')),
+            recipientName:
+              request?.receiver ?? text(first(value, 'RECEIVER', 'NAME')),
+            recipientPhone: request?.phone ?? text(value.PHONE),
+            address: request?.address ?? text(value.ADDRESS),
+            city: text(first(value, 'CITY_NAME', 'CITY')),
+            cityId:
+              integer(first(value, 'CITY_ID', 'CITY')) ??
+              integer(request?.city),
+            codAmount:
+              decimal(first(value, 'COD', 'PRICE')) ?? decimal(request?.cod),
+            note: request?.comment ?? text(first(value, 'COMMENT', 'HOW')),
+            nature: request?.product ?? text(first(value, 'PRODUCT', 'NATURE')),
+            lastActionAt: now,
+            providerCreatedAt,
+            providerUpdatedAt,
           },
-          update: { rawPayload: json(options.rawPayload) },
+          update: {
+            connectionId: connection?.id,
+            providerStatus: status,
+            providerSubStatus: subStatus,
+            normalizedStatus,
+            lastActionAt: now,
+            ...(providerCreatedAt ? { providerCreatedAt } : {}),
+            ...(providerUpdatedAt ? { providerUpdatedAt } : {}),
+            ...(request
+              ? {
+                  reference: request.orderNumber,
+                  recipientName: request.receiver,
+                  recipientPhone: request.phone,
+                  address: request.address,
+                  cityId: integer(request.city),
+                  codAmount: decimal(request.cod),
+                  note: request.comment,
+                  nature: request.product,
+                }
+              : {}),
+          },
         });
-      }
-      return shipment;
-    });
+        if (options.created) {
+          await tx.ameexTrackingEvent.upsert({
+            where: {
+              shipmentId_providerEventKey: {
+                shipmentId: shipment.id,
+                providerEventKey: 'created',
+              },
+            },
+            create: {
+              shipmentId: shipment.id,
+              providerEventKey: 'created',
+              eventType: 'parcel.created',
+              providerStatus: status,
+              providerSubStatus: subStatus,
+              normalizedStatus,
+              actor: 'Ameex',
+              eventAt: now,
+              rawPayload: json(options.rawPayload),
+            },
+            update: { rawPayload: json(options.rawPayload) },
+          });
+        }
+        return { shipment, previousStatus: previous?.normalizedStatus ?? null };
+      },
+    );
+
+    if (
+      previousStatus !== normalizedStatus &&
+      (normalizedStatus === ShippingShipmentStatus.REFUSED ||
+        normalizedStatus === ShippingShipmentStatus.UNREACHABLE)
+    ) {
+      await this.customerRisk
+        .recordShipmentOutcome({
+          userId,
+          phone: shipment.recipientPhone,
+          name: shipment.recipientName,
+          outcome:
+            normalizedStatus === ShippingShipmentStatus.REFUSED
+              ? 'REFUSALS'
+              : 'NO_ANSWER',
+        })
+        .catch((err) =>
+          this.logger.warn(`Customer risk tracking failed: ${String(err)}`),
+        );
+    }
+
+    return shipment;
   }
 
   private async persistEventForUser(

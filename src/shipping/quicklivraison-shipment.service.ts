@@ -8,13 +8,18 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, type QuickLivraisonShipment } from '@prisma/client';
+import {
+  Prisma,
+  ShippingShipmentStatus,
+  type QuickLivraisonShipment,
+} from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { QuickLivraisonDeliveryDto } from './dto/quicklivraison-delivery.dto';
 import type { QuickLivraisonShipmentQueryDto } from './dto/quicklivraison-shipment-query.dto';
 import { normalizeQuickLivraisonStatus } from './quicklivraison-status';
 import { EcommerceOrderFinancialService } from '../ecommerce/ecommerce-order-financial.service';
+import { CustomerRiskService } from '../customers/customer-risk.service';
 
 type ProviderRecord = Record<string, unknown>;
 
@@ -26,6 +31,7 @@ export class QuickLivraisonShipmentService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly financialService: EcommerceOrderFinancialService,
+    private readonly customerRisk: CustomerRiskService,
   ) {}
 
   async persistCreatedDelivery(
@@ -202,6 +208,11 @@ export class QuickLivraisonShipmentService {
       providerDeliverySnapshot,
     );
     const dispatchIdsToSync = new Set<string>();
+    const riskOutcomesToRecord: Array<{
+      phone: string | null;
+      name: string | null;
+      outcome: 'REFUSALS' | 'NO_ANSWER';
+    }> = [];
 
     const result = await this.prisma.$transaction(async (tx) => {
       const connection = await tx.quickLivraisonConnection.findUnique({
@@ -329,6 +340,20 @@ export class QuickLivraisonShipmentService {
         if (statusChanged && effectiveDispatchId) {
           dispatchIdsToSync.add(effectiveDispatchId);
         }
+        if (
+          statusChanged &&
+          (normalizedStatus === ShippingShipmentStatus.REFUSED ||
+            normalizedStatus === ShippingShipmentStatus.UNREACHABLE)
+        ) {
+          riskOutcomesToRecord.push({
+            phone: delivery.recipientPhone,
+            name: delivery.recipientName,
+            outcome:
+              normalizedStatus === ShippingShipmentStatus.REFUSED
+                ? 'REFUSALS'
+                : 'NO_ANSWER',
+          });
+        }
         if (statusChanged) {
           const eventAt =
             delivery.lastActionAt ??
@@ -382,6 +407,18 @@ export class QuickLivraisonShipmentService {
         );
       }
     }
+    for (const outcome of riskOutcomesToRecord) {
+      await this.customerRisk
+        .recordShipmentOutcome({
+          userId,
+          phone: outcome.phone,
+          name: outcome.name,
+          outcome: outcome.outcome,
+        })
+        .catch((err) =>
+          this.logger.warn(`Customer risk tracking failed: ${String(err)}`),
+        );
+    }
 
     return result;
   }
@@ -395,7 +432,15 @@ export class QuickLivraisonShipmentService {
     const event = parseStatusWebhook(payload);
     const shipment = await this.prisma.quickLivraisonShipment.findFirst({
       where: { providerCode: event.providerCode },
-      select: { id: true, lastActionAt: true, dispatchId: true },
+      select: {
+        id: true,
+        userId: true,
+        lastActionAt: true,
+        dispatchId: true,
+        normalizedStatus: true,
+        recipientPhone: true,
+        recipientName: true,
+      },
     });
     if (!shipment) {
       throw new NotFoundException(
@@ -415,8 +460,8 @@ export class QuickLivraisonShipmentService {
       event.eventAt.toISOString(),
     ].join(':');
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.quickLivraisonShipment.updateMany({
+    const applied = await this.prisma.$transaction(async (tx) => {
+      const updateResult = await tx.quickLivraisonShipment.updateMany({
         where: {
           id: shipment.id,
           OR: [
@@ -468,6 +513,8 @@ export class QuickLivraisonShipmentService {
           rawPayload: jsonValue(payload),
         },
       });
+
+      return updateResult.count > 0;
     });
 
     if (shipment.dispatchId) {
@@ -478,6 +525,26 @@ export class QuickLivraisonShipmentService {
           `Financial sync failed for dispatch ${shipment.dispatchId}: ${String(err)}`,
         );
       }
+    }
+    if (
+      applied &&
+      shipment.normalizedStatus !== normalizedStatus &&
+      (normalizedStatus === ShippingShipmentStatus.REFUSED ||
+        normalizedStatus === ShippingShipmentStatus.UNREACHABLE)
+    ) {
+      await this.customerRisk
+        .recordShipmentOutcome({
+          userId: shipment.userId,
+          phone: event.recipientPhone ?? shipment.recipientPhone,
+          name: event.recipientName ?? shipment.recipientName,
+          outcome:
+            normalizedStatus === ShippingShipmentStatus.REFUSED
+              ? 'REFUSALS'
+              : 'NO_ANSWER',
+        })
+        .catch((err) =>
+          this.logger.warn(`Customer risk tracking failed: ${String(err)}`),
+        );
     }
 
     return { success: true, message: 'QuickLivraison webhook received' };

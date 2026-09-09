@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import {
   EcommerceConnectionStatus,
+  EcommerceOrderStatus,
   EcommercePlatform,
   Prisma,
 } from '@prisma/client';
@@ -21,6 +22,7 @@ import { LightfunnelsRevenueAdapter } from './lightfunnels-revenue.adapter';
 import { ShopifyRevenueAdapter } from './shopify-revenue.adapter';
 import { YouCanRevenueAdapter } from './youcan-revenue.adapter';
 import { EcommerceOrderTimelineService } from './ecommerce-order-timeline.service';
+import { CustomerRiskService } from '../customers/customer-risk.service';
 
 const MAX_PAGES_PER_REQUEST = 5;
 
@@ -56,6 +58,7 @@ export class EcommerceSyncService {
     private readonly youCanAdapter: YouCanRevenueAdapter,
     private readonly configService: ConfigService,
     private readonly timelineService: EcommerceOrderTimelineService,
+    private readonly customerRisk: CustomerRiskService,
   ) {}
 
   async syncConnection(
@@ -326,48 +329,86 @@ export class EcommerceSyncService {
   ): Promise<void> {
     if (orders.length === 0) return;
 
-    // For YouCan and Lightfunnels we detect status changes and persist timeline
-    // events. We fetch the current state before the upsert in one batched query.
+    // Previous state, fetched before the upsert, drives three things:
+    // 1. YouCan/Lightfunnels financial/fulfillment status-change timeline
+    //    events (unchanged, still those two platforms only — Shopify's own
+    //    timeline comes from its webhook, not this diff).
+    // 2. "Is this order new" — for every platform now, since totalOrders and
+    //    the blacklisted-customer new-order warning both need it.
+    // 3. CANCELLED transition detection — for every platform, feeding
+    //    CustomerRiskService's cancellations counter.
     const previousStateMap = new Map<
       string,
-      { id: string; financialStatus: string; fulfillmentStatus: string | null }
+      {
+        id: string;
+        status: EcommerceOrderStatus;
+        financialStatus: string;
+        fulfillmentStatus: string | null;
+      }
     >();
 
-    if (
-      platform === EcommercePlatform.YOUCAN ||
-      platform === EcommercePlatform.LIGHTFUNNELS
-    ) {
-      const existing = await this.prisma.ecommerceOrder.findMany({
-        where: {
-          connectionId,
-          externalOrderId: { in: orders.map((o) => o.externalOrderId) },
-        },
-        select: {
-          id: true,
-          externalOrderId: true,
-          financialStatus: true,
-          fulfillmentStatus: true,
-        },
-      });
-      for (const row of existing) {
-        previousStateMap.set(row.externalOrderId, row);
-      }
+    const existing = await this.prisma.ecommerceOrder.findMany({
+      where: {
+        connectionId,
+        externalOrderId: { in: orders.map((o) => o.externalOrderId) },
+      },
+      select: {
+        id: true,
+        externalOrderId: true,
+        status: true,
+        financialStatus: true,
+        fulfillmentStatus: true,
+      },
+    });
+    for (const row of existing) {
+      previousStateMap.set(row.externalOrderId, row);
     }
 
-    // Upsert all orders — strip `lines` from the spread (lines are persisted separately below)
+    // Resolve/create the Customer for each order by phone, sequentially —
+    // matches the existing per-order pattern below (timeline detection),
+    // and upsert() can't be batched with per-row data without raw SQL.
+    // null when the platform didn't supply a phone; every order-level use
+    // below already treats that as "can't track this order's customer".
+    const customerByOrder = new Map<
+      string,
+      { id: string; isBlacklisted: boolean } | null
+    >();
+    for (const order of orders) {
+      const customer = await this.customerRisk.upsertCustomer({
+        storeId,
+        phone: order.customerPhone,
+        name: order.customerName,
+      });
+      customerByOrder.set(order.externalOrderId, customer);
+    }
+
+    // Upsert all orders — strip `lines`/`customerName`/`customerPhone` from
+    // the spread (lines are persisted separately below; customerName/Phone
+    // aren't EcommerceOrder columns, customerId resolved above is).
     const upserted = await this.prisma.$transaction(
-      orders.map(({ lines: _lines, ...order }) =>
-        this.prisma.ecommerceOrder.upsert({
-          where: {
-            connectionId_externalOrderId: {
-              connectionId,
-              externalOrderId: order.externalOrderId,
+      orders.map(
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        ({ lines: _lines, customerName: _cn, customerPhone: _cp, ...order }) =>
+          this.prisma.ecommerceOrder.upsert({
+            where: {
+              connectionId_externalOrderId: {
+                connectionId,
+                externalOrderId: order.externalOrderId,
+              },
             },
-          },
-          create: { connectionId, ...order },
-          update: order,
-          select: { id: true, externalOrderId: true },
-        }),
+            create: {
+              connectionId,
+              ...order,
+              customerId:
+                customerByOrder.get(order.externalOrderId)?.id ?? null,
+            },
+            update: {
+              ...order,
+              customerId:
+                customerByOrder.get(order.externalOrderId)?.id ?? null,
+            },
+            select: { id: true, externalOrderId: true },
+          }),
       ),
     );
 
@@ -444,6 +485,47 @@ export class EcommerceSyncService {
           .catch((err) =>
             this.logger.warn(
               `Timeline change detection failed for order ${orderId}: ${String(err)}`,
+            ),
+          );
+      }
+    }
+
+    // Customer risk: totalOrders + the blacklisted-customer new-order
+    // warning for genuinely new orders (CustomerRiskService.recordNewOrder);
+    // cancellations for existing ones that just transitioned to CANCELLED.
+    // Every platform, unlike the block above — cancellation is a plain
+    // status field, not something only YouCan/Lightfunnels need diffed.
+    for (let i = 0; i < orders.length; i++) {
+      const incoming = orders[i];
+      const customer = customerByOrder.get(incoming.externalOrderId);
+      if (!customer) continue;
+
+      const previous = previousStateMap.get(incoming.externalOrderId);
+      const { id: orderId } = upserted[i];
+
+      if (!previous) {
+        await this.customerRisk
+          .recordNewOrder({
+            storeId,
+            customerId: customer.id,
+            isBlacklisted: customer.isBlacklisted,
+            orderId,
+            occurredAt: incoming.providerUpdatedAt,
+          })
+          .catch((err) =>
+            this.logger.warn(
+              `Customer risk tracking failed for order ${orderId}: ${String(err)}`,
+            ),
+          );
+      } else if (
+        previous.status !== EcommerceOrderStatus.CANCELLED &&
+        incoming.status === EcommerceOrderStatus.CANCELLED
+      ) {
+        await this.customerRisk
+          .incrementRiskCounter(storeId, customer.id, 'CANCELLATIONS')
+          .catch((err) =>
+            this.logger.warn(
+              `Cancellation risk tracking failed for order ${orderId}: ${String(err)}`,
             ),
           );
       }

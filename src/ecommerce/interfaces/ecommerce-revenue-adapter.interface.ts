@@ -28,6 +28,11 @@ export interface NormalizedEcommerceOrder {
   tax: string;
   totalCollected: string;
   shippingCity: string | null;
+  // Customer identity, for the Customer module (resolved/upserted by phone
+  // at sync time — see EcommerceSyncService.persistOrders). Null when the
+  // platform genuinely didn't supply one; sync must not fail over this.
+  customerName: string | null;
+  customerPhone: string | null;
   providerCreatedAt: Date;
   processedAt: Date;
   cancelledAt: Date | null;

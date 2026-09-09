@@ -67,7 +67,10 @@ describe('EcommerceSyncService', () => {
       lightfunnelsConnection: null,
     };
     const update = jest.fn().mockResolvedValue(connection);
-    const upsert = jest.fn().mockResolvedValue({ id: 'order-id', externalOrderId: order.externalOrderId });
+    const upsert = jest.fn().mockResolvedValue({
+      id: 'order-id',
+      externalOrderId: order.externalOrderId,
+    });
     const lineDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
     const lineCreateMany = jest.fn().mockResolvedValue({ count: 1 });
     const prisma = {
@@ -76,7 +79,7 @@ describe('EcommerceSyncService', () => {
         update,
         updateMany: jest.fn(),
       },
-      ecommerceOrder: { upsert },
+      ecommerceOrder: { upsert, findMany: jest.fn().mockResolvedValue([]) },
       ecommerceOrderLine: {
         deleteMany: lineDeleteMany,
         createMany: lineCreateMany,
@@ -87,9 +90,11 @@ describe('EcommerceSyncService', () => {
           .mockResolvedValue([{ id: 'warehouse-variant', sku: 'SKU-1' }]),
       },
       // Array-pattern $transaction: resolves all promises in the array
-      $transaction: jest.fn().mockImplementation(
-        (ops: unknown) => Array.isArray(ops) ? Promise.all(ops) : Promise.resolve([]),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation((ops: unknown) =>
+          Array.isArray(ops) ? Promise.all(ops) : Promise.resolve([]),
+        ),
     } as unknown as PrismaService;
     const adapter = {
       fetchOrdersPage: jest.fn().mockResolvedValue({
@@ -98,11 +103,20 @@ describe('EcommerceSyncService', () => {
         endCursor: null,
       }),
     } as unknown as ShopifyRevenueAdapter;
+    const customerRisk = {
+      upsertCustomer: jest.fn().mockResolvedValue(null),
+      recordNewOrder: jest.fn(),
+      incrementRiskCounter: jest.fn(),
+      getSettings: jest.fn(),
+    };
     const service = new EcommerceSyncService(
       prisma,
       {} as LightfunnelsRevenueAdapter,
       adapter,
-      {} as YouCanRevenueAdapter, config, {} as any
+      {} as YouCanRevenueAdapter,
+      config,
+      {} as any,
+      customerRisk as any,
     );
 
     const result = await service.syncConnection('user-id', 'connection-id');
@@ -116,9 +130,14 @@ describe('EcommerceSyncService', () => {
           externalOrderId: order.externalOrderId,
         },
       },
-      create: { connectionId: 'connection-id', ...orderData },
-      update: orderData,
+      create: { connectionId: 'connection-id', ...orderData, customerId: null },
+      update: { ...orderData, customerId: null },
       select: { id: true, externalOrderId: true },
+    });
+    expect(customerRisk.upsertCustomer).toHaveBeenCalledWith({
+      storeId: 'store-id',
+      phone: undefined,
+      name: undefined,
     });
     expect(lineCreateMany).toHaveBeenCalledWith({
       data: [
@@ -151,7 +170,10 @@ describe('EcommerceSyncService', () => {
       prisma,
       {} as LightfunnelsRevenueAdapter,
       {} as ShopifyRevenueAdapter,
-      {} as YouCanRevenueAdapter, config, {} as any
+      {} as YouCanRevenueAdapter,
+      config,
+      {} as any,
+      {} as any,
     );
 
     await expect(
@@ -194,7 +216,10 @@ describe('EcommerceSyncService', () => {
       prisma,
       {} as LightfunnelsRevenueAdapter,
       {} as ShopifyRevenueAdapter,
-      youCanAdapter, config, {} as any
+      youCanAdapter,
+      config,
+      {} as any,
+      {} as any,
     );
 
     const result = await service.syncConnection(
@@ -243,7 +268,10 @@ describe('EcommerceSyncService', () => {
       prisma,
       lightfunnelsAdapter,
       {} as ShopifyRevenueAdapter,
-      {} as YouCanRevenueAdapter, config, {} as any
+      {} as YouCanRevenueAdapter,
+      config,
+      {} as any,
+      {} as any,
     );
 
     const result = await service.syncConnection(
@@ -297,6 +325,7 @@ describe('EcommerceSyncService', () => {
       {} as ShopifyRevenueAdapter,
       {} as YouCanRevenueAdapter,
       schedulerConfig,
+      {} as any,
       {} as any,
     );
     jest

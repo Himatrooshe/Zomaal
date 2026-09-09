@@ -42,6 +42,7 @@ describe('QuickLivraisonShipmentService', () => {
       get: jest.fn(),
     } as never,
     { syncFromDispatchId: jest.fn() } as never,
+    { recordShipmentOutcome: jest.fn().mockResolvedValue(undefined) } as never,
   );
   const request = {
     district_id: 123,

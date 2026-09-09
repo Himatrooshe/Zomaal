@@ -25,10 +25,14 @@ describe('ForceLogShipmentService', () => {
   const shipmentFindUnique = jest.fn();
   const shipmentFindMany = jest.fn();
   const shipmentCount = jest.fn();
+  const txShipmentFindUnique = jest.fn().mockResolvedValue(null);
   const tx = {
     forceLogConnection: { findUnique: connectionFindUnique },
     ecommerceOrderDispatch: { findFirst: dispatchFindFirst },
-    forceLogShipment: { upsert: shipmentUpsert },
+    forceLogShipment: {
+      upsert: shipmentUpsert,
+      findUnique: txShipmentFindUnique,
+    },
     forceLogTrackingEvent: { upsert: eventUpsert },
   };
   const prisma = {
@@ -51,6 +55,7 @@ describe('ForceLogShipmentService', () => {
     client as never,
     connection as never,
     { syncFromDispatchId: jest.fn() } as never,
+    { recordShipmentOutcome: jest.fn().mockResolvedValue(undefined) } as never,
   );
 
   beforeEach(() => {

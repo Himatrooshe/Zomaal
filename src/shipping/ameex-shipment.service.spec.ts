@@ -12,7 +12,10 @@ describe('AmeexShipmentService', () => {
     ameexConnection: {
       findUnique: jest.fn().mockResolvedValue({ id: 'connection-1' }),
     },
-    ameexShipment: { upsert: shipmentUpsert },
+    ameexShipment: {
+      upsert: shipmentUpsert,
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
     ameexTrackingEvent: { upsert: eventUpsert },
   };
   const prisma = {
@@ -20,10 +23,14 @@ describe('AmeexShipmentService', () => {
       callback(tx),
     ),
   };
+  const customerRisk = {
+    recordShipmentOutcome: jest.fn().mockResolvedValue(undefined),
+  };
   const service = new AmeexShipmentService(
     prisma as never,
     {} as never,
     {} as never,
+    customerRisk as never,
   );
 
   beforeEach(() => {
@@ -83,6 +90,12 @@ describe('AmeexShipmentService', () => {
           findUnique: jest.fn().mockResolvedValue({ id: 'connection-1' }),
         },
         ameexShipment: {
+          findUnique: jest.fn(({ where }) => {
+            const code = where.userId_providerCode.providerCode as string;
+            return stored.has(code)
+              ? { normalizedStatus: stored.get(code)?.normalizedStatus ?? null }
+              : null;
+          }),
           upsert: jest.fn(({ create, update, where }) => {
             const code = where.userId_providerCode.providerCode as string;
             const value = {
@@ -174,6 +187,9 @@ describe('AmeexShipmentService', () => {
         prisma as never,
         client as never,
         connection as never,
+        {
+          recordShipmentOutcome: jest.fn().mockResolvedValue(undefined),
+        } as never,
       );
 
       const result = await syncService.sync('user-1', {});

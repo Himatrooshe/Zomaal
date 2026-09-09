@@ -22,6 +22,7 @@ import {
   normalizeForceLogStatusCode,
 } from './forcelog-status';
 import { EcommerceOrderFinancialService } from '../ecommerce/ecommerce-order-financial.service';
+import { CustomerRiskService } from '../customers/customer-risk.service';
 
 type ProviderRecord = Record<string, unknown>;
 
@@ -52,6 +53,7 @@ export class ForceLogShipmentService {
     private readonly client: ForceLogClient,
     private readonly connection: ForceLogConnectionService,
     private readonly financialService: EcommerceOrderFinancialService,
+    private readonly customerRisk: CustomerRiskService,
   ) {}
 
   async persistCreatedParcel(
@@ -242,68 +244,79 @@ export class ForceLogShipmentService {
     const statusCode =
       normalizeForceLogStatusCode(snapshot.providerStatus) ?? 'UNKNOWN';
 
-    const shipment = await this.prisma.$transaction(async (tx) => {
-      const connection = await tx.forceLogConnection.findUnique({
-        where: { userId },
-        select: { id: true },
-      });
-      const dispatch = snapshot.reference
-        ? await tx.ecommerceOrderDispatch.findFirst({
-            where: {
-              provider: 'FORCELOG',
-              merchantTracking: snapshot.reference,
-              order: { connection: { store: { userId } } },
+    const { shipment, previousStatus } = await this.prisma.$transaction(
+      async (tx) => {
+        const connection = await tx.forceLogConnection.findUnique({
+          where: { userId },
+          select: { id: true },
+        });
+        const dispatch = snapshot.reference
+          ? await tx.ecommerceOrderDispatch.findFirst({
+              where: {
+                provider: 'FORCELOG',
+                merchantTracking: snapshot.reference,
+                order: { connection: { store: { userId } } },
+              },
+              select: { id: true },
+            })
+          : null;
+        const previous = await tx.forceLogShipment.findUnique({
+          where: {
+            userId_providerCode: {
+              userId,
+              providerCode: snapshot.providerCode,
             },
-            select: { id: true },
-          })
-        : null;
-      const shipment = await tx.forceLogShipment.upsert({
-        where: {
-          userId_providerCode: {
-            userId,
-            providerCode: snapshot.providerCode,
           },
-        },
-        create: {
-          userId,
-          connectionId: connection?.id,
-          dispatchId: dispatch?.id,
-          ...snapshot,
-          lastActionAt: eventAt,
-        },
-        update: {
-          connectionId: connection?.id,
-          ...(dispatch?.id ? { dispatchId: dispatch.id } : {}),
-          ...snapshot,
-          lastActionAt: eventAt,
-        },
-      });
-      await tx.forceLogTrackingEvent.upsert({
-        where: {
-          shipmentId_providerEventKey: {
+          select: { normalizedStatus: true },
+        });
+        const shipment = await tx.forceLogShipment.upsert({
+          where: {
+            userId_providerCode: {
+              userId,
+              providerCode: snapshot.providerCode,
+            },
+          },
+          create: {
+            userId,
+            connectionId: connection?.id,
+            dispatchId: dispatch?.id,
+            ...snapshot,
+            lastActionAt: eventAt,
+          },
+          update: {
+            connectionId: connection?.id,
+            ...(dispatch?.id ? { dispatchId: dispatch.id } : {}),
+            ...snapshot,
+            lastActionAt: eventAt,
+          },
+        });
+        await tx.forceLogTrackingEvent.upsert({
+          where: {
+            shipmentId_providerEventKey: {
+              shipmentId: shipment.id,
+              providerEventKey: `status:${statusCode}`,
+            },
+          },
+          create: {
             shipmentId: shipment.id,
             providerEventKey: `status:${statusCode}`,
+            eventType: created ? 'parcel.created' : 'parcel.status_refreshed',
+            providerStatus: snapshot.providerStatus,
+            normalizedStatus: snapshot.normalizedStatus,
+            message: snapshot.situation,
+            actor: 'ForceLog',
+            eventAt,
+            rawPayload: jsonValue(providerResponse),
           },
-        },
-        create: {
-          shipmentId: shipment.id,
-          providerEventKey: `status:${statusCode}`,
-          eventType: created ? 'parcel.created' : 'parcel.status_refreshed',
-          providerStatus: snapshot.providerStatus,
-          normalizedStatus: snapshot.normalizedStatus,
-          message: snapshot.situation,
-          actor: 'ForceLog',
-          eventAt,
-          rawPayload: jsonValue(providerResponse),
-        },
-        update: {
-          normalizedStatus: snapshot.normalizedStatus,
-          message: snapshot.situation,
-          rawPayload: jsonValue(providerResponse),
-        },
-      });
-      return shipment;
-    });
+          update: {
+            normalizedStatus: snapshot.normalizedStatus,
+            message: snapshot.situation,
+            rawPayload: jsonValue(providerResponse),
+          },
+        });
+        return { shipment, previousStatus: previous?.normalizedStatus ?? null };
+      },
+    );
 
     if (shipment.dispatchId) {
       try {
@@ -313,6 +326,25 @@ export class ForceLogShipmentService {
           `Financial sync failed for dispatch ${shipment.dispatchId}: ${String(err)}`,
         );
       }
+    }
+    if (
+      previousStatus !== snapshot.normalizedStatus &&
+      (snapshot.normalizedStatus === ShippingShipmentStatus.REFUSED ||
+        snapshot.normalizedStatus === ShippingShipmentStatus.UNREACHABLE)
+    ) {
+      await this.customerRisk
+        .recordShipmentOutcome({
+          userId,
+          phone: snapshot.recipientPhone,
+          name: snapshot.recipientName,
+          outcome:
+            snapshot.normalizedStatus === ShippingShipmentStatus.REFUSED
+              ? 'REFUSALS'
+              : 'NO_ANSWER',
+        })
+        .catch((err) =>
+          this.logger.warn(`Customer risk tracking failed: ${String(err)}`),
+        );
     }
 
     return shipment;

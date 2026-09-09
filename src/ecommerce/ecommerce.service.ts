@@ -11,6 +11,7 @@ import { ShopifyFulfillmentAdapter } from './shopify-fulfillment.adapter';
 import { YouCanFulfillmentAdapter } from './youcan-fulfillment.adapter';
 import { LightfunnelsFulfillmentAdapter } from './lightfunnels-fulfillment.adapter';
 import { CurrencyService } from '../currency/currency.service';
+import { CustomerRiskService } from '../customers/customer-risk.service';
 import { EcommerceOrderQueryDto } from './dto/ecommerce-order-query.dto';
 import {
   EcommerceDispatchDto,
@@ -46,7 +47,10 @@ import { ShippingService } from '../shipping/shipping.service';
 import { InventoryService } from '../warehouse/inventory.service';
 import { InventoryBucket, InventoryMovementType } from '@prisma/client';
 import { ProductCondition } from './constants/product-condition';
-import { deriveCurrentStatus, deriveTerminalOutcome } from './order-status.util';
+import {
+  deriveCurrentStatus,
+  deriveTerminalOutcome,
+} from './order-status.util';
 import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
 
 const INCLUDED_PAYMENT_STATUSES = Prisma.sql`
@@ -167,7 +171,12 @@ interface ReturnsBuckets {
   dataUpdatedAt: string | null;
 }
 
-const RETURNS_BUCKET_KEYS = ['received', 'pending', 'damaged', 'missing'] as const;
+const RETURNS_BUCKET_KEYS = [
+  'received',
+  'pending',
+  'damaged',
+  'missing',
+] as const;
 
 interface ProfitRow {
   currency: string;
@@ -213,6 +222,7 @@ export class EcommerceService {
     private readonly shippingService: ShippingService,
     private readonly inventoryService: InventoryService,
     private readonly financialService: EcommerceOrderFinancialService,
+    private readonly customerRisk: CustomerRiskService,
   ) {}
 
   async listConnections(userId: string): Promise<EcommerceConnectionListDto> {
@@ -626,6 +636,19 @@ export class EcommerceService {
     const orderId = randomUUID();
     const orderName = `#${orderId.slice(0, 8).toUpperCase()}`;
 
+    // Resolved before the transaction, same reasoning as the sync/webhook
+    // paths: CustomerRiskService's upsert is self-contained, and this lets
+    // the order create include customerId directly. Every execution that
+    // reaches here is a genuinely new order — the idempotent-retry path
+    // above already returned early via getOrder().
+    const customer = await this.customerRisk.upsertCustomer({
+      storeId: store.id,
+      phone: dto.customerPhone,
+      name: dto.customerName,
+      address: dto.shippingAddress,
+      city: dto.shippingCity,
+    });
+
     try {
       await this.prisma.$transaction(async (tx) => {
         const connection = await tx.ecommerceConnection.upsert({
@@ -674,10 +697,23 @@ export class EcommerceService {
             providerCreatedAt: now,
             processedAt: now,
             providerUpdatedAt: now,
+            customerId: customer?.id ?? null,
             lines: { createMany: { data: lines } },
           },
         });
       });
+
+      if (customer) {
+        await this.customerRisk
+          .recordNewOrder({
+            storeId: store.id,
+            customerId: customer.id,
+            isBlacklisted: customer.isBlacklisted,
+            orderId,
+            occurredAt: now,
+          })
+          .catch(() => undefined); // never fail order creation over this
+      }
     } catch (error) {
       // Two concurrent requests with the same idempotencyKey can both pass
       // the earlier existence check before either commits — the loser hits
@@ -1109,7 +1145,9 @@ export class EcommerceService {
       number?: unknown;
     } | null;
     const carrier =
-      typeof metadata?.carrier === 'string' ? metadata.carrier : 'Unknown carrier';
+      typeof metadata?.carrier === 'string'
+        ? metadata.carrier
+        : 'Unknown carrier';
 
     return {
       orderId: trackingEvent.order.id,

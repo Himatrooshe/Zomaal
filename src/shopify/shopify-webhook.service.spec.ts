@@ -8,6 +8,7 @@ import type { PrismaService } from '../prisma/prisma.service';
 import type { ShopifyApiService } from './shopify-api.service';
 import type { ShopifyConnectionService } from './shopify-connection.service';
 import { ShopifyWebhookService } from './shopify-webhook.service';
+import type { CustomerRiskService } from '../customers/customer-risk.service';
 
 describe('ShopifyWebhookService', () => {
   let capturedConnectionUpdate:
@@ -88,7 +89,17 @@ describe('ShopifyWebhookService', () => {
   const shopifyConnection = {
     graphqlForShopDomain,
   } as unknown as ShopifyConnectionService;
-  const service = new ShopifyWebhookService(prisma, api, shopifyConnection);
+  const customerRisk = {
+    upsertCustomer: jest.fn().mockResolvedValue(null),
+    recordNewOrder: jest.fn(),
+    incrementRiskCounter: jest.fn(),
+  } as unknown as CustomerRiskService;
+  const service = new ShopifyWebhookService(
+    prisma,
+    api,
+    shopifyConnection,
+    customerRisk,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();

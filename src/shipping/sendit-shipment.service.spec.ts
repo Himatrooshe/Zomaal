@@ -10,6 +10,7 @@ import type { PrismaService } from '../prisma/prisma.service';
 import type { SenditConnectionService } from './sendit-connection.service';
 import { SenditShipmentService } from './sendit-shipment.service';
 import type { EcommerceOrderFinancialService } from '../ecommerce/ecommerce-order-financial.service';
+import type { CustomerRiskService } from '../customers/customer-risk.service';
 
 describe('SenditShipmentService', () => {
   let shipmentUpsertArgs: unknown;
@@ -89,10 +90,14 @@ describe('SenditShipmentService', () => {
   const financialService = {
     syncFromDispatchId: jest.fn(),
   } as unknown as EcommerceOrderFinancialService;
+  const customerRisk = {
+    recordShipmentOutcome: jest.fn().mockResolvedValue(undefined),
+  } as unknown as CustomerRiskService;
   const service = new SenditShipmentService(
     prisma,
     connection,
     financialService,
+    customerRisk,
   );
 
   const request = {

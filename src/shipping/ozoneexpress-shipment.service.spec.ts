@@ -48,6 +48,7 @@ describe('OzoneExpressShipmentService', () => {
     client as never,
     connection as never,
     { syncFromDispatchId: jest.fn() } as never,
+    { recordShipmentOutcome: jest.fn().mockResolvedValue(undefined) } as never,
   );
 
   beforeEach(() => {
