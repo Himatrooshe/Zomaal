@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -24,11 +25,13 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import {
+  CompareProductsQueryDto,
   CreateProductBundleDto,
   CreateWarehouseProductDto,
   ProductPerformanceQueryDto,
@@ -36,10 +39,12 @@ import {
   WarehouseProductQueryDto,
 } from './dto/product.dto';
 import {
+  ProductComparisonResponseDto,
   ProductPerformanceResponseDto,
   WarehouseProductListResponseDto,
   WarehouseProductResponseDto,
 } from './dto/product-response.dto';
+import { ProductComparisonPdfService } from './product-comparison-pdf.service';
 import { ProductService } from './product.service';
 
 @ApiTags('Warehouse Products')
@@ -53,7 +58,10 @@ import { ProductService } from './product.service';
 @UseGuards(JwtAuthGuard)
 @Controller('warehouse/products')
 export class ProductController {
-  constructor(private readonly products: ProductService) {}
+  constructor(
+    private readonly products: ProductService,
+    private readonly comparisonPdf: ProductComparisonPdfService,
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -198,6 +206,64 @@ export class ProductController {
     @Query() query: WarehouseProductQueryDto,
   ) {
     return this.products.list(user.userId, query);
+  }
+
+  @Get('compare')
+  @ApiOperation({
+    summary: 'Compare two store-owned products side by side',
+    description:
+      'Compare Products screen. Returns matching order/financial metrics for both products over the same 7D, 30D, 90D, or custom period, plus an auto-generated Insight — the single metric with the largest relative gap between the two products.',
+  })
+  @ApiOkResponse({ type: ProductComparisonResponseDto })
+  @ApiBadRequestResponse({
+    description: 'productAId equals productBId, or an invalid query value.',
+    type: ApiErrorDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Store, or either store-owned product, was not found.',
+    type: ApiErrorDto,
+  })
+  compare(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: CompareProductsQueryDto,
+  ) {
+    return this.products.compare(user.userId, query);
+  }
+
+  @Get('compare/export')
+  @ApiOperation({
+    summary: 'Export a product comparison as a PDF',
+    description:
+      'Renders the same comparison returned by GET /warehouse/products/compare as a downloadable PDF report for the "Export Comparison" button.',
+  })
+  @ApiOkResponse({
+    description: 'Binary PDF report.',
+    content: {
+      'application/pdf': { schema: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'productAId equals productBId, or an invalid query value.',
+    type: ApiErrorDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Store, or either store-owned product, was not found.',
+    type: ApiErrorDto,
+  })
+  async exportCompare(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: CompareProductsQueryDto,
+    @Res() response: Response,
+  ) {
+    const comparison = await this.products.compare(user.userId, query);
+    const body = await this.comparisonPdf.render(comparison);
+    response.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="product-comparison-${Date.now()}.pdf"`,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    response.send(body);
   }
 
   @Get(':id')

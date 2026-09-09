@@ -228,6 +228,129 @@ describe('warehouse product performance', () => {
   });
 });
 
+describe('warehouse product compare', () => {
+  function makeCompareService() {
+    const products: Record<
+      string,
+      { id: string; name: string; media: unknown[] }
+    > = {
+      'product-a': { id: 'product-a', name: 'Product A', media: [] },
+      'product-b': { id: 'product-b', name: 'Product B', media: [] },
+    };
+    const orderLines: Record<string, unknown[]> = {
+      'product-a': [
+        {
+          quantity: 1,
+          totalPrice: new Prisma.Decimal(200),
+          warehouseVariant: { costPrice: new Prisma.Decimal(50) },
+          order: {
+            id: 'order-a1',
+            status: EcommerceOrderStatus.CLOSED,
+            financialStatus: EcommercePaymentStatus.PAID,
+            fulfillmentStatus: 'FULFILLED',
+            providerUpdatedAt: new Date('2026-08-11T12:00:00.000Z'),
+            dispatch: null,
+          },
+        },
+      ],
+      'product-b': [
+        {
+          quantity: 1,
+          totalPrice: new Prisma.Decimal(100),
+          warehouseVariant: { costPrice: new Prisma.Decimal(50) },
+          order: {
+            id: 'order-b1',
+            status: EcommerceOrderStatus.CLOSED,
+            financialStatus: EcommercePaymentStatus.PAID,
+            fulfillmentStatus: 'FULFILLED',
+            providerUpdatedAt: new Date('2026-08-10T12:00:00.000Z'),
+            dispatch: null,
+          },
+        },
+      ],
+    };
+    const prisma = {
+      warehouseProduct: {
+        findFirst: jest.fn((args: { where: { id: string } }) =>
+          Promise.resolve(products[args.where.id] ?? null),
+        ),
+      },
+      ecommerceOrderLine: {
+        findMany: jest.fn(
+          (args: { where: { warehouseVariant: { productId: string } } }) =>
+            Promise.resolve(
+              orderLines[args.where.warehouseVariant.productId] ?? [],
+            ),
+        ),
+      },
+    } as unknown as PrismaService;
+    const stores = {
+      requireStore: jest.fn().mockResolvedValue({
+        id: 'store-1',
+        baseCurrency: 'MAD',
+      }),
+    } as unknown as WarehouseStoreService;
+    const service = new ProductService(prisma, stores, {} as BarcodeService);
+    return { service, prisma };
+  }
+
+  it('returns matched metrics for both products plus the biggest-gap insight', async () => {
+    const { service } = makeCompareService();
+
+    const result = await service.compare('user-1', {
+      productAId: 'product-a',
+      productBId: 'product-b',
+      period: ProductPerformancePeriod.CUSTOM,
+      from: '2026-08-10',
+      to: '2026-08-11',
+    });
+
+    expect(result.productA.metrics).toMatchObject({
+      totalOrders: 1,
+      revenue: '200.0000',
+      profit: '150.0000',
+      avgOrderValue: '200.0000',
+      cpo: '50.0000',
+    });
+    expect(result.productB.metrics).toMatchObject({
+      totalOrders: 1,
+      revenue: '100.0000',
+      profit: '50.0000',
+    });
+    expect(result.insight).toEqual({
+      metric: 'profit',
+      winner: 'A',
+      message: 'Product A has 200% better profit than Product B',
+    });
+    expect(result.dataUpdatedAt).toBe('2026-08-11T12:00:00.000Z');
+  });
+
+  it('rejects comparing a product against itself without touching the database', async () => {
+    const { service, prisma } = makeCompareService();
+
+    await expect(
+      service.compare('user-1', {
+        productAId: 'product-a',
+        productBId: 'product-a',
+      }),
+    ).rejects.toThrow('Select two different products to compare');
+    expect(
+      (prisma.warehouseProduct.findFirst as jest.Mock).mock.calls.length,
+    ).toBe(0);
+  });
+
+  it('404s when either product is not found in the store', async () => {
+    const { service } = makeCompareService();
+
+    await expect(
+      service.compare('user-1', {
+        productAId: 'product-a',
+        productBId: 'missing-product',
+      }),
+    ).rejects.toThrow('Warehouse product missing-product not found');
+  });
+});
+
 describe('warehouse product bundles', () => {
   it('derives bundle cost and available stock from component variants', async () => {
     let capturedVariantData:

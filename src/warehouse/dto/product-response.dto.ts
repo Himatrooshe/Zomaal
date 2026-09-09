@@ -368,3 +368,76 @@ export class ProductPerformanceResponseDto {
   @ApiProperty({ nullable: true, format: 'date-time' })
   dataUpdatedAt: string | null;
 }
+
+// Deliberately a smaller metric set than ProductPerformanceMetricsDto — no
+// daily series, no top cities, matching what the Compare Products screen
+// actually shows. avgOrderValue/cpo are the two the mockup has that single-
+// product performance doesn't: revenue/orders and cost/orders respectively.
+export class ProductComparisonMetricsDto {
+  @ApiProperty() totalOrders: number;
+  @ApiProperty() deliveryRate: number;
+  @ApiProperty() returnRate: number;
+  @ApiProperty() cancellationRate: number;
+  @ApiProperty() revenue: string;
+  @ApiProperty() profit: string;
+  @ApiProperty({
+    description: 'revenue ÷ totalOrders. "0.0000" when there were no orders.',
+  })
+  avgOrderValue: string;
+  @ApiProperty({
+    description:
+      'Cost Per Order — product cost ÷ totalOrders (not ad spend; Zomaal does not attribute ad spend to individual products). "0.0000" when there were no orders.',
+  })
+  cpo: string;
+}
+
+export class ProductComparisonSideDto {
+  @ApiProperty({ format: 'uuid' })
+  productId: string;
+  @ApiProperty() name: string;
+  @ApiProperty({ nullable: true, type: String })
+  imageUrl: string | null;
+  @ApiProperty({ type: ProductComparisonMetricsDto })
+  metrics: ProductComparisonMetricsDto;
+}
+
+export class ProductComparisonInsightDto {
+  @ApiProperty({
+    enum: [
+      'deliveryRate',
+      'returnRate',
+      'cancellationRate',
+      'revenue',
+      'profit',
+      'avgOrderValue',
+      'cpo',
+    ],
+    description:
+      'Whichever metric had the largest relative gap between the two products.',
+  })
+  metric: string;
+  @ApiProperty({ enum: ['A', 'B'] }) winner: 'A' | 'B';
+  @ApiProperty({
+    example: 'Product A has 20% better delivery rate than Product B',
+  })
+  message: string;
+}
+
+export class ProductComparisonResponseDto {
+  @ApiProperty({ type: ProductPerformancePeriodDto })
+  period: ProductPerformancePeriodDto;
+  @ApiProperty() currency: string;
+  @ApiProperty({ type: ProductComparisonSideDto })
+  productA: ProductComparisonSideDto;
+  @ApiProperty({ type: ProductComparisonSideDto })
+  productB: ProductComparisonSideDto;
+  @ApiProperty({
+    type: ProductComparisonInsightDto,
+    nullable: true,
+    description:
+      'Null when every metric ties (including both products having zero orders) — nothing meaningful to call out.',
+  })
+  insight: ProductComparisonInsightDto | null;
+  @ApiProperty({ nullable: true, format: 'date-time' })
+  dataUpdatedAt: string | null;
+}

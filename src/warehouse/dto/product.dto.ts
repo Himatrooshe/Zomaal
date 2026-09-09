@@ -550,6 +550,16 @@ export class ProductPerformanceQueryDto {
   to?: string;
 }
 
+export class CompareProductsQueryDto extends ProductPerformanceQueryDto {
+  @ApiProperty({ format: 'uuid', description: 'First store-owned product.' })
+  @IsUUID()
+  productAId!: string;
+
+  @ApiProperty({ format: 'uuid', description: 'Second store-owned product.' })
+  @IsUUID()
+  productBId!: string;
+}
+
 export enum ProductStockStatus {
   /** Product has more available units than its low-stock threshold. */
   IN_STOCK = 'IN_STOCK',

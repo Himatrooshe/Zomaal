@@ -23,6 +23,7 @@ import { BarcodeService } from './barcode.service';
 import {
   CreateWarehouseProductDto,
   CreateProductBundleDto,
+  CompareProductsQueryDto,
   ProductPerformancePeriod,
   ProductPerformanceQueryDto,
   ProductOptionInputDto,
@@ -32,6 +33,7 @@ import {
   WarehouseProductQueryDto,
 } from './dto/product.dto';
 import { WarehouseStoreService } from './warehouse-store.service';
+import { computeComparisonInsight } from './product-comparison.util';
 
 const PRODUCT_INCLUDE = {
   category: true,
@@ -866,6 +868,189 @@ export class ProductService {
         )
         .slice(0, 5),
       dataUpdatedAt: dataUpdatedAt?.toISOString() ?? null,
+    };
+  }
+
+  /**
+   * Compare Products screen. Deliberately not built on top of performance()
+   * — that method's daily-series/top-cities aggregation isn't needed here,
+   * so this runs its own (smaller) version of the same order-line loop,
+   * while still reusing the two pieces of business logic that actually
+   * matter and must never drift from performance()'s own answer:
+   * performanceRange() for period/custom-range parsing, and
+   * productOrderState() for what counts as delivered/cancelled/returned.
+   */
+  async compare(userId: string, query: CompareProductsQueryDto) {
+    if (query.productAId === query.productBId) {
+      throw new BadRequestException('Select two different products to compare');
+    }
+    const store = await this.stores.requireStore(userId);
+    const range = performanceRange(query);
+
+    const [sideA, sideB] = await Promise.all([
+      this.computeComparisonSide(store.id, query.productAId, range),
+      this.computeComparisonSide(store.id, query.productBId, range),
+    ]);
+
+    const insight = computeComparisonInsight(
+      sideA.insightMetrics,
+      sideB.insightMetrics,
+      sideA.name,
+      sideB.name,
+    );
+
+    const dataUpdatedAt = [sideA.dataUpdatedAt, sideB.dataUpdatedAt]
+      .filter((value): value is Date => value !== null)
+      .sort((left, right) => right.getTime() - left.getTime())[0];
+
+    return {
+      period: {
+        period: range.period,
+        from: range.from.toISOString(),
+        to: new Date(range.toExclusive.getTime() - 1).toISOString(),
+      },
+      currency: store.baseCurrency,
+      productA: {
+        productId: sideA.productId,
+        name: sideA.name,
+        imageUrl: sideA.imageUrl,
+        metrics: sideA.metrics,
+      },
+      productB: {
+        productId: sideB.productId,
+        name: sideB.name,
+        imageUrl: sideB.imageUrl,
+        metrics: sideB.metrics,
+      },
+      insight,
+      dataUpdatedAt: dataUpdatedAt?.toISOString() ?? null,
+    };
+  }
+
+  private async computeComparisonSide(
+    storeId: string,
+    productId: string,
+    range: { from: Date; toExclusive: Date },
+  ) {
+    const product = await this.prisma.warehouseProduct.findFirst({
+      where: { id: productId, storeId },
+      select: {
+        id: true,
+        name: true,
+        media: { orderBy: { position: 'asc' }, take: 1, select: { id: true } },
+      },
+    });
+    if (!product) {
+      throw new NotFoundException(`Warehouse product ${productId} not found`);
+    }
+
+    const lines = await this.prisma.ecommerceOrderLine.findMany({
+      where: {
+        warehouseVariant: { productId, storeId },
+        order: {
+          connection: { storeId },
+          processedAt: { gte: range.from, lt: range.toExclusive },
+        },
+      },
+      include: {
+        warehouseVariant: { select: { costPrice: true } },
+        order: {
+          select: {
+            id: true,
+            status: true,
+            financialStatus: true,
+            fulfillmentStatus: true,
+            providerUpdatedAt: true,
+            dispatch: {
+              select: {
+                senditShipment: { select: { normalizedStatus: true } },
+                quickLivraisonShipment: {
+                  select: { normalizedStatus: true },
+                },
+                forceLogShipment: { select: { normalizedStatus: true } },
+                ozoneExpressShipment: {
+                  select: { normalizedStatus: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const orders = new Map<
+      string,
+      { delivered: boolean; cancelled: boolean; returned: boolean }
+    >();
+    let revenue = new Prisma.Decimal(0);
+    let cost = new Prisma.Decimal(0);
+    let dataUpdatedAt: Date | null = null;
+
+    for (const line of lines) {
+      const state = productOrderState(line.order);
+      orders.set(line.order.id, state);
+      if (
+        !dataUpdatedAt ||
+        line.order.providerUpdatedAt.getTime() > dataUpdatedAt.getTime()
+      ) {
+        dataUpdatedAt = line.order.providerUpdatedAt;
+      }
+      const lineRevenue = state.realized
+        ? line.totalPrice
+        : new Prisma.Decimal(0);
+      const lineCost = state.realized
+        ? line.warehouseVariant!.costPrice.times(line.quantity)
+        : new Prisma.Decimal(0);
+      revenue = revenue.plus(lineRevenue);
+      cost = cost.plus(lineCost);
+    }
+
+    const orderStates = [...orders.values()];
+    const totalOrders = orders.size;
+    const grossProfit = revenue.minus(cost);
+    const deliveryRate = percentage(
+      orderStates.filter((order) => order.delivered).length,
+      totalOrders,
+    );
+    const returnRate = percentage(
+      orderStates.filter((order) => order.returned).length,
+      totalOrders,
+    );
+    const cancellationRate = percentage(
+      orderStates.filter((order) => order.cancelled).length,
+      totalOrders,
+    );
+    const avgOrderValue =
+      totalOrders === 0 ? new Prisma.Decimal(0) : revenue.div(totalOrders);
+    const cpo =
+      totalOrders === 0 ? new Prisma.Decimal(0) : cost.div(totalOrders);
+
+    return {
+      productId,
+      name: product.name,
+      imageUrl: product.media[0]
+        ? `/warehouse/media/${product.media[0].id}/content`
+        : null,
+      metrics: {
+        totalOrders,
+        deliveryRate,
+        returnRate,
+        cancellationRate,
+        revenue: revenue.toFixed(4),
+        profit: grossProfit.toFixed(4),
+        avgOrderValue: avgOrderValue.toFixed(4),
+        cpo: cpo.toFixed(4),
+      },
+      insightMetrics: {
+        deliveryRate,
+        returnRate,
+        cancellationRate,
+        revenue: revenue.toNumber(),
+        profit: grossProfit.toNumber(),
+        avgOrderValue: avgOrderValue.toNumber(),
+        cpo: cpo.toNumber(),
+      },
+      dataUpdatedAt,
     };
   }
 

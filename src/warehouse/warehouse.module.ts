@@ -11,6 +11,7 @@ import { MediaService } from './media.service';
 import { PackagingController } from './packaging.controller';
 import { PackagingService } from './packaging.service';
 import { ProductController } from './product.controller';
+import { ProductComparisonPdfService } from './product-comparison-pdf.service';
 import { ProductService } from './product.service';
 import { WarehouseStoreService } from './warehouse-store.service';
 
@@ -30,9 +31,15 @@ import { WarehouseStoreService } from './warehouse-store.service';
     BarcodeLabelService,
     MediaService,
     ProductService,
+    ProductComparisonPdfService,
     InventoryService,
     PackagingService,
   ],
-  exports: [PackagingService, BarcodeLabelService, InventoryService, MediaService],
+  exports: [
+    PackagingService,
+    BarcodeLabelService,
+    InventoryService,
+    MediaService,
+  ],
 })
 export class WarehouseModule {}
