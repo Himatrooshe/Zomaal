@@ -17,7 +17,6 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
-  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -105,8 +104,9 @@ export class CustomersController {
   @ApiOperation({
     summary:
       'Blacklist screen — total, At Risk Customers, Blacklisted Customers',
+    description:
+      'page/limit paginate blacklistedCustomers only. atRiskCustomers is a bounded watchlist (not offset-paginated — "is this customer near a limit" is computed against BlacklistSettings, not a database filter).',
   })
-  @ApiQuery({ name: 'search', required: false })
   @ApiOkResponse({ type: BlacklistScreenResponseDto })
   @ApiForbiddenResponse({
     description: 'Missing customers.blacklist permission.',
@@ -114,9 +114,9 @@ export class CustomersController {
   })
   getBlacklistScreen(
     @CurrentStoreAccess() access: StoreAccess,
-    @Query('search') search?: string,
+    @Query() query: CustomerListQueryDto,
   ): Promise<BlacklistScreenResponseDto> {
-    return this.customers.getBlacklistScreen(access.storeId, search);
+    return this.customers.getBlacklistScreen(access.storeId, query);
   }
 
   @Get(':customerId')

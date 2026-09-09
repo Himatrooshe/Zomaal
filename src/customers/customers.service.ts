@@ -22,6 +22,10 @@ import {
 } from './customer-risk.util';
 
 const ORDER_HISTORY_LIMIT = 100;
+// See getBlacklistScreen's comment — atRiskCustomers isn't offset-paginated,
+// these bound its cost/size instead.
+const AT_RISK_SCAN_LIMIT = 1000;
+const AT_RISK_DISPLAY_LIMIT = 50;
 
 // Covers every OrderEventType value (not just the ones that happened to
 // show up in manual testing) plus the three EcommerceOrderStatus values
@@ -136,6 +140,7 @@ export class CustomersService {
     customerId: string,
   ): Promise<CustomerDetailResponseDto> {
     const customer = await this.requireCustomer(storeId, customerId);
+    const settings = await this.risk.getSettings(storeId);
 
     const orders = await this.prisma.ecommerceOrder.findMany({
       where: { customerId: customer.id },
@@ -171,6 +176,12 @@ export class CustomersService {
       isBlacklisted: customer.isBlacklisted,
       blacklistReason: customer.blacklistReason,
       blacklistedAt: customer.blacklistedAt?.toISOString() ?? null,
+      // Mutually exclusive with the blacklisted banner in the UI — a
+      // customer who already crossed a limit gets the Blacklisted banner
+      // instead, not "N actions away" from a limit they're already past.
+      riskProximity: customer.isBlacklisted
+        ? null
+        : closestRiskProximity(computeRiskDistances(customer, settings)),
       orders: orders.map(
         (order): CustomerOrderHistoryItemDto => ({
           orderId: order.id,
@@ -185,10 +196,12 @@ export class CustomersService {
 
   async getBlacklistScreen(
     storeId: string,
-    search?: string,
+    query: CustomerListQueryDto,
   ): Promise<BlacklistScreenResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
     const settings = await this.risk.getSettings(storeId);
-    const trimmedSearch = search?.trim();
+    const trimmedSearch = query.search?.trim();
     const searchFilter = trimmedSearch
       ? {
           OR: [
@@ -200,17 +213,33 @@ export class CustomersService {
         }
       : {};
 
+    // blacklistedCustomers is a real paginated list — page/limit apply to
+    // it, and totalBlacklisted (unpaginated) is its true count.
+    //
+    // atRiskCustomers can't be paginated the same way: "is this customer
+    // near a limit" is computed against BlacklistSettings in application
+    // code, not expressible as a Prisma `where` filter, so there's no
+    // offset to page against. Bounded instead — AT_RISK_SCAN_LIMIT caps
+    // how many non-blacklisted customers get examined per request (so this
+    // never scans an entire large table), and the filtered result is
+    // capped again to a sane display size. This matches the mockup itself,
+    // which shows At Risk Customers as a short watchlist with no
+    // pagination control, not a full paged table.
     const [totalBlacklisted, blacklisted, atRiskCandidates] = await Promise.all(
       [
         this.prisma.customer.count({
-          where: { storeId, isBlacklisted: true },
+          where: { storeId, isBlacklisted: true, ...searchFilter },
         }),
         this.prisma.customer.findMany({
           where: { storeId, isBlacklisted: true, ...searchFilter },
           orderBy: { blacklistedAt: 'desc' },
+          skip: (page - 1) * limit,
+          take: limit,
         }),
         this.prisma.customer.findMany({
           where: { storeId, isBlacklisted: false, ...searchFilter },
+          orderBy: { updatedAt: 'desc' },
+          take: AT_RISK_SCAN_LIMIT,
         }),
       ],
     );
@@ -224,7 +253,8 @@ export class CustomersService {
           ? { id: c.id, phone: c.phone, name: c.name, riskProximity: proximity }
           : null;
       })
-      .filter((c): c is AtRiskCustomerDto => c !== null);
+      .filter((c): c is AtRiskCustomerDto => c !== null)
+      .slice(0, AT_RISK_DISPLAY_LIMIT);
 
     const blacklistedCustomers: BlacklistedCustomerDto[] = blacklisted.map(
       (c) => ({
@@ -239,7 +269,13 @@ export class CustomersService {
       }),
     );
 
-    return { totalBlacklisted, atRiskCustomers, blacklistedCustomers };
+    return {
+      totalBlacklisted,
+      atRiskCustomers,
+      blacklistedCustomers,
+      page,
+      limit,
+    };
   }
 
   private async requireCustomer(

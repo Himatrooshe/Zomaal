@@ -154,6 +154,14 @@ describe('CustomersService', () => {
         noAnswer: 0,
         totalRiskActions: 2,
       });
+      // 2/3 returns against the store's configured limit — the "N actions
+      // away from blacklist" banner's data.
+      expect(result.riskProximity).toEqual({
+        category: 'returns',
+        current: 2,
+        limit: 3,
+        remaining: 1,
+      });
       expect(result.orders).toEqual([
         {
           orderId: 'order-1',
@@ -185,6 +193,19 @@ describe('CustomersService', () => {
         productSummary: null,
         status: 'Cancelled',
       });
+    });
+
+    it('never returns riskProximity for an already-blacklisted customer', async () => {
+      const { service, prisma } = build();
+      prisma.customer.findFirst.mockResolvedValue({
+        ...CUSTOMER_ROW,
+        isBlacklisted: true,
+        returnsCount: 2, // would otherwise compute a proximity
+      });
+
+      const result = await service.getById('store-1', 'customer-1');
+
+      expect(result.riskProximity).toBeNull();
     });
   });
 
@@ -227,7 +248,7 @@ describe('CustomersService', () => {
           },
         ]);
 
-      const result = await service.getBlacklistScreen('store-1');
+      const result = await service.getBlacklistScreen('store-1', {});
 
       expect(result.totalBlacklisted).toBe(1);
       expect(result.blacklistedCustomers).toEqual([
@@ -244,6 +265,33 @@ describe('CustomersService', () => {
           },
         }),
       ]);
+    });
+
+    it('paginates blacklistedCustomers using page/limit and echoes them back', async () => {
+      const { service, prisma } = build();
+
+      await service.getBlacklistScreen('store-1', { page: 2, limit: 5 });
+
+      expect(prisma.customer.findMany).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ skip: 5, take: 5 }),
+      );
+    });
+
+    it('does not paginate the atRiskCustomers scan — bounded by AT_RISK_SCAN_LIMIT instead', async () => {
+      const { service, prisma } = build();
+
+      const result = await service.getBlacklistScreen('store-1', {
+        page: 2,
+        limit: 5,
+      });
+
+      expect(prisma.customer.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.not.objectContaining({ skip: expect.anything() }),
+      );
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(5);
     });
   });
 });

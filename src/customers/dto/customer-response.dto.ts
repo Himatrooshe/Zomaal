@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { RiskProximityDto } from './blacklist.dto';
 
 export class RiskScoreDto {
   @ApiProperty({ example: 3 }) returns!: number;
@@ -109,6 +110,14 @@ export class CustomerDetailResponseDto {
     format: 'date-time',
   })
   blacklistedAt!: string | null;
+
+  @ApiProperty({
+    description:
+      'Present only when not blacklisted and within 1 action of a configured limit — backs the "High Risk Customers — N actions away from blacklist" banner. Null otherwise (including for a blacklisted customer, who gets the Blacklisted banner instead).',
+    type: RiskProximityDto,
+    nullable: true,
+  })
+  riskProximity!: RiskProximityDto | null;
 
   @ApiProperty({ type: [CustomerOrderHistoryItemDto] })
   orders!: CustomerOrderHistoryItemDto[];

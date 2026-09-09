@@ -69,10 +69,20 @@ export class BlacklistedCustomerDto {
 
 export class BlacklistScreenResponseDto {
   @ApiProperty({ example: 24 }) totalBlacklisted!: number;
-  @ApiProperty({ type: [AtRiskCustomerDto] })
+  @ApiProperty({
+    type: [AtRiskCustomerDto],
+    description:
+      'A bounded watchlist, not an offset-paginated list — see the endpoint description.',
+  })
   atRiskCustomers!: AtRiskCustomerDto[];
   @ApiProperty({ type: [BlacklistedCustomerDto] })
   blacklistedCustomers!: BlacklistedCustomerDto[];
+  @ApiProperty({
+    example: 1,
+    description: 'Applies to blacklistedCustomers only.',
+  })
+  page!: number;
+  @ApiProperty({ example: 20 }) limit!: number;
 }
 
 export class BlacklistSettingsDto {
