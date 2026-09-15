@@ -1,0 +1,41 @@
+<dialog id="merchant-dialog" class="rounded-xl p-0 w-[calc(100%-2rem)] max-w-[460px] backdrop:bg-zinc-900/40">
+  <form id="merchant-form" class="flex flex-col max-h-[85vh]">
+    <div class="px-5 py-4 border-b border-zinc-200 shrink-0">
+      <div class="text-sm font-bold">Edit Merchant</div>
+    </div>
+    <div class="px-5 py-[18px] flex flex-col gap-3.5 overflow-y-auto">
+      <input type="hidden" name="userId" />
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold">Business Name</label>
+        <input name="businessName" required maxlength="150" class="border border-zinc-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold">Owner Name</label>
+        <input name="ownerName" required maxlength="150" class="border border-zinc-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold">Address</label>
+        <input name="address" required maxlength="255" class="border border-zinc-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400" />
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold">City</label>
+          <input name="city" required maxlength="100" class="border border-zinc-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400" />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold">Country</label>
+          <input name="country" required maxlength="100" class="border border-zinc-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400" />
+        </div>
+      </div>
+      <label class="flex items-center gap-2 text-[13px] pt-1">
+        <input type="checkbox" name="isActive" />
+        Account active (uncheck to suspend)
+      </label>
+      <p id="merchant-form-error" class="hidden text-[12.5px] font-medium text-red-600"></p>
+    </div>
+    <div class="flex gap-2.5 px-5 py-4 border-t border-zinc-200 shrink-0">
+      <button type="button" id="merchant-cancel-btn" class="flex-1 border border-zinc-200 rounded-lg py-2 text-[13px] font-semibold">Cancel</button>
+      <button type="submit" class="flex-1 bg-zinc-900 text-white rounded-lg py-2 text-[13px] font-semibold hover:bg-zinc-800">Save</button>
+    </div>
+  </form>
+</dialog>

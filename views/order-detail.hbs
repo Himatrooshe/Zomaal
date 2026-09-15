@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{> head title="Shop Order"}}
+</head>
+<body class="h-dvh flex text-zinc-900 bg-white">
+{{> sidebar active="orders"}}
+
+<div class="flex-1 min-w-0 flex flex-col">
+  {{> topbar}}
+
+  <main id="order-detail" data-order-id="{{orderId}}" class="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-5">
+    <a href="/orders" class="w-fit text-[12.5px] font-semibold text-zinc-500 hover:text-zinc-900">&larr; All orders</a>
+
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 id="order-title" class="text-xl font-bold tracking-tight">Order</h1>
+          <span id="order-status-badge"></span>
+          <span id="order-payment-badge"></span>
+        </div>
+        <p id="order-subtitle" class="mt-1 text-[13px] text-zinc-500">Loading&hellip;</p>
+      </div>
+      <div id="order-actions" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <p id="order-error" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[12.5px] text-red-600"></p>
+    <p id="order-notice" class="hidden rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[12.5px] text-emerald-700"></p>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
+      <div class="xl:col-span-2 flex flex-col gap-5">
+        <section class="border border-zinc-200 rounded-xl overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-zinc-200 text-sm font-bold">Items</div>
+          <div id="order-items" class="divide-y divide-zinc-100"></div>
+          <dl class="border-t border-zinc-200 bg-zinc-50/60 px-5 py-3.5 text-[13px] grid grid-cols-[1fr_auto] gap-y-1.5">
+            <dt class="text-zinc-500">Subtotal</dt><dd id="order-subtotal" class="text-right tabular-nums"></dd>
+            <dt class="text-zinc-500">Discount <span id="order-promo" class="text-zinc-400"></span></dt><dd id="order-discount" class="text-right tabular-nums"></dd>
+            <dt class="text-zinc-500">Delivery</dt><dd id="order-delivery" class="text-right tabular-nums"></dd>
+            <dt class="font-bold pt-1">Total</dt><dd id="order-total" class="text-right font-bold tabular-nums pt-1"></dd>
+          </dl>
+        </section>
+
+        <section class="border border-zinc-200 rounded-xl overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-zinc-200 text-sm font-bold">Timeline</div>
+          <ol id="order-timeline" class="px-5 py-4 flex flex-col gap-3"></ol>
+        </section>
+      </div>
+
+      <div class="flex flex-col gap-5">
+        <section class="border border-zinc-200 rounded-xl overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-zinc-200 text-sm font-bold">Merchant</div>
+          <div id="order-merchant" class="px-5 py-4 text-[13px] flex flex-col gap-1"></div>
+        </section>
+        <section class="border border-zinc-200 rounded-xl overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-zinc-200 text-sm font-bold">Delivery address</div>
+          <div id="order-address" class="px-5 py-4 text-[13px] flex flex-col gap-1"></div>
+        </section>
+        <section class="border border-zinc-200 rounded-xl overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-zinc-200 text-sm font-bold">Notes</div>
+          <div class="px-5 py-4 flex flex-col gap-3">
+            <div>
+              <div class="text-xs font-semibold text-zinc-500">From the merchant</div>
+              <div id="order-merchant-note" class="mt-1 text-[13px] whitespace-pre-line"></div>
+            </div>
+            <form id="order-note-form" class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-zinc-500">Internal note (admins only)</label>
+              <textarea name="adminNote" rows="3" maxlength="2000" class="border border-zinc-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400"></textarea>
+              <div class="flex items-center gap-2">
+                <button type="submit" class="border border-zinc-200 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold hover:bg-zinc-50">Save note</button>
+                <span id="order-note-status" class="hidden text-[12px]"></span>
+              </div>
+            </form>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<dialog id="order-advance-dialog" class="rounded-xl p-0 w-[calc(100%-2rem)] max-w-[420px] backdrop:bg-zinc-900/40">
+  <form id="order-advance-form" class="flex flex-col">
+    <div class="px-5 py-4 border-b border-zinc-200"><div id="order-advance-title" class="text-sm font-bold"></div></div>
+    <div class="px-5 py-[18px] flex flex-col gap-3.5">
+      <input type="hidden" name="status" />
+      <p id="order-advance-text" class="text-[13px] text-zinc-600"></p>
+      <div id="order-tracking-row" class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold">Tracking number <span class="font-normal text-zinc-400">(optional)</span></label>
+        <input name="trackingNumber" maxlength="80" class="border border-zinc-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400" />
+      </div>
+      <p id="order-advance-error" class="hidden text-[12.5px] font-medium text-red-600"></p>
+    </div>
+    <div class="flex gap-2.5 px-5 py-4 border-t border-zinc-200">
+      <button type="button" data-close class="flex-1 border border-zinc-200 rounded-lg py-2 text-[13px] font-semibold">Back</button>
+      <button type="submit" class="flex-1 bg-zinc-900 text-white rounded-lg py-2 text-[13px] font-semibold hover:bg-zinc-800 disabled:opacity-60">Confirm</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="order-cancel-dialog" class="rounded-xl p-0 w-[calc(100%-2rem)] max-w-[420px] backdrop:bg-zinc-900/40">
+  <form id="order-cancel-form" class="flex flex-col">
+    <div class="px-5 py-4 border-b border-zinc-200"><div class="text-sm font-bold">Cancel order</div></div>
+    <div class="px-5 py-[18px] flex flex-col gap-3.5">
+      <p class="text-[13px] text-zinc-600">Stock returns to the shop and any promo use is released. The merchant sees the reason.</p>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold">Reason</label>
+        <input name="reason" required minlength="3" maxlength="300" placeholder="e.g. Refused at delivery" class="border border-zinc-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400" />
+      </div>
+      <p class="text-[11.5px] text-zinc-400">Cancelling an order that already shipped counts as a refused delivery toward the merchant's Cash on Delivery limit.</p>
+      <p id="order-cancel-error" class="hidden text-[12.5px] font-medium text-red-600"></p>
+    </div>
+    <div class="flex gap-2.5 px-5 py-4 border-t border-zinc-200">
+      <button type="button" data-close class="flex-1 border border-zinc-200 rounded-lg py-2 text-[13px] font-semibold">Back</button>
+      <button type="submit" class="flex-1 bg-red-600 text-white rounded-lg py-2 text-[13px] font-semibold hover:bg-red-700 disabled:opacity-60">Cancel order</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/app.js"></script>
+<script>initAdminShell(); initOrderDetailPage();</script>
+</body>
+</html>

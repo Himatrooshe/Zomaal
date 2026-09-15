@@ -25,6 +25,12 @@ COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/docker-entrypoint.sh ./docker-entrypoint.sh
+COPY --from=build /app/views ./views
+COPY --from=build /app/public ./public
+
+# Writable by the non-root runtime user: Zomaal Shop product images when
+# SHOP_IMAGE_STORAGE=local (docker-compose mounts a volume here).
+RUN mkdir -p /app/storage && chown node:node /app/storage
 
 USER node
 EXPOSE 3000

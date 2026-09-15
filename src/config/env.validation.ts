@@ -71,6 +71,35 @@ export function validateEnvironment(
     errors.push('LOGGER_PASSWORD must be at least 8 characters long');
   }
 
+  const superAdminUsername = asString(config.SUPERADMIN_USERNAME);
+  const superAdminPassword = asString(config.SUPERADMIN_PASSWORD);
+  const superAdminJwtSecret = asString(config.SUPER_ADMIN_JWT_SECRET);
+
+  if (
+    (superAdminUsername && !superAdminPassword) ||
+    (!superAdminUsername && superAdminPassword)
+  ) {
+    errors.push(
+      'SUPERADMIN_USERNAME and SUPERADMIN_PASSWORD must be configured together',
+    );
+  }
+  if (superAdminPassword && superAdminPassword.length < 8) {
+    errors.push('SUPERADMIN_PASSWORD must be at least 8 characters long');
+  }
+  if (superAdminJwtSecret && superAdminJwtSecret.length < 32) {
+    errors.push('SUPER_ADMIN_JWT_SECRET must be at least 32 characters long');
+  }
+
+  const shopImageStorage = asString(config.SHOP_IMAGE_STORAGE);
+  if (shopImageStorage && !['gcs', 'local'].includes(shopImageStorage)) {
+    errors.push('SHOP_IMAGE_STORAGE must be "gcs" or "local"');
+  }
+  if (shopImageStorage === 'local' && nodeEnv === 'production') {
+    errors.push(
+      'SHOP_IMAGE_STORAGE=local is not allowed in production — container disks are ephemeral, so uploaded images would be lost',
+    );
+  }
+
   const ecommerceSyncSchedulerEnabled =
     config.ECOMMERCE_SYNC_SCHEDULER_ENABLED === 'true';
   const ecommerceSyncSchedulerSecret = asString(

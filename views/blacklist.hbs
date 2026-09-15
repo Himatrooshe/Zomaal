@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{> head title="Blacklist"}}
+</head>
+<body class="h-dvh flex text-zinc-900 bg-white">
+{{> sidebar active="blacklist"}}
+
+<div class="flex-1 min-w-0 flex flex-col">
+  {{> topbar}}
+
+  <main class="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-5">
+    <div>
+      <h1 class="text-xl font-bold tracking-tight">Blacklist</h1>
+      <p class="mt-1 text-[13px] text-zinc-500">Customers blacklisted by any merchant. A phone flagged by several merchants is a strong fraud signal no single merchant can see.</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 sm:gap-4 max-w-xl">
+      <div class="border border-zinc-200 rounded-xl p-4"><div class="text-[12px] text-zinc-500">Blacklisted customers</div><div id="bl-total" class="text-xl font-bold tabular-nums">&hellip;</div></div>
+      <div class="border border-zinc-200 rounded-xl p-4"><div class="text-[12px] text-zinc-500">Phones flagged by 2+ merchants</div><div id="bl-multi" class="text-xl font-bold tabular-nums">&hellip;</div></div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2.5">
+      <input id="bl-search" placeholder="Search phone or name…" class="w-full sm:w-72 border border-zinc-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400" />
+      <label class="flex items-center gap-2 text-[13px]">
+        <input type="checkbox" id="bl-multi-only" /> Only phones flagged by 2+ merchants
+      </label>
+    </div>
+
+    <p id="blacklist-error" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[12.5px] text-red-600"></p>
+
+    <div class="border border-zinc-200 rounded-xl overflow-x-auto">
+      <table class="stack w-full text-sm min-w-[640px]">
+        <thead><tr class="bg-zinc-50 border-b border-zinc-200 text-left text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">
+          <th class="px-4 py-3">Customer</th><th class="px-4 py-3">Merchant</th><th class="px-4 py-3">History</th><th class="px-4 py-3">Reason</th><th class="px-4 py-3 text-right">Flagged by</th><th class="px-4 py-3 text-right">Since</th>
+        </tr></thead>
+        <tbody id="blacklist-tbody"><tr><td colspan="6" class="px-4 py-6 text-center text-zinc-400">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="/app.js"></script>
+<script>initAdminShell(); initBlacklistPage();</script>
+</body>
+</html>

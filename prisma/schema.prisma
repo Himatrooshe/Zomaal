@@ -41,6 +41,405 @@ model User {
   shippingCourierSuggestions ShippingCourierSuggestion[]
 }
 
+// The single platform-level operator identity for the Zomaal Shop admin
+// panel. Deliberately separate from `User` — a `User` is always a phone+OTP
+// merchant (store owner or staff), never a platform operator. Only one row
+// is expected to exist; it is upserted from SUPERADMIN_USERNAME /
+// SUPERADMIN_PASSWORD at boot by SuperAdminBootstrapService, mirroring
+// LoggerUserBootstrapService's pattern for the demo merchant user.
+model SuperAdmin {
+  id                 String    @id @default(uuid())
+  username           String    @unique
+  passwordHash       String
+  hashedRefreshToken String?
+  isActive           Boolean   @default(true)
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+// Audit trail of every write the super admin performs (catalog edits,
+// merchant edits/suspensions/deletions, password changes, logins). The
+// admin has full edit power over merchant accounts, so "who changed what,
+// when" must survive even after the target row is gone — hence no FK to
+// the target, and the username is denormalized.
+model SuperAdminActivityLog {
+  id            String   @id @default(uuid())
+  adminId       String?
+  adminUsername String
+  action        String // e.g. MERCHANT_SUSPENDED, PRODUCT_CREATED
+  entityType    String // MERCHANT | SHOP_PRODUCT | SHOP_CATEGORY | ADMIN
+  entityId      String?
+  summary       String // human-readable line shown in the panel
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, createdAt])
+}
+
+// The Zomaal Shop catalog — products the platform itself sells to
+// merchants. Deliberately separate from `WarehouseProduct` (a merchant's
+// own inventory) and from `Store` (not per-merchant; one global catalog
+// managed by the SuperAdmin).
+model ShopCategory {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products ShopProduct[]
+
+  @@index([isActive])
+}
+
+enum ShopProductStatus {
+  ACTIVE
+  DRAFT
+}
+
+model ShopProduct {
+  id             String            @id @default(uuid())
+  categoryId     String
+  name           String
+  slug           String            @unique
+  sku            String?           @unique
+  description    String?
+  price          Decimal           @db.Decimal(20, 4)
+  stock          Int               @default(0)
+  status         ShopProductStatus @default(DRAFT)
+  // Crossed-out "was" price shown next to price (sale). Ignored unless it's
+  // higher than the price actually charged.
+  compareAtPrice Decimal?          @db.Decimal(20, 4)
+  // What one unit is called in the app: "box" → "x100 box", "each box".
+  unitLabel      String            @default("piece")
+  // Pinned to the top of "Popular items" on the Shop home screen.
+  isFeatured     Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  // Restrict, not Cascade: deleting a category that still has products
+  // would silently delete Zomaal's own catalog rows. The admin has to
+  // move or delete the products first.
+  category   ShopCategory         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images     ShopProductImage[]
+  variants   ShopProductVariant[]
+  specs      ShopProductSpec[]
+  favorites  ShopFavorite[]
+  cartItems  ShopCartItem[]
+  orderItems ShopOrderItem[]
+  purchases  MerchantPurchase[]
+
+  @@index([categoryId])
+  @@index([status])
+}
+
+// Product gallery. The image with the lowest sortOrder is the cover shown in
+// lists. Files live in the shop image store (GCS bucket in production, local
+// disk in development — see ShopImageStorageService) under `objectName`, and
+// are served publicly at /shop-media/images/:id: catalog photos aren't
+// sensitive, and merchants will browse them.
+model ShopProductImage {
+  id          String   @id @default(uuid())
+  productId   String
+  objectName  String
+  contentType String
+  sizeBytes   Int
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  // Cascade: a deleted product's gallery rows go with it (the service also
+  // deletes the stored files).
+  product ShopProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+}
+
+// A purchasable option of a product — e.g. size "XL" + color "Brown Kraft".
+// When a product has active variants, the merchant must pick one, stock is
+// tracked per variant, and ShopProduct.stock is kept equal to their sum.
+// price/compareAtPrice are optional overrides of the product's.
+model ShopProductVariant {
+  id             String   @id @default(uuid())
+  productId      String
+  size           String?
+  color          String?
+  colorHex       String? // swatch colour, e.g. "#8B6B4A"
+  sku            String?  @unique
+  price          Decimal? @db.Decimal(20, 4)
+  compareAtPrice Decimal? @db.Decimal(20, 4)
+  stock          Int      @default(0)
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  product    ShopProduct     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems  ShopCartItem[]
+  orderItems ShopOrderItem[]
+
+  @@index([productId, sortOrder])
+}
+
+// "Specifications" tab rows: Material → ABS Plastic & Aluminum.
+model ShopProductSpec {
+  id        String @id @default(uuid())
+  productId String
+  label     String
+  value     String
+  sortOrder Int    @default(0)
+
+  product ShopProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+}
+
+enum ShopBannerLinkType {
+  NONE
+  PRODUCT
+  CATEGORY
+}
+
+// Shop home carousel. Image stored like product images (ShopImageStorageService).
+model ShopBanner {
+  id               String             @id @default(uuid())
+  title            String?
+  subtitle         String?
+  imageObjectName  String?
+  imageContentType String?
+  linkType         ShopBannerLinkType @default(NONE)
+  linkId           String?
+  sortOrder        Int                @default(0)
+  isActive         Boolean            @default(true)
+  startsAt         DateTime?
+  endsAt           DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+enum ShopPromoType {
+  PERCENT
+  FIXED
+}
+
+model ShopPromoCode {
+  id            String        @id @default(uuid())
+  code          String        @unique // stored uppercase
+  description   String?
+  type          ShopPromoType
+  value         Decimal       @db.Decimal(20, 4)
+  minSubtotal   Decimal?      @db.Decimal(20, 4)
+  maxDiscount   Decimal?      @db.Decimal(20, 4) // cap for PERCENT codes
+  usageLimit    Int? // total uses across all merchants
+  perStoreLimit Int? // uses per merchant
+  usedCount     Int           @default(0)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  orders ShopOrder[]
+}
+
+// Single-row settings for the Zomaal Shop (id is always "default").
+model ShopSettings {
+  id                        String   @id @default("default")
+  currency                  String   @default("MAD")
+  deliveryFee               Decimal  @default(0) @db.Decimal(20, 4)
+  freeDeliveryMinSubtotal   Decimal? @db.Decimal(20, 4)
+  codEnabled                Boolean  @default(true)
+  // A merchant who cancelled this many COD orders within the window can't
+  // place new COD orders ("Repeated cancellations may restrict your account").
+  codCancellationLimit      Int      @default(3)
+  codCancellationWindowDays Int      @default(90)
+  updatedAt                 DateTime @updatedAt
+}
+
+// Favorites, cart, addresses and orders belong to the STORE (not the person),
+// so an owner and their staff shop from the same cart. Who acted is recorded
+// on the order.
+model ShopFavorite {
+  id        String   @id @default(uuid())
+  storeId   String
+  productId String
+  createdAt DateTime @default(now())
+
+  store   Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product ShopProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, productId])
+}
+
+model ShopCartItem {
+  id        String   @id @default(uuid())
+  storeId   String
+  productId String
+  variantId String?
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store   Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product ShopProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ShopProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+}
+
+model ShopAddress {
+  id        String   @id @default(uuid())
+  storeId   String
+  label     String // "Home", "Office", …
+  fullName  String
+  phone     String
+  country   String
+  city      String
+  district  String?
+  address   String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+}
+
+enum ShopOrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum ShopPaymentMethod {
+  COD
+  ONLINE
+}
+
+enum ShopPaymentStatus {
+  UNPAID
+  PAID
+}
+
+enum ShopOrderCancelledBy {
+  MERCHANT
+  ADMIN
+}
+
+// A merchant's order from the Zomaal Shop. Prices, product names and the
+// delivery address are snapshotted at checkout so later catalog edits never
+// rewrite an order.
+model ShopOrder {
+  id             String            @id @default(uuid())
+  number         Int               @unique @default(autoincrement()) // shown as ZS-<number>
+  storeId        String
+  placedByUserId String?
+  status         ShopOrderStatus   @default(PENDING)
+  paymentMethod  ShopPaymentMethod
+  paymentStatus  ShopPaymentStatus @default(UNPAID)
+  currency       String
+  subtotal       Decimal           @db.Decimal(20, 4)
+  discount       Decimal           @default(0) @db.Decimal(20, 4)
+  deliveryFee    Decimal           @default(0) @db.Decimal(20, 4)
+  total          Decimal           @db.Decimal(20, 4)
+  promoCodeId    String?
+  promoCode      String? // code as entered, kept after the promo is deleted
+
+  shipLabel    String
+  shipName     String
+  shipPhone    String
+  shipCountry  String
+  shipCity     String
+  shipDistrict String?
+  shipAddress  String
+
+  note           String?
+  trackingNumber String?
+  adminNote      String?
+  confirmedAt    DateTime?
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+  cancelledAt    DateTime?
+  cancelledBy    ShopOrderCancelledBy?
+  cancelReason   String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  store Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  promo ShopPromoCode?  @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+  items ShopOrderItem[]
+
+  @@index([storeId, createdAt])
+  @@index([status, createdAt])
+  @@index([storeId, cancelledBy, cancelledAt])
+}
+
+model ShopOrderItem {
+  id           String  @id @default(uuid())
+  orderId      String
+  productId    String?
+  variantId    String?
+  productName  String
+  variantLabel String?
+  unitLabel    String
+  imageUrl     String?
+  unitPrice    Decimal @db.Decimal(20, 4)
+  quantity     Int
+  lineTotal    Decimal @db.Decimal(20, 4)
+
+  order    ShopOrder           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product  ShopProduct?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant  ShopProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  purchase MerchantPurchase?
+
+  @@index([orderId])
+}
+
+enum MerchantPurchaseSource {
+  MANUAL
+  SHOP
+}
+
+// The merchant's Purchases list: stock they bought. MANUAL = recorded by the
+// merchant for one of their own warehouse products (bought elsewhere); SHOP =
+// created automatically when a Zomaal Shop order is delivered.
+model MerchantPurchase {
+  id                 String                 @id @default(uuid())
+  storeId            String
+  source             MerchantPurchaseSource
+  warehouseProductId String?
+  shopProductId      String?
+  shopOrderItemId    String?                @unique
+  productName        String
+  unitLabel          String
+  imageUrl           String?
+  quantity           Int
+  unitPrice          Decimal                @db.Decimal(20, 4)
+  totalCost          Decimal                @db.Decimal(20, 4)
+  currency           String
+  purchaseDate       DateTime
+  notes              String?
+  createdByUserId    String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  store            Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  warehouseProduct WarehouseProduct? @relation(fields: [warehouseProductId], references: [id], onDelete: SetNull)
+  shopProduct      ShopProduct?      @relation(fields: [shopProductId], references: [id], onDelete: SetNull)
+  shopOrderItem    ShopOrderItem?    @relation(fields: [shopOrderItemId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, purchaseDate])
+  @@index([storeId, source])
+}
+
 model QuickLivraisonConnection {
   id              String    @id @default(uuid())
   encryptedApiKey String
@@ -444,21 +843,21 @@ model ShippingCourierSuggestion {
 }
 
 model Store {
-  id           String   @id @default(uuid())
-  ownerName    String
+  id            String   @id @default(uuid())
+  ownerName     String
   // Owner's personal profile photo (Settings > Edit Profile "Add Your
   // Photo") — distinct from `logoUrl`, which is the customer-facing
   // business logo set on the Create/Edit Store screen.
   ownerPhotoUrl String?
-  businessName String
-  address      String
-  city         String
-  country      String
-  logoUrl      String?
-  isActive     Boolean  @default(true)
-  baseCurrency String   @default("MAD")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  businessName  String
+  address       String
+  city          String
+  country       String
+  logoUrl       String?
+  isActive      Boolean  @default(true)
+  baseCurrency  String   @default("MAD")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   userId String @unique
   // Cascade to match every other 1:1 user relation in this schema — without
@@ -487,8 +886,12 @@ model Store {
   expenses                Expense[]
   customers               Customer[]
   blacklistSettings       BlacklistSettings?
+  shopFavorites           ShopFavorite[]
+  shopCartItems           ShopCartItem[]
+  shopAddresses           ShopAddress[]
+  shopOrders              ShopOrder[]
+  purchases               MerchantPurchase[]
 }
-
 
 enum EcommercePlatform {
   SHOPIFY
@@ -572,7 +975,7 @@ model EcommerceOrder {
   tax               Decimal                @db.Decimal(20, 4)
   totalCollected    Decimal                @db.Decimal(20, 4)
   codAmount         Decimal?               @db.Decimal(20, 4)
-  codStatus         String?                // PENDING | COLLECTED | FAILED
+  codStatus         String? // PENDING | COLLECTED | FAILED
   shippingCity      String?
 
   // MANUAL orders only — captured at creation since there's no platform to
@@ -592,14 +995,14 @@ model EcommerceOrder {
   processedAt       DateTime
   cancelledAt       DateTime?
   providerUpdatedAt DateTime
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  connectionId String
-  connection   EcommerceConnection      @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  dispatch     EcommerceOrderDispatch?
-  events       EcommerceOrderEvent[]
-  lines        EcommerceOrderLine[]
+  connectionId    String
+  connection      EcommerceConnection            @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  dispatch        EcommerceOrderDispatch?
+  events          EcommerceOrderEvent[]
+  lines           EcommerceOrderLine[]
   financialEvents EcommerceOrderFinancialEvent[]
   returnRequests  ReturnRequest[]
 
@@ -620,9 +1023,9 @@ model EcommerceOrder {
 model EcommerceOrderEvent {
   id              String   @id @default(uuid())
   orderId         String
-  providerEventId String   // always set — generated deterministically when the platform provides no ID
-  source          String   // SHOPIFY | YOUCAN | LIGHTFUNNELS | SYSTEM
-  type            String   // OrderEventType constant
+  providerEventId String // always set — generated deterministically when the platform provides no ID
+  source          String // SHOPIFY | YOUCAN | LIGHTFUNNELS | SYSTEM
+  type            String // OrderEventType constant
   title           String
   message         String?
   actor           String?
@@ -634,9 +1037,6 @@ model EcommerceOrderEvent {
   createdAt       DateTime @default(now())
 
   order EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  @@unique([orderId, providerEventId])
-  @@index([orderId, occurredAt])
   // A GIN index on `metadata` was tried here first but doesn't help: the
   // lookup this supports (EcommerceService.resolveScannedCode,
   // ReturnRequestService.resolveOrder — resolving a 3rd-party carrier's
@@ -647,6 +1047,9 @@ model EcommerceOrderEvent {
   // matching that exact `#>` expression, added via a hand-written raw-SQL
   // migration since Prisma's DSL can't express it — see
   // prisma/migrations/*_metadata_number_btree_index/migration.sql.
+
+  @@unique([orderId, providerEventId])
+  @@index([orderId, occurredAt])
 }
 
 model EcommerceOrderLine {
@@ -670,8 +1073,8 @@ model EcommerceOrderLine {
   conditionNotes      String?
   conditionRecordedAt DateTime?
 
-  orderId            String
-  order              EcommerceOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
+  order   EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   warehouseVariantId String?
   warehouseVariant   WarehouseVariant? @relation(fields: [warehouseVariantId], references: [id], onDelete: SetNull)
@@ -695,7 +1098,7 @@ model EcommerceOrderLine {
 
 enum ReturnRequestStatus {
   NEED_VERIFICATION // detected, not every line has a recorded condition yet
-  PROCESSED         // every line in this request has a recorded condition
+  PROCESSED // every line in this request has a recorded condition
 }
 
 // One "a parcel for this order came back" event. detectedVia/scannedValue
@@ -756,7 +1159,7 @@ model ReturnRequestLine {
 model EcommerceOrderFinancialEvent {
   id              String   @id @default(uuid())
   orderId         String
-  type            String   // REVENUE_RECOGNIZED | REVENUE_REVERSED | DAMAGE_LOSS
+  type            String // REVENUE_RECOGNIZED | REVENUE_REVERSED | DAMAGE_LOSS
   revenue         Decimal  @db.Decimal(20, 4)
   productCost     Decimal  @db.Decimal(20, 4)
   shippingCost    Decimal  @db.Decimal(20, 4)
@@ -817,10 +1220,10 @@ model Customer {
   city    String?
 
   totalOrders        Int @default(0)
-  returnsCount        Int @default(0)
-  cancellationsCount  Int @default(0)
-  refusalsCount       Int @default(0) // Zomaal-dispatched shipments only — see CustomerRiskService
-  noAnswerCount       Int @default(0) // same scope as refusalsCount
+  returnsCount       Int @default(0)
+  cancellationsCount Int @default(0)
+  refusalsCount      Int @default(0) // Zomaal-dispatched shipments only — see CustomerRiskService
+  noAnswerCount      Int @default(0) // same scope as refusalsCount
 
   isBlacklisted   Boolean   @default(false)
   blacklistReason String?
@@ -1118,6 +1521,7 @@ model WarehouseProduct {
   gift                  ProductGift?                  @relation("ProductGiftOwner")
   packagingRequirements ProductPackagingRequirement[]
   bundleComponents      ProductBundleComponent[]      @relation("BundleProduct")
+  purchases             MerchantPurchase[]
 
   @@unique([storeId, idempotencyKey])
   @@index([storeId, status, createdAt])
@@ -1152,7 +1556,7 @@ model WarehouseVariant {
   id                String   @id @default(uuid())
   title             String
   sku               String?
-  productCode       String?  // internal tracking code (e.g. "DH564BJ0"), auto-generated at creation, printed on shipping tickets/QR labels instead of the full title. For bundles, this variant's productCode doubles as the pack code.
+  productCode       String? // internal tracking code (e.g. "DH564BJ0"), auto-generated at creation, printed on shipping tickets/QR labels instead of the full title. For bundles, this variant's productCode doubles as the pack code.
   price             Decimal  @db.Decimal(20, 4)
   costPrice         Decimal  @db.Decimal(20, 4)
   lowStockThreshold Int      @default(5)
@@ -1332,9 +1736,9 @@ model MediaAsset {
   // per expense/payment. SetNull (not Cascade): deleting the expense/payment
   // shouldn't error just because a receipt is still attached; the media row
   // is cleaned up explicitly by the service instead (see ExpensesService).
-  expenseId String? @unique
-  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
-  salaryPaymentId String? @unique
+  expenseId       String?             @unique
+  expense         Expense?            @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  salaryPaymentId String?             @unique
   salaryPayment   StaffSalaryPayment? @relation(fields: [salaryPaymentId], references: [id], onDelete: SetNull)
 
   @@index([storeId, status, expiresAt])
@@ -1422,9 +1826,9 @@ enum AdsConnectionStatus {
 // same platform (e.g. two TikTok advertiser IDs) — externalAdvertiserId
 // disambiguates them.
 model AdsConnection {
-  id                    String               @id @default(uuid())
+  id                    String              @id @default(uuid())
   platform              AdsPlatform
-  status                AdsConnectionStatus  @default(ACTIVE)
+  status                AdsConnectionStatus @default(ACTIVE)
   externalAdvertiserId  String
   displayName           String?
   currency              String?
@@ -1433,14 +1837,14 @@ model AdsConnection {
   encryptedRefreshToken String?
   accessTokenExpiresAt  DateTime?
   grantedScopes         String?
-  installedAt           DateTime             @default(now())
+  installedAt           DateTime            @default(now())
   disconnectedAt        DateTime?
   lastVerifiedAt        DateTime?
   lastSyncedAt          DateTime?
   lastSyncError         String?
   syncStartedAt         DateTime?
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   storeId String
   store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -1570,17 +1974,17 @@ enum StaffStatus {
 // INACTIVE (the "Deactive" button) — staff are never hard-deleted, so their
 // salary history and the audit trail on expenses they created stay intact.
 model StaffMember {
-  id       String      @id @default(uuid())
+  id           String      @id @default(uuid())
   // The User model only carries `phone` (the login identifier) — no name.
   // Every Staff list/details screen needs a display name, so it lives here.
-  name     String
-  jobTitle String? // "Operations Manager" — a label, not a permission source
-  photoUrl String?
+  name         String
+  jobTitle     String? // "Operations Manager" — a label, not a permission source
+  photoUrl     String?
   // Personal address, not the store's pickup address (Store.address/city) —
   // set by the staff member themselves via Edit Profile, never by the owner.
-  address  String?
-  city     String?
-  status   StaffStatus @default(ACTIVE)
+  address      String?
+  city         String?
+  status       StaffStatus @default(ACTIVE)
   // Staff Details shows these as two separate rows — "Last Active 2 hours
   // ago" in the header and "Last Login: Apr 26, 2026, 2:30 PM" under
   // Activity — so they are two fields: lastActiveAt is touched by any
@@ -1727,8 +2131,8 @@ enum ExpenseGroup {
 // Seeded system categories (Rent, Bills, Supplies, Marketing, Maintenance,
 // Employee salary) plus anything the merchant adds via "+ Create Category".
 model ExpenseCategory {
-  id   String       @id @default(uuid())
-  name String
+  id        String       @id @default(uuid())
+  name      String
   // Which of the 5 summary buckets this category totals into. Custom
   // categories default to OTHER.
   group     ExpenseGroup @default(OTHER)

@@ -65,3 +65,6 @@ gha-creds-*.json
 CODEX_NOTES.md
 CLOUD_RUN_DEPLOYMENT_AUDIT.md
 CLAUDE.md
+
+# Locally stored uploads (Zomaal Shop product images in development)
+/storage/

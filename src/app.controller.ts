@@ -6,7 +6,10 @@ import { AppService } from './app.service';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @Get()
+  // Moved off bare '/' so the Zomaal Shop admin panel's static index.html
+  // (served by ServeStaticModule) can own the root path instead of this
+  // scaffold placeholder shadowing it.
+  @Get('health')
   @ApiExcludeEndpoint()
   getHello(): string {
     return this.appService.getHello();

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{> head title="Merchant"}}
+</head>
+<body class="h-dvh flex text-zinc-900 bg-white">
+{{> sidebar active="merchants"}}
+
+<div class="flex-1 min-w-0 flex flex-col">
+  {{> topbar}}
+
+  <main class="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-5" data-user-id="{{userId}}" id="merchant-detail">
+    <a href="/merchants" class="text-[12.5px] text-zinc-500 hover:text-zinc-900 w-fit">&larr; All merchants</a>
+
+    <p id="detail-error" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[12.5px] text-red-600"></p>
+
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <h1 id="d-business" class="text-xl font-bold tracking-tight break-words">&hellip;</h1>
+          <span id="d-status"></span>
+        </div>
+        <p id="d-sub" class="mt-1 text-[13px] text-zinc-500"></p>
+      </div>
+      <div class="flex gap-2">
+        <button id="d-toggle-btn" class="hidden border border-zinc-200 rounded-lg px-3.5 py-2 text-[13px] font-semibold hover:bg-zinc-50"></button>
+        <button id="d-edit-btn" class="bg-zinc-900 text-white rounded-lg px-3.5 py-2 text-[13px] font-semibold hover:bg-zinc-800">Edit</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div class="border border-zinc-200 rounded-xl p-3.5 sm:p-4 flex flex-col gap-1 min-w-0"><div class="text-[12px] text-zinc-500">Orders (all time)</div><div id="d-orders" class="text-xl font-bold tabular-nums">&hellip;</div><div id="d-orders-30" class="text-[11.5px] text-zinc-500"></div></div>
+      <div class="border border-zinc-200 rounded-xl p-3.5 sm:p-4 flex flex-col gap-1 min-w-0"><div class="text-[12px] text-zinc-500">Revenue collected</div><div id="d-revenue" class="text-[15px] font-bold tabular-nums leading-6">&hellip;</div><div class="text-[11.5px] text-zinc-500">Excludes cancelled orders</div></div>
+      <div class="border border-zinc-200 rounded-xl p-3.5 sm:p-4 flex flex-col gap-1 min-w-0"><div class="text-[12px] text-zinc-500">Customers</div><div id="d-customers" class="text-xl font-bold tabular-nums">&hellip;</div><div id="d-blacklisted" class="text-[11.5px] text-zinc-500"></div></div>
+      <div class="border border-zinc-200 rounded-xl p-3.5 sm:p-4 flex flex-col gap-1 min-w-0"><div class="text-[12px] text-zinc-500">Own products</div><div id="d-products" class="text-xl font-bold tabular-nums">&hellip;</div><div class="text-[11.5px] text-zinc-500">Merchant's warehouse catalog</div></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 min-w-0 border border-zinc-200 rounded-xl overflow-hidden">
+        <div class="px-[18px] py-3.5 border-b border-zinc-200 text-[13.5px] font-bold">Recent orders</div>
+        <div class="overflow-x-auto">
+        <table class="stack w-full text-sm min-w-[560px]">
+          <thead><tr class="bg-zinc-50 border-b border-zinc-200 text-left text-[11px] font-semibold text-zinc-400 uppercase tracking-wide">
+            <th class="px-4 py-2.5">Order</th><th class="px-4 py-2.5">Platform</th><th class="px-4 py-2.5">Payment</th><th class="px-4 py-2.5 text-right">Total</th><th class="px-4 py-2.5 text-right">Date</th>
+          </tr></thead>
+          <tbody id="d-recent-orders"><tr><td colspan="5" class="px-4 py-5 text-center text-zinc-400">Loading&hellip;</td></tr></tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="border border-zinc-200 rounded-xl p-4 sm:p-5 flex flex-col gap-2.5 text-[13px]">
+        <div class="text-[13.5px] font-bold">Store profile</div>
+        <dl id="d-profile" class="flex flex-col gap-2"></dl>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="border border-zinc-200 rounded-xl overflow-hidden">
+        <div class="px-[18px] py-3.5 border-b border-zinc-200 text-[13.5px] font-bold">Connected platforms</div>
+        <div id="d-connections" class="flex flex-col divide-y divide-zinc-100"><div class="px-[18px] py-4 text-sm text-zinc-400">Loading&hellip;</div></div>
+      </div>
+      <div class="border border-zinc-200 rounded-xl overflow-hidden">
+        <div class="px-[18px] py-3.5 border-b border-zinc-200 text-[13.5px] font-bold">Staff</div>
+        <div id="d-staff" class="flex flex-col divide-y divide-zinc-100"><div class="px-[18px] py-4 text-sm text-zinc-400">Loading&hellip;</div></div>
+      </div>
+    </div>
+
+    <div class="border border-zinc-200 rounded-xl overflow-hidden">
+      <div class="px-[18px] py-3.5 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2">
+        <span class="text-[13.5px] font-bold">Zomaal Shop orders</span>
+        <span id="d-shop-summary" class="text-[12px] text-zinc-500"></span>
+      </div>
+      <div id="d-shop-orders" class="flex flex-col divide-y divide-zinc-100"><div class="px-[18px] py-4 text-sm text-zinc-400">Loading&hellip;</div></div>
+    </div>
+
+    <div class="border border-zinc-200 rounded-xl overflow-hidden">
+      <div class="px-[18px] py-3.5 border-b border-zinc-200 text-[13.5px] font-bold">Admin actions on this merchant</div>
+      <div id="d-activity" class="flex flex-col p-2.5 gap-1"><div class="px-2 py-2 text-sm text-zinc-400">Loading&hellip;</div></div>
+    </div>
+
+    <div class="border border-red-200 rounded-xl p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <div class="text-[13.5px] font-bold text-red-700">Delete merchant</div>
+        <div class="text-[12.5px] text-zinc-500">Permanently removes the account and everything it owns. Cannot be undone.</div>
+      </div>
+      <button id="d-delete-btn" class="border border-red-300 text-red-700 rounded-lg px-3.5 py-2 text-[13px] font-semibold hover:bg-red-50">Delete merchant</button>
+    </div>
+  </main>
+</div>
+
+{{> merchant_dialog}}
+
+<script src="/app.js"></script>
+<script>initAdminShell(); initMerchantDetailPage();</script>
+</body>
+</html>

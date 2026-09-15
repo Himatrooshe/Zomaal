@@ -21,6 +21,8 @@ import { RolesModule } from './roles/roles.module';
 import { StaffModule } from './staff/staff.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { CustomersModule } from './customers/customers.module';
+import { SuperAdminModule } from './super-admin/super-admin.module';
+import { ZomaalShopModule } from './zomaal-shop/zomaal-shop.module';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { CustomersModule } from './customers/customers.module';
     StaffModule,
     ExpensesModule,
     CustomersModule,
+    SuperAdminModule,
+    ZomaalShopModule,
   ],
   controllers: [AppController],
   providers: [AppService],

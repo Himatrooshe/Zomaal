@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{> head title="Dashboard"}}
+</head>
+<body class="h-dvh flex text-zinc-900 bg-white">
+{{> sidebar active="dashboard"}}
+
+<div class="flex-1 min-w-0 flex flex-col">
+  {{> topbar}}
+
+  <main class="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+    <div>
+      <h1 class="text-xl font-bold tracking-tight">Dashboard</h1>
+      <p class="mt-1 text-[13px] text-zinc-500">Live overview of the Zomaal platform and shop.</p>
+    </div>
+
+    <p id="dashboard-error" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[12.5px] text-red-600"></p>
+
+    <!-- KPI tiles: every value is filled from /admin/dashboard/summary -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <a href="/merchants" class="border border-zinc-200 rounded-xl p-[18px] flex flex-col gap-1.5 hover:border-zinc-300">
+        <div class="text-[12.5px] font-medium text-zinc-500">Merchants</div>
+        <div id="kpi-merchants" class="text-2xl font-bold tabular-nums">&hellip;</div>
+        <div id="kpi-merchants-sub" class="text-[11.5px] text-zinc-500"></div>
+      </a>
+      <div class="border border-zinc-200 rounded-xl p-[18px] flex flex-col gap-1.5">
+        <div class="text-[12.5px] font-medium text-zinc-500">Merchant orders · 30 days</div>
+        <div id="kpi-orders" class="text-2xl font-bold tabular-nums">&hellip;</div>
+        <div id="kpi-orders-sub" class="text-[11.5px] text-zinc-500"></div>
+      </div>
+      <a href="/integrations" class="border border-zinc-200 rounded-xl p-[18px] flex flex-col gap-1.5 hover:border-zinc-300">
+        <div class="text-[12.5px] font-medium text-zinc-500">Integrations needing attention</div>
+        <div id="kpi-integrations" class="text-2xl font-bold tabular-nums">&hellip;</div>
+        <div id="kpi-integrations-sub" class="text-[11.5px] text-zinc-500"></div>
+      </a>
+      <a href="/blacklist" class="border border-zinc-200 rounded-xl p-[18px] flex flex-col gap-1.5 hover:border-zinc-300">
+        <div class="text-[12.5px] font-medium text-zinc-500">Blacklisted customers</div>
+        <div id="kpi-blacklist" class="text-2xl font-bold tabular-nums">&hellip;</div>
+        <div class="text-[11.5px] text-zinc-500">Across all merchants</div>
+      </a>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <a href="/orders?status=PENDING" class="border border-zinc-200 rounded-xl p-[18px] flex flex-col gap-1.5 hover:border-zinc-300">
+        <div class="text-[12.5px] font-medium text-zinc-500">Shop orders waiting</div>
+        <div id="kpi-shop-pending" class="text-2xl font-bold tabular-nums">&hellip;</div>
+        <div class="text-[11.5px] text-zinc-500">Pending confirmation</div>
+      </a>
+      <a href="/orders" class="border border-zinc-200 rounded-xl p-[18px] flex flex-col gap-1.5 hover:border-zinc-300">
+        <div class="text-[12.5px] font-medium text-zinc-500">Shop orders · 30 days</div>
+        <div id="kpi-shop-orders" class="text-2xl font-bold tabular-nums">&hellip;</div>
+        <div class="text-[11.5px] text-zinc-500">Excludes cancelled</div>
+      </a>
+      <a href="/orders?status=DELIVERED" class="border border-zinc-200 rounded-xl p-[18px] flex flex-col gap-1.5 hover:border-zinc-300">
+        <div class="text-[12.5px] font-medium text-zinc-500">Shop revenue · 30 days</div>
+        <div id="kpi-shop-revenue" class="text-2xl font-bold tabular-nums">&hellip;</div>
+        <div class="text-[11.5px] text-zinc-500">Delivered orders</div>
+      </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 min-w-0 border border-zinc-200 rounded-xl p-4 sm:p-5 flex flex-col gap-3">
+        <div class="flex items-baseline justify-between">
+          <div class="text-[13.5px] font-bold">New merchants · last 30 days</div>
+          <div id="signups-total" class="text-[12px] text-zinc-500"></div>
+        </div>
+        <div id="signups-chart" class="relative h-40"></div>
+      </div>
+
+      <div class="border border-zinc-200 rounded-xl p-4 sm:p-5 flex flex-col gap-3">
+        <div class="text-[13.5px] font-bold">Zomaal Shop catalog</div>
+        <dl class="flex flex-col gap-2.5 text-[13px]">
+          <div class="flex justify-between"><dt class="text-zinc-500">Products</dt><dd id="kpi-products" class="font-semibold tabular-nums">&hellip;</dd></div>
+          <div class="flex justify-between"><dt class="text-zinc-500">Active (visible)</dt><dd id="kpi-products-active" class="font-semibold tabular-nums">&hellip;</dd></div>
+          <div class="flex justify-between"><dt class="text-zinc-500">Categories</dt><dd id="kpi-categories" class="font-semibold tabular-nums">&hellip;</dd></div>
+          <div class="flex justify-between"><dt class="text-zinc-500">Low stock (&lt; 20)</dt><dd id="kpi-lowstock" class="font-semibold tabular-nums">&hellip;</dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="border border-zinc-200 rounded-xl overflow-hidden">
+        <div class="px-[18px] py-3.5 border-b border-zinc-200 flex items-center justify-between">
+          <span class="text-[13.5px] font-bold">Low stock</span>
+          <a href="/products" class="text-[12px] text-zinc-500 hover:text-zinc-900">Products &rarr;</a>
+        </div>
+        <div id="low-stock-list" class="flex flex-col p-2.5 gap-1">
+          <div class="px-2 py-2 text-sm text-zinc-400">Loading&hellip;</div>
+        </div>
+      </div>
+      <div class="border border-zinc-200 rounded-xl overflow-hidden">
+        <div class="px-[18px] py-3.5 border-b border-zinc-200 flex items-center justify-between">
+          <span class="text-[13.5px] font-bold">Recent admin activity</span>
+          <a href="/activity" class="text-[12px] text-zinc-500 hover:text-zinc-900">Full log &rarr;</a>
+        </div>
+        <div id="recent-activity" class="flex flex-col p-2.5 gap-1">
+          <div class="px-2 py-2 text-sm text-zinc-400">Loading&hellip;</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/app.js"></script>
+<script>initAdminShell(); initDashboardPage();</script>
+</body>
+</html>

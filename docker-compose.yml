@@ -29,6 +29,10 @@ services:
       - JWT_SECRET=${JWT_SECRET:-local-development-jwt-secret-change-before-production}
       - LOGGER_PHONE=${LOGGER_PHONE:-+212600000001}
       - LOGGER_PASSWORD=${LOGGER_PASSWORD:-ZomaalDemo#2026}
+      - SUPERADMIN_USERNAME=${SUPERADMIN_USERNAME:-superadmin}
+      - SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD:-Zomaal@Admin2026}
+      - SUPER_ADMIN_JWT_SECRET=${SUPER_ADMIN_JWT_SECRET:-}
+      - SHOP_IMAGE_STORAGE=${SHOP_IMAGE_STORAGE:-local}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_REQUIRED=true
@@ -46,9 +50,13 @@ services:
       - SHOPIFY_HTTP_TIMEOUT_MS=${SHOPIFY_HTTP_TIMEOUT_MS:-15000}
       - SHOPIFY_AUTH_SUCCESS_REDIRECT_URL=${SHOPIFY_AUTH_SUCCESS_REDIRECT_URL:-}
       - SHOPIFY_AUTH_FAILURE_REDIRECT_URL=${SHOPIFY_AUTH_FAILURE_REDIRECT_URL:-}
+    volumes:
+      # Keeps locally stored product images across container rebuilds.
+      - shop_images:/app/storage
     depends_on:
       - postgres
       - redis
 
 volumes:
   postgres_data:
+  shop_images:

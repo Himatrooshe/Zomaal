@@ -16,9 +16,12 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  // '/' now serves the Zomaal Shop admin panel's static export (see
+  // ServeStaticModule in src/app.module.ts) — the scaffold health check
+  // moved to '/health'.
+  it('/health (GET)', () => {
     return request(app.getHttpServer())
-      .get('/')
+      .get('/health')
       .expect(200)
       .expect('Hello World!');
   });

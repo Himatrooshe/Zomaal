@@ -1,0 +1,32 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}} — Zomaal Admin</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%2318181b'/%3E%3Cg fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' transform='translate(4,4) scale(0.7)'%3E%3Cpath d='M16.5 9.4 7.55 4.24'/%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z'/%3E%3Cpolyline points='3.29 7 12 12 20.71 7'/%3E%3Cline x1='12' y1='22' x2='12' y2='12'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  ::placeholder { color: #a1a1aa; }
+
+  /* Phones: tables marked .stack turn each row into a labelled card, so no
+     column (health, stock, actions…) is hidden off-screen behind a sideways
+     scroll. Labels come from the column headers (set by labelStackTables()
+     in app.js). Tablet and up keep the normal table. */
+  @media (max-width: 767px) {
+    table.stack { min-width: 0 !important; }
+    table.stack thead { display: none; }
+    table.stack tbody, table.stack tr, table.stack td { display: block; width: 100%; }
+    table.stack tr { padding: 12px 16px; }
+    table.stack td { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 16px; row-gap: 4px; align-items: start; justify-items: end; padding: 5px 0 !important; text-align: right !important; }
+    table.stack td::before { content: attr(data-label); grid-column: 1; grid-row: 1; justify-self: start; text-align: left; color: #71717a; font-size: 12px; font-weight: 500; line-height: 20px; }
+    table.stack td > * { grid-column: 2; min-width: 0; }
+    /* justify-items: normal — Chrome applies justify-items to block layout too,
+       so without this the inherited `end` shoves the title block right. */
+    table.stack td.stack-primary { display: block; justify-items: normal; text-align: left !important; padding-bottom: 8px !important; }
+    table.stack td.stack-primary::before, table.stack td.stack-full::before { content: none; }
+    table.stack td.stack-full { display: block; justify-items: normal; text-align: center !important; }
+    table.stack td.stack-actions::before { content: none; }
+    table.stack td.stack-actions { display: flex; justify-content: flex-end; padding-top: 8px !important; }
+  }
+</style>
