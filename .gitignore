@@ -68,3 +68,7 @@ CLAUDE.md
 
 # Locally stored uploads (Zomaal Shop product images in development)
 /storage/
+
+# Local GCP bootstrap secrets/logs (never commit)
+.gcp-local/
+clickup-zomaal-backend-tasks.csv

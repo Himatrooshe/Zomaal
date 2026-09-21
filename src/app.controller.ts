@@ -6,9 +6,8 @@ import { AppService } from './app.service';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  // Moved off bare '/' so the Zomaal Shop admin panel's static index.html
-  // (served by ServeStaticModule) can own the root path instead of this
-  // scaffold placeholder shadowing it.
+  // Health check for Cloud Run / CI. Bare `/` returns 404 so the admin
+  // portal is not advertised; open `/login` deliberately for the panel.
   @Get('health')
   @ApiExcludeEndpoint()
   getHello(): string {

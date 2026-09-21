@@ -224,8 +224,9 @@ jobs:
         env:
           SERVICE_URL: ${{ steps.deploy.outputs.url }}
         run: |
-          response="$(curl --fail --silent --show-error "${SERVICE_URL}/")"
-          if [ "$response" != "Hello World!" ]; then
-            echo "::error::Unexpected health response from ${SERVICE_URL}/"
+          # Health lives at /health. Bare / returns 404 so the admin portal is not advertised.
+          response="$(curl --fail --silent --show-error "${SERVICE_URL}/health")"
+          if [ "$response" != "Hello Zomaal!" ]; then
+            echo "::error::Unexpected health response from ${SERVICE_URL}/health: ${response}"
             exit 1
           fi

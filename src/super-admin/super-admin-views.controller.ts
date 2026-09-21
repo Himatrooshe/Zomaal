@@ -1,9 +1,9 @@
 import {
   Controller,
   Get,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
-  Redirect,
   Render,
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
@@ -17,12 +17,16 @@ import { ApiExcludeController } from '@nestjs/swagger';
 // to render personalized/guarded data at request time. Auth is enforced
 // the same way — public/app.js redirects to /login when there's no token,
 // and every real read/write goes through the JWT-guarded API regardless.
+//
+// Intentionally do NOT redirect bare `/` to `/login` — that would advertise
+// the admin portal. Operators must open `/login` deliberately.
 @ApiExcludeController()
 @Controller()
 export class SuperAdminViewsController {
   @Get()
-  @Redirect('/login')
-  root() {}
+  root(): never {
+    throw new NotFoundException();
+  }
 
   @Get('login')
   @Render('login')

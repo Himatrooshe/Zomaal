@@ -16,14 +16,17 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  // '/' now serves the Zomaal Shop admin panel's static export (see
-  // ServeStaticModule in src/app.module.ts) — the scaffold health check
-  // moved to '/health'.
+  // Health check for CI / Cloud Run. Bare '/' returns 404 so the admin
+  // portal is not advertised (operators open /login deliberately).
   it('/health (GET)', () => {
     return request(app.getHttpServer())
       .get('/health')
       .expect(200)
-      .expect('Hello World!');
+      .expect('Hello Zomaal!');
+  });
+
+  it('/ (GET) does not advertise admin login', () => {
+    return request(app.getHttpServer()).get('/').expect(404);
   });
 
   afterEach(async () => {
