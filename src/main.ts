@@ -59,21 +59,29 @@ async function bootstrap() {
     next();
   });
 
+  // Fully open CORS for the mobile/web clients (e.g. Vercel). Prefer an
+  // explicit CORS_ORIGINS list in production later if you need to lock it down.
+  // `*` or an empty value both mean allow any origin.
   const corsOrigins = configService
-    .get<string>('CORS_ORIGINS', '')
+    .get<string>('CORS_ORIGINS', '*')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
-  const allowAllCorsOrigins = corsOrigins.includes('*');
+  const allowAllCorsOrigins =
+    corsOrigins.length === 0 || corsOrigins.includes('*');
 
-  if (corsOrigins.length > 0) {
-    app.enableCors({
-      origin: allowAllCorsOrigins ? '*' : corsOrigins,
-      credentials: !allowAllCorsOrigins,
-      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Accept', 'Authorization', 'Content-Type'],
-    });
-  }
+  app.enableCors({
+    origin: allowAllCorsOrigins ? true : corsOrigins,
+    credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Accept',
+      'Authorization',
+      'Content-Type',
+      'Origin',
+      'X-Requested-With',
+    ],
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

@@ -1,7 +1,7 @@
 client_id = "bb2d05d7742822b671c834ef936ff055"
 
 name = "zomaal"
-application_url = "https://zomaal-backend-828793303867.us-central1.run.app/"
+application_url = "https://zomaal-backend-563898960389.us-central1.run.app/"
 embedded = false
 
 [build]
@@ -43,5 +43,5 @@ use_legacy_install_flow = false
 [auth]
 redirect_urls = [
   "http://localhost:3001/auth/shopify/callback",
-  "https://zomaal-backend-828793303867.us-central1.run.app/auth/shopify/callback"
+  "https://zomaal-backend-563898960389.us-central1.run.app/auth/shopify/callback"
 ]

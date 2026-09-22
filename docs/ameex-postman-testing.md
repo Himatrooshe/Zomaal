@@ -122,7 +122,7 @@ After deploying this version, enter this production URL in the Ameex webhook
 field:
 
 ```text
-https://zomaal-backend-828793303867.us-central1.run.app/shipping/ameex/webhook
+https://zomaal-backend-563898960389.us-central1.run.app/shipping/ameex/webhook
 ```
 
 Ameex only sends webhook updates for parcels created through its API. The
