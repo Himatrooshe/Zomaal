@@ -19,7 +19,7 @@ export class LoginDto {
 
   @ApiProperty({
     description: 'Logger password configured through LOGGER_PASSWORD.',
-    example: 'zomaal01@',
+    example: 'your-password',
     minLength: 8,
     format: 'password',
     writeOnly: true,

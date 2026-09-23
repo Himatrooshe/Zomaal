@@ -6,8 +6,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  EcommerceConnectionStatus,
   EcommerceOrderStatus,
   EcommercePaymentStatus,
+  EcommercePlatform,
   InventoryBarcodeType,
   InventoryItemKind,
   MediaAssetPurpose,
@@ -18,9 +20,14 @@ import {
   WarehouseProductStatus,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
+import { LightfunnelsDataService } from '../lightfunnels/lightfunnels-data.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ShopifyDataService } from '../shopify/shopify-data.service';
+import { YouCanDataService } from '../youcan/youcan-data.service';
 import { BarcodeService } from './barcode.service';
 import {
+  CompareCatalogQueryDto,
+  CompareProductPlatform,
   CreateWarehouseProductDto,
   CreateProductBundleDto,
   CompareProductsQueryDto,
@@ -121,6 +128,9 @@ export class ProductService {
     private readonly prisma: PrismaService,
     private readonly stores: WarehouseStoreService,
     private readonly barcodes: BarcodeService,
+    private readonly shopifyData: ShopifyDataService,
+    private readonly youCanData: YouCanDataService,
+    private readonly lightfunnelsData: LightfunnelsDataService,
   ) {}
 
   /**
@@ -872,6 +882,95 @@ export class ProductService {
   }
 
   /**
+   * Platforms available for the Compare Products dropdown. Warehouse is always
+   * listed; e-com platforms are available only with an ACTIVE connection.
+   */
+  async listComparePlatforms(userId: string) {
+    const store = await this.stores.requireStore(userId);
+    const connections = await this.prisma.ecommerceConnection.findMany({
+      where: { storeId: store.id, status: EcommerceConnectionStatus.ACTIVE },
+      select: { platform: true },
+    });
+    const active = new Set(connections.map((row) => row.platform));
+
+    const options: Array<{
+      id: CompareProductPlatform;
+      label: string;
+      available: boolean;
+    }> = [
+      {
+        id: CompareProductPlatform.WAREHOUSE,
+        label: 'Warehouse',
+        available: true,
+      },
+      {
+        id: CompareProductPlatform.SHOPIFY,
+        label: 'Shopify',
+        available: active.has(EcommercePlatform.SHOPIFY),
+      },
+      {
+        id: CompareProductPlatform.YOUCAN,
+        label: 'YouCan',
+        available: active.has(EcommercePlatform.YOUCAN),
+      },
+      {
+        id: CompareProductPlatform.LIGHTFUNNELS,
+        label: 'Lightfunnels',
+        available: active.has(EcommercePlatform.LIGHTFUNNELS),
+      },
+    ];
+
+    return { platforms: options };
+  }
+
+  /**
+   * Select Product sheet for Compare — platform-scoped search with a
+   * normalized row shape (id, name, image, stock label).
+   */
+  async searchCompareProducts(userId: string, query: CompareCatalogQueryDto) {
+    const store = await this.stores.requireStore(userId);
+    const limit = query.limit ?? 20;
+    const page = query.page ?? 1;
+
+    if (query.platform !== CompareProductPlatform.WAREHOUSE) {
+      await this.requireActiveEcommercePlatform(store.id, query.platform);
+    }
+
+    switch (query.platform) {
+      case CompareProductPlatform.WAREHOUSE:
+        return this.searchWarehouseCompareCatalog(
+          userId,
+          query.search,
+          page,
+          limit,
+        );
+      case CompareProductPlatform.SHOPIFY:
+        return this.searchShopifyCompareCatalog(
+          userId,
+          query.search,
+          limit,
+          query.after,
+        );
+      case CompareProductPlatform.YOUCAN:
+        return this.searchYouCanCompareCatalog(
+          userId,
+          query.search,
+          page,
+          limit,
+        );
+      case CompareProductPlatform.LIGHTFUNNELS:
+        return this.searchLightfunnelsCompareCatalog(
+          userId,
+          query.search,
+          limit,
+          query.after,
+        );
+      default:
+        throw new BadRequestException('Unsupported compare platform');
+    }
+  }
+
+  /**
    * Compare Products screen. Deliberately not built on top of performance()
    * — that method's daily-series/top-cities aggregation isn't needed here,
    * so this runs its own (smaller) version of the same order-line loop,
@@ -879,17 +978,48 @@ export class ProductService {
    * matter and must never drift from performance()'s own answer:
    * performanceRange() for period/custom-range parsing, and
    * productOrderState() for what counts as delivered/cancelled/returned.
+   *
+   * Each side may come from a different catalog (Warehouse / Shopify /
+   * YouCan / Lightfunnels). Profit and CPO are null when that side has no
+   * warehouse cost to attribute.
    */
   async compare(userId: string, query: CompareProductsQueryDto) {
-    if (query.productAId === query.productBId) {
+    const platformA = query.platformA ?? CompareProductPlatform.WAREHOUSE;
+    const platformB = query.platformB ?? CompareProductPlatform.WAREHOUSE;
+
+    if (
+      platformA === platformB &&
+      normalizeCompareProductKey(platformA, query.productAId) ===
+        normalizeCompareProductKey(platformB, query.productBId)
+    ) {
       throw new BadRequestException('Select two different products to compare');
     }
+
     const store = await this.stores.requireStore(userId);
     const range = performanceRange(query);
 
+    if (platformA !== CompareProductPlatform.WAREHOUSE) {
+      await this.requireActiveEcommercePlatform(store.id, platformA);
+    }
+    if (platformB !== CompareProductPlatform.WAREHOUSE) {
+      await this.requireActiveEcommercePlatform(store.id, platformB);
+    }
+
     const [sideA, sideB] = await Promise.all([
-      this.computeComparisonSide(store.id, query.productAId, range),
-      this.computeComparisonSide(store.id, query.productBId, range),
+      this.computeComparisonSide(
+        userId,
+        store.id,
+        platformA,
+        query.productAId,
+        range,
+      ),
+      this.computeComparisonSide(
+        userId,
+        store.id,
+        platformB,
+        query.productBId,
+        range,
+      ),
     ]);
 
     const insight = computeComparisonInsight(
@@ -911,12 +1041,14 @@ export class ProductService {
       },
       currency: store.baseCurrency,
       productA: {
+        platform: sideA.platform,
         productId: sideA.productId,
         name: sideA.name,
         imageUrl: sideA.imageUrl,
         metrics: sideA.metrics,
       },
       productB: {
+        platform: sideB.platform,
         productId: sideB.productId,
         name: sideB.name,
         imageUrl: sideB.imageUrl,
@@ -927,7 +1059,194 @@ export class ProductService {
     };
   }
 
+  private async searchWarehouseCompareCatalog(
+    userId: string,
+    search: string | undefined,
+    page: number,
+    limit: number,
+  ) {
+    const listed = await this.list(userId, {
+      search,
+      status: WarehouseProductStatus.ACTIVE,
+      page,
+      limit,
+    });
+    return {
+      data: listed.data.map((product) => {
+        const imageUrl =
+          product.images.find((item) => item.purpose === 'PRODUCT_MAIN')?.url ??
+          product.images[0]?.url ??
+          null;
+        return {
+          id: product.id,
+          platform: CompareProductPlatform.WAREHOUSE,
+          name: product.name,
+          imageUrl,
+          stockLabel: `${product.inventory.available} In Stock`,
+        };
+      }),
+      pagination: {
+        page: listed.pagination.page,
+        limit: listed.pagination.limit,
+        total: listed.pagination.total,
+        totalPages: listed.pagination.totalPages,
+        nextCursor: null,
+        hasNextPage: listed.pagination.page < listed.pagination.totalPages,
+      },
+    };
+  }
+
+  private async searchShopifyCompareCatalog(
+    userId: string,
+    search: string | undefined,
+    limit: number,
+    after?: string,
+  ) {
+    const result = await this.shopifyData.listProducts(userId, {
+      first: limit,
+      after,
+      query: search?.trim() || undefined,
+    } as Parameters<ShopifyDataService['listProducts']>[1]);
+    return {
+      data: result.data.map((product) => {
+        const numericId = shopifyNumericId(product.id) ?? product.id;
+        const inventory = product.totalInventory ?? 0;
+        return {
+          id: numericId,
+          platform: CompareProductPlatform.SHOPIFY,
+          name: product.title,
+          imageUrl: product.featuredImage?.url ?? null,
+          stockLabel: `${inventory} In Stock`,
+        };
+      }),
+      pagination: {
+        page: null,
+        limit,
+        total: null,
+        totalPages: null,
+        nextCursor: result.pageInfo.hasNextPage
+          ? (result.pageInfo.endCursor ?? null)
+          : null,
+        hasNextPage: result.pageInfo.hasNextPage,
+      },
+    };
+  }
+
+  private async searchYouCanCompareCatalog(
+    userId: string,
+    search: string | undefined,
+    page: number,
+    limit: number,
+  ) {
+    const result = await this.youCanData.listProducts(userId, {
+      page,
+      limit,
+      q: search?.trim() || undefined,
+    } as Parameters<YouCanDataService['listProducts']>[1]);
+    const pagination = result.meta?.pagination;
+    const total = pagination?.total ?? result.data.length;
+    const totalPages =
+      pagination?.last_page ?? Math.max(1, Math.ceil(total / limit));
+    return {
+      data: result.data.map((product) => {
+        const inventory =
+          typeof product.inventory === 'number' ? product.inventory : null;
+        return {
+          id: String(product.id),
+          platform: CompareProductPlatform.YOUCAN,
+          name: product.name?.trim() || `Product ${product.id}`,
+          imageUrl: product.thumbnail?.trim() || null,
+          stockLabel:
+            inventory === null ? null : `${inventory} In Stock`,
+        };
+      }),
+      pagination: {
+        page: pagination?.current_page ?? page,
+        limit: pagination?.per_page ?? limit,
+        total,
+        totalPages,
+        nextCursor: null,
+        hasNextPage: (pagination?.current_page ?? page) < totalPages,
+      },
+    };
+  }
+
+  private async searchLightfunnelsCompareCatalog(
+    userId: string,
+    search: string | undefined,
+    limit: number,
+    after?: string,
+  ) {
+    const result = await this.lightfunnelsData.listProducts(userId, {
+      first: limit,
+      after,
+      query: search?.trim() || undefined,
+    } as Parameters<LightfunnelsDataService['listProducts']>[1]);
+    const connection = result.data;
+    return {
+      data: (connection.edges ?? []).map((edge) => ({
+        id: String(edge.node.id),
+        platform: CompareProductPlatform.LIGHTFUNNELS,
+        name: edge.node.title?.trim() || `Product ${edge.node.id}`,
+        imageUrl: null,
+        stockLabel: null,
+      })),
+      pagination: {
+        page: null,
+        limit,
+        total: null,
+        totalPages: null,
+        nextCursor: connection.pageInfo.hasNextPage
+          ? (connection.pageInfo.endCursor ?? null)
+          : null,
+        hasNextPage: connection.pageInfo.hasNextPage,
+      },
+    };
+  }
+
+  private async requireActiveEcommercePlatform(
+    storeId: string,
+    platform: CompareProductPlatform,
+  ) {
+    const ecommercePlatform = toEcommercePlatform(platform);
+    if (!ecommercePlatform) {
+      throw new BadRequestException('Unsupported compare platform');
+    }
+    const connection = await this.prisma.ecommerceConnection.findFirst({
+      where: {
+        storeId,
+        platform: ecommercePlatform,
+        status: EcommerceConnectionStatus.ACTIVE,
+      },
+      select: { id: true },
+    });
+    if (!connection) {
+      throw new BadRequestException(
+        `${platform} is not connected. Connect it before comparing products from that catalog.`,
+      );
+    }
+  }
+
   private async computeComparisonSide(
+    userId: string,
+    storeId: string,
+    platform: CompareProductPlatform,
+    productId: string,
+    range: { from: Date; toExclusive: Date },
+  ) {
+    if (platform === CompareProductPlatform.WAREHOUSE) {
+      return this.computeWarehouseComparisonSide(storeId, productId, range);
+    }
+    return this.computeEcommerceComparisonSide(
+      userId,
+      storeId,
+      platform,
+      productId,
+      range,
+    );
+  }
+
+  private async computeWarehouseComparisonSide(
     storeId: string,
     productId: string,
     range: { from: Date; toExclusive: Date },
@@ -952,106 +1271,115 @@ export class ProductService {
           processedAt: { gte: range.from, lt: range.toExclusive },
         },
       },
-      include: {
-        warehouseVariant: { select: { costPrice: true } },
-        order: {
-          select: {
-            id: true,
-            status: true,
-            financialStatus: true,
-            fulfillmentStatus: true,
-            providerUpdatedAt: true,
-            dispatch: {
-              select: {
-                senditShipment: { select: { normalizedStatus: true } },
-                quickLivraisonShipment: {
-                  select: { normalizedStatus: true },
-                },
-                forceLogShipment: { select: { normalizedStatus: true } },
-                ozoneExpressShipment: {
-                  select: { normalizedStatus: true },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: comparisonLineInclude,
     });
 
-    const orders = new Map<
-      string,
-      { delivered: boolean; cancelled: boolean; returned: boolean }
-    >();
-    let revenue = new Prisma.Decimal(0);
-    let cost = new Prisma.Decimal(0);
-    let dataUpdatedAt: Date | null = null;
-
-    for (const line of lines) {
-      const state = productOrderState(line.order);
-      orders.set(line.order.id, state);
-      if (
-        !dataUpdatedAt ||
-        line.order.providerUpdatedAt.getTime() > dataUpdatedAt.getTime()
-      ) {
-        dataUpdatedAt = line.order.providerUpdatedAt;
-      }
-      const lineRevenue = state.realized
-        ? line.totalPrice
-        : new Prisma.Decimal(0);
-      const lineCost = state.realized
-        ? line.warehouseVariant!.costPrice.times(line.quantity)
-        : new Prisma.Decimal(0);
-      revenue = revenue.plus(lineRevenue);
-      cost = cost.plus(lineCost);
-    }
-
-    const orderStates = [...orders.values()];
-    const totalOrders = orders.size;
-    const grossProfit = revenue.minus(cost);
-    const deliveryRate = percentage(
-      orderStates.filter((order) => order.delivered).length,
-      totalOrders,
-    );
-    const returnRate = percentage(
-      orderStates.filter((order) => order.returned).length,
-      totalOrders,
-    );
-    const cancellationRate = percentage(
-      orderStates.filter((order) => order.cancelled).length,
-      totalOrders,
-    );
-    const avgOrderValue =
-      totalOrders === 0 ? new Prisma.Decimal(0) : revenue.div(totalOrders);
-    const cpo =
-      totalOrders === 0 ? new Prisma.Decimal(0) : cost.div(totalOrders);
-
-    return {
+    return finalizeComparisonSide({
+      platform: CompareProductPlatform.WAREHOUSE,
       productId,
       name: product.name,
       imageUrl: product.media[0]
         ? `/warehouse/media/${product.media[0].id}/content`
         : null,
-      metrics: {
-        totalOrders,
-        deliveryRate,
-        returnRate,
-        cancellationRate,
-        revenue: revenue.toFixed(4),
-        profit: grossProfit.toFixed(4),
-        avgOrderValue: avgOrderValue.toFixed(4),
-        cpo: cpo.toFixed(4),
+      lines,
+      platformUnitCost: null,
+    });
+  }
+
+  private async computeEcommerceComparisonSide(
+    userId: string,
+    storeId: string,
+    platform: CompareProductPlatform,
+    productId: string,
+    range: { from: Date; toExclusive: Date },
+  ) {
+    const ecommercePlatform = toEcommercePlatform(platform)!;
+    const productIds = expandExternalProductIds(platform, productId);
+
+    const meta = await this.resolveEcommerceProductMeta(
+      userId,
+      platform,
+      productId,
+    );
+
+    const lines = await this.prisma.ecommerceOrderLine.findMany({
+      where: {
+        externalProductId: { in: productIds },
+        order: {
+          connection: { storeId, platform: ecommercePlatform },
+          processedAt: { gte: range.from, lt: range.toExclusive },
+        },
       },
-      insightMetrics: {
-        deliveryRate,
-        returnRate,
-        cancellationRate,
-        revenue: revenue.toNumber(),
-        profit: grossProfit.toNumber(),
-        avgOrderValue: avgOrderValue.toNumber(),
-        cpo: cpo.toNumber(),
-      },
-      dataUpdatedAt,
-    };
+      include: comparisonLineInclude,
+    });
+
+    return finalizeComparisonSide({
+      platform,
+      productId: shopifyNumericId(productId) ?? productId,
+      name: meta.name,
+      imageUrl: meta.imageUrl,
+      lines,
+      platformUnitCost: meta.costPrice,
+    });
+  }
+
+  private async resolveEcommerceProductMeta(
+    userId: string,
+    platform: CompareProductPlatform,
+    productId: string,
+  ): Promise<{
+    name: string;
+    imageUrl: string | null;
+    costPrice: Prisma.Decimal | null;
+  }> {
+    try {
+      if (platform === CompareProductPlatform.SHOPIFY) {
+        const numeric = shopifyNumericId(productId) ?? productId;
+        const product = await this.shopifyData.getProductDetails(
+          userId,
+          numeric,
+          {} as Parameters<ShopifyDataService['getProductDetails']>[2],
+        );
+        return {
+          name: product.title,
+          imageUrl: product.featuredImage?.url ?? null,
+          costPrice: null,
+        };
+      }
+      if (platform === CompareProductPlatform.YOUCAN) {
+        const product = await this.youCanData.getProductDetails(
+          userId,
+          productId,
+        );
+        const cost =
+          typeof product.data.cost_price === 'number'
+            ? new Prisma.Decimal(product.data.cost_price)
+            : null;
+        return {
+          name: product.data.name?.trim() || `Product ${productId}`,
+          imageUrl: product.data.thumbnail?.trim() || null,
+          costPrice: cost,
+        };
+      }
+      if (platform === CompareProductPlatform.LIGHTFUNNELS) {
+        const product = await this.lightfunnelsData.getProductDetails(
+          userId,
+          productId,
+        );
+        return {
+          name: product.data.title?.trim() || `Product ${productId}`,
+          imageUrl: null,
+          costPrice: null,
+        };
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Could not load ${platform} product ${productId} metadata: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    return { name: `Product ${productId}`, imageUrl: null, costPrice: null };
   }
 
   async update(
@@ -1819,6 +2147,176 @@ function validateUniqueRequestValues(variants: PreparedVariant[]) {
       'Variant SKUs must be unique within a product',
     );
   }
+}
+
+const comparisonLineInclude = {
+  warehouseVariant: { select: { costPrice: true } },
+  order: {
+    select: {
+      id: true,
+      status: true,
+      financialStatus: true,
+      fulfillmentStatus: true,
+      providerUpdatedAt: true,
+      dispatch: {
+        select: {
+          senditShipment: { select: { normalizedStatus: true } },
+          quickLivraisonShipment: { select: { normalizedStatus: true } },
+          forceLogShipment: { select: { normalizedStatus: true } },
+          ozoneExpressShipment: { select: { normalizedStatus: true } },
+        },
+      },
+    },
+  },
+} as const;
+
+type ComparisonLine = Prisma.EcommerceOrderLineGetPayload<{
+  include: typeof comparisonLineInclude;
+}>;
+
+function finalizeComparisonSide(input: {
+  platform: CompareProductPlatform;
+  productId: string;
+  name: string;
+  imageUrl: string | null;
+  lines: ComparisonLine[];
+  /** Fallback unit cost when a line has no warehouseVariant (e.g. YouCan cost_price). */
+  platformUnitCost: Prisma.Decimal | null;
+}) {
+  const orders = new Map<
+    string,
+    { delivered: boolean; cancelled: boolean; returned: boolean }
+  >();
+  let revenue = new Prisma.Decimal(0);
+  let cost = new Prisma.Decimal(0);
+  let costAvailable = false;
+  let dataUpdatedAt: Date | null = null;
+
+  for (const line of input.lines) {
+    const state = productOrderState(line.order);
+    orders.set(line.order.id, state);
+    if (
+      !dataUpdatedAt ||
+      line.order.providerUpdatedAt.getTime() > dataUpdatedAt.getTime()
+    ) {
+      dataUpdatedAt = line.order.providerUpdatedAt;
+    }
+    if (!state.realized) continue;
+    revenue = revenue.plus(line.totalPrice);
+    if (line.warehouseVariant) {
+      cost = cost.plus(line.warehouseVariant.costPrice.times(line.quantity));
+      costAvailable = true;
+    } else if (input.platformUnitCost) {
+      cost = cost.plus(input.platformUnitCost.times(line.quantity));
+      costAvailable = true;
+    }
+  }
+
+  // Warehouse sides with no orders still expose profit/cpo as "0.0000".
+  if (
+    input.platform === CompareProductPlatform.WAREHOUSE &&
+    input.platformUnitCost === null
+  ) {
+    costAvailable = true;
+  }
+
+  const orderStates = [...orders.values()];
+  const totalOrders = orders.size;
+  const deliveryRate = percentage(
+    orderStates.filter((order) => order.delivered).length,
+    totalOrders,
+  );
+  const returnRate = percentage(
+    orderStates.filter((order) => order.returned).length,
+    totalOrders,
+  );
+  const cancellationRate = percentage(
+    orderStates.filter((order) => order.cancelled).length,
+    totalOrders,
+  );
+  const avgOrderValue =
+    totalOrders === 0 ? new Prisma.Decimal(0) : revenue.div(totalOrders);
+  const grossProfit = costAvailable ? revenue.minus(cost) : null;
+  const cpo =
+    costAvailable && totalOrders > 0
+      ? cost.div(totalOrders)
+      : costAvailable
+        ? new Prisma.Decimal(0)
+        : null;
+
+  return {
+    platform: input.platform,
+    productId: input.productId,
+    name: input.name,
+    imageUrl: input.imageUrl,
+    metrics: {
+      totalOrders,
+      deliveryRate,
+      returnRate,
+      cancellationRate,
+      revenue: revenue.toFixed(4),
+      profit: grossProfit?.toFixed(4) ?? null,
+      avgOrderValue: avgOrderValue.toFixed(4),
+      cpo: cpo?.toFixed(4) ?? null,
+    },
+    insightMetrics: {
+      deliveryRate,
+      returnRate,
+      cancellationRate,
+      revenue: revenue.toNumber(),
+      profit: grossProfit?.toNumber() ?? null,
+      avgOrderValue: avgOrderValue.toNumber(),
+      cpo: cpo?.toNumber() ?? null,
+    },
+    dataUpdatedAt,
+  };
+}
+
+function toEcommercePlatform(
+  platform: CompareProductPlatform,
+): EcommercePlatform | null {
+  switch (platform) {
+    case CompareProductPlatform.SHOPIFY:
+      return EcommercePlatform.SHOPIFY;
+    case CompareProductPlatform.YOUCAN:
+      return EcommercePlatform.YOUCAN;
+    case CompareProductPlatform.LIGHTFUNNELS:
+      return EcommercePlatform.LIGHTFUNNELS;
+    default:
+      return null;
+  }
+}
+
+function shopifyNumericId(value: string): string | null {
+  const gidMatch = value.match(/^gid:\/\/shopify\/Product\/(\d+)$/i);
+  if (gidMatch) return gidMatch[1];
+  if (/^[1-9]\d{0,19}$/.test(value)) return value;
+  return null;
+}
+
+function expandExternalProductIds(
+  platform: CompareProductPlatform,
+  productId: string,
+): string[] {
+  if (platform === CompareProductPlatform.SHOPIFY) {
+    const numeric = shopifyNumericId(productId);
+    if (numeric) {
+      return [numeric, `gid://shopify/Product/${numeric}`];
+    }
+  }
+  return [productId];
+}
+
+function normalizeCompareProductKey(
+  platform: CompareProductPlatform,
+  productId: string,
+): string {
+  if (platform === CompareProductPlatform.SHOPIFY) {
+    return (
+      shopifyNumericId(productId) ?? productId.trim().toLowerCase()
+    );
+  }
+  return productId.trim().toLowerCase();
 }
 
 function mediaResponse(media: {

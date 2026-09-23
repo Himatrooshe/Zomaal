@@ -41,6 +41,21 @@ export class YouCanProductDto {
 
   @ApiPropertyOptional()
   price?: number;
+
+  @ApiPropertyOptional({
+    description: 'Merchant cost when YouCan provides it.',
+  })
+  cost_price?: number;
+
+  @ApiPropertyOptional({
+    description: 'Primary product image URL from YouCan.',
+  })
+  thumbnail?: string;
+
+  @ApiPropertyOptional({
+    description: 'Available inventory units when inventory is tracked.',
+  })
+  inventory?: number;
 }
 
 export class YouCanOrderDto {

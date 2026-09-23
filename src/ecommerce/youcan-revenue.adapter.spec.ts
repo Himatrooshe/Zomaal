@@ -180,4 +180,62 @@ describe('YouCanRevenueAdapter', () => {
     ).rejects.toBeInstanceOf(BadGatewayException);
     expect(getJsonForUser).not.toHaveBeenCalled();
   });
+
+  it('reads externalProductId from nested variants[].variant.product when top-level product_id is missing', async () => {
+    const getJsonForUser = jest.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-nested',
+          ref: '030',
+          vat: 0,
+          total: 400,
+          status_object: { slug: 'closed' },
+          payment: { status_text: 'paid' },
+          shipping: { price: 0 },
+          created_at: '2026-07-18T10:00:00.000Z',
+          updated_at: '2026-07-18T10:00:00.000Z',
+          variants: [
+            {
+              id: 'line-nested',
+              price: 100,
+              quantity: 4,
+              variant: {
+                id: 'variant-1',
+                sku: 'TS-M',
+                product: {
+                  id: 'product-nested-1',
+                  name: 'Nested Catalog Product',
+                },
+              },
+            },
+          ],
+          refunds: [],
+        },
+      ],
+      meta: {
+        pagination: { current_page: 1, total_pages: 1, links: {} },
+      },
+    });
+    const adapter = new YouCanRevenueAdapter({
+      getJsonForUser,
+      getStoreCurrency: jest.fn().mockResolvedValue('MAD'),
+    } as unknown as YouCanConnectionService);
+
+    const result = await adapter.fetchOrdersPage(
+      'user-id',
+      null,
+      null,
+      new Date(),
+    );
+
+    expect(result.orders[0].lines).toEqual([
+      expect.objectContaining({
+        externalProductId: 'product-nested-1',
+        externalVariantId: 'variant-1',
+        sku: 'TS-M',
+        name: 'Nested Catalog Product',
+        quantity: 4,
+      }),
+    ]);
+  });
 });

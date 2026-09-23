@@ -70,7 +70,7 @@ export class AuthController {
     examples: {
       logger: {
         summary: 'Configured logger user',
-        value: { phone: '+212600000001', password: 'zomaal01@' },
+        value: { phone: '+212600000001', password: 'your-password' },
       },
     },
   })

@@ -17,7 +17,7 @@ paths:
                 summary: Configured logger user
                 value:
                   phone: '+212600000001'
-                  password: zomaal01@
+                  password: your-password
       responses:
         '200':
           description: Authentication succeeded.
@@ -12614,7 +12614,7 @@ components:
         password:
           type: string
           description: Logger password configured through LOGGER_PASSWORD.
-          example: zomaal01@
+          example: your-password
           minLength: 8
           format: password
           writeOnly: true

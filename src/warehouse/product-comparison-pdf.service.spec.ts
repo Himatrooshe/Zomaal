@@ -10,6 +10,7 @@ function baseComparison(): ProductComparisonResponseDto {
     },
     currency: 'MAD',
     productA: {
+      platform: 'WAREHOUSE',
       productId: 'product-a',
       name: 'Wireless Headphones',
       imageUrl: null,
@@ -25,6 +26,7 @@ function baseComparison(): ProductComparisonResponseDto {
       },
     },
     productB: {
+      platform: 'WAREHOUSE',
       productId: 'product-b',
       name: 'Bluetooth Speaker',
       imageUrl: null,

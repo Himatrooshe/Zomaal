@@ -29,6 +29,6 @@ import { CustomersModule } from '../customers/customers.module';
     ShopifyTokenEncryptionService,
     ShopifyWebhookService,
   ],
-  exports: [ShopifyConnectionService],
+  exports: [ShopifyConnectionService, ShopifyDataService],
 })
 export class ShopifyModule {}

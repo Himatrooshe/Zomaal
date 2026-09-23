@@ -97,11 +97,24 @@ describe('computeComparisonInsight', () => {
     );
   });
 
-  it('picks product B as winner when B has the larger value on a higher-is-better metric', () => {
-    const a: ComparisonInsightMetrics = { ...ZERO, revenue: 50 };
-    const b: ComparisonInsightMetrics = { ...ZERO, revenue: 150 };
+  it('skips profit and cpo when either side is null (no warehouse cost)', () => {
+    const a: ComparisonInsightMetrics = {
+      ...ZERO,
+      revenue: 100,
+      profit: null,
+      cpo: null,
+      deliveryRate: 80,
+    };
+    const b: ComparisonInsightMetrics = {
+      ...ZERO,
+      revenue: 50,
+      profit: null,
+      cpo: null,
+      deliveryRate: 40,
+    };
     const insight = computeComparisonInsight(a, b, 'A', 'B');
-    expect(insight!.winner).toBe('B');
-    expect(insight!.message).toBe('B has 200% better revenue than A');
+    expect(insight).not.toBeNull();
+    // revenue gap is 100%, deliveryRate gap is 100% — either is fine; profit/cpo skipped
+    expect(['revenue', 'deliveryRate']).toContain(insight!.metric);
   });
 });

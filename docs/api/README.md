@@ -11,8 +11,8 @@ This folder contains standalone API documentation for frontend development.
 Open `openapi.yaml` with one of these tools:
 
 - Swagger Editor: https://editor.swagger.io/
-- Postman: Import -> Files -> `docs/api/openapi.yaml`
-- Insomnia: Import -> From File -> `docs/api/openapi.yaml`
+- Insomnia / other OpenAPI clients: Import -> From File -> `docs/api/openapi.yaml`
+  (Prefer the OpenAPI file over checked-in Postman collections.)
 
 ## Notes
 

@@ -231,9 +231,10 @@ function formatDateTime(iso: string): string {
 }
 
 function formatMetric(
-  value: number | string,
+  value: number | string | null,
   format: 'number' | 'percent' | 'money',
 ): string {
+  if (value == null) return '—';
   if (format === 'number') return String(value);
   if (format === 'percent') return `${value}%`;
   return Number(value).toFixed(2);

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { YouCanConnectionService } from './youcan-connection.service';
 import { YouCanDataPageQueryDto } from './dto/youcan-data-query.dto';
 import {
@@ -28,10 +28,15 @@ export class YouCanDataService {
     userId: string,
     productId: string,
   ): Promise<YouCanDataResponseDto<YouCanProductDto>> {
-    const response = await this.connectionService.getJsonForUser<{
-      product: YouCanProductDto;
-    }>(userId, `/products/${productId}`);
-    return { data: response.product };
+    const response = await this.connectionService.getJsonForUser<unknown>(
+      userId,
+      `/products/${productId}`,
+    );
+    const product = unwrapYouCanProduct(response);
+    if (!product) {
+      throw new NotFoundException(`YouCan product ${productId} not found`);
+    }
+    return { data: product };
   }
 
   async listOrders(
@@ -68,4 +73,21 @@ export class YouCanDataService {
       q: query.q,
     });
   }
+}
+
+function unwrapYouCanProduct(response: unknown): YouCanProductDto | null {
+  if (!response || typeof response !== 'object') return null;
+  const record = response as Record<string, unknown>;
+  if (isYouCanProduct(record.product)) return record.product;
+  if (isYouCanProduct(record.data)) return record.data;
+  if (isYouCanProduct(record)) return record;
+  return null;
+}
+
+function isYouCanProduct(value: unknown): value is YouCanProductDto {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as { id?: unknown }).id === 'string'
+  );
 }

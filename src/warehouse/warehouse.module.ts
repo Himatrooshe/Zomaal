@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { LightfunnelsModule } from '../lightfunnels/lightfunnels.module';
+import { ShopifyModule } from '../shopify/shopify.module';
+import { YouCanModule } from '../youcan/youcan.module';
 import { BarcodeLabelService } from './barcode-label.service';
 import { BarcodeController } from './barcode.controller';
 import { BarcodeService } from './barcode.service';
@@ -16,6 +19,7 @@ import { ProductService } from './product.service';
 import { WarehouseStoreService } from './warehouse-store.service';
 
 @Module({
+  imports: [ShopifyModule, YouCanModule, LightfunnelsModule],
   controllers: [
     CategoryController,
     BarcodeController,

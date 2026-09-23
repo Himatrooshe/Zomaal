@@ -1,0 +1,36 @@
+---
+description: Never ship dummy/static catalog data or real secrets (passwords, API keys, tokens) in commits.
+alwaysApply: true
+---
+
+# Commit Safety — No Dummy Data & No Secrets
+
+Before committing or claiming a module is done, re-read `docs/no-dummy-static-data.md`.
+
+## Dummy / static data
+
+- Do **not** hardcode product catalogs, order rows, metrics, images, or stock in services/controllers.
+- Do **not** paste live merchant IDs/names into unit tests — use synthetic fixtures.
+- Do **not** INSERT dummy DB rows to “prove” a feature and leave them as product data.
+- Fallbacks: `null` or ``Product ${id}`` — never invented revenue/profit/stock.
+
+## Secrets (security)
+
+- Do **not** commit real passwords, API keys, client secrets, JWT/encryption keys, OAuth tokens, or GCP credentials.
+- Swagger / OpenAPI / DTO `example` values must use placeholders only (e.g. `your-password`), never live `LOGGER_PASSWORD` or production keys.
+- Keep secrets in `.env` (gitignored) or cloud Secret Manager. `.env.example` may only contain empty/`YOUR_*` placeholders.
+- Never paste `Authorization: Bearer …` or full `.env` dumps into markdown, chat artifacts that get committed, or source files.
+- If a secret was committed: rotate it and treat the old value as burned.
+
+## What not to commit
+
+- Do **not** add `docs/postman/` collections or `*-postman-testing.md` guides — use local Postman/Insomnia + `docs/api/openapi.yaml`.
+- Keep `src/**/*.spec.ts` and `test/` e2e; those are real automated tests.
+
+## Pre-commit
+
+```bash
+git diff --cached -U0 | rg -i 'password|secret|api[_-]?key|token|Bearer |shpat_|-----BEGIN'
+```
+
+Also scan production diffs for live catalog UUIDs/titles copied from a test session.

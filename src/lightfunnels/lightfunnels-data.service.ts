@@ -25,12 +25,10 @@ const PRODUCTS_QUERY = `
           description
           created_at
           updated_at
-          status
           price
           compare_at_price
           images {
-            url
-            position
+            uid
           }
           variants {
             id
@@ -58,12 +56,10 @@ const PRODUCT_QUERY = `
           description
           created_at
           updated_at
-          status
           price
           compare_at_price
           images {
-            url
-            position
+            uid
           }
           variants {
             id

@@ -550,14 +550,101 @@ export class ProductPerformanceQueryDto {
   to?: string;
 }
 
+export enum CompareProductPlatform {
+  WAREHOUSE = 'WAREHOUSE',
+  SHOPIFY = 'SHOPIFY',
+  YOUCAN = 'YOUCAN',
+  LIGHTFUNNELS = 'LIGHTFUNNELS',
+}
+
 export class CompareProductsQueryDto extends ProductPerformanceQueryDto {
-  @ApiProperty({ format: 'uuid', description: 'First store-owned product.' })
-  @IsUUID()
+  @ApiPropertyOptional({
+    enum: CompareProductPlatform,
+    default: CompareProductPlatform.WAREHOUSE,
+    description:
+      'Catalog for product A. Defaults to WAREHOUSE for backward compatibility.',
+  })
+  @IsOptional()
+  @IsEnum(CompareProductPlatform)
+  platformA?: CompareProductPlatform;
+
+  @ApiPropertyOptional({
+    enum: CompareProductPlatform,
+    default: CompareProductPlatform.WAREHOUSE,
+    description:
+      'Catalog for product B. Defaults to WAREHOUSE for backward compatibility.',
+  })
+  @IsOptional()
+  @IsEnum(CompareProductPlatform)
+  platformB?: CompareProductPlatform;
+
+  @ApiProperty({
+    description:
+      'Product A id — warehouse UUID, or the platform product id from compare/products.',
+    example: '48147007-8231-4702-a15c-62f423992583',
+  })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
   productAId!: string;
 
-  @ApiProperty({ format: 'uuid', description: 'Second store-owned product.' })
-  @IsUUID()
+  @ApiProperty({
+    description:
+      'Product B id — warehouse UUID, or the platform product id from compare/products.',
+    example: '9172411547890',
+  })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
   productBId!: string;
+}
+
+export class CompareCatalogQueryDto {
+  @ApiProperty({ enum: CompareProductPlatform })
+  @IsEnum(CompareProductPlatform)
+  platform!: CompareProductPlatform;
+
+  @ApiPropertyOptional({
+    description: 'Name / title search. SKU search applies for warehouse only.',
+    example: 'Headphones',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
+  @ApiPropertyOptional({
+    minimum: 1,
+    default: 1,
+    description: 'Page number for WAREHOUSE and YOUCAN.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({
+    minimum: 1,
+    maximum: 100,
+    default: 20,
+    description: 'Page size (also used as Shopify/Lightfunnels `first`).',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Cursor for SHOPIFY / LIGHTFUNNELS (previous page `pagination.nextCursor`).',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  after?: string;
 }
 
 export enum ProductStockStatus {

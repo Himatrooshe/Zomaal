@@ -31,6 +31,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import {
+  CompareCatalogQueryDto,
   CompareProductsQueryDto,
   CreateProductBundleDto,
   CreateWarehouseProductDto,
@@ -39,6 +40,8 @@ import {
   WarehouseProductQueryDto,
 } from './dto/product.dto';
 import {
+  CompareCatalogResponseDto,
+  ComparePlatformsResponseDto,
   ProductComparisonResponseDto,
   ProductPerformanceResponseDto,
   WarehouseProductListResponseDto,
@@ -208,19 +211,49 @@ export class ProductController {
     return this.products.list(user.userId, query);
   }
 
+  @Get('compare/platforms')
+  @ApiOperation({
+    summary: 'List platforms available for Compare Products',
+    description:
+      'Warehouse is always available. Shopify, YouCan, and Lightfunnels are available only when the store has an ACTIVE connection. Frontend should hide unavailable platforms from the dropdown.',
+  })
+  @ApiOkResponse({ type: ComparePlatformsResponseDto })
+  listComparePlatforms(@CurrentUser() user: JwtPayload) {
+    return this.products.listComparePlatforms(user.userId);
+  }
+
+  @Get('compare/products')
+  @ApiOperation({
+    summary: 'Search products for the Compare Products picker',
+    description:
+      'Returns a normalized catalog for the selected platform. Use `search` for name filtering. Warehouse and YouCan use page/limit; Shopify and Lightfunnels use limit + after cursor (`pagination.nextCursor`).',
+  })
+  @ApiOkResponse({ type: CompareCatalogResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Platform is unsupported or not connected.',
+    type: ApiErrorDto,
+  })
+  searchCompareProducts(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: CompareCatalogQueryDto,
+  ) {
+    return this.products.searchCompareProducts(user.userId, query);
+  }
+
   @Get('compare')
   @ApiOperation({
-    summary: 'Compare two store-owned products side by side',
+    summary: 'Compare two products side by side across catalogs',
     description:
-      'Compare Products screen. Returns matching order/financial metrics for both products over the same 7D, 30D, 90D, or custom period, plus an auto-generated Insight — the single metric with the largest relative gap between the two products.',
+      'Each side has its own platform (Warehouse / Shopify / YouCan / Lightfunnels) and product id. Returns the same 7D/30D/90D/custom metrics, insight, and null profit/CPO when a side has no warehouse cost.',
   })
   @ApiOkResponse({ type: ProductComparisonResponseDto })
   @ApiBadRequestResponse({
-    description: 'productAId equals productBId, or an invalid query value.',
+    description:
+      'Same product on both sides, disconnected platform, or invalid query.',
     type: ApiErrorDto,
   })
   @ApiNotFoundResponse({
-    description: 'Store, or either store-owned product, was not found.',
+    description: 'Store or warehouse product was not found.',
     type: ApiErrorDto,
   })
   compare(
@@ -243,11 +276,12 @@ export class ProductController {
     },
   })
   @ApiBadRequestResponse({
-    description: 'productAId equals productBId, or an invalid query value.',
+    description:
+      'Same product on both sides, disconnected platform, or invalid query.',
     type: ApiErrorDto,
   })
   @ApiNotFoundResponse({
-    description: 'Store, or either store-owned product, was not found.',
+    description: 'Store or warehouse product was not found.',
     type: ApiErrorDto,
   })
   async exportCompare(

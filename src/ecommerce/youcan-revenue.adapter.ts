@@ -191,13 +191,19 @@ function normalizeLine(
   const unitPrice = decimal(value.price, 'variant price');
   const product = recordValue(value, 'product');
   const variant = recordValue(value, 'variant');
+  // YouCan nests the catalog product under variants[].variant.product
+  // (not variants[].product). Fall back through every known location so
+  // compare/timeline can match on externalProductId after sync.
+  const nestedProduct = recordValue(variant, 'product');
   return {
     externalLineId:
       optionalString(value.id) ??
       optionalString(value.product_variant_id) ??
       `${orderId}:${index + 1}`,
     externalProductId:
-      optionalString(value.product_id) ?? recordString(product, 'id'),
+      optionalString(value.product_id) ??
+      recordString(product, 'id') ??
+      recordString(nestedProduct, 'id'),
     externalVariantId:
       optionalString(value.product_variant_id) ??
       recordString(variant, 'id') ??
@@ -206,6 +212,7 @@ function normalizeLine(
     name:
       optionalString(value.product_name) ??
       recordString(product, 'name') ??
+      recordString(nestedProduct, 'name') ??
       optionalString(value.name) ??
       optionalString(value.title) ??
       'Unknown Product',

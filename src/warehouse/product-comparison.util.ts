@@ -12,9 +12,11 @@ export interface ComparisonInsightMetrics {
   returnRate: number;
   cancellationRate: number;
   revenue: number;
-  profit: number;
+  /** Null when warehouse cost is unavailable for this side. */
+  profit: number | null;
   avgOrderValue: number;
-  cpo: number;
+  /** Null when warehouse cost is unavailable for this side. */
+  cpo: number | null;
 }
 
 export interface ComparisonInsight {
@@ -77,6 +79,9 @@ export function computeComparisonInsight(
   for (const metric of INSIGHT_METRICS) {
     const valueA = a[metric];
     const valueB = b[metric];
+    // Skip when either side lacks a comparable numeric value (e.g. null
+    // profit/cpo for a platform product with no warehouse cost).
+    if (valueA == null || valueB == null) continue;
     if (valueA === valueB) continue;
 
     const aIsHigher = valueA > valueB;

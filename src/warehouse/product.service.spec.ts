@@ -20,6 +20,33 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { WarehouseStoreService } from './warehouse-store.service';
 import { BarcodeService } from './barcode.service';
+import { ShopifyDataService } from '../shopify/shopify-data.service';
+import { YouCanDataService } from '../youcan/youcan-data.service';
+import { LightfunnelsDataService } from '../lightfunnels/lightfunnels-data.service';
+
+function makeProductService(
+  prisma: PrismaService,
+  stores: WarehouseStoreService,
+  barcodes: BarcodeService = {} as BarcodeService,
+) {
+  return new ProductService(
+    prisma,
+    stores,
+    barcodes,
+    {
+      listProducts: jest.fn(),
+      getProductDetails: jest.fn(),
+    } as unknown as ShopifyDataService,
+    {
+      listProducts: jest.fn(),
+      getProductDetails: jest.fn(),
+    } as unknown as YouCanDataService,
+    {
+      listProducts: jest.fn(),
+      getProductDetails: jest.fn(),
+    } as unknown as LightfunnelsDataService,
+  );
+}
 
 describe('warehouse product preparation', () => {
   it('creates one default inventory variant for a product without options', () => {
@@ -130,7 +157,7 @@ describe('warehouse product list stock filter', () => {
     const stores = {
       requireStore: jest.fn().mockResolvedValue({ id: 'store-1' }),
     } as unknown as WarehouseStoreService;
-    const service = new ProductService(prisma, stores, {} as BarcodeService);
+    const service = makeProductService(prisma, stores, {} as BarcodeService);
     return {
       service,
       queryRaw,
@@ -197,7 +224,7 @@ describe('warehouse product performance', () => {
         baseCurrency: 'MAD',
       }),
     } as unknown as WarehouseStoreService;
-    const service = new ProductService(prisma, stores, {} as BarcodeService);
+    const service = makeProductService(prisma, stores, {} as BarcodeService);
 
     const result = await service.performance('user-1', 'product-1', {
       period: ProductPerformancePeriod.CUSTOM,
@@ -290,7 +317,7 @@ describe('warehouse product compare', () => {
         baseCurrency: 'MAD',
       }),
     } as unknown as WarehouseStoreService;
-    const service = new ProductService(prisma, stores, {} as BarcodeService);
+    const service = makeProductService(prisma, stores, {} as BarcodeService);
     return { service, prisma };
   }
 
@@ -305,6 +332,7 @@ describe('warehouse product compare', () => {
       to: '2026-08-11',
     });
 
+    expect(result.productA.platform).toBe('WAREHOUSE');
     expect(result.productA.metrics).toMatchObject({
       totalOrders: 1,
       revenue: '200.0000',
@@ -312,6 +340,7 @@ describe('warehouse product compare', () => {
       avgOrderValue: '200.0000',
       cpo: '50.0000',
     });
+    expect(result.productB.platform).toBe('WAREHOUSE');
     expect(result.productB.metrics).toMatchObject({
       totalOrders: 1,
       revenue: '100.0000',
@@ -348,6 +377,93 @@ describe('warehouse product compare', () => {
         productBId: 'missing-product',
       }),
     ).rejects.toThrow('Warehouse product missing-product not found');
+  });
+
+  it('lists warehouse as always available and e-com only when connected', async () => {
+    const { service, prisma } = makeCompareService();
+    (prisma as any).ecommerceConnection = {
+      findMany: jest.fn().mockResolvedValue([{ platform: 'SHOPIFY' }]),
+    };
+
+    const result = await service.listComparePlatforms('user-1');
+    expect(result.platforms).toEqual([
+      { id: 'WAREHOUSE', label: 'Warehouse', available: true },
+      { id: 'SHOPIFY', label: 'Shopify', available: true },
+      { id: 'YOUCAN', label: 'YouCan', available: false },
+      { id: 'LIGHTFUNNELS', label: 'Lightfunnels', available: false },
+    ]);
+  });
+
+  it('compares a shopify product by externalProductId with null profit when unlinked', async () => {
+    const { service, prisma } = makeCompareService();
+    (prisma as any).ecommerceConnection = {
+      findFirst: jest.fn().mockResolvedValue({ id: 'conn-1' }),
+    };
+    (prisma.ecommerceOrderLine.findMany as jest.Mock).mockImplementation(
+      (args: {
+        where: {
+          warehouseVariant?: { productId: string };
+          externalProductId?: { in: string[] };
+        };
+      }) => {
+        if (args.where.externalProductId) {
+          return Promise.resolve([
+            {
+              quantity: 1,
+              totalPrice: new Prisma.Decimal(80),
+              warehouseVariant: null,
+              order: {
+                id: 'order-s1',
+                status: EcommerceOrderStatus.CLOSED,
+                financialStatus: EcommercePaymentStatus.PAID,
+                fulfillmentStatus: 'FULFILLED',
+                providerUpdatedAt: new Date('2026-08-11T12:00:00.000Z'),
+                dispatch: null,
+              },
+            },
+          ]);
+        }
+        return Promise.resolve(
+          (args.where.warehouseVariant &&
+            ({
+              'product-a': [
+                {
+                  quantity: 1,
+                  totalPrice: new Prisma.Decimal(200),
+                  warehouseVariant: { costPrice: new Prisma.Decimal(50) },
+                  order: {
+                    id: 'order-a1',
+                    status: EcommerceOrderStatus.CLOSED,
+                    financialStatus: EcommercePaymentStatus.PAID,
+                    fulfillmentStatus: 'FULFILLED',
+                    providerUpdatedAt: new Date('2026-08-11T12:00:00.000Z'),
+                    dispatch: null,
+                  },
+                },
+              ],
+            } as Record<string, unknown[]>)[
+              args.where.warehouseVariant.productId
+            ]) ??
+            [],
+        );
+      },
+    );
+
+    const result = await service.compare('user-1', {
+      platformA: 'WAREHOUSE' as any,
+      productAId: 'product-a',
+      platformB: 'SHOPIFY' as any,
+      productBId: '9172411547890',
+      period: ProductPerformancePeriod.CUSTOM,
+      from: '2026-08-10',
+      to: '2026-08-11',
+    });
+
+    expect(result.productB.platform).toBe('SHOPIFY');
+    expect(result.productB.metrics.revenue).toBe('80.0000');
+    expect(result.productB.metrics.profit).toBeNull();
+    expect(result.productB.metrics.cpo).toBeNull();
+    expect(result.productA.metrics.profit).toBe('150.0000');
   });
 });
 
@@ -471,7 +587,7 @@ describe('warehouse product bundles', () => {
     const barcodes = {
       generateProductCodeForStore: jest.fn().mockResolvedValue('PACKCODE1'),
     } as unknown as BarcodeService;
-    const service = new ProductService(prisma, stores, barcodes);
+    const service = makeProductService(prisma, stores, barcodes);
 
     const result = await service.createBundle('user-1', {
       idempotencyKey: 'bundle-create-001',
@@ -520,7 +636,7 @@ describe('warehouse product code backfill', () => {
         .mockResolvedValueOnce('CODE0002')
         .mockRejectedValueOnce(new Error('no unique code available')),
     } as unknown as BarcodeService;
-    const service = new ProductService(prisma, stores, barcodes);
+    const service = makeProductService(prisma, stores, barcodes);
 
     const result = await service.backfillProductCodes();
 
@@ -552,7 +668,7 @@ describe('warehouse product code backfill', () => {
     const barcodes = {
       generateProductCodeForStore,
     } as unknown as BarcodeService;
-    const service = new ProductService(prisma, stores, barcodes);
+    const service = makeProductService(prisma, stores, barcodes);
 
     const result = await service.backfillProductCodes();
 

@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { WarehouseProductKind, WarehouseProductStatus } from '@prisma/client';
 import { WarehouseBarcodeDto } from './barcode.dto';
 import { ProductCategoryResponseDto } from './category-response.dto';
@@ -379,26 +379,100 @@ export class ProductComparisonMetricsDto {
   @ApiProperty() returnRate: number;
   @ApiProperty() cancellationRate: number;
   @ApiProperty() revenue: string;
-  @ApiProperty() profit: string;
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'Null when no warehouse cost is available for this product (platform-only catalog with no SKU link).',
+  })
+  profit: string | null;
   @ApiProperty({
     description: 'revenue ÷ totalOrders. "0.0000" when there were no orders.',
   })
   avgOrderValue: string;
   @ApiProperty({
+    nullable: true,
+    type: String,
     description:
-      'Cost Per Order — product cost ÷ totalOrders (not ad spend; Zomaal does not attribute ad spend to individual products). "0.0000" when there were no orders.',
+      'Cost Per Order — product cost ÷ totalOrders. Null when no warehouse cost is available. Not ad spend.',
   })
-  cpo: string;
+  cpo: string | null;
 }
 
 export class ProductComparisonSideDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({
+    enum: ['WAREHOUSE', 'SHOPIFY', 'YOUCAN', 'LIGHTFUNNELS'],
+  })
+  platform: string;
+  @ApiProperty({
+    description: 'Warehouse UUID or platform product id.',
+  })
   productId: string;
   @ApiProperty() name: string;
   @ApiProperty({ nullable: true, type: String })
   imageUrl: string | null;
   @ApiProperty({ type: ProductComparisonMetricsDto })
   metrics: ProductComparisonMetricsDto;
+}
+
+export class ComparePlatformOptionDto {
+  @ApiProperty({
+    enum: ['WAREHOUSE', 'SHOPIFY', 'YOUCAN', 'LIGHTFUNNELS'],
+  })
+  id: string;
+  @ApiProperty() label: string;
+  @ApiProperty({
+    description:
+      'False when the merchant has no active connection for this e-com platform. Warehouse is always true.',
+  })
+  available: boolean;
+}
+
+export class ComparePlatformsResponseDto {
+  @ApiProperty({ type: [ComparePlatformOptionDto] })
+  platforms: ComparePlatformOptionDto[];
+}
+
+export class CompareCatalogProductDto {
+  @ApiProperty() id: string;
+  @ApiProperty({
+    enum: ['WAREHOUSE', 'SHOPIFY', 'YOUCAN', 'LIGHTFUNNELS'],
+  })
+  platform: string;
+  @ApiProperty() name: string;
+  @ApiProperty({ nullable: true, type: String })
+  imageUrl: string | null;
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'e.g. "142 In Stock". Null when inventory is unknown.',
+  })
+  stockLabel: string | null;
+}
+
+export class CompareCatalogPaginationDto {
+  @ApiPropertyOptional({ nullable: true })
+  page: number | null;
+  @ApiPropertyOptional()
+  limit: number;
+  @ApiPropertyOptional({ nullable: true })
+  total: number | null;
+  @ApiPropertyOptional({ nullable: true })
+  totalPages: number | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Cursor for the next SHOPIFY / LIGHTFUNNELS page.',
+  })
+  nextCursor: string | null;
+  @ApiPropertyOptional()
+  hasNextPage: boolean;
+}
+
+export class CompareCatalogResponseDto {
+  @ApiProperty({ type: [CompareCatalogProductDto] })
+  data: CompareCatalogProductDto[];
+  @ApiProperty({ type: CompareCatalogPaginationDto })
+  pagination: CompareCatalogPaginationDto;
 }
 
 export class ProductComparisonInsightDto {
