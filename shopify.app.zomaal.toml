@@ -1,5 +1,6 @@
-client_id = "f06bbd64bba819486482c8ce46c14a67"
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
+client_id = "f06bbd64bba819486482c8ce46c14a67"
 name = "zomaal"
 application_url = "https://zomaal-backend-563898960389.us-central1.run.app/"
 embedded = false
