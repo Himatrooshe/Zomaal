@@ -92,12 +92,12 @@ describe('LightfunnelsAuthService', () => {
       assertConfigured: jest.fn(),
       encrypt: jest.fn((value: string) => `encrypted:${value}`),
     };
-    const service = new LightfunnelsAuthService(
-      prisma as unknown as PrismaService,
+    const service = new LightfunnelsAuthService(prisma as unknown as PrismaService,
       config as unknown as ConfigService,
       api as unknown as LightfunnelsApiService,
       connection as unknown as LightfunnelsConnectionService,
       encryption as unknown as LightfunnelsTokenEncryptionService,
+      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-1' }), touchLastActive: jest.fn() } as never,
     );
 
     return { service, prisma, transaction, api, connection, config };

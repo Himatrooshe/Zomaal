@@ -23,6 +23,8 @@ import { ExpensesModule } from './expenses/expenses.module';
 import { CustomersModule } from './customers/customers.module';
 import { SuperAdminModule } from './super-admin/super-admin.module';
 import { ZomaalShopModule } from './zomaal-shop/zomaal-shop.module';
+import { AppInfoModule } from './app-info/app-info.module';
+import { ProfileMediaModule } from './profile-media/profile-media.module';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { ZomaalShopModule } from './zomaal-shop/zomaal-shop.module';
     CustomersModule,
     SuperAdminModule,
     ZomaalShopModule,
+    AppInfoModule,
+    ProfileMediaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

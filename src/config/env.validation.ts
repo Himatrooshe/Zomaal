@@ -476,6 +476,13 @@ export function validateEnvironment(
     LIGHTFUNNELS_SCOPES: lightfunnelsScopes.join(','),
     LIGHTFUNNELS_OAUTH_STATE_TTL_SECONDS: lightfunnelsOauthStateTtlSeconds,
     LIGHTFUNNELS_HTTP_TIMEOUT_MS: lightfunnelsHttpTimeoutMs,
+    APP_NAME: asString(config.APP_NAME) || 'Zomaal',
+    APP_VERSION: asString(config.APP_VERSION) || '1.0.0',
+    PRIVACY_POLICY_URL: normalizeUrl(asString(config.PRIVACY_POLICY_URL)) || null,
+    ABOUT_APP_URL: normalizeUrl(asString(config.ABOUT_APP_URL)) || null,
+    TERMS_OF_SERVICE_URL:
+      normalizeUrl(asString(config.TERMS_OF_SERVICE_URL)) || null,
+    SUPPORT_EMAIL: asString(config.SUPPORT_EMAIL) || null,
   };
 }
 

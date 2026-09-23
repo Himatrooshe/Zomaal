@@ -3,6 +3,7 @@ import { AdsConnectionStatus, AdsPlatform, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdsConnectionService } from '../ads-connection.service';
 import { TikTokAdsApiService } from './tiktok-ads-api.service';
+import { StoreAccessService } from '../../access/store-access.service';
 
 // Backs the "Select Campaigns" screens: refreshing the live campaign list
 // from TikTok (upserting a read-only mirror into AdsCampaign) and saving
@@ -14,6 +15,7 @@ export class TikTokAdsCampaignService {
     private readonly prisma: PrismaService,
     private readonly tiktokApi: TikTokAdsApiService,
     private readonly connections: AdsConnectionService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   async refreshAndList(userId: string, connectionId: string) {
@@ -106,13 +108,7 @@ export class TikTokAdsCampaignService {
   }
 
   private async requireOwnedConnection(userId: string, connectionId: string) {
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!store) {
-      throw new NotFoundException('Store not found');
-    }
+    const store = await this.storeAccess.requireStore(userId);
     const connection = await this.prisma.adsConnection.findFirst({
       where: {
         id: connectionId,

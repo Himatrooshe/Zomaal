@@ -11,6 +11,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AdsTokenEncryptionService, adsAccessTokenContext } from '../ads-token-encryption.service';
 import { toConnectionSummary } from '../ads-connection.service';
 import { TikTokAdsApiService } from './tiktok-ads-api.service';
+import { StoreAccessService } from '../../access/store-access.service';
 
 @Injectable()
 export class TikTokAdsAuthService {
@@ -19,21 +20,14 @@ export class TikTokAdsAuthService {
     private readonly configService: ConfigService,
     private readonly tiktokApi: TikTokAdsApiService,
     private readonly tokenEncryption: AdsTokenEncryptionService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   async begin(userId: string) {
     this.tiktokApi.assertConfigured();
     this.tokenEncryption.assertConfigured();
 
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!store) {
-      throw new NotFoundException(
-        'Create your Zomaal store before connecting TikTok Ads',
-      );
-    }
+    const store = await this.storeAccess.requireStore(userId);
 
     const state = randomBytes(32).toString('base64url');
     const stateHash = hashState(state);

@@ -11,6 +11,7 @@ import {
   LightfunnelsConnectionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoreAccessService } from '../access/store-access.service';
 import type {
   LightfunnelsConnectionStatusDto,
   LightfunnelsVerificationDto,
@@ -36,11 +37,13 @@ export class LightfunnelsConnectionService {
     private readonly prisma: PrismaService,
     private readonly lightfunnelsApi: LightfunnelsApiService,
     private readonly tokenEncryption: LightfunnelsTokenEncryptionService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   async getStatus(userId: string): Promise<LightfunnelsConnectionStatusDto> {
+    const __active = await this.storeAccess.requireStore(userId);
     const store = await this.prisma.store.findUnique({
-      where: { userId },
+      where: { id: __active.id },
       include: { lightfunnelsConnection: true },
     });
     if (!store) {
@@ -100,13 +103,7 @@ export class LightfunnelsConnectionService {
   }
 
   async disconnect(userId: string): Promise<LightfunnelsConnectionStatusDto> {
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!store) {
-      throw new NotFoundException('Store not found');
-    }
+    const store = await this.storeAccess.requireStore(userId);
     const connection = await this.prisma.lightfunnelsConnection.findUnique({
       where: { storeId: store.id },
       select: { id: true, ecommerceConnectionId: true },
@@ -159,8 +156,9 @@ export class LightfunnelsConnectionService {
   private async getAccessCredentials(
     userId: string,
   ): Promise<LightfunnelsCredentials> {
+    const __active = await this.storeAccess.requireStore(userId);
     const store = await this.prisma.store.findUnique({
-      where: { userId },
+      where: { id: __active.id },
       include: { lightfunnelsConnection: true },
     });
     if (!store) {

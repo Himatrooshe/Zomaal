@@ -19,6 +19,7 @@ import { LightfunnelsApiService } from './lightfunnels-api.service';
 import { LightfunnelsConnectionService } from './lightfunnels-connection.service';
 import { lightfunnelsAccessTokenContext } from './lightfunnels-token-context';
 import { LightfunnelsTokenEncryptionService } from './lightfunnels-token-encryption.service';
+import { StoreAccessService } from '../access/store-access.service';
 
 @Injectable()
 export class LightfunnelsAuthService {
@@ -28,21 +29,14 @@ export class LightfunnelsAuthService {
     private readonly lightfunnelsApi: LightfunnelsApiService,
     private readonly connectionService: LightfunnelsConnectionService,
     private readonly tokenEncryption: LightfunnelsTokenEncryptionService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   async begin(userId: string) {
     this.lightfunnelsApi.assertConfigured();
     this.tokenEncryption.assertConfigured();
 
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!store) {
-      throw new NotFoundException(
-        'Create your Zomaal store before connecting Lightfunnels',
-      );
-    }
+    const store = await this.storeAccess.requireStore(userId);
 
     const state = randomBytes(32).toString('base64url');
     const stateHash = hashState(state);

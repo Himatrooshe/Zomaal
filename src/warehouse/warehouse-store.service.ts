@@ -1,15 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { StoreAccessService } from '../access/store-access.service';
 
 @Injectable()
 export class WarehouseStoreService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly storeAccess: StoreAccessService) {}
 
   async requireStore(userId: string) {
-    const store = await this.prisma.store.findUnique({ where: { userId } });
-    if (!store) {
-      throw new NotFoundException('Store not found');
-    }
-    return store;
+    return this.storeAccess.requireStore(userId);
   }
 }

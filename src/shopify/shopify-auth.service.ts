@@ -18,6 +18,7 @@ import type { ShopifyConnectionStatusDto } from './dto/shopify-response.dto';
 import { ShopifyApiService } from './shopify-api.service';
 import { ShopifyConnectionService } from './shopify-connection.service';
 import { ShopifyTokenEncryptionService } from './shopify-token-encryption.service';
+import { StoreAccessService } from '../access/store-access.service';
 import {
   accessTokenContext,
   refreshTokenContext,
@@ -39,21 +40,14 @@ export class ShopifyAuthService {
     private readonly shopifyApi: ShopifyApiService,
     private readonly tokenEncryption: ShopifyTokenEncryptionService,
     private readonly connectionService: ShopifyConnectionService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   async begin(userId: string, requestedShopDomain: string) {
     this.shopifyApi.assertConfigured();
     this.tokenEncryption.assertConfigured();
 
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!store) {
-      throw new NotFoundException(
-        'Create your Zomaal store before connecting Shopify',
-      );
-    }
+    const store = await this.storeAccess.requireStore(userId);
 
     const shopDomain = this.shopifyApi.normalizeShopDomain(requestedShopDomain);
     const linkedShop = await this.prisma.shopifyConnection.findUnique({

@@ -59,14 +59,31 @@ function build() {
     incrementRiskCounter: jest.fn().mockResolvedValue(undefined),
   };
 
+  const storeAccess = {
+    require: jest.fn(),
+    requireOwner: jest.fn(),
+    requireStore: jest
+      .fn()
+      .mockResolvedValue({ id: 'store-1', baseCurrency: 'MAD' }),
+    touchLastActive: jest.fn(),
+  };
+
   const service = new ReturnRequestService(
     prisma as never,
     ecommerceService as never,
     financialService as never,
     customerRisk as never,
+    storeAccess as never,
   );
 
-  return { service, prisma, ecommerceService, financialService, customerRisk };
+  return {
+    service,
+    prisma,
+    ecommerceService,
+    financialService,
+    customerRisk,
+    storeAccess,
+  };
 }
 
 const ORDER_LINE = {
@@ -96,9 +113,7 @@ const ORDER = {
 describe('ReturnRequestService', () => {
   describe('list', () => {
     it('includes store baseCurrency on the response', async () => {
-      const { service, prisma } = build();
-      prisma.returnRequest.count.mockResolvedValue(0);
-      prisma.returnRequest.findMany.mockResolvedValue([]);
+      const { service, storeAccess } = build();
 
       const result = await service.list('user-1', {});
 
@@ -107,15 +122,14 @@ describe('ReturnRequestService', () => {
         value: '0.00',
         orders: 0,
       });
-      expect(prisma.store.findUnique).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
-        select: { id: true, baseCurrency: true },
-      });
+      expect(storeAccess.requireStore).toHaveBeenCalledWith('user-1');
     });
 
     it('throws when the user has no store', async () => {
-      const { service, prisma } = build();
-      prisma.store.findUnique.mockResolvedValue(null);
+      const { service, storeAccess } = build();
+      storeAccess.requireStore.mockRejectedValue(
+        new NotFoundException('Store not found'),
+      );
 
       await expect(service.list('user-1', {})).rejects.toBeInstanceOf(
         NotFoundException,

@@ -46,6 +46,22 @@ const BASE_USER = {
   updatedAt: new Date('2026-01-01'),
 };
 
+const STORE_ROW = {
+  id: 'store-1',
+  ownerName: 'Ahmed Alaoui',
+  ownerPhotoUrl: 'https://example.com/avatar.png',
+  address: '123 Rue Hassan II',
+  city: 'Casablanca',
+  businessName: 'Atlas',
+  country: 'Morocco',
+  logoUrl: null,
+  isActive: true,
+  baseCurrency: 'MAD',
+  createdAt: new Date('2026-01-01'),
+  updatedAt: new Date('2026-01-01'),
+  userId: 'user-1',
+};
+
 describe('UsersService', () => {
   describe('getProfile', () => {
     it('throws NotFoundException when the user no longer exists', async () => {
@@ -57,17 +73,13 @@ describe('UsersService', () => {
       );
     });
 
-    it('resolves name/photoUrl/address/city from the store for an owner and strips secrets', async () => {
+    it('resolves name/photoUrl/address/city from the active store for an owner and strips secrets', async () => {
       const { service, prisma } = build();
       prisma.user.findUnique.mockResolvedValue({
         ...BASE_USER,
-        store: {
-          id: 'store-1',
-          ownerName: 'Ahmed Alaoui',
-          ownerPhotoUrl: 'https://example.com/avatar.png',
-          address: '123 Rue Hassan II',
-          city: 'Casablanca',
-        },
+        activeStoreId: 'store-1',
+        activeStore: STORE_ROW,
+        stores: [STORE_ROW],
         staffMembership: null,
       });
 
@@ -77,6 +89,8 @@ describe('UsersService', () => {
       expect(profile.photoUrl).toBe('https://example.com/avatar.png');
       expect(profile.address).toBe('123 Rue Hassan II');
       expect(profile.city).toBe('Casablanca');
+      expect(profile.stores).toHaveLength(1);
+      expect(profile.stores[0].isCurrent).toBe(true);
       expect(profile).not.toHaveProperty('passwordHash');
       expect(profile).not.toHaveProperty('hashedRefreshToken');
     });
@@ -85,7 +99,9 @@ describe('UsersService', () => {
       const { service, prisma } = build();
       prisma.user.findUnique.mockResolvedValue({
         ...BASE_USER,
-        store: null,
+        activeStoreId: null,
+        activeStore: null,
+        stores: [],
         staffMembership: {
           id: 'staff-1',
           name: 'Sara Amrani',
@@ -101,13 +117,16 @@ describe('UsersService', () => {
       expect(profile.photoUrl).toBeNull();
       expect(profile.address).toBeNull();
       expect(profile.city).toBeNull();
+      expect(profile.stores).toEqual([]);
     });
 
     it('returns null name/photoUrl/address/city for a user with neither a store nor a staff membership', async () => {
       const { service, prisma } = build();
       prisma.user.findUnique.mockResolvedValue({
         ...BASE_USER,
-        store: null,
+        activeStoreId: null,
+        activeStore: null,
+        stores: [],
         staffMembership: null,
       });
 
@@ -125,7 +144,9 @@ describe('UsersService', () => {
       const { service, prisma } = build();
       prisma.user.findUnique.mockResolvedValue({
         ...BASE_USER,
-        store: { id: 'store-1' },
+        activeStoreId: 'store-1',
+        activeStore: { id: 'store-1' },
+        stores: [{ id: 'store-1' }],
         staffMembership: null,
       });
 
@@ -135,21 +156,31 @@ describe('UsersService', () => {
       expect(prisma.store.update).not.toHaveBeenCalled();
     });
 
-    it('writes name/photo to the store for an owner', async () => {
+    it('writes name/photo to the active store for an owner', async () => {
       const { service, prisma } = build();
       prisma.user.findUnique
         .mockResolvedValueOnce({
           ...BASE_USER,
-          store: { id: 'store-1' },
+          activeStoreId: 'store-1',
+          activeStore: { id: 'store-1' },
+          stores: [{ id: 'store-1' }],
           staffMembership: null,
         })
         .mockResolvedValueOnce({
           ...BASE_USER,
-          store: {
-            id: 'store-1',
+          activeStoreId: 'store-1',
+          activeStore: {
+            ...STORE_ROW,
             ownerName: 'New Name',
             ownerPhotoUrl: 'https://example.com/new.png',
           },
+          stores: [
+            {
+              ...STORE_ROW,
+              ownerName: 'New Name',
+              ownerPhotoUrl: 'https://example.com/new.png',
+            },
+          ],
           staffMembership: null,
         });
 
@@ -169,21 +200,31 @@ describe('UsersService', () => {
       expect(profile.name).toBe('New Name');
     });
 
-    it('writes address/city to the store for an owner', async () => {
+    it('writes address/city to the active store for an owner', async () => {
       const { service, prisma } = build();
       prisma.user.findUnique
         .mockResolvedValueOnce({
           ...BASE_USER,
-          store: { id: 'store-1' },
+          activeStoreId: 'store-1',
+          activeStore: { id: 'store-1' },
+          stores: [{ id: 'store-1' }],
           staffMembership: null,
         })
         .mockResolvedValueOnce({
           ...BASE_USER,
-          store: {
-            id: 'store-1',
+          activeStoreId: 'store-1',
+          activeStore: {
+            ...STORE_ROW,
             address: '45 Boulevard Zerktouni',
             city: 'Casablanca',
           },
+          stores: [
+            {
+              ...STORE_ROW,
+              address: '45 Boulevard Zerktouni',
+              city: 'Casablanca',
+            },
+          ],
           staffMembership: null,
         });
 
@@ -203,12 +244,16 @@ describe('UsersService', () => {
       prisma.user.findUnique
         .mockResolvedValueOnce({
           ...BASE_USER,
-          store: null,
+          activeStoreId: null,
+          activeStore: null,
+          stores: [],
           staffMembership: { id: 'staff-1' },
         })
         .mockResolvedValueOnce({
           ...BASE_USER,
-          store: null,
+          activeStoreId: null,
+          activeStore: null,
+          stores: [],
           staffMembership: {
             id: 'staff-1',
             name: 'Sara Amrani',
@@ -234,12 +279,16 @@ describe('UsersService', () => {
       prisma.user.findUnique
         .mockResolvedValueOnce({
           ...BASE_USER,
-          store: null,
+          activeStoreId: null,
+          activeStore: null,
+          stores: [],
           staffMembership: { id: 'staff-1' },
         })
         .mockResolvedValueOnce({
           ...BASE_USER,
-          store: null,
+          activeStoreId: null,
+          activeStore: null,
+          stores: [],
           staffMembership: { id: 'staff-1', name: 'New Name', photoUrl: null },
         });
 
@@ -256,7 +305,9 @@ describe('UsersService', () => {
       const { service, prisma } = build();
       prisma.user.findUnique.mockResolvedValue({
         ...BASE_USER,
-        store: null,
+        activeStoreId: null,
+        activeStore: null,
+        stores: [],
         staffMembership: null,
       });
 

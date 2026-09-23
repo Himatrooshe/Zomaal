@@ -22,6 +22,7 @@ import {
   youCanRefreshTokenContext,
 } from './youcan-token-context';
 import { YouCanTokenEncryptionService } from './youcan-token-encryption.service';
+import { StoreAccessService } from '../access/store-access.service';
 
 @Injectable()
 export class YouCanAuthService {
@@ -31,21 +32,14 @@ export class YouCanAuthService {
     private readonly youCanApi: YouCanApiService,
     private readonly tokenEncryption: YouCanTokenEncryptionService,
     private readonly connectionService: YouCanConnectionService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   async begin(userId: string) {
     this.youCanApi.assertConfigured();
     this.tokenEncryption.assertConfigured();
 
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!store) {
-      throw new NotFoundException(
-        'Create your Zomaal store before connecting YouCan',
-      );
-    }
+    const store = await this.storeAccess.requireStore(userId);
 
     const state = randomBytes(32).toString('base64url');
     const stateHash = hashState(state);

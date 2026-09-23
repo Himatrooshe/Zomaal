@@ -6,6 +6,7 @@ import {
 import { AdsConnection, AdsConnectionStatus, AdsPlatform } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdsTokenEncryptionService, adsAccessTokenContext } from './ads-token-encryption.service';
+import { StoreAccessService } from '../access/store-access.service';
 
 // Generic across every ad platform — TikTok today, Meta/Google/Snapchat
 // later reuse this unchanged (they'd add their own *AdsAuthService for the
@@ -21,6 +22,7 @@ export class AdsConnectionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tokenEncryption: AdsTokenEncryptionService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   async listForStore(userId: string, platform?: AdsPlatform) {
@@ -81,14 +83,8 @@ export class AdsConnectionService {
   }
 
   private async requireStore(userId: string): Promise<{ id: string }> {
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!store) {
-      throw new NotFoundException('Store not found');
-    }
-    return store;
+    const store = await this.storeAccess.requireStore(userId);
+    return { id: store.id };
   }
 }
 

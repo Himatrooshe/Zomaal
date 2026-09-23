@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AdsConnectionStatus, AdsPlatform, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoreAccessService } from '../access/store-access.service';
 import {
   AdsCampaignListResponseDto,
   AdsMetricKey,
@@ -27,7 +28,10 @@ const PERIOD_DAYS: Record<'week' | 'month' | 'quarter', number> = {
 
 @Injectable()
 export class AdsDashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storeAccess: StoreAccessService,
+  ) {}
 
   async getCampaigns(
     userId: string,
@@ -155,13 +159,7 @@ export class AdsDashboardService {
   private async requireStore(
     userId: string,
   ): Promise<{ id: string; baseCurrency: string }> {
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true, baseCurrency: true },
-    });
-    if (!store) {
-      throw new NotFoundException('Store not found');
-    }
+    const store = await this.storeAccess.requireStore(userId);
     return store;
   }
 }

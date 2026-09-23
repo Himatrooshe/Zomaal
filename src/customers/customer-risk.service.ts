@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { BlacklistSettings, Customer } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoreAccessService } from '../access/store-access.service';
 import { UpdateBlacklistSettingsDto } from './dto/blacklist.dto';
 import {
   computeRiskDistances,
@@ -43,7 +44,9 @@ const CATEGORY_LABEL: Record<RiskCategory, string> = {
  */
 @Injectable()
 export class CustomerRiskService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+    private readonly storeAccess: StoreAccessService,
+  ) {}
 
   /**
    * Resolves-or-creates the Customer identified by (storeId, phone). Returns
@@ -192,11 +195,14 @@ export class CustomerRiskService {
     name?: string | null;
     outcome: Extract<RiskCategory, 'REFUSALS' | 'NO_ANSWER'>;
   }): Promise<void> {
-    const store = await this.prisma.store.findUnique({
-      where: { userId: params.userId },
-      select: { id: true },
-    });
-    if (!store) return;
+    // Must never throw — courier webhooks call this. Soft-fail when the user
+    // has no active store yet.
+    let store: { id: string };
+    try {
+      store = await this.storeAccess.requireStore(params.userId);
+    } catch {
+      return;
+    }
 
     const customer = await this.upsertCustomer({
       storeId: store.id,

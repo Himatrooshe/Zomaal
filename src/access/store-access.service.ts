@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { StaffStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ALL_PERMISSIONS, type Permission } from './permissions';
@@ -7,15 +11,10 @@ import { ALL_PERMISSIONS, type Permission } from './permissions';
  * The single place that answers "which store is this user acting on, and what
  * are they allowed to do there".
  *
- * Before staff existed, every service resolved the store itself with
- * `prisma.store.findUnique({ where: { userId } })` — there were 7 copies of
- * that lookup plus 11 inline `store: { userId }` filters, all of which
- * silently assumed the caller owns the store. A staff member would have
- * resolved to nothing and got "Store not found".
- *
- * Callers should depend on this instead. It resolves either kind of user:
- *   - an OWNER, via the pre-existing Store.userId 1:1
- *   - a STAFF member, via StaffMember.userId
+ * Owners may own multiple stores (Settings store switcher). Resolution uses
+ * `User.activeStoreId` when it points at a store they own; otherwise the
+ * oldest owned store (and we heal `activeStoreId` when it was null/stale).
+ * Staff still resolve via their single StaffMember row.
  */
 
 export interface StoreAccess {
@@ -41,21 +40,39 @@ export class StoreAccessService {
    * swapping this in doesn't change any current response.
    */
   async require(userId: string): Promise<StoreAccess> {
-    const owned = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true, baseCurrency: true },
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        activeStoreId: true,
+        stores: {
+          select: { id: true, baseCurrency: true },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
     });
 
-    if (owned) {
+    if (!user) {
+      throw new NotFoundException('Store not found');
+    }
+
+    if (user.stores.length > 0) {
+      const active =
+        user.stores.find((s) => s.id === user.activeStoreId) ?? user.stores[0];
+
+      // Heal null/stale activeStoreId so Settings and subsequent requests agree.
+      if (user.activeStoreId !== active.id) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { activeStoreId: active.id },
+        });
+      }
+
       return {
-        storeId: owned.id,
-        baseCurrency: owned.baseCurrency,
+        storeId: active.id,
+        baseCurrency: active.baseCurrency,
         userId,
         isOwner: true,
         staffMemberId: null,
-        // An owner is never permission-gated. Listing every permission (rather
-        // than special-casing isOwner at each check) keeps callers from having
-        // to remember the exception.
         permissions: [...ALL_PERMISSIONS],
       };
     }
@@ -108,6 +125,21 @@ export class StoreAccessService {
       );
     }
     return access;
+  }
+
+  /**
+   * Full Store row for the caller's active context. Prefer this over
+   * `prisma.store.findUnique({ where: { userId } })` — userId is no longer unique.
+   */
+  async requireStore(userId: string) {
+    const access = await this.require(userId);
+    const store = await this.prisma.store.findUnique({
+      where: { id: access.storeId },
+    });
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+    return store;
   }
 
   /** Records activity for the "Last Active 2 hours ago" line. Best-effort. */

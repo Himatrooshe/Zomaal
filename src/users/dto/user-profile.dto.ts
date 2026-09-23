@@ -10,7 +10,7 @@ export class UserProfileDto {
 
   @ApiProperty({
     description:
-      'Display name, resolved from the store (owner) or staff record backing this user. Null until one exists.',
+      'Display name, resolved from the active store (owner) or staff record. Null until one exists.',
     example: 'Ahmed Alaoui',
     nullable: true,
     type: String,
@@ -54,6 +54,16 @@ export class UserProfileDto {
   @ApiProperty({ example: '2026-07-16T10:30:00.000Z', format: 'date-time' })
   updatedAt: string;
 
-  @ApiProperty({ type: () => StoreResponseDto, nullable: true })
+  @ApiProperty({
+    description: 'Currently selected store (same as GET /stores/me).',
+    type: () => StoreResponseDto,
+    nullable: true,
+  })
   store: StoreResponseDto | null;
+
+  @ApiProperty({
+    description: 'All stores owned by this user (empty for staff).',
+    type: [StoreResponseDto],
+  })
+  stores: StoreResponseDto[];
 }

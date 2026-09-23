@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoreAccessService } from '../access/store-access.service';
 import { ShopifyFulfillmentAdapter } from './shopify-fulfillment.adapter';
 import { YouCanFulfillmentAdapter } from './youcan-fulfillment.adapter';
 import { LightfunnelsFulfillmentAdapter } from './lightfunnels-fulfillment.adapter';
@@ -223,6 +224,7 @@ export class EcommerceService {
     private readonly inventoryService: InventoryService,
     private readonly financialService: EcommerceOrderFinancialService,
     private readonly customerRisk: CustomerRiskService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   async listConnections(userId: string): Promise<EcommerceConnectionListDto> {
@@ -1912,13 +1914,7 @@ export class EcommerceService {
   private async requireStore(
     userId: string,
   ): Promise<{ id: string; baseCurrency: string }> {
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true, baseCurrency: true },
-    });
-    if (!store) {
-      throw new NotFoundException('Store not found');
-    }
+    const store = await this.storeAccess.requireStore(userId);
     return store;
   }
 

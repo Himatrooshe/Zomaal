@@ -56,6 +56,7 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
+      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
     );
 
     await expect(
@@ -144,6 +145,7 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
+      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
     );
 
     const result = await service.dispatchOrder('user-id', order.id, {
@@ -219,6 +221,7 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
+      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
     );
 
     const result = await service.getRevenueSummary('user-id', {
@@ -278,6 +281,7 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
+      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
     );
 
     await expect(
@@ -368,6 +372,7 @@ describe('EcommerceService', () => {
         upsertCustomer: jest.fn().mockResolvedValue(null),
         recordNewOrder: jest.fn(),
       } as any,
+      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
     );
 
     const result = await service.createManualOrder('user-id', {
@@ -415,6 +420,7 @@ describe('EcommerceService', () => {
         upsertCustomer: jest.fn().mockResolvedValue(null),
         recordNewOrder: jest.fn(),
       } as any,
+      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
     );
 
     await expect(
@@ -485,6 +491,7 @@ describe('EcommerceService', () => {
         upsertCustomer: jest.fn().mockResolvedValue(null),
         recordNewOrder: jest.fn(),
       } as any,
+      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
     );
 
     const result = await service.createManualOrder('user-id', {
@@ -548,6 +555,7 @@ describe('EcommerceService', () => {
       inventoryService,
       financialService,
       {} as any,
+      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
     );
 
     await service.recordProductCondition('user-id', 'order-1', {

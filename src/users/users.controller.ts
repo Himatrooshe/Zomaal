@@ -6,16 +6,23 @@ import {
   HttpCode,
   HttpStatus,
   Patch,
+  Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiProduces,
+  ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -28,6 +35,8 @@ import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { UserProfileDto } from './dto/user-profile.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ProfileMediaService } from '../profile-media/profile-media.service';
+import type { WarehouseMediaUploadFile } from '../warehouse/media.service';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -35,7 +44,10 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly profileMedia: ProfileMediaService,
+  ) {}
 
   @Get('me')
   @ApiOperation({
@@ -53,6 +65,52 @@ export class UsersController {
     type: ApiErrorDto,
   })
   getProfile(@CurrentUser() user: JwtPayload) {
+    return this.usersService.getProfile(user.userId);
+  }
+
+  @Post('me/photo')
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['photo'],
+      properties: {
+        photo: {
+          type: 'string',
+          format: 'binary',
+          description:
+            'JPEG, PNG, or WebP profile photo, max 5 MiB. Figma “Add Your Photo”.',
+        },
+      },
+    },
+  })
+  @ApiOperation({
+    summary: 'Upload profile photo',
+    description:
+      'Stores the image and sets `photoUrl` to a public `/profile-media/users/…` path the client can load in an `<img>` without a bearer token. Replaces any previous uploaded photo. You can still set an external HTTPS URL via PATCH /users/me.',
+  })
+  @ApiCreatedResponse({
+    description: 'Updated profile with new photoUrl.',
+    type: UserProfileDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Missing file, unsupported/corrupt image, or no store/staff yet.',
+    type: ApiErrorDto,
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'Image storage is unavailable.',
+    type: ApiErrorDto,
+  })
+  async uploadPhoto(
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file?: WarehouseMediaUploadFile,
+  ) {
+    await this.profileMedia.uploadUserPhoto(user.userId, file);
     return this.usersService.getProfile(user.userId);
   }
 

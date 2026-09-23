@@ -28,7 +28,9 @@ function build() {
       upsert: jest.fn(),
     },
   };
-  const service = new CustomerRiskService(prisma as never);
+  const service = new CustomerRiskService(prisma as never,
+      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn(), touchLastActive: jest.fn() } as never,
+    );
   return { service, prisma };
 }
 
@@ -392,13 +394,12 @@ describe('CustomerRiskService', () => {
   describe('recordShipmentOutcome', () => {
     it('no-ops when the user has no store', async () => {
       const { prisma } = build();
-      const prismaWithStore = {
-        ...prisma,
-        store: { findUnique: jest.fn().mockResolvedValue(null) },
-      };
-      const serviceWithStore = new CustomerRiskService(
-        prismaWithStore as never,
-      );
+      const serviceWithStore = new CustomerRiskService(prisma as never, {
+        require: jest.fn(),
+        requireOwner: jest.fn(),
+        requireStore: jest.fn().mockRejectedValue(new NotFoundException('Store not found')),
+        touchLastActive: jest.fn(),
+      } as never);
 
       await serviceWithStore.recordShipmentOutcome({
         userId: 'user-1',
@@ -411,11 +412,13 @@ describe('CustomerRiskService', () => {
 
     it('resolves the store from userId, then upserts the customer and increments the counter', async () => {
       const { prisma } = build();
-      const findUnique = jest.fn().mockResolvedValue({ id: 'store-1' });
-      const prismaWithStore = { ...prisma, store: { findUnique } };
-      const serviceWithStore = new CustomerRiskService(
-        prismaWithStore as never,
-      );
+      const requireStore = jest.fn().mockResolvedValue({ id: 'store-1' });
+      const serviceWithStore = new CustomerRiskService(prisma as never, {
+        require: jest.fn(),
+        requireOwner: jest.fn(),
+        requireStore,
+        touchLastActive: jest.fn(),
+      } as never);
       prisma.customer.upsert.mockResolvedValue({
         id: 'customer-1',
         isBlacklisted: false,
@@ -436,10 +439,7 @@ describe('CustomerRiskService', () => {
         outcome: 'NO_ANSWER',
       });
 
-      expect(findUnique).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
-        select: { id: true },
-      });
+      expect(requireStore).toHaveBeenCalledWith('user-1');
       expect(prisma.customer.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {

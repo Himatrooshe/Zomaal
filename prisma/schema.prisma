@@ -19,12 +19,15 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  // A user is EITHER a store owner (via `store`, the pre-existing 1:1) OR a
-  // staff member of someone else's store (via `staffMembership`) — never
-  // both. StoreAccessService resolves whichever applies; nothing else in the
-  // codebase should reach for either relation directly.
+  // A user is EITHER a store owner (via `stores`) OR a staff member of
+  // someone else's store (via `staffMembership`) — never both.
+  // Owners may own multiple stores (Settings store switcher); `activeStoreId`
+  // is the one the rest of the app currently acts on. StoreAccessService
+  // resolves whichever applies; nothing else should reach for these directly.
   staffMembership            StaffMember?
-  store                      Store?
+  stores                     Store[]  @relation("OwnedStores")
+  activeStoreId              String?
+  activeStore                Store?   @relation("ActiveStore", fields: [activeStoreId], references: [id], onDelete: SetNull)
   senditConnection           SenditConnection?
   quickLivraisonConnection   QuickLivraisonConnection?
   forceLogConnection         ForceLogConnection?
@@ -859,10 +862,11 @@ model Store {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  userId String @unique
-  // Cascade to match every other 1:1 user relation in this schema — without
-  // it, deleting a User who owns a store fails at the FK (was RESTRICT).
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  // Cascade so deleting a User who owns stores tears them down.
+  user   User   @relation("OwnedStores", fields: [userId], references: [id], onDelete: Cascade)
+  // Users who currently have this store selected in Settings.
+  activeForUsers User[] @relation("ActiveStore")
 
   shopifyConnection       ShopifyConnection?
   shopifyOAuthStates      ShopifyOAuthState[]
@@ -891,6 +895,8 @@ model Store {
   shopAddresses           ShopAddress[]
   shopOrders              ShopOrder[]
   purchases               MerchantPurchase[]
+
+  @@index([userId])
 }
 
 enum EcommercePlatform {

@@ -336,10 +336,22 @@ export class MerchantsService {
   }
 
   private async requireStoreByUserId(userId: string) {
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      include: STORE_INCLUDE,
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { activeStoreId: true },
     });
+    const store =
+      (user?.activeStoreId
+        ? await this.prisma.store.findFirst({
+            where: { id: user.activeStoreId, userId },
+            include: STORE_INCLUDE,
+          })
+        : null) ??
+      (await this.prisma.store.findFirst({
+        where: { userId },
+        orderBy: { createdAt: 'asc' },
+        include: STORE_INCLUDE,
+      }));
     if (!store) {
       throw new NotFoundException('Merchant not found');
     }

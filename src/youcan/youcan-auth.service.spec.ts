@@ -91,12 +91,12 @@ describe('YouCanAuthService', () => {
     const connection = {
       getStatus: jest.fn().mockResolvedValue(activeStatus),
     };
-    const service = new YouCanAuthService(
-      prisma as unknown as PrismaService,
+    const service = new YouCanAuthService(prisma as unknown as PrismaService,
       config as unknown as ConfigService,
       api as unknown as YouCanApiService,
       encryption as unknown as YouCanTokenEncryptionService,
       connection as unknown as YouCanConnectionService,
+      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-1' }), touchLastActive: jest.fn() } as never,
     );
 
     return {

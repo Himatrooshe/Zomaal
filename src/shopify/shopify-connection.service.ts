@@ -12,6 +12,7 @@ import {
   ShopifyConnectionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoreAccessService } from '../access/store-access.service';
 import type {
   ShopifyConnectionStatusDto,
   ShopifyShopVerificationDto,
@@ -57,11 +58,13 @@ export class ShopifyConnectionService {
     private readonly configService: ConfigService,
     private readonly shopifyApi: ShopifyApiService,
     private readonly tokenEncryption: ShopifyTokenEncryptionService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   async getStatus(userId: string): Promise<ShopifyConnectionStatusDto> {
+    const __active = await this.storeAccess.requireStore(userId);
     const store = await this.prisma.store.findUnique({
-      where: { userId },
+      where: { id: __active.id },
       include: { shopifyConnection: true },
     });
     if (!store) {
@@ -71,13 +74,7 @@ export class ShopifyConnectionService {
   }
 
   async disconnect(userId: string): Promise<ShopifyConnectionStatusDto> {
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!store) {
-      throw new NotFoundException('Store not found');
-    }
+    const store = await this.storeAccess.requireStore(userId);
 
     const connection = await this.prisma.shopifyConnection.findUnique({
       where: { storeId: store.id },
@@ -180,8 +177,9 @@ export class ShopifyConnectionService {
     userId: string,
     forceRefresh = false,
   ): Promise<AccessCredentials> {
+    const __active = await this.storeAccess.requireStore(userId);
     const store = await this.prisma.store.findUnique({
-      where: { userId },
+      where: { id: __active.id },
       include: { shopifyConnection: true },
     });
     if (!store) {

@@ -11,6 +11,7 @@ import {
   YouCanConnectionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoreAccessService } from '../access/store-access.service';
 import type {
   YouCanConnectionStatusDto,
   YouCanStoreVerificationDto,
@@ -43,11 +44,13 @@ export class YouCanConnectionService {
     private readonly configService: ConfigService,
     private readonly youCanApi: YouCanApiService,
     private readonly tokenEncryption: YouCanTokenEncryptionService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   async getStatus(userId: string): Promise<YouCanConnectionStatusDto> {
+    const __active = await this.storeAccess.requireStore(userId);
     const store = await this.prisma.store.findUnique({
-      where: { userId },
+      where: { id: __active.id },
       include: { youCanConnection: true },
     });
     if (!store) {
@@ -113,8 +116,9 @@ export class YouCanConnectionService {
   }
 
   async getStoreCurrency(userId: string): Promise<string> {
+    const __active = await this.storeAccess.requireStore(userId);
     const store = await this.prisma.store.findUnique({
-      where: { userId },
+      where: { id: __active.id },
       include: { youCanConnection: true },
     });
     if (!store) {
@@ -152,13 +156,7 @@ export class YouCanConnectionService {
   }
 
   async disconnect(userId: string): Promise<YouCanConnectionStatusDto> {
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!store) {
-      throw new NotFoundException('Store not found');
-    }
+    const store = await this.storeAccess.requireStore(userId);
     const connection = await this.prisma.youCanConnection.findUnique({
       where: { storeId: store.id },
       select: { id: true, ecommerceConnectionId: true },
@@ -196,8 +194,9 @@ export class YouCanConnectionService {
     userId: string,
     forceRefresh = false,
   ): Promise<YouCanAccessCredentials> {
+    const __active = await this.storeAccess.requireStore(userId);
     const store = await this.prisma.store.findUnique({
-      where: { userId },
+      where: { id: __active.id },
       include: { youCanConnection: true },
     });
     if (!store) {

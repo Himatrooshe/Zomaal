@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, ReturnRequestStatus, MediaAssetPurpose } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoreAccessService } from '../access/store-access.service';
 import { EcommerceService } from './ecommerce.service';
 import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
 import { CustomerRiskService } from '../customers/customer-risk.service';
@@ -80,6 +81,7 @@ export class ReturnRequestService {
     private readonly ecommerceService: EcommerceService,
     private readonly financialService: EcommerceOrderFinancialService,
     private readonly customerRisk: CustomerRiskService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   /**
@@ -630,13 +632,7 @@ export class ReturnRequestService {
   private async requireStore(
     userId: string,
   ): Promise<{ id: string; baseCurrency: string }> {
-    const store = await this.prisma.store.findUnique({
-      where: { userId },
-      select: { id: true, baseCurrency: true },
-    });
-    if (!store) {
-      throw new NotFoundException('Store not found');
-    }
+    const store = await this.storeAccess.requireStore(userId);
     return store;
   }
 }

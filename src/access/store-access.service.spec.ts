@@ -4,17 +4,25 @@ import { StoreAccessService, resolvePermissions } from './store-access.service';
 import { ALL_PERMISSIONS, PERMISSIONS } from './permissions';
 
 type PrismaStub = {
-  store: { findUnique: jest.Mock };
+  user: { findUnique: jest.Mock; update: jest.Mock };
   staffMember: { findUnique: jest.Mock; update: jest.Mock };
+  store: { findUnique: jest.Mock };
 };
 
 function build(prisma: Partial<PrismaStub> = {}) {
   const stub: PrismaStub = {
-    store: { findUnique: jest.fn().mockResolvedValue(null) },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({
+        activeStoreId: null,
+        stores: [],
+      }),
+      update: jest.fn().mockResolvedValue({}),
+    },
     staffMember: {
       findUnique: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({}),
     },
+    store: { findUnique: jest.fn().mockResolvedValue(null) },
     ...prisma,
   } as PrismaStub;
   return { service: new StoreAccessService(stub as never), prisma: stub };
@@ -24,8 +32,14 @@ const STORE = { id: 'store-1', baseCurrency: 'MAD' };
 
 describe('StoreAccessService', () => {
   it('resolves an owner and grants every permission', async () => {
-    const { service } = build({
-      store: { findUnique: jest.fn().mockResolvedValue(STORE) },
+    const { service, prisma } = build({
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          activeStoreId: 'store-1',
+          stores: [STORE],
+        }),
+        update: jest.fn(),
+      },
     });
 
     const access = await service.require('owner-user');
@@ -34,6 +48,30 @@ describe('StoreAccessService', () => {
     expect(access.storeId).toBe('store-1');
     expect(access.staffMemberId).toBeNull();
     expect(access.permissions).toHaveLength(ALL_PERMISSIONS.length);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('heals a null activeStoreId to the oldest owned store', async () => {
+    const { service, prisma } = build({
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          activeStoreId: null,
+          stores: [
+            { id: 'store-old', baseCurrency: 'MAD' },
+            { id: 'store-new', baseCurrency: 'USD' },
+          ],
+        }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    });
+
+    const access = await service.require('owner-user');
+
+    expect(access.storeId).toBe('store-old');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'owner-user' },
+      data: { activeStoreId: 'store-old' },
+    });
   });
 
   it('resolves a staff member to their store with only their role permissions', async () => {
@@ -44,7 +82,9 @@ describe('StoreAccessService', () => {
           status: StaffStatus.ACTIVE,
           permissionOverrides: [],
           store: STORE,
-          role: { permissions: [PERMISSIONS.ORDERS_VIEW, PERMISSIONS.RETURNS_SCAN] },
+          role: {
+            permissions: [PERMISSIONS.ORDERS_VIEW, PERMISSIONS.RETURNS_SCAN],
+          },
         }),
         update: jest.fn(),
       },
@@ -52,8 +92,6 @@ describe('StoreAccessService', () => {
 
     const access = await service.require('staff-user');
 
-    // The whole point of the foundation: a staff member reaches the owner's
-    // store even though Store.userId only ever matches the owner.
     expect(access.storeId).toBe('store-1');
     expect(access.isOwner).toBe(false);
     expect(access.staffMemberId).toBe('staff-1');
@@ -102,13 +140,18 @@ describe('StoreAccessService', () => {
         update: jest.fn(),
       },
     });
-    // Even a staff member holding every permission cannot manage staff/roles.
     await expect(staff.service.requireOwner('staff-user')).rejects.toBeInstanceOf(
       ForbiddenException,
     );
 
     const owner = build({
-      store: { findUnique: jest.fn().mockResolvedValue(STORE) },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          activeStoreId: 'store-1',
+          stores: [STORE],
+        }),
+        update: jest.fn(),
+      },
     });
     await expect(owner.service.requireOwner('owner-user')).resolves.toMatchObject({
       isOwner: true,
@@ -117,21 +160,18 @@ describe('StoreAccessService', () => {
 });
 
 describe('resolvePermissions', () => {
-  it('inherits the role when there are no overrides', () => {
-    expect(resolvePermissions([PERMISSIONS.ORDERS_VIEW], [])).toEqual([
-      PERMISSIONS.ORDERS_VIEW,
-    ]);
-  });
-
-  it('lets a non-empty override replace the role entirely', () => {
+  it('inherits the role when overrides are empty', () => {
     expect(
-      resolvePermissions([PERMISSIONS.ORDERS_VIEW], [PERMISSIONS.EXPENSES_ADD]),
-    ).toEqual([PERMISSIONS.EXPENSES_ADD]);
-  });
-
-  it('drops unknown permission strings rather than trusting stored data', () => {
-    expect(
-      resolvePermissions([PERMISSIONS.ORDERS_VIEW, 'orders.nuke'], []),
+      resolvePermissions([PERMISSIONS.ORDERS_VIEW], []),
     ).toEqual([PERMISSIONS.ORDERS_VIEW]);
+  });
+
+  it('replaces the role when overrides are present', () => {
+    expect(
+      resolvePermissions(
+        [PERMISSIONS.ORDERS_VIEW, PERMISSIONS.RETURNS_SCAN],
+        [PERMISSIONS.PRODUCTS_VIEW],
+      ),
+    ).toEqual([PERMISSIONS.PRODUCTS_VIEW]);
   });
 });

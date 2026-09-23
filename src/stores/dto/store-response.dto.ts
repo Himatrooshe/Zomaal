@@ -37,6 +37,19 @@ export class StoreResponseDto {
   @ApiProperty({ example: true })
   isActive: boolean;
 
+  @ApiProperty({
+    description: 'ISO 4217 store currency (e.g. MAD).',
+    example: 'MAD',
+  })
+  baseCurrency: string;
+
+  @ApiProperty({
+    description:
+      'True when this is the owner’s currently selected store (Settings header).',
+    example: true,
+  })
+  isCurrent: boolean;
+
   @ApiProperty({ example: '2026-07-16T10:30:00.000Z', format: 'date-time' })
   createdAt: string;
 
@@ -45,4 +58,9 @@ export class StoreResponseDto {
 
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001' })
   userId: string;
+}
+
+export class StoreListResponseDto {
+  @ApiProperty({ type: [StoreResponseDto] })
+  data: StoreResponseDto[];
 }
