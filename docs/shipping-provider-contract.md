@@ -109,3 +109,17 @@ because the upstream request fields and capabilities are genuinely different.
 Examples include Sendit returns, ForceLog stock, OzoneExpress delivery notes,
 and provider-specific label formats. Their resulting shipments are available
 through the shared read, timeline, sync, and overview contract above.
+
+---
+
+## Related: product code · order · tracking spine
+
+Courier **tracking numbers** on shipments are one of three identifiers in the
+client architecture (together with **order id** and warehouse **product /
+pack codes**). Scan and Returns resolve:
+
+`shipping tracking → order → product line(s)`.
+
+- Full shared architecture (non-Returns modules): [`product-shipping-tracking-architecture.md`](./product-shipping-tracking-architecture.md)
+- Returns inbound scan / condition plan: [`returns-module.md`](./returns-module.md)
+- No fake catalogs or Figma seed data: [`no-dummy-static-data.md`](./no-dummy-static-data.md)

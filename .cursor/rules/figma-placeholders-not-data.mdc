@@ -1,0 +1,28 @@
+---
+description: Treat Figma as UX layout only — placeholders are not product data or API contracts.
+alwaysApply: true
+---
+
+# Figma = layout, not source of truth for data
+
+## Rule
+
+- Figma mockups use **placeholder / demo numbers, names, phones, addresses, currencies mixed in one screen, product titles, and fake IDs** (e.g. `RET-0041`, `$249.99`, `34,842.00 MAD`, “Alex Sansioun”).
+- **Do not** copy those values into services, seeds, tests-as-fixtures for “real” behavior, OpenAPI examples that look live, or commit them as catalog/order data.
+- **Do** use Figma for: screen flow, which fields exist, empty states, actions (Scan / Confirm / filters), and visual hierarchy.
+- For field semantics, money, currency, IDs, and empty handling, follow **industry / production rules** already in this codebase:
+  - Real platform or DB data only (`docs/no-dummy-static-data.md`)
+  - Money as `Decimal` → API strings `.toFixed(2)`; currency from store `baseCurrency` (or order currency), never invent MAD/$ from the mock
+  - Missing optional fields → `null` / omit — never invent a customer or image to match the mock
+  - IDs are UUIDs (or deterministic codes we define) — not Figma’s `RET-0041` unless we explicitly implement a display code
+  - PII: platform orders may not store name/phone at rest; search/detect must respect that, not pretend Figma’s always-filled customer card is always possible
+
+## When comparing “coverage”
+
+Score against **product requirements + API contract + real data availability**, not against whether the JSON matches Figma’s fake numbers.
+
+## Related docs
+
+- `docs/returns-module.md` — Returns module plan
+- `docs/product-shipping-tracking-architecture.md` — shared product/order/tracking spine
+- `docs/no-dummy-static-data.md` — no fake catalogs or secrets in git

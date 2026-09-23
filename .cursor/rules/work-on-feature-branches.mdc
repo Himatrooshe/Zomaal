@@ -1,0 +1,27 @@
+---
+description: Do all implementation on feature branches — never switch to main to “fix” or continue work.
+alwaysApply: true
+---
+
+# Git workflow — feature branches only
+
+## Rule
+
+- **Do not work on `main`.** Implementation, fixes, gaps, and follow-ups stay on the feature/update branch for that module (e.g. `update/order-return`).
+- **Before starting work on a feature branch, always bring in the latest `main`:**
+  1. `git fetch origin`
+  2. On the feature branch: `git merge origin/main` (or rebase only if the user explicitly asks)
+  3. Resolve conflicts on the feature branch — never by switching day-to-day work onto `main`
+- **Do not suggest switching to `main`** to finish or fix something, even if the feature branch is already merged or is an ancestor of `main`.
+- **Merging is intentional and later.** When the branch work is done, the human merges (PR / merge). The agent does not treat “already on main” as a reason to leave the branch.
+- If a task names a module, **find and stay on that module’s branch** (create one from the current feature tip only if the user asks).
+
+## Why
+
+We develop and verify on branches so history stays reviewable and main stays stable until an explicit merge. Pulling `main` first avoids fixing against stale code and reduces merge pain later.
+
+## Related
+
+- Still follow `docs/no-dummy-static-data.md` / commit-safety rules when committing from any branch.
+- Figma placeholders are not data — see `figma-placeholders-not-data.mdc`.
+- Returns work plan: `docs/returns-module.md`. Shared tracking spine (other modules): `docs/product-shipping-tracking-architecture.md`.

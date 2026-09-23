@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ReturnRequestStatus } from '@prisma/client';
+import { Prisma, ReturnRequestStatus, MediaAssetPurpose } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EcommerceService } from './ecommerce.service';
 import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
@@ -24,11 +24,53 @@ import type {
 // the moment it's verified.
 const DELAYED_AFTER_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
 
+/** Prefer PRODUCT_MAIN on the variant, else on the parent product. */
+const orderLineImageInclude = {
+  warehouseVariant: {
+    include: {
+      media: {
+        where: { purpose: MediaAssetPurpose.PRODUCT_MAIN },
+        orderBy: { position: 'asc' as const },
+        take: 1,
+        select: { id: true },
+      },
+      product: {
+        include: {
+          media: {
+            where: { purpose: MediaAssetPurpose.PRODUCT_MAIN },
+            orderBy: { position: 'asc' as const },
+            take: 1,
+            select: { id: true },
+          },
+        },
+      },
+    },
+  },
+} satisfies Prisma.EcommerceOrderLineInclude;
+
+const returnRequestWithLinesInclude = {
+  lines: {
+    include: {
+      orderLine: { include: orderLineImageInclude },
+    },
+  },
+} satisfies Prisma.ReturnRequestInclude;
+
 type OrderLineForLoss = {
   id: string;
   totalPrice: Prisma.Decimal;
   condition: string | null;
   damageCost: Prisma.Decimal | null;
+};
+
+type OrderLineWithImage = OrderLineForLoss & {
+  sku: string | null;
+  name: string;
+  quantity: number;
+  warehouseVariant?: {
+    media: { id: string }[];
+    product?: { media: { id: string }[] } | null;
+  } | null;
 };
 
 @Injectable()
@@ -64,7 +106,7 @@ export class ReturnRequestService {
         orderId: order.id,
         status: ReturnRequestStatus.NEED_VERIFICATION,
       },
-      include: { lines: { include: { orderLine: true } } },
+      include: returnRequestWithLinesInclude,
     });
     // True only when THIS call's create() actually won — not when it lost
     // the race below and re-read someone else's row, which would otherwise
@@ -85,7 +127,7 @@ export class ReturnRequestService {
               })),
             },
           },
-          include: { lines: { include: { orderLine: true } } },
+          include: returnRequestWithLinesInclude,
         });
         isNewReturn = true;
       } catch (error) {
@@ -105,7 +147,7 @@ export class ReturnRequestService {
               orderId: order.id,
               status: ReturnRequestStatus.NEED_VERIFICATION,
             },
-            include: { lines: { include: { orderLine: true } } },
+            include: returnRequestWithLinesInclude,
           });
         } else {
           throw error;
@@ -119,7 +161,9 @@ export class ReturnRequestService {
     }
     const deliveryCost =
       await this.financialService.resolveEffectiveShippingCost(order.id);
-    const lines = returnRequest.lines.map((rl) => rl.orderLine);
+    const lines = returnRequest.lines.map(
+      (rl) => rl.orderLine as OrderLineWithImage,
+    );
 
     return {
       returnRequestId: returnRequest.id,
@@ -129,13 +173,14 @@ export class ReturnRequestService {
       customerName: customer.name,
       customerPhone: customer.phone,
       address: customer.address,
+      reason: returnRequest.reason ?? null,
       products: lines.map((line) => ({
         orderLineId: line.id,
         productCode: line.sku,
         name: line.name,
         quantity: line.quantity,
         totalPrice: line.totalPrice.toFixed(2),
-        imageUrl: null,
+        imageUrl: this.resolveLineImageUrl(line),
         condition: line.condition,
       })),
       lossSummary: this.computeLoss(lines, deliveryCost),
@@ -308,6 +353,7 @@ export class ReturnRequestService {
     const summaryRow = summaryRows[0];
 
     return {
+      currency: store.baseCurrency,
       summary: {
         totalReturns: {
           value: (summaryRow?.totalValue ?? new Prisma.Decimal(0)).toFixed(2),
@@ -393,10 +439,12 @@ export class ReturnRequestService {
   }
 
   private async resolveOrder(storeId: string, dto: DetectReturnDto) {
+    const linesInclude = { lines: { include: orderLineImageInclude } };
+
     if (dto.orderId) {
       const order = await this.prisma.ecommerceOrder.findFirst({
         where: { id: dto.orderId, connection: { storeId } },
-        include: { lines: true },
+        include: linesInclude,
       });
       if (!order) throw new NotFoundException('Order not found');
       return order;
@@ -437,7 +485,7 @@ export class ReturnRequestService {
         providerTracking: trackingNumber,
         order: { connection: { storeId } },
       },
-      include: { order: { include: { lines: true } } },
+      include: { order: { include: linesInclude } },
     });
     if (byDispatch) return byDispatch.order;
 
@@ -446,7 +494,7 @@ export class ReturnRequestService {
         order: { connection: { storeId } },
         metadata: { path: ['number'], equals: trackingNumber },
       },
-      include: { order: { include: { lines: true } } },
+      include: { order: { include: linesInclude } },
     });
     if (byTracking) return byTracking.order;
 
@@ -456,7 +504,7 @@ export class ReturnRequestService {
         connection: { storeId },
         OR: [{ externalOrderId: trimmedValue }, { orderName: trimmedValue }],
       },
-      include: { lines: true },
+      include: linesInclude,
     });
     if (byReference) return byReference;
 
@@ -531,6 +579,18 @@ export class ReturnRequestService {
     }
   }
 
+  private resolveLineImageUrl(line: OrderLineWithImage): string | null {
+    const variantMediaId = line.warehouseVariant?.media?.[0]?.id;
+    if (variantMediaId) {
+      return `/warehouse/media/${variantMediaId}/content`;
+    }
+    const productMediaId = line.warehouseVariant?.product?.media?.[0]?.id;
+    if (productMediaId) {
+      return `/warehouse/media/${productMediaId}/content`;
+    }
+    return null;
+  }
+
   private computeLoss(lines: OrderLineForLoss[], deliveryCost: Prisma.Decimal) {
     const originalOrderValue = lines.reduce(
       (sum, l) => sum.plus(l.totalPrice),
@@ -567,10 +627,12 @@ export class ReturnRequestService {
       : 'NEED_VERIFICATION';
   }
 
-  private async requireStore(userId: string): Promise<{ id: string }> {
+  private async requireStore(
+    userId: string,
+  ): Promise<{ id: string; baseCurrency: string }> {
     const store = await this.prisma.store.findUnique({
       where: { userId },
-      select: { id: true },
+      select: { id: true, baseCurrency: true },
     });
     if (!store) {
       throw new NotFoundException('Store not found');

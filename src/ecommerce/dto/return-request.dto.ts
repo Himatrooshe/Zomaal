@@ -47,13 +47,13 @@ export class DetectReturnDto {
 
 export class ReturnLossPreviewDto {
   @ApiProperty({
-    example: '249.99',
+    example: '100.00',
     description: 'Sum of the returned lines\' totalPrice — what the customer paid for these items.',
   })
   originalOrderValue: string;
 
   @ApiProperty({
-    example: '10.00',
+    example: '25.00',
     description:
       "The order's own courier fee if dispatched via Zomaal, otherwise the shipping " +
       'amount charged to the customer (we have no visibility into a 3rd-party ' +
@@ -62,7 +62,7 @@ export class ReturnLossPreviewDto {
   deliveryCost: string;
 
   @ApiProperty({
-    example: '10.00',
+    example: '25.00',
     description:
       'deliveryCost, plus each line\'s loss based on its CURRENT recorded condition: ' +
       '0 for GOOD/RETURNED (restocked), damageCost for DAMAGED (0 if not entered yet), ' +
@@ -85,7 +85,7 @@ export class DetectedReturnLineDto {
   @ApiProperty()
   quantity: number;
 
-  @ApiProperty({ example: '249.99' })
+  @ApiProperty({ example: '100.00' })
   totalPrice: string;
 
   @ApiPropertyOptional({ nullable: true, format: 'uri' })
@@ -123,6 +123,13 @@ export class DetectedReturnResponseDto {
   @ApiProperty({ nullable: true })
   address: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Free-text return reason previously saved on verify, if any. Null until staff records one.',
+  })
+  reason: string | null;
+
   @ApiProperty({ type: [DetectedReturnLineDto] })
   products: DetectedReturnLineDto[];
 
@@ -153,7 +160,7 @@ export class VerifyReturnLineDto {
 
 export class VerifyReturnDto {
   @ApiPropertyOptional({
-    example: 'Item was damaged during shipping',
+    example: 'Item damaged in transit',
     description: 'Free-text return reason shown on the Return Detected screen.',
   })
   @IsOptional()
@@ -230,14 +237,14 @@ export class ReturnListItemDto {
 
   @ApiProperty({
     description: "First returned line's product name, plus a count of any others.",
-    example: 'Adidas Running Shoes - Black',
+    example: 'Product name',
   })
   productSummary: string;
 
   @ApiProperty({ enum: ['NEED_VERIFICATION', 'DELAYED', 'PROCESSED'] })
   status: string;
 
-  @ApiProperty({ example: '249.99' })
+  @ApiProperty({ example: '100.00' })
   value: string;
 
   @ApiProperty({ format: 'date-time' })
@@ -245,10 +252,10 @@ export class ReturnListItemDto {
 }
 
 class ReturnSummaryCardDto {
-  @ApiProperty({ example: '34842.00' })
+  @ApiProperty({ example: '0.00' })
   value: string;
 
-  @ApiProperty({ example: 198 })
+  @ApiProperty({ example: 0 })
   orders: number;
 }
 
@@ -270,6 +277,13 @@ export class ReturnListSummaryDto {
 }
 
 export class ReturnListResponseDto {
+  @ApiProperty({
+    example: 'MAD',
+    description:
+      "Store base currency — same unit as summary card and row values. Not invented from UI mocks.",
+  })
+  currency: string;
+
   @ApiProperty({ type: ReturnListSummaryDto })
   summary: ReturnListSummaryDto;
 

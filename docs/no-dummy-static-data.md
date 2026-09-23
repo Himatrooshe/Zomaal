@@ -100,3 +100,11 @@ Manual API checks belong in local Postman/Insomnia (import OpenAPI), not in the 
 2. Run the dummy-data scan and the secrets scan above.
 3. Confirm you are not adding Postman collections or manual testing markdown with credentials.
 4. Only then `git add` / `git commit`.
+
+---
+
+## Related docs (Returns & tracking spine)
+
+- [`returns-module.md`](./returns-module.md) — Returns scope and branch work plan (`update/order-return`). Always merge latest `main` into the feature branch before coding.
+- [`product-shipping-tracking-architecture.md`](./product-shipping-tracking-architecture.md) — Client brief for product code ↔ order ↔ shipping tracking across other modules. Do not seed demo returns/orders to “match Figma.”
+- Figma placeholders are layout-only — `.cursor/rules/figma-placeholders-not-data.mdc`.
