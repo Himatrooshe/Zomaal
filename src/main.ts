@@ -92,10 +92,9 @@ async function bootstrap() {
     }),
   );
 
+  // On by default (including production). Set SWAGGER_ENABLED=false to disable.
   const swaggerEnabled =
-    configService.get<string>('SWAGGER_ENABLED') === 'true' ||
-    (configService.get<string>('NODE_ENV') !== 'production' &&
-      configService.get<string>('SWAGGER_ENABLED') !== 'false');
+    configService.get<string>('SWAGGER_ENABLED') !== 'false';
 
   if (swaggerEnabled) {
     const config = createOpenApiConfig();
