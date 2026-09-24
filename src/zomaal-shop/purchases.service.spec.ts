@@ -110,6 +110,27 @@ describe('PurchasesService.list grouping', () => {
     const result = await service.list('store-1', {});
     expect(result.summary.totalSpent).toBe('50.00');
     expect(result.summary.currency).toBe('MAD');
+    expect(result.items[0]).toMatchObject({
+      source: 'MANUAL',
+      sourceLabel: 'Manual',
+      quantityLabel: '5 piece',
+      lastBoxPrice: '10.00',
+      editable: true,
+    });
+  });
+
+  it('maps Figma tab FROM_SHOP to source=SHOP', async () => {
+    const { service, prisma } = build();
+    prisma.merchantPurchase.findMany.mockResolvedValue([]);
+    await service.list('store-1', { tab: 'FROM_SHOP' });
+    expect(prisma.merchantPurchase.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          storeId: 'store-1',
+          source: MerchantPurchaseSource.SHOP,
+        }),
+      }),
+    );
   });
 });
 

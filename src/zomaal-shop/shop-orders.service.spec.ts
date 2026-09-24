@@ -8,6 +8,7 @@ function build() {
       updateMany: jest.fn(),
       findUnique: jest.fn(),
       findUniqueOrThrow: jest.fn(),
+      findMany: jest.fn(),
     },
     shopPromoCode: { updateMany: jest.fn() },
     shopProductVariant: { updateMany: jest.fn() },
@@ -17,8 +18,14 @@ function build() {
   const $transaction = jest.fn((fn: (tx: typeof prisma) => unknown) =>
     fn(prisma),
   );
-  const service = new ShopOrdersService({ ...prisma, $transaction } as never);
-  return { service, prisma };
+  const packaging = {
+    creditDeliveredPurchase: jest.fn().mockResolvedValue({}),
+  };
+  const service = new ShopOrdersService(
+    { ...prisma, $transaction } as never,
+    packaging as never,
+  );
+  return { service, prisma, packaging };
 }
 
 describe('ShopOrdersService.cancel', () => {
@@ -173,14 +180,33 @@ describe('ShopOrdersService.advance', () => {
     expect(data.trackingNumber).toBe('TRK1');
   });
 
-  it('marks a COD order PAID and records "From Shop" purchases on DELIVERED', async () => {
-    const { service, prisma } = build();
-    prisma.shopOrder.findUnique.mockResolvedValue({
-      status: ShopOrderStatus.SHIPPED,
-      paymentMethod: 'COD',
-      confirmedAt: new Date(),
-      shippedAt: new Date(),
-    });
+  it('marks a COD order PAID, records purchases, and credits packaging on DELIVERED', async () => {
+    const { service, prisma, packaging } = build();
+    prisma.shopOrder.findUnique
+      .mockResolvedValueOnce({
+        status: ShopOrderStatus.SHIPPED,
+        paymentMethod: 'COD',
+        confirmedAt: new Date(),
+        shippedAt: new Date(),
+      })
+      .mockResolvedValueOnce({
+        id: 'o1',
+        storeId: 'store-1',
+        items: [
+          {
+            id: 'item-1',
+            productId: 'p1',
+            variantId: 'v1',
+            productName: 'Large Box',
+            quantity: 2,
+            product: {
+              sku: 'BOX-L',
+              images: [{ objectName: 'shop/products/p1/img.webp' }],
+            },
+            variant: { sku: 'BOX-L-BRN' },
+          },
+        ],
+      });
     prisma.shopOrder.updateMany.mockResolvedValue({ count: 1 });
     prisma.shopOrder.findUniqueOrThrow.mockResolvedValue({
       id: 'o1',
@@ -228,16 +254,30 @@ describe('ShopOrdersService.advance', () => {
         ],
       }),
     );
+    expect(packaging.creditDeliveredPurchase).toHaveBeenCalledWith('store-1', {
+      zomaalShopVariantId: 'v1',
+      name: 'Large Box',
+      sku: 'BOX-L-BRN',
+      imageObjectName: 'shop/products/p1/img.webp',
+      quantity: 2,
+      deliveryReference: 'item-1',
+    });
   });
 
   it('does not mark ONLINE orders paid on delivery', async () => {
-    const { service, prisma } = build();
-    prisma.shopOrder.findUnique.mockResolvedValue({
-      status: ShopOrderStatus.SHIPPED,
-      paymentMethod: 'ONLINE',
-      confirmedAt: new Date(),
-      shippedAt: new Date(),
-    });
+    const { service, prisma, packaging } = build();
+    prisma.shopOrder.findUnique
+      .mockResolvedValueOnce({
+        status: ShopOrderStatus.SHIPPED,
+        paymentMethod: 'ONLINE',
+        confirmedAt: new Date(),
+        shippedAt: new Date(),
+      })
+      .mockResolvedValueOnce({
+        id: 'o1',
+        storeId: 'store-1',
+        items: [],
+      });
     prisma.shopOrder.updateMany.mockResolvedValue({ count: 1 });
     prisma.shopOrder.findUniqueOrThrow.mockResolvedValue({
       id: 'o1',
@@ -249,71 +289,102 @@ describe('ShopOrdersService.advance', () => {
     });
 
     await service.advance('o1', ShopOrderStatus.DELIVERED);
+
     const calls3 = prisma.shopOrder.updateMany.mock.calls as unknown[][];
-    const data = (calls3[0][0] as { data: { paymentStatus: unknown } }).data;
+    const data = (calls3[0][0] as { data: { paymentStatus?: unknown } }).data;
     expect(data.paymentStatus).toBeUndefined();
+    expect(packaging.creditDeliveredPurchase).not.toHaveBeenCalled();
   });
 });
 
-describe('ShopOrdersService response shaping', () => {
-  const service = new ShopOrdersService({} as never);
+describe('ShopOrdersService.buildStatusSteps', () => {
   const base = {
-    id: 'o1',
-    number: 3,
-    status: ShopOrderStatus.CONFIRMED,
-    paymentMethod: 'COD',
-    paymentStatus: 'UNPAID',
-    currency: 'MAD',
-    subtotal: new Prisma.Decimal(0),
-    discount: new Prisma.Decimal(0),
-    deliveryFee: new Prisma.Decimal(0),
-    total: new Prisma.Decimal(0),
-    promoCode: null,
-    items: [],
-    shipLabel: null,
-    shipName: 'A',
-    shipPhone: '+2126',
-    shipCountry: 'MA',
-    shipCity: 'Casa',
-    shipDistrict: null,
-    shipAddress: 'St',
-    note: null,
-    trackingNumber: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    confirmedAt: new Date(),
-    shippedAt: null,
-    deliveredAt: null,
-    cancelledAt: null,
-    cancelledBy: null,
-    cancelReason: null,
-    adminNote: null,
-    store: {
-      id: 's1',
-      businessName: 'Shop',
-      ownerName: 'Owner',
-      user: { id: 'u1', phone: '+2126' },
-    },
+    createdAt: new Date('2026-04-20T10:30:00.000Z'),
+    confirmedAt: new Date('2026-04-20T11:00:00.000Z'),
+    shippedAt: new Date('2026-04-21T09:00:00.000Z'),
+    deliveredAt: null as Date | null,
+    cancelledAt: null as Date | null,
+    trackingNumber: '1234567890',
   };
 
-  it('merchant cannot cancel a confirmed order; admin can', () => {
-    expect(service.toMerchantResponse(base as never).canCancel).toBe(false);
-    expect(service.toAdminResponse(base as never).canCancel).toBe(true);
-  });
-
-  it('lists remaining forward statuses only', () => {
-    expect(service.toAdminResponse(base as never).nextStatuses).toEqual([
+  it('marks Out for delivery as current when SHIPPED', () => {
+    const { service } = build();
+    const steps = service.buildStatusSteps({
+      ...base,
+      status: ShopOrderStatus.SHIPPED,
+    });
+    expect(steps.map((s) => s.key)).toEqual([
+      'PLACED',
+      'CONFIRMED',
       'SHIPPED',
+      'OUT_FOR_DELIVERY',
       'DELIVERED',
     ]);
+    expect(steps.find((s) => s.key === 'OUT_FOR_DELIVERY')).toMatchObject({
+      current: true,
+      completed: false,
+    });
+    expect(steps.find((s) => s.key === 'SHIPPED')?.trackingNumber).toBe(
+      '1234567890',
+    );
   });
 
-  it('offers no next statuses once cancelled', () => {
-    expect(
-      service.toAdminResponse({
-        ...base,
-        status: ShopOrderStatus.CANCELLED,
-      } as never).nextStatuses,
-    ).toEqual([]);
+  it('completes all forward steps when DELIVERED', () => {
+    const { service } = build();
+    const steps = service.buildStatusSteps({
+      ...base,
+      status: ShopOrderStatus.DELIVERED,
+      deliveredAt: new Date('2026-04-22T12:00:00.000Z'),
+    });
+    expect(steps.every((s) => s.completed)).toBe(true);
+    expect(steps.find((s) => s.key === 'DELIVERED')?.current).toBe(true);
+  });
+});
+
+describe('ShopOrdersService.listForStore', () => {
+  it('filters Processing tab as PENDING + CONFIRMED and exposes lastUpdate', async () => {
+    const { service, prisma } = build();
+    prisma.shopOrder.findMany.mockResolvedValue([
+      {
+        id: 'o1',
+        number: 12,
+        status: ShopOrderStatus.CONFIRMED,
+        paymentMethod: 'COD',
+        paymentStatus: 'UNPAID',
+        currency: 'MAD',
+        total: new Prisma.Decimal(100),
+        trackingNumber: null,
+        createdAt: new Date('2026-03-15T00:00:00.000Z'),
+        items: [
+          { quantity: 1, imageUrl: null, productName: 'Box' },
+        ],
+      },
+    ]);
+
+    const rows = await service.listForStore('store-1', {
+      tab: 'PROCESSING',
+      search: 'box',
+    });
+
+    expect(prisma.shopOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          storeId: 'store-1',
+          status: {
+            in: [ShopOrderStatus.PENDING, ShopOrderStatus.CONFIRMED],
+          },
+          items: {
+            some: {
+              productName: { contains: 'box', mode: 'insensitive' },
+            },
+          },
+        }),
+      }),
+    );
+    expect(rows[0]).toMatchObject({
+      listTab: 'PROCESSING',
+      lastUpdate: 'Order confirmed',
+      number: 'ZS-12',
+    });
   });
 });

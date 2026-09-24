@@ -13,6 +13,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { StoreAccess } from '../access/store-access.service';
+import type { ListPurchasesDto, PurchaseListTab } from './dto/shop.dto';
 import { money } from './shop-pricing.util';
 
 // A purchases-list row groups every purchase of the same product from the
@@ -70,18 +71,24 @@ function whereForKey(
   }
 }
 
+function sourceLabel(source: MerchantPurchaseSource): 'Manual' | 'From Shop' {
+  return source === MerchantPurchaseSource.SHOP ? 'From Shop' : 'Manual';
+}
+
+function quantityLabel(quantity: number, unitLabel: string) {
+  return `${quantity} ${unitLabel}`.trim();
+}
+
 @Injectable()
 export class PurchasesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(
-    storeId: string,
-    query: { source?: MerchantPurchaseSource; search?: string },
-  ) {
+  async list(storeId: string, query: ListPurchasesDto = {}) {
+    const source = this.resolveSource(query.tab, query.source);
     const rows = await this.prisma.merchantPurchase.findMany({
       where: {
         storeId,
-        ...(query.source ? { source: query.source } : {}),
+        ...(source ? { source } : {}),
         ...(query.search
           ? {
               productName: {
@@ -129,6 +136,7 @@ export class PurchasesService {
       },
       items: [...groups.entries()].map(([key, list]) => {
         const latest = list[0];
+        const totalQty = list.reduce((sum, r) => sum + r.quantity, 0);
         const total = list.reduce(
           (sum, r) => sum.plus(r.totalCost),
           new Prisma.Decimal(0),
@@ -136,15 +144,20 @@ export class PurchasesService {
         return {
           key,
           source: latest.source,
+          sourceLabel: sourceLabel(latest.source),
           productName: latest.productName,
           imageUrl: list.find((r) => r.imageUrl)?.imageUrl ?? null,
           unitLabel: latest.unitLabel,
-          totalQuantity: list.reduce((sum, r) => sum + r.quantity, 0),
+          totalQuantity: totalQty,
+          quantityLabel: quantityLabel(totalQty, latest.unitLabel),
           totalCost: total.toFixed(2),
           currency: latest.currency,
           lastUnitPrice: money(latest.unitPrice),
+          /** Figma list card price (last unit / box price). */
+          lastBoxPrice: money(latest.unitPrice),
           lastPurchaseDate: latest.purchaseDate.toISOString(),
           purchaseCount: list.length,
+          editable: latest.source === MerchantPurchaseSource.MANUAL,
         };
       }),
     };
@@ -157,20 +170,24 @@ export class PurchasesService {
     });
     if (!rows.length) throw new NotFoundException('Purchase group not found');
     const latest = rows[0];
+    const totalQty = rows.reduce((sum, r) => sum + r.quantity, 0);
     return {
       key,
       source: latest.source,
+      sourceLabel: sourceLabel(latest.source),
       productName: latest.productName,
       imageUrl: rows.find((r) => r.imageUrl)?.imageUrl ?? null,
       unitLabel: latest.unitLabel,
+      quantityLabel: quantityLabel(totalQty, latest.unitLabel),
       warehouseProductId: latest.warehouseProductId,
       shopProductId: latest.shopProductId,
-      totalQuantity: rows.reduce((sum, r) => sum + r.quantity, 0),
+      totalQuantity: totalQty,
       totalCost: rows
         .reduce((sum, r) => sum.plus(r.totalCost), new Prisma.Decimal(0))
         .toFixed(2),
       currency: latest.currency,
-      history: rows.map((r) => this.toResponse(r)),
+      editable: latest.source === MerchantPurchaseSource.MANUAL,
+      history: rows.map((r) => this.toHistoryRow(r)),
     };
   }
 
@@ -208,7 +225,11 @@ export class PurchasesService {
         createdByUserId: access.userId,
       },
     });
-    return { ...this.toResponse(row), groupKey: groupKey(row) };
+    return {
+      ...this.toResponse(row),
+      groupKey: groupKey(row),
+      sourceLabel: sourceLabel(row.source),
+    };
   }
 
   async update(
@@ -241,7 +262,11 @@ export class PurchasesService {
           : {}),
       },
     });
-    return { ...this.toResponse(updated), groupKey: groupKey(updated) };
+    return {
+      ...this.toResponse(updated),
+      groupKey: groupKey(updated),
+      sourceLabel: sourceLabel(updated.source),
+    };
   }
 
   async remove(storeId: string, id: string) {
@@ -314,6 +339,18 @@ export class PurchasesService {
     });
   }
 
+  private resolveSource(
+    tab?: PurchaseListTab,
+    source?: MerchantPurchaseSource,
+  ): MerchantPurchaseSource | undefined {
+    if (tab && tab !== 'ALL') {
+      return tab === 'FROM_SHOP'
+        ? MerchantPurchaseSource.SHOP
+        : MerchantPurchaseSource.MANUAL;
+    }
+    return source;
+  }
+
   private async requireWarehouseProduct(storeId: string, id: string) {
     const product = await this.prisma.warehouseProduct.findFirst({
       where: { id, storeId, status: { not: WarehouseProductStatus.ARCHIVED } },
@@ -356,15 +393,42 @@ export class PurchasesService {
     return date;
   }
 
-  toResponse(r: MerchantPurchase) {
+  /** Figma Purchases History row. */
+  private toHistoryRow(r: MerchantPurchase) {
+    const unit = money(r.unitPrice);
     return {
       id: r.id,
       source: r.source,
+      sourceLabel: sourceLabel(r.source),
+      date: r.purchaseDate.toISOString(),
+      purchaseDate: r.purchaseDate.toISOString(),
+      quantity: r.quantity,
+      quantityLabel: quantityLabel(r.quantity, r.unitLabel),
+      unitLabel: r.unitLabel,
+      /** Figma "Box Price" — same as unit purchase price. */
+      boxPrice: unit,
+      unitPrice: unit,
+      totalCost: money(r.totalCost),
+      currency: r.currency,
+      notes: r.notes,
+      editable: r.source === MerchantPurchaseSource.MANUAL,
+      createdAt: r.createdAt.toISOString(),
+    };
+  }
+
+  toResponse(r: MerchantPurchase) {
+    const unit = money(r.unitPrice);
+    return {
+      id: r.id,
+      source: r.source,
+      sourceLabel: sourceLabel(r.source),
       productName: r.productName,
       unitLabel: r.unitLabel,
       imageUrl: r.imageUrl,
       quantity: r.quantity,
-      unitPrice: money(r.unitPrice),
+      quantityLabel: quantityLabel(r.quantity, r.unitLabel),
+      unitPrice: unit,
+      boxPrice: unit,
       totalCost: money(r.totalCost),
       currency: r.currency,
       purchaseDate: r.purchaseDate.toISOString(),

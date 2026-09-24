@@ -190,11 +190,41 @@ export class PlaceShopOrderDto {
   note?: string;
 }
 
+/** Figma My Orders tabs. PROCESSING = PENDING + CONFIRMED. */
+export const SHOP_ORDER_LIST_TABS = [
+  'ALL',
+  'PROCESSING',
+  'SHIPPED',
+  'DELIVERED',
+  'CANCELLED',
+] as const;
+export type ShopOrderListTab = (typeof SHOP_ORDER_LIST_TABS)[number];
+
 export class ListShopOrdersDto {
-  @ApiPropertyOptional({ enum: ShopOrderStatus })
+  @ApiPropertyOptional({
+    enum: SHOP_ORDER_LIST_TABS,
+    description:
+      'Figma My Orders tabs. Prefer this over status. PROCESSING covers PENDING and CONFIRMED.',
+  })
+  @IsOptional()
+  @IsIn([...SHOP_ORDER_LIST_TABS])
+  tab?: ShopOrderListTab;
+
+  @ApiPropertyOptional({
+    enum: ShopOrderStatus,
+    description: 'Exact status filter. Ignored when tab is set.',
+  })
   @IsOptional()
   @IsEnum(ShopOrderStatus)
   status?: ShopOrderStatus;
+
+  @ApiPropertyOptional({
+    description: 'Case-insensitive match on item product name (Figma search).',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
 }
 
 export class CancelShopOrderDto {
@@ -206,11 +236,30 @@ export class CancelShopOrderDto {
 }
 
 // ---- Purchases ----
+//
+// Two sources in one ledger:
+//   SHOP   ("From Shop") — auto-created when a Zomaal Shop order is delivered
+//   MANUAL ("Manual")    — merchant records an outside/personal purchase of
+//                          one of their own warehouse products
+
+/** Figma Purchases List tabs. FROM_SHOP maps to source=SHOP. */
+export const PURCHASE_LIST_TABS = ['ALL', 'MANUAL', 'FROM_SHOP'] as const;
+export type PurchaseListTab = (typeof PURCHASE_LIST_TABS)[number];
 
 export class ListPurchasesDto {
   @ApiPropertyOptional({
+    enum: PURCHASE_LIST_TABS,
+    description:
+      'Figma tabs: All / Manual / From Shop. Prefer this over source.',
+  })
+  @IsOptional()
+  @IsIn([...PURCHASE_LIST_TABS])
+  tab?: PurchaseListTab;
+
+  @ApiPropertyOptional({
     enum: MerchantPurchaseSource,
-    description: 'Omit for All; MANUAL or SHOP ("From Shop").',
+    description:
+      'Exact source filter. Ignored when tab is set. MANUAL = personal/outside; SHOP = Zomaal Shop.',
   })
   @IsOptional()
   @IsEnum(MerchantPurchaseSource)

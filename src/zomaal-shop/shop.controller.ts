@@ -321,18 +321,26 @@ export class ShopController {
 
   @Get('orders')
   @RequirePermission(PERMISSIONS.SHOP_VIEW)
-  @ApiOperation({ summary: 'My Zomaal Shop orders' })
+  @ApiOperation({
+    summary: 'My Zomaal Shop orders',
+    description:
+      'Figma My Orders: filter with tab (All / Processing / Shipped / Delivered / Cancelled) and optional product-name search.',
+  })
   @ApiOkResponse(ARR)
   listOrders(
     @CurrentStoreAccess() access: StoreAccess,
     @Query() query: ListShopOrdersDto,
   ) {
-    return this.orders.listForStore(access.storeId, query.status);
+    return this.orders.listForStore(access.storeId, query);
   }
 
   @Get('orders/:id')
   @RequirePermission(PERMISSIONS.SHOP_VIEW)
-  @ApiOperation({ summary: 'Order details' })
+  @ApiOperation({
+    summary: 'Order details / Order track',
+    description:
+      'Figma Order track: items, totals, address, payment, trackingNumber, and statusSteps timeline.',
+  })
   @ApiOkResponse(OBJ)
   orderDetail(
     @CurrentStoreAccess() access: StoreAccess,

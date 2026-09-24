@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { WarehouseModule } from '../warehouse/warehouse.module';
 import { ShopController } from './shop.controller';
 import { PurchasesController } from './purchases.controller';
 import { StorefrontService } from './storefront.service';
@@ -12,9 +13,11 @@ import { PurchasesService } from './purchases.service';
 /**
  * Merchant side of the Zomaal Shop plus the Purchases module. The admin
  * panel (SuperAdminModule) imports this for order fulfilment and settings,
- * so order lifecycle rules (restock, auto-purchases) live in one place.
+ * so order lifecycle rules (restock, auto-purchases, packaging credit) live
+ * in one place.
  */
 @Module({
+  imports: [WarehouseModule],
   controllers: [ShopController, PurchasesController],
   providers: [
     StorefrontService,

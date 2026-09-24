@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -13,6 +14,8 @@ import {
   ShopPaymentStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PackagingService } from '../warehouse/packaging.service';
+import type { ListShopOrdersDto, ShopOrderListTab } from './dto/shop.dto';
 import { money, orderNumberLabel } from './shop-pricing.util';
 
 export const ORDER_INCLUDE = {
@@ -51,15 +54,44 @@ export const ADMIN_CANCELLABLE: ShopOrderStatus[] = [
 
 type Tx = Prisma.TransactionClient;
 
+type StatusStep = {
+  key: string;
+  title: string;
+  at: string | null;
+  completed: boolean;
+  current: boolean;
+  trackingNumber?: string | null;
+};
+
 @Injectable()
 export class ShopOrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ShopOrdersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly packaging: PackagingService,
+  ) {}
 
   // ---- Merchant reads ----
 
-  async listForStore(storeId: string, status?: ShopOrderStatus) {
+  async listForStore(storeId: string, query: ListShopOrdersDto = {}) {
+    const statusFilter = this.resolveStatusFilter(query.tab, query.status);
+    const search = query.search?.trim();
+
     const orders = await this.prisma.shopOrder.findMany({
-      where: { storeId, ...(status ? { status } : {}) },
+      where: {
+        storeId,
+        ...(statusFilter ? { status: statusFilter } : {}),
+        ...(search
+          ? {
+              items: {
+                some: {
+                  productName: { contains: search, mode: 'insensitive' },
+                },
+              },
+            }
+          : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: 200,
       include: {
@@ -72,6 +104,10 @@ export class ShopOrdersService {
       id: o.id,
       number: orderNumberLabel(o.number),
       status: o.status,
+      /** Figma list tab bucket (Processing covers PENDING + CONFIRMED). */
+      listTab: this.listTabForStatus(o.status),
+      /** Short label for the list card, e.g. "Out for delivery". */
+      lastUpdate: this.lastUpdateLabel(o.status),
       paymentMethod: o.paymentMethod,
       paymentStatus: o.paymentStatus,
       currency: o.currency,
@@ -80,6 +116,7 @@ export class ShopOrdersService {
       preview: o.items
         .slice(0, 3)
         .map((i) => ({ productName: i.productName, imageUrl: i.imageUrl })),
+      trackingNumber: o.trackingNumber,
       canCancel: MERCHANT_CANCELLABLE.includes(o.status),
       createdAt: o.createdAt.toISOString(),
     }));
@@ -119,17 +156,17 @@ export class ShopOrdersService {
    */
   async cancel(
     orderId: string,
-    by: ShopOrderCancelledBy,
+    cancelledBy: ShopOrderCancelledBy,
     reason: string | undefined,
-    allowed: ShopOrderStatus[],
+    allowedFrom: ShopOrderStatus[],
   ) {
     await this.prisma.$transaction(async (tx) => {
       const flipped = await tx.shopOrder.updateMany({
-        where: { id: orderId, status: { in: allowed } },
+        where: { id: orderId, status: { in: allowedFrom } },
         data: {
           status: ShopOrderStatus.CANCELLED,
           cancelledAt: new Date(),
-          cancelledBy: by,
+          cancelledBy,
           cancelReason: reason?.trim() || null,
         },
       });
@@ -139,11 +176,13 @@ export class ShopOrdersService {
           select: { status: true },
         });
         if (!current) throw new NotFoundException('Order not found');
+        if (cancelledBy === ShopOrderCancelledBy.MERCHANT) {
+          throw new ConflictException(
+            'This order can no longer be cancelled from the app. Contact Zomaal support.',
+          );
+        }
         throw new ConflictException(
-          by === ShopOrderCancelledBy.MERCHANT &&
-            current.status !== ShopOrderStatus.CANCELLED
-            ? `This order is already ${current.status.toLowerCase()} and can no longer be cancelled from the app. Contact Zomaal support.`
-            : `This order is ${current.status.toLowerCase()} and can't be cancelled.`,
+          `This order is ${current.status.toLowerCase()} — it can't be cancelled.`,
         );
       }
 
@@ -220,6 +259,14 @@ export class ShopOrdersService {
       if (to === ShopOrderStatus.DELIVERED)
         await this.recordPurchases(tx, orderId, now);
     });
+
+    // Packaging ownership is credited after the order txn commits so each
+    // line uses PackagingService's own idempotent transaction. Failures are
+    // logged and retried on a later deliver attempt / ops fix — purchases
+    // already persisted above.
+    if (to === ShopOrderStatus.DELIVERED) {
+      await this.creditPackagingFromDelivery(orderId);
+    }
   }
 
   // Delivered goods become "From Shop" entries in the merchant's Purchases
@@ -254,6 +301,49 @@ export class ShopOrdersService {
     });
   }
 
+  /**
+   * Credits owned packaging materials so Add Product → Select packaging can
+   * list them. Catalog key is the shop variant id when present, otherwise the
+   * shop product id (simple products without size/color options).
+   */
+  private async creditPackagingFromDelivery(orderId: string) {
+    const order = await this.prisma.shopOrder.findUnique({
+      where: { id: orderId },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+              },
+            },
+            variant: true,
+          },
+        },
+      },
+    });
+    if (!order) return;
+
+    for (const item of order.items) {
+      const catalogId = item.variantId ?? item.productId;
+      if (!catalogId) continue;
+      try {
+        await this.packaging.creditDeliveredPurchase(order.storeId, {
+          zomaalShopVariantId: catalogId,
+          name: item.productName,
+          sku: item.variant?.sku ?? item.product?.sku ?? undefined,
+          imageObjectName: item.product?.images[0]?.objectName,
+          quantity: item.quantity,
+          deliveryReference: item.id,
+        });
+      } catch (error) {
+        this.logger.error(
+          `Failed to credit packaging for shop order item ${item.id}: ${String(error)}`,
+        );
+      }
+    }
+  }
+
   // Returns stock for items whose product/variant still exists. A product's
   // stock mirrors the sum of its variants, so both are incremented.
   async restock(
@@ -280,11 +370,143 @@ export class ShopOrdersService {
     }
   }
 
+  private resolveStatusFilter(
+    tab?: ShopOrderListTab,
+    status?: ShopOrderStatus,
+  ): Prisma.EnumShopOrderStatusFilter | ShopOrderStatus | undefined {
+    if (tab && tab !== 'ALL') {
+      if (tab === 'PROCESSING') {
+        return { in: [ShopOrderStatus.PENDING, ShopOrderStatus.CONFIRMED] };
+      }
+      return tab as ShopOrderStatus;
+    }
+    return status;
+  }
+
+  private listTabForStatus(status: ShopOrderStatus): ShopOrderListTab {
+    if (
+      status === ShopOrderStatus.PENDING ||
+      status === ShopOrderStatus.CONFIRMED
+    ) {
+      return 'PROCESSING';
+    }
+    if (status === ShopOrderStatus.SHIPPED) return 'SHIPPED';
+    if (status === ShopOrderStatus.DELIVERED) return 'DELIVERED';
+    if (status === ShopOrderStatus.CANCELLED) return 'CANCELLED';
+    return 'ALL';
+  }
+
+  /** Human label for Figma list "Last update: …". */
+  private lastUpdateLabel(status: ShopOrderStatus): string {
+    switch (status) {
+      case ShopOrderStatus.PENDING:
+        return 'Order placed';
+      case ShopOrderStatus.CONFIRMED:
+        return 'Order confirmed';
+      case ShopOrderStatus.SHIPPED:
+        return 'Out for delivery';
+      case ShopOrderStatus.DELIVERED:
+        return 'Delivered';
+      case ShopOrderStatus.CANCELLED:
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  }
+
+  /**
+   * Figma Order track timeline. We do not store a separate OUT_FOR_DELIVERY
+   * status — when the order is SHIPPED, that step is shown as current.
+   */
+  buildStatusSteps(order: {
+    status: ShopOrderStatus;
+    createdAt: Date;
+    confirmedAt: Date | null;
+    shippedAt: Date | null;
+    deliveredAt: Date | null;
+    cancelledAt: Date | null;
+    trackingNumber: string | null;
+  }): StatusStep[] {
+    if (order.status === ShopOrderStatus.CANCELLED) {
+      return [
+        {
+          key: 'PLACED',
+          title: 'Order Placed',
+          at: order.createdAt.toISOString(),
+          completed: true,
+          current: false,
+        },
+        {
+          key: 'CANCELLED',
+          title: 'Cancelled',
+          at: order.cancelledAt?.toISOString() ?? null,
+          completed: true,
+          current: true,
+        },
+      ];
+    }
+
+    const rank: Record<ShopOrderStatus, number> = {
+      [ShopOrderStatus.PENDING]: 0,
+      [ShopOrderStatus.CONFIRMED]: 1,
+      [ShopOrderStatus.SHIPPED]: 2,
+      [ShopOrderStatus.DELIVERED]: 4,
+      [ShopOrderStatus.CANCELLED]: -1,
+    };
+    const currentRank = rank[order.status] ?? 0;
+    const outForDeliveryCurrent = order.status === ShopOrderStatus.SHIPPED;
+    const outForDeliveryDone = order.status === ShopOrderStatus.DELIVERED;
+
+    const steps: StatusStep[] = [
+      {
+        key: 'PLACED',
+        title: 'Order Placed',
+        at: order.createdAt.toISOString(),
+        completed: true,
+        current: order.status === ShopOrderStatus.PENDING,
+      },
+      {
+        key: 'CONFIRMED',
+        title: 'Order Confirm',
+        at: order.confirmedAt?.toISOString() ?? null,
+        completed: currentRank >= 1,
+        current: order.status === ShopOrderStatus.CONFIRMED,
+      },
+      {
+        key: 'SHIPPED',
+        title: 'Shipped',
+        at: order.shippedAt?.toISOString() ?? null,
+        completed: currentRank >= 2,
+        current: false,
+        trackingNumber: order.trackingNumber,
+      },
+      {
+        key: 'OUT_FOR_DELIVERY',
+        title: 'Out for delivery',
+        at: outForDeliveryDone
+          ? (order.deliveredAt?.toISOString() ?? null)
+          : null,
+        completed: outForDeliveryDone,
+        current: outForDeliveryCurrent,
+      },
+      {
+        key: 'DELIVERED',
+        title: 'Delivered',
+        at: order.deliveredAt?.toISOString() ?? null,
+        completed: order.status === ShopOrderStatus.DELIVERED,
+        current: order.status === ShopOrderStatus.DELIVERED,
+      },
+    ];
+    return steps;
+  }
+
   private baseResponse(order: OrderWithItems) {
     const base = {
       id: order.id,
       number: orderNumberLabel(order.number),
       status: order.status,
+      listTab: this.listTabForStatus(order.status),
+      lastUpdate: this.lastUpdateLabel(order.status),
       paymentMethod: order.paymentMethod,
       paymentStatus: order.paymentStatus,
       currency: order.currency,
@@ -325,6 +547,8 @@ export class ShopOrdersService {
       },
       note: order.note,
       trackingNumber: order.trackingNumber,
+      /** Figma Order track vertical timeline. */
+      statusSteps: this.buildStatusSteps(order),
       timeline: {
         placedAt: order.createdAt.toISOString(),
         confirmedAt: order.confirmedAt?.toISOString() ?? null,

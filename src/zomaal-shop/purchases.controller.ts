@@ -38,10 +38,19 @@ import {
 const OBJ = { schema: { type: 'object' } } as const;
 
 /**
- * Merchant Purchases (screens: Purchases List, Purchases Details, Add
- * Purchase, Select Product). "From Shop" rows are created automatically when
- * a Zomaal Shop order is delivered and are read-only; "Manual" rows are the
- * merchant's own supplier purchases.
+ * Merchant Purchases — one ledger, two ways in:
+ *
+ * 1. From Shop (source=SHOP) — merchant buys packaging/products in the
+ *    Zomaal Shop; when admin marks the order DELIVERED, rows appear here
+ *    automatically and are read-only. Also credits packaging stock for
+ *    Add Product → Select packaging.
+ *
+ * 2. Manual / Add Purchase (source=MANUAL) — merchant bought outside the
+ *    app (supplier, market, etc.) and records qty + unit price + date
+ *    against one of their own warehouse products (Select Product sheet).
+ *
+ * Figma: Purchases List (All / Manual / From Shop), Purchases Details
+ * history, Add Purchase, Select Product.
  */
 @ApiTags('Purchases')
 @ApiBearerAuth()
@@ -60,6 +69,8 @@ export class PurchasesController {
   @ApiOperation({
     summary:
       'Purchases List: totals + one row per product (All / Manual / From Shop)',
+    description:
+      'Use tab=ALL|MANUAL|FROM_SHOP (Figma). Each item has source + sourceLabel.',
   })
   @ApiOkResponse(OBJ)
   list(
@@ -73,7 +84,10 @@ export class PurchasesController {
   @Get('product-options')
   @RequirePermission(PERMISSIONS.SHOP_PURCHASE, PERMISSIONS.PRODUCTS_VIEW)
   @ApiOperation({
-    summary: 'Select Product sheet: your own products with stock and price',
+    summary:
+      'Add Purchase → Select Product: your warehouse products (not Zomaal Shop catalog)',
+    description:
+      'Personal/outside purchases link to products the merchant already owns in Warehouse. To buy from Zomaal, use /shop instead — delivery creates From Shop rows automatically.',
   })
   @ApiOkResponse({ schema: { type: 'array', items: { type: 'object' } } })
   productOptions(
@@ -87,7 +101,7 @@ export class PurchasesController {
   @RequirePermission(PERMISSIONS.SHOP_VIEW)
   @ApiOperation({
     summary:
-      'Purchases Details: purchase history for one product (key from the list)',
+      'Purchases Details: product card + history (date, qty, box price, total)',
   })
   @ApiOkResponse(OBJ)
   @ApiNotFoundResponse({ type: ApiErrorDto })
@@ -97,7 +111,11 @@ export class PurchasesController {
 
   @Post()
   @RequirePermission(PERMISSIONS.SHOP_PURCHASE)
-  @ApiOperation({ summary: 'Add Purchase (manual)' })
+  @ApiOperation({
+    summary: 'Add Purchase (manual / personal / outside the Zomaal Shop)',
+    description:
+      'Records qty × unit price × date against a warehouse product. Does not create a Zomaal Shop order — use POST /shop/orders for that.',
+  })
   @ApiCreatedResponse(OBJ)
   create(
     @CurrentStoreAccess() access: StoreAccess,
