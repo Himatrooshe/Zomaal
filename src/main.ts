@@ -23,8 +23,12 @@ type ExpressInstance = {
 };
 
 async function bootstrap() {
+  const bootStartedAt = Date.now();
+  const isProduction = process.env.NODE_ENV === 'production';
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
+    // Quieter production logs cut a bit of cold-start work on Cloud Run.
+    logger: isProduction ? ['error', 'warn', 'log'] : undefined,
   });
   const configService = app.get(ConfigService);
 
@@ -92,11 +96,21 @@ async function bootstrap() {
     }),
   );
 
-  // On by default (including production). Set SWAGGER_ENABLED=false to disable.
+  // On by default (including production). Set SWAGGER_ENABLED=false to disable
+  // and shave OpenAPI document build time off every cold start.
   const swaggerEnabled =
     configService.get<string>('SWAGGER_ENABLED') !== 'false';
 
+  const port = configService.get<number>('PORT', 3000);
+  // Open the port before building Swagger so Cloud Run marks the revision
+  // ready sooner; /health works while OpenAPI generation finishes.
+  await app.listen(port, '0.0.0.0');
+  console.log(
+    `Listening on :${port} (boot ${Date.now() - bootStartedAt}ms, swagger=${swaggerEnabled})`,
+  );
+
   if (swaggerEnabled) {
+    const swaggerStartedAt = Date.now();
     const config = createOpenApiConfig();
     const document = SwaggerModule.createDocument(app, config, {
       deepScanRoutes: true,
@@ -119,10 +133,8 @@ async function bootstrap() {
         defaultModelsExpandDepth: 2,
       },
     });
+    console.log(`Swagger ready in ${Date.now() - swaggerStartedAt}ms`);
   }
-
-  const port = configService.get<number>('PORT', 3000);
-  await app.listen(port, '0.0.0.0');
 }
 bootstrap().catch((err) => {
   console.error(err);
