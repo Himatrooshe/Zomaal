@@ -214,10 +214,26 @@ jobs:
           # Keeping them here prevents a code deploy from starting with stale
           # OAuth scope configuration already present on the Cloud Run service.
           # Commas inside one value must be escaped for deploy-cloudrun's parser.
+          #
+          # REDIS_REQUIRED=false: cheap prod has no Memorystore; skipping Redis
+          # connect avoids multi-second cold-start stalls.
           env_vars: |-
             YOUCAN_SCOPES=*
             LIGHTFUNNELS_SCOPES=orders\,funnels\,products\,customers
+            REDIS_REQUIRED=false
           env_vars_update_strategy: merge
+          # cpu-boost: more CPU during startup. gen2: faster cold starts.
+          # Optional GitHub variable GCP_CLOUD_RUN_MIN_INSTANCES=1 keeps one
+          # warm instance (costs more, removes idle cold starts).
+          flags: >-
+            --cpu-boost
+            --execution-environment=gen2
+            --min-instances=${{ vars.GCP_CLOUD_RUN_MIN_INSTANCES || '0' }}
+            --max-instances=${{ vars.GCP_CLOUD_RUN_MAX_INSTANCES || '2' }}
+            --concurrency=${{ vars.GCP_CLOUD_RUN_CONCURRENCY || '80' }}
+            --timeout=${{ vars.GCP_CLOUD_RUN_TIMEOUT || '60' }}
+            --memory=${{ vars.GCP_CLOUD_RUN_MEMORY || '512Mi' }}
+            --cpu=${{ vars.GCP_CLOUD_RUN_CPU || '1' }}
 
       - name: Smoke-test the deployed revision
         shell: bash

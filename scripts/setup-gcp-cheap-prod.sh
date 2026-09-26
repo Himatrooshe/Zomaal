@@ -149,10 +149,13 @@ gcloud projects add-iam-policy-binding "$DEPLOY_PROJECT_ID" \
   --quiet >/dev/null
 
 echo "==> Skipping Memorystore Redis (use REDIS_REQUIRED=false). Saves ~\$36/mo."
+echo "    Tip: set --min-instances=1 later if idle cold starts feel too slow (costs more)."
 
 echo "==> First Cloud Run deploy (cheap flags). This builds from source and can take several minutes."
 # JWT_SECRET must exist for the app; generate if not provided
 JWT_SECRET="${JWT_SECRET:-$(openssl rand -hex 32)}"
+# Optional: DEPLOY_MIN_INSTANCES=1 for a warm instance (no idle cold starts).
+DEPLOY_MIN_INSTANCES="${DEPLOY_MIN_INSTANCES:-0}"
 
 gcloud run deploy "$DEPLOY_CLOUD_RUN_SERVICE" \
   --project="$DEPLOY_PROJECT_ID" \
@@ -161,11 +164,12 @@ gcloud run deploy "$DEPLOY_CLOUD_RUN_SERVICE" \
   --allow-unauthenticated \
   --memory=512Mi \
   --cpu=1 \
-  --min-instances=0 \
+  --min-instances="$DEPLOY_MIN_INSTANCES" \
   --max-instances=2 \
   --concurrency=80 \
   --timeout=60 \
   --cpu-boost \
+  --execution-environment=gen2 \
   --add-cloudsql-instances="$CONNECTION_NAME" \
   --set-secrets="DATABASE_URL=zomaal-database-url:latest" \
   --set-env-vars="NODE_ENV=production,REDIS_REQUIRED=false,JWT_SECRET=${JWT_SECRET},YOUCAN_SCOPES=*,LIGHTFUNNELS_SCOPES=orders\\,funnels\\,products\\,customers,SWAGGER_ENABLED=true" \
