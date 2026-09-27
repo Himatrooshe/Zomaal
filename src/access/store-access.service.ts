@@ -5,7 +5,13 @@ import {
 } from '@nestjs/common';
 import { StaffStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ALL_PERMISSIONS, type Permission } from './permissions';
+import type { AccessMeResponseDto } from './dto/access.dto';
+import {
+  ALL_PERMISSIONS,
+  PERMISSIONS_BY_MODULE,
+  type Permission,
+  type PermissionModule,
+} from './permissions';
 
 /**
  * The single place that answers "which store is this user acting on, and what
@@ -152,6 +158,57 @@ export class StoreAccessService {
       })
       .catch(() => undefined);
   }
+
+  /**
+   * Bootstrap payload for GET /access/me — includes role name + status for
+   * staff so the client can hide modules without a second staff-detail call
+   * (which is owner-only).
+   */
+  async session(userId: string): Promise<AccessMeResponseDto> {
+    const access = await this.require(userId);
+
+    let status: StaffStatus | null = null;
+    let roleName: string | null = null;
+
+    if (access.staffMemberId) {
+      const staff = await this.prisma.staffMember.findUnique({
+        where: { id: access.staffMemberId },
+        select: {
+          status: true,
+          role: { select: { name: true } },
+        },
+      });
+      status = staff?.status ?? StaffStatus.ACTIVE;
+      roleName = staff?.role?.name ?? null;
+    }
+
+    void this.touchLastActive(access);
+
+    return {
+      storeId: access.storeId,
+      baseCurrency: access.baseCurrency,
+      isOwner: access.isOwner,
+      staffMemberId: access.staffMemberId,
+      status,
+      roleName,
+      effectivePermissions: access.permissions,
+      permissionsByModule: groupPermissions(access.permissions),
+    };
+  }
+}
+
+function groupPermissions(
+  permissions: Permission[],
+): Record<PermissionModule, Permission[]> {
+  const set = new Set(permissions);
+  const grouped = {} as Record<PermissionModule, Permission[]>;
+  for (const [module, keys] of Object.entries(PERMISSIONS_BY_MODULE) as [
+    PermissionModule,
+    Permission[],
+  ][]) {
+    grouped[module] = keys.filter((p) => set.has(p));
+  }
+  return grouped;
 }
 
 /**

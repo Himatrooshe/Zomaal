@@ -26,6 +26,9 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../../access/permission.guard';
+import { RequirePermission } from '../../access/require-permission.decorator';
+import { PERMISSIONS } from '../../access/permissions';
 import type { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../../common/dto/api-error.dto';
 import { TikTokAuthStartResponseDto } from '../dto/ads-connection.dto';
@@ -38,7 +41,7 @@ import { TikTokAdsCampaignService } from './tiktok-ads-campaign.service';
 
 @ApiTags('Ads — TikTok')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @ApiUnauthorizedResponse({
   description: 'Missing or invalid Zomaal access token.',
   type: ApiErrorDto,
@@ -51,6 +54,7 @@ export class TikTokAdsController {
   ) {}
 
   @Post('auth/start')
+  @RequirePermission(PERMISSIONS.ADS_VIEW)
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
   @ApiOperation({
@@ -67,6 +71,7 @@ export class TikTokAdsController {
   }
 
   @Get('campaigns/:connectionId')
+  @RequirePermission(PERMISSIONS.ADS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'List campaigns for the "Select Campaigns" screen',
@@ -90,6 +95,7 @@ export class TikTokAdsController {
   }
 
   @Post('campaigns/:connectionId/selection')
+  @RequirePermission(PERMISSIONS.ADS_VIEW)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Save which campaigns to track ("Save Campaigns")',

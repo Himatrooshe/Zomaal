@@ -1,5 +1,51 @@
 openapi: 3.0.0
 paths:
+  /access/me:
+    get:
+      description: Called after login so the app can hide modules without `*.view` and render Access Restricted on deep links. Owners get the full permission catalogue; staff get effective role/override permissions.
+      operationId: Access_me
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessMeResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Session bootstrap — who am I and what can I do?
+      tags:
+        - Access
+  /access/permissions:
+    get:
+      description: Returns every permission key grouped by module. Managing staff/roles is intentionally absent — those are owner-only and not expressible as a role permission.
+      operationId: Access_catalogue
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionsCatalogueResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Permission catalogue for Add/Edit Staff toggles
+      tags:
+        - Access
   /auth/login:
     post:
       description: Returns the same 15-minute access token and 7-day refresh token pair as OTP verification.
@@ -207,6 +253,158 @@ paths:
       summary: Rotate refresh token and issue a new token pair
       tags:
         - Auth
+  /auth/logout:
+    post:
+      description: Revokes the refresh token, ending the session. The current access token remains valid until its normal 15-minute expiry.
+      operationId: Auth_logout
+      parameters: []
+      responses:
+        '200':
+          description: Logged out.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '401':
+          description: Missing, invalid, expired, or non-access bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Log out the current device
+      tags:
+        - Auth
+  /auth/change-phone/request:
+    post:
+      description: Sends an OTP to the new phone number. The number must differ from the current one and not already belong to another account. Limited to three requests per user in ten minutes.
+      operationId: Auth_requestPhoneChange
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendOtpDto'
+            examples:
+              sms:
+                summary: Send by SMS
+                value:
+                  phone: '+212612345678'
+                  channel: sms
+      responses:
+        '200':
+          description: OTP sent to the new phone number.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '400':
+          description: Invalid phone/channel, or the new number matches the current one.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing, invalid, expired, or non-access bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: User no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The phone number already belongs to another account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '429':
+          description: More than 3 change requests in 10 minutes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Edit Profile — request a phone number change
+      tags:
+        - Auth
+  /auth/change-phone/confirm:
+    post:
+      description: Verifies the OTP sent to the new phone number and swaps it in. Reissues the access/refresh token pair since the old ones carry the previous number — store the newly returned tokens.
+      operationId: Auth_confirmPhoneChange
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpDto'
+            examples:
+              default:
+                summary: Confirm with the six-digit OTP
+                value:
+                  phone: '+212612345678'
+                  otp: '123456'
+      responses:
+        '200':
+          description: Phone number updated. New access and refresh tokens.
+          headers:
+            Cache-Control:
+              description: Prevents access and refresh tokens from being cached.
+              schema:
+                type: string
+                example: no-store
+            Pragma:
+              description: Legacy cache prevention for token responses.
+              schema:
+                type: string
+                example: no-cache
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponseDto'
+        '400':
+          description: Invalid input or invalid/expired OTP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing, invalid, expired, or non-access bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: User no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The phone number was claimed by another account between request and confirm.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '429':
+          description: More than 5 confirmation attempts in 10 minutes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Edit Profile — confirm a phone number change
+      tags:
+        - Auth
   /users/me:
     get:
       description: Returns the user identified by the bearer access token, including the store when one exists. Refresh-token hashes are never returned.
@@ -236,16 +434,187 @@ paths:
       summary: Get current user profile
       tags:
         - Users
+    patch:
+      description: Updates the fields shown on the Edit Profile screen other than phone (see POST /auth/change-phone/request and /confirm for that). Backs onto the store owner's record or the staff member's record, whichever applies to the current user. At least one field is required.
+      operationId: Users_updateProfile
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileDto'
+            examples:
+              updateNameAndPhoto:
+                summary: Update name and photo
+                value:
+                  name: Ahmed Alaoui
+                  photoUrl: https://example.com/avatar.png
+              updateAddress:
+                summary: Update address and city
+                value:
+                  address: 123 Rue Hassan II
+                  city: Casablanca
+      responses:
+        '200':
+          description: Updated profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileDto'
+        '400':
+          description: No fields supplied, invalid field, or the user has neither a store nor a staff membership to store the profile on yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing, invalid, expired, or non-access bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: User no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Edit Profile — update name, photo, and/or address
+      tags:
+        - Users
+    delete:
+      description: Permanently deletes the current user. For a store owner this cascades to the store and everything scoped to it; for a staff member it removes their staff membership. Irreversible.
+      operationId: Users_deleteAccount
+      parameters: []
+      responses:
+        '200':
+          description: Account deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '401':
+          description: Missing, invalid, expired, or non-access bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: User no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Delete Account
+      tags:
+        - Users
+  /users/me/photo:
+    post:
+      description: Stores the image and sets `photoUrl` to a public `/profile-media/users/…` path the client can load in an `<img>` without a bearer token. Replaces any previous uploaded photo. You can still set an external HTTPS URL via PATCH /users/me.
+      operationId: Users_uploadPhoto
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - photo
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG, or WebP profile photo, max 5 MiB. Figma “Add Your Photo”.
+      responses:
+        '201':
+          description: Updated profile with new photoUrl.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileDto'
+        '400':
+          description: Missing file, unsupported/corrupt image, or no store/staff yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: Image storage is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Upload profile photo
+      tags:
+        - Users
+  /users/me/password:
+    patch:
+      description: Sets a new password. `currentPassword` is required and verified when the account already has one; omit it to set a password for the first time (accounts created via OTP have none until now). Revokes the refresh token, signing out every other device.
+      operationId: Users_changePassword
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordDto'
+            examples:
+              changeExisting:
+                summary: Change an existing password
+                value:
+                  currentPassword: OldPass123
+                  newPassword: NewPass456
+              setFirstPassword:
+                summary: Set a password for the first time (OTP-only account)
+                value:
+                  newPassword: NewPass456
+      responses:
+        '200':
+          description: Password updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '400':
+          description: Missing current password when one is required, or the new password matches the current one.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing, invalid, expired, or non-access bearer token, or the current password is incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: User no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Change Password
+      tags:
+        - Users
   /stores:
     post:
-      description: Creates one store for the authenticated user and marks onboarding as complete.
+      description: Creates a store owned by the authenticated user and selects it as the active store. First store also marks onboarding complete. Matches Figma “Add New Store”.
       operationId: Stores_create
       parameters: []
       requestBody:
         required: true
-        description: Store profile and pickup address for the current user.
         content:
-          application/json:
+          multipart/form-data:
             schema:
               $ref: '#/components/schemas/CreateStoreDto'
             examples:
@@ -258,6 +627,7 @@ paths:
                   city: Casablanca
                   country: Morocco
                   logoUrl: https://example.com/logo.png
+                  baseCurrency: MAD
       responses:
         '201':
           description: Store created.
@@ -278,24 +648,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '409':
-          description: The authenticated user already has a store.
+          description: Staff members cannot create stores.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
-      summary: Create the current user’s store
+      summary: Create a store for the current user
+      tags:
+        - Stores
+    get:
+      description: Figma “Your Stores” popup. Each row includes `isCurrent` for the active store badge.
+      operationId: Stores_list
+      parameters: []
+      responses:
+        '200':
+          description: Owned stores, oldest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Caller is not a store owner (e.g. staff-only account).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List all stores owned by the current user
       tags:
         - Stores
   /stores/me:
     get:
-      description: 'Requires `Authorization: Bearer <accessToken>`. Returns the single store owned by the authenticated user.'
-      operationId: Stores_findOne
+      description: 'Requires `Authorization: Bearer <accessToken>`. Returns the store selected via POST /stores/select (or the only/oldest owned store).'
+      operationId: Stores_findCurrent
       parameters: []
       responses:
         '200':
-          description: Current user’s store.
+          description: Current user’s active store.
           content:
             application/json:
               schema:
@@ -314,26 +712,26 @@ paths:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
-      summary: Get the current user’s store
+      summary: Get the current (active) store
       tags:
         - Stores
     put:
-      description: All request fields are optional; only supplied fields are changed.
+      description: All request fields are optional; only supplied fields are changed. Includes logo, country, and baseCurrency.
       operationId: Stores_update
       parameters: []
       requestBody:
         required: true
-        description: Partial update. Include at least one field; omitted fields remain unchanged.
         content:
-          application/json:
+          multipart/form-data:
             schema:
               $ref: '#/components/schemas/UpdateStoreDto'
             examples:
               renameStore:
-                summary: Update business name and logo
+                summary: Update business name, logo, and currency
                 value:
                   businessName: Atlas Market Pro
                   logoUrl: https://example.com/new-logo.png
+                  baseCurrency: MAD
               updateAddress:
                 summary: Update pickup address
                 value:
@@ -367,7 +765,112 @@ paths:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
-      summary: Update the current user’s store
+      summary: Update the current (active) store
+      tags:
+        - Stores
+  /stores/me/logo:
+    post:
+      description: Stores the image and sets `logoUrl` on the active store to a public `/profile-media/stores/…` path. Replaces any previous uploaded logo. External HTTPS URLs via PUT /stores/me still work.
+      operationId: Stores_uploadLogo
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - logo
+              properties:
+                logo:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG, or WebP store logo, max 5 MiB. Figma “Add Store Logo”.
+      responses:
+        '201':
+          description: Updated active store with new logoUrl.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreResponseDto'
+        '400':
+          description: Missing file or unsupported/corrupt image.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: Image storage is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Upload store logo
+      tags:
+        - Stores
+  /stores/select:
+    post:
+      description: Sets which owned store Settings and the rest of the app act on (Figma store switcher).
+      operationId: Stores_select
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SelectStoreDto'
+      responses:
+        '200':
+          description: Newly selected store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreResponseDto'
+        '404':
+          description: Store not found or not owned by the caller.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Switch the active store
+      tags:
+        - Stores
+  /stores/{storeId}:
+    delete:
+      description: Permanently deletes one store and its cascaded data. Cannot delete the last remaining store — use DELETE /users/me instead.
+      operationId: Stores_remove
+      parameters:
+        - name: storeId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Store deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '400':
+          description: Attempted to delete the only remaining store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Store not found or not owned by the caller.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Delete an owned store
       tags:
         - Stores
   /shipping/sendit/connection:
@@ -8187,6 +8690,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Returns.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
       summary: List return requests (Returns screen)
@@ -8207,6 +8716,12 @@ paths:
           description: Up to 20 matching orders.
         '401':
           description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Returns.
           content:
             application/json:
               schema:
@@ -8242,6 +8757,12 @@ paths:
                 $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Returns.
           content:
             application/json:
               schema:
@@ -8289,6 +8810,12 @@ paths:
                 $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Returns.
           content:
             application/json:
               schema:
@@ -10379,6 +10906,295 @@ paths:
       summary: Create a product bundle from existing variants
       tags:
         - Warehouse Products
+  /warehouse/products/compare/platforms:
+    get:
+      description: Warehouse is always available. Shopify, YouCan, and Lightfunnels are available only when the store has an ACTIVE connection. Frontend should hide unavailable platforms from the dropdown.
+      operationId: Product_listComparePlatforms
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComparePlatformsResponseDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List platforms available for Compare Products
+      tags:
+        - Warehouse Products
+  /warehouse/products/compare/products:
+    get:
+      description: Returns a normalized catalog for the selected platform. Use `search` for name filtering. Warehouse and YouCan use page/limit; Shopify and Lightfunnels use limit + after cursor (`pagination.nextCursor`).
+      operationId: Product_searchCompareProducts
+      parameters:
+        - name: platform
+          required: true
+          in: query
+          schema:
+            type: string
+            enum:
+              - WAREHOUSE
+              - SHOPIFY
+              - YOUCAN
+              - LIGHTFUNNELS
+        - name: search
+          required: false
+          in: query
+          description: Name / title search. SKU search applies for warehouse only.
+          schema:
+            example: Headphones
+            type: string
+        - name: page
+          required: false
+          in: query
+          description: Page number for WAREHOUSE and YOUCAN.
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          description: Page size (also used as Shopify/Lightfunnels `first`).
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+        - name: after
+          required: false
+          in: query
+          description: Cursor for SHOPIFY / LIGHTFUNNELS (previous page `pagination.nextCursor`).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompareCatalogResponseDto'
+        '400':
+          description: Platform is unsupported or not connected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Search products for the Compare Products picker
+      tags:
+        - Warehouse Products
+  /warehouse/products/compare:
+    get:
+      description: Each side has its own platform (Warehouse / Shopify / YouCan / Lightfunnels) and product id. Returns the same 7D/30D/90D/custom metrics, insight, and null profit/CPO when a side has no warehouse cost.
+      operationId: Product_compare
+      parameters:
+        - name: period
+          required: false
+          in: query
+          schema:
+            default: 7D
+            type: string
+            enum:
+              - 7D
+              - 30D
+              - 90D
+              - CUSTOM
+        - name: from
+          required: false
+          in: query
+          description: Required with period=CUSTOM.
+          schema:
+            format: date
+            type: string
+        - name: to
+          required: false
+          in: query
+          description: Required with period=CUSTOM.
+          schema:
+            format: date
+            type: string
+        - name: platformA
+          required: false
+          in: query
+          description: Catalog for product A. Defaults to WAREHOUSE for backward compatibility.
+          schema:
+            default: WAREHOUSE
+            type: string
+            enum:
+              - WAREHOUSE
+              - SHOPIFY
+              - YOUCAN
+              - LIGHTFUNNELS
+        - name: platformB
+          required: false
+          in: query
+          description: Catalog for product B. Defaults to WAREHOUSE for backward compatibility.
+          schema:
+            default: WAREHOUSE
+            type: string
+            enum:
+              - WAREHOUSE
+              - SHOPIFY
+              - YOUCAN
+              - LIGHTFUNNELS
+        - name: productAId
+          required: true
+          in: query
+          description: Product A id — warehouse UUID, or the platform product id from compare/products.
+          schema:
+            example: 48147007-8231-4702-a15c-62f423992583
+            type: string
+        - name: productBId
+          required: true
+          in: query
+          description: Product B id — warehouse UUID, or the platform product id from compare/products.
+          schema:
+            example: '9172411547890'
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductComparisonResponseDto'
+        '400':
+          description: Same product on both sides, disconnected platform, or invalid query.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Store or warehouse product was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Compare two products side by side across catalogs
+      tags:
+        - Warehouse Products
+  /warehouse/products/compare/export:
+    get:
+      description: Renders the same comparison returned by GET /warehouse/products/compare as a downloadable PDF report for the "Export Comparison" button.
+      operationId: Product_exportCompare
+      parameters:
+        - name: period
+          required: false
+          in: query
+          schema:
+            default: 7D
+            type: string
+            enum:
+              - 7D
+              - 30D
+              - 90D
+              - CUSTOM
+        - name: from
+          required: false
+          in: query
+          description: Required with period=CUSTOM.
+          schema:
+            format: date
+            type: string
+        - name: to
+          required: false
+          in: query
+          description: Required with period=CUSTOM.
+          schema:
+            format: date
+            type: string
+        - name: platformA
+          required: false
+          in: query
+          description: Catalog for product A. Defaults to WAREHOUSE for backward compatibility.
+          schema:
+            default: WAREHOUSE
+            type: string
+            enum:
+              - WAREHOUSE
+              - SHOPIFY
+              - YOUCAN
+              - LIGHTFUNNELS
+        - name: platformB
+          required: false
+          in: query
+          description: Catalog for product B. Defaults to WAREHOUSE for backward compatibility.
+          schema:
+            default: WAREHOUSE
+            type: string
+            enum:
+              - WAREHOUSE
+              - SHOPIFY
+              - YOUCAN
+              - LIGHTFUNNELS
+        - name: productAId
+          required: true
+          in: query
+          description: Product A id — warehouse UUID, or the platform product id from compare/products.
+          schema:
+            example: 48147007-8231-4702-a15c-62f423992583
+            type: string
+        - name: productBId
+          required: true
+          in: query
+          description: Product B id — warehouse UUID, or the platform product id from compare/products.
+          schema:
+            example: '9172411547890'
+            type: string
+      responses:
+        '200':
+          description: Binary PDF report.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Same product on both sides, disconnected platform, or invalid query.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Store or warehouse product was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Export a product comparison as a PDF
+      tags:
+        - Warehouse Products
   /warehouse/products/{id}:
     get:
       description: 'Returns everything required to redraw product details: category, ordered options and values, media URLs, variants, barcodes, inventory, gift card data, and packaging requirements.'
@@ -11717,6 +12533,170 @@ paths:
       summary: Deactivate or reactivate a staff member
       tags:
         - Staff
+  /staff/salary/summary:
+    get:
+      operationId: StaffSalary_summary
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalarySummaryResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Salary tab totals (Total Salary Paid / Pending Payments)
+      tags:
+        - Staff Salary
+  /staff/salary/trend:
+    get:
+      operationId: StaffSalary_trend
+      parameters:
+        - name: months
+          required: false
+          in: query
+          description: How many months to include, ending at the current month.
+          schema:
+            minimum: 1
+            maximum: 24
+            default: 6
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthlyTrendResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Monthly payout totals across all staff (Salary bar chart)
+      tags:
+        - Staff Salary
+  /staff/salary/payments:
+    get:
+      operationId: StaffSalary_listStorePayments
+      parameters:
+        - name: status
+          required: false
+          in: query
+          description: Filter by derived display status (All when omitted).
+          schema:
+            type: string
+            enum:
+              - PAID
+              - PENDING
+              - OVERDUE
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalaryPaymentListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List salary payments across all staff (All / Paid / Pending / Overdue filters)
+      tags:
+        - Staff Salary
+    post:
+      description: Supports multi-select. Blocked, per staff member, when their salary profile is AUTOMATIC.
+      operationId: StaffSalary_createPayments
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSalaryPaymentDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalaryPaymentBatchResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: One or more staff members not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Manual entry is blocked for one or more staff members because automatic is on.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Record manual salary payment(s) (Add Salary Record: choose staff, then add salary)'
+      tags:
+        - Staff Salary
   /staff/{staffId}/salary:
     get:
       operationId: StaffSalary_getProfile
@@ -11813,6 +12793,16 @@ paths:
           schema:
             format: uuid
             type: string
+        - name: status
+          required: false
+          in: query
+          description: Filter by derived display status (All when omitted).
+          schema:
+            type: string
+            enum:
+              - PAID
+              - PENDING
+              - OVERDUE
         - name: page
           required: false
           in: query
@@ -11856,90 +12846,6 @@ paths:
       security:
         - bearer: []
       summary: List salary payment history for a staff member
-      tags:
-        - Staff Salary
-  /staff/salary/trend:
-    get:
-      operationId: StaffSalary_trend
-      parameters:
-        - name: months
-          required: false
-          in: query
-          description: How many months to include, ending at the current month.
-          schema:
-            minimum: 1
-            maximum: 24
-            default: 6
-            type: number
-      responses:
-        '200':
-          description: ''
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MonthlyTrendResponseDto'
-        '401':
-          description: Missing or invalid Zomaal access token.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorDto'
-        '403':
-          description: Only the store owner can manage salaries.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorDto'
-      security:
-        - bearer: []
-      summary: Monthly payout totals across all staff (Salary bar chart)
-      tags:
-        - Staff Salary
-  /staff/salary/payments:
-    post:
-      description: Supports multi-select. Blocked, per staff member, when their salary profile is AUTOMATIC.
-      operationId: StaffSalary_createPayments
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateSalaryPaymentDto'
-      responses:
-        '200':
-          description: ''
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SalaryPaymentBatchResponseDto'
-        '401':
-          description: Missing or invalid Zomaal access token.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorDto'
-        '403':
-          description: Only the store owner can manage salaries.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorDto'
-        '404':
-          description: One or more staff members not found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorDto'
-        '409':
-          description: Manual entry is blocked for one or more staff members because automatic is on.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorDto'
-      security:
-        - bearer: []
-      summary: 'Record manual salary payment(s) (Add Salary Record: choose staff, then add salary)'
       tags:
         - Staff Salary
   /expenses/categories:
@@ -12517,6 +13423,2890 @@ paths:
       summary: Delete an expense
       tags:
         - Expenses
+  /customers:
+    get:
+      operationId: Customers_list
+      parameters:
+        - name: search
+          required: false
+          in: query
+          description: Matches name or phone number.
+          schema:
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing customers.view permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Customers list — search, totals, high-risk flag
+      tags:
+        - Customers
+  /customers/blacklist/settings:
+    get:
+      operationId: Customers_getBlacklistSettings
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlacklistSettingsDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing customers.blacklist permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Blacklist Settings screen — current risk limits
+      tags:
+        - Customers
+    put:
+      operationId: Customers_updateBlacklistSettings
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBlacklistSettingsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlacklistSettingsDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing customers.blacklist permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Blacklist Settings screen — Save Settings
+      tags:
+        - Customers
+  /customers/blacklist:
+    get:
+      description: page/limit paginate blacklistedCustomers only. atRiskCustomers is a bounded watchlist (not offset-paginated — "is this customer near a limit" is computed against BlacklistSettings, not a database filter).
+      operationId: Customers_getBlacklistScreen
+      parameters:
+        - name: search
+          required: false
+          in: query
+          description: Matches name or phone number.
+          schema:
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlacklistScreenResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing customers.blacklist permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Blacklist screen — total, At Risk Customers, Blacklisted Customers
+      tags:
+        - Customers
+  /customers/{customerId}:
+    get:
+      operationId: Customers_getById
+      parameters:
+        - name: customerId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDetailResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing customers.view permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Customer not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Customer Details — risk score breakdown + order history
+      tags:
+        - Customers
+  /customers/{customerId}/blacklist:
+    post:
+      description: Reason is auto-filled from the risk score breakdown when not supplied.
+      operationId: Customers_addToBlacklist
+      parameters:
+        - name: customerId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddToBlacklistDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDetailResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing customers.blacklist permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Customer not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Add to Blacklist
+      tags:
+        - Customers
+    delete:
+      description: Resets all four risk counters to zero — monitored again from zero.
+      operationId: Customers_removeFromBlacklist
+      parameters:
+        - name: customerId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDetailResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing customers.blacklist permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Customer not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Remove from Blacklist
+      tags:
+        - Customers
+  /admin/auth/login:
+    post:
+      description: Single super admin identity, configured via SUPERADMIN_USERNAME/SUPERADMIN_PASSWORD.
+      operationId: SuperAdminAuth_login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuperAdminLoginDto'
+      responses:
+        '200':
+          headers:
+            Cache-Control:
+              description: Prevents access and refresh tokens from being cached.
+              schema:
+                type: string
+                example: no-store
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuperAdminAuthResponseDto'
+        '401':
+          description: Invalid username or password.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '429':
+          description: Too many login attempts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Sign in to the Zomaal Shop admin panel
+      tags:
+        - Admin Auth
+  /admin/auth/refresh:
+    post:
+      operationId: SuperAdminAuth_refresh
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuperAdminRefreshTokenDto'
+      responses:
+        '200':
+          headers:
+            Cache-Control:
+              description: Prevents access and refresh tokens from being cached.
+              schema:
+                type: string
+                example: no-store
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuperAdminTokenPairDto'
+        '401':
+          description: Refresh token is invalid, expired, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Exchange a refresh token for a new token pair
+      tags:
+        - Admin Auth
+  /admin/auth/logout:
+    post:
+      operationId: SuperAdminAuth_logout
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Revoke the current refresh token
+      tags:
+        - Admin Auth
+  /admin/me:
+    get:
+      operationId: SuperAdmin_me
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuperAdminSummaryDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get the signed-in super admin identity
+      tags:
+        - Admin Auth
+  /admin/me/password:
+    patch:
+      operationId: SuperAdmin_changePassword
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuperAdminChangePasswordDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '401':
+          description: Not signed in, or current password is incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Change the super admin password
+      tags:
+        - Admin Auth
+  /admin/shop/categories:
+    get:
+      operationId: Shop_listCategories
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShopCategoryResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List shop categories
+      tags:
+        - Admin Shop Catalog
+    post:
+      operationId: Shop_createCategory
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShopCategoryDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopCategoryResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Create a shop category
+      tags:
+        - Admin Shop Catalog
+  /admin/shop/categories/{id}:
+    patch:
+      operationId: Shop_updateCategory
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShopCategoryDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopCategoryResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Update a shop category
+      tags:
+        - Admin Shop Catalog
+    delete:
+      description: Refused (409) while the category still has products.
+      operationId: Shop_deleteCategory
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Delete a shop category
+      tags:
+        - Admin Shop Catalog
+  /admin/shop/products:
+    get:
+      operationId: Shop_listProducts
+      parameters:
+        - name: categoryId
+          required: false
+          in: query
+          schema:
+            format: uuid
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - ACTIVE
+              - DRAFT
+        - name: search
+          required: false
+          in: query
+          description: Case-insensitive match on name or SKU.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShopProductResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List shop products
+      tags:
+        - Admin Shop Catalog
+    post:
+      operationId: Shop_createProduct
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShopProductDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProductResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Create a shop product
+      tags:
+        - Admin Shop Catalog
+  /admin/shop/products/export:
+    get:
+      description: 'Columns: name, category, sku, price, stock, status, description'
+      operationId: Shop_exportProducts
+      parameters:
+        - name: categoryId
+          required: false
+          in: query
+          schema:
+            format: uuid
+            type: string
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - ACTIVE
+              - DRAFT
+        - name: search
+          required: false
+          in: query
+          description: Case-insensitive match on name or SKU.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Export products as CSV (same filters as the list)
+      tags:
+        - Admin Shop Catalog
+  /admin/shop/products/import:
+    post:
+      operationId: Shop_importProducts
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 'CSV with a header row. Required: name, category, price. Optional: sku, stock, status (ACTIVE|DRAFT), description. Rows update an existing product matched by SKU (or by exact name when the row has no SKU); others are created. Unknown categories are created. All-or-nothing.'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopImportResultDto'
+        '400':
+          description: Invalid rows — nothing was written.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Import products from CSV
+      tags:
+        - Admin Shop Catalog
+  /admin/shop/products/{id}:
+    patch:
+      operationId: Shop_updateProduct
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShopProductDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProductResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Update a shop product
+      tags:
+        - Admin Shop Catalog
+    delete:
+      operationId: Shop_deleteProduct
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Delete a shop product
+      tags:
+        - Admin Shop Catalog
+    get:
+      operationId: Shop_getProduct
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProductResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get one shop product, including its image gallery
+      tags:
+        - Admin Shop Catalog
+  /admin/shop/products/{id}/variants:
+    put:
+      description: Replaces the whole list. Product stock becomes the sum of option stock.
+      operationId: Shop_replaceVariants
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceShopProductVariantsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProductResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Set the product options (size / color, each with its own stock and optional price)
+      tags:
+        - Admin Shop Catalog
+  /admin/shop/products/{id}/specs:
+    put:
+      operationId: Shop_replaceSpecs
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceShopProductSpecsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProductResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Set the Specifications tab rows (replaces the whole list)
+      tags:
+        - Admin Shop Catalog
+  /admin/shop/products/{id}/images:
+    post:
+      operationId: Shop_addImages
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - images
+              properties:
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: 'One or more JPEG, PNG, or WebP files (max 5 MB each). Appended to the gallery; a product holds up to 8. All-or-nothing: if any file is invalid or fails to store, none are added.'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProductResponseDto'
+        '400':
+          description: Invalid file, or the gallery would exceed the limit.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: Image storage is not configured or unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Add images to a product's gallery
+      tags:
+        - Admin Shop Catalog
+  /admin/shop/products/{id}/images/order:
+    patch:
+      operationId: Shop_reorderImages
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderShopProductImagesDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProductResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Reorder the gallery — the first image becomes the cover
+      tags:
+        - Admin Shop Catalog
+  /admin/shop/products/{id}/images/{imageId}:
+    delete:
+      operationId: Shop_removeImage
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: imageId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProductResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Remove one image from a product gallery
+      tags:
+        - Admin Shop Catalog
+  /admin/merchants:
+    get:
+      operationId: Merchants_list
+      parameters:
+        - name: search
+          required: false
+          in: query
+          description: Case-insensitive match on business name, owner name, or phone.
+          schema:
+            type: string
+        - name: isActive
+          required: false
+          in: query
+          description: '"true" or "false" — filter by active/suspended.'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MerchantResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List Zomaal merchants (store-owning users)
+      tags:
+        - Admin Merchants
+  /admin/merchants/{userId}:
+    get:
+      operationId: Merchants_getOne
+      parameters:
+        - name: userId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get one merchant
+      tags:
+        - Admin Merchants
+    patch:
+      operationId: Merchants_update
+      parameters:
+        - name: userId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMerchantDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Edit a merchant's store details, or activate/suspend them
+      tags:
+        - Admin Merchants
+    delete:
+      description: Cascades to everything the merchant owns (store, products, customers, orders, connections). There is no undo. Recorded in the activity log.
+      operationId: Merchants_remove
+      parameters:
+        - name: userId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Permanently delete a merchant account
+      tags:
+        - Admin Merchants
+  /admin/merchants/{userId}/overview:
+    get:
+      description: Read-only. Revenue is grouped per currency (orders keep their platform currency) and excludes cancelled orders.
+      operationId: Merchants_overview
+      parameters:
+        - name: userId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Merchant detail: connections, staff, order stats, recent orders, customers'
+      tags:
+        - Admin Merchants
+  /admin/activity:
+    get:
+      operationId: ActivityLog_list
+      parameters:
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 50
+            type: number
+        - name: cursor
+          required: false
+          in: query
+          description: nextCursor from the previous page.
+          schema:
+            type: string
+        - name: entityId
+          required: false
+          in: query
+          description: Only entries about this entity (e.g. a merchant user id).
+          schema:
+            type: string
+        - name: entityType
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - ADMIN
+              - MERCHANT
+              - SHOP_PRODUCT
+              - SHOP_CATEGORY
+              - SHOP_ORDER
+              - SHOP_BANNER
+              - SHOP_PROMO
+              - SHOP_SETTINGS
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                  nextCursor:
+                    type: string
+                    nullable: true
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Audit trail of every super admin write, newest first
+      tags:
+        - Admin Activity Log
+  /admin/dashboard/summary:
+    get:
+      operationId: Platform_dashboard
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Dashboard: catalog, merchant, order, integration and blacklist KPIs, signups trend, recent admin activity'
+      tags:
+        - Admin Platform Oversight
+  /admin/integrations:
+    get:
+      description: 'health: ERROR (last sync failed), STALE (no successful sync in 48h), DISCONNECTED (not ACTIVE), HEALTHY. Read-only.'
+      operationId: Platform_integrations
+      parameters:
+        - name: health
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - HEALTHY
+              - STALE
+              - ERROR
+              - DISCONNECTED
+        - name: platform
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - SHOPIFY
+              - YOUCAN
+              - LIGHTFUNNELS
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Every merchant's Shopify/YouCan/Lightfunnels connection, with health
+      tags:
+        - Admin Platform Oversight
+  /admin/customers/blacklisted:
+    get:
+      description: flaggedByStores = how many different merchants blacklisted the same phone. Read-only.
+      operationId: Platform_blacklist
+      parameters:
+        - name: search
+          required: false
+          in: query
+          description: Match on phone or customer name.
+          schema:
+            type: string
+        - name: multiStoreOnly
+          required: false
+          in: query
+          description: '"true" = only phones blacklisted by 2+ merchants.'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Blacklisted customers across all merchants
+      tags:
+        - Admin Platform Oversight
+  /admin/shop/orders:
+    get:
+      operationId: ShopStorefrontAdmin_listOrders
+      parameters:
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - CONFIRMED
+              - SHIPPED
+              - DELIVERED
+              - CANCELLED
+        - name: search
+          required: false
+          in: query
+          description: Order number (ZS-1001 or 1001), merchant name, or phone.
+          schema:
+            type: string
+        - name: storeId
+          required: false
+          in: query
+          schema:
+            format: uuid
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: All merchant orders from the Zomaal Shop
+      tags:
+        - Admin Shop Operations
+  /admin/shop/orders/export:
+    get:
+      operationId: ShopStorefrontAdmin_exportOrders
+      parameters:
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - CONFIRMED
+              - SHIPPED
+              - DELIVERED
+              - CANCELLED
+        - name: search
+          required: false
+          in: query
+          description: Order number (ZS-1001 or 1001), merchant name, or phone.
+          schema:
+            type: string
+        - name: storeId
+          required: false
+          in: query
+          schema:
+            format: uuid
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+      responses:
+        '200':
+          description: ''
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Export orders as CSV (same filters as the list)
+      tags:
+        - Admin Shop Operations
+  /admin/shop/orders/{id}:
+    get:
+      operationId: ShopStorefrontAdmin_order
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Order detail
+      tags:
+        - Admin Shop Operations
+  /admin/shop/orders/{id}/status:
+    post:
+      description: Steps may be skipped. DELIVERED marks Cash on Delivery as paid and adds the items to the merchant’s Purchases (From Shop).
+      operationId: ShopStorefrontAdmin_advance
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdvanceShopOrderDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Order is not in a state that allows this.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Move an order forward: CONFIRMED → SHIPPED → DELIVERED'
+      tags:
+        - Admin Shop Operations
+  /admin/shop/orders/{id}/cancel:
+    post:
+      operationId: ShopStorefrontAdmin_cancel
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCancelShopOrderDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Cancel an order before delivery (stock is returned)
+      tags:
+        - Admin Shop Operations
+  /admin/shop/orders/{id}/note:
+    patch:
+      operationId: ShopStorefrontAdmin_note
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShopOrderNoteDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Internal note (never shown to the merchant)
+      tags:
+        - Admin Shop Operations
+  /admin/shop/banners:
+    get:
+      operationId: ShopStorefrontAdmin_listBanners
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Shop home banners
+      tags:
+        - Admin Shop Operations
+    post:
+      operationId: ShopStorefrontAdmin_createBanner
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShopBannerDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Create a banner (then upload its image)
+      tags:
+        - Admin Shop Operations
+  /admin/shop/banners/{id}:
+    patch:
+      operationId: ShopStorefrontAdmin_updateBanner
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShopBannerDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Update a banner
+      tags:
+        - Admin Shop Operations
+    delete:
+      operationId: ShopStorefrontAdmin_deleteBanner
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Delete a banner
+      tags:
+        - Admin Shop Operations
+  /admin/shop/banners/{id}/image:
+    post:
+      operationId: ShopStorefrontAdmin_bannerImage
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Upload or replace the banner image (JPEG/PNG/WebP, max 5 MB)
+      tags:
+        - Admin Shop Operations
+  /admin/shop/promo-codes:
+    get:
+      operationId: ShopStorefrontAdmin_listPromos
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Promo codes with usage stats
+      tags:
+        - Admin Shop Operations
+    post:
+      operationId: ShopStorefrontAdmin_createPromo
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShopPromoCodeDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Create a promo code
+      tags:
+        - Admin Shop Operations
+  /admin/shop/promo-codes/{id}:
+    patch:
+      operationId: ShopStorefrontAdmin_updatePromo
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShopPromoCodeDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Update a promo code
+      tags:
+        - Admin Shop Operations
+    delete:
+      operationId: ShopStorefrontAdmin_deletePromo
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Delete a promo code (past orders keep the code they used)
+      tags:
+        - Admin Shop Operations
+  /admin/shop/settings:
+    get:
+      operationId: ShopStorefrontAdmin_getSettings
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Shop settings: currency, delivery fee, Cash on Delivery rules'
+      tags:
+        - Admin Shop Operations
+    patch:
+      operationId: ShopStorefrontAdmin_updateSettings
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShopSettingsDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Update shop settings
+      tags:
+        - Admin Shop Operations
+  /shop/home:
+    get:
+      operationId: Shop_home
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Shop home: banners, categories, popular items, cart & favorites counts'
+      tags:
+        - Zomaal Shop
+  /shop/categories:
+    get:
+      operationId: Shop_categories
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Active categories that have products (with a cover image)
+      tags:
+        - Zomaal Shop
+  /shop/products:
+    get:
+      operationId: Shop_products
+      parameters:
+        - name: categoryId
+          required: false
+          in: query
+          schema:
+            format: uuid
+            type: string
+        - name: search
+          required: false
+          in: query
+          description: Case-insensitive match on product name.
+          schema:
+            type: string
+        - name: sort
+          required: false
+          in: query
+          schema:
+            default: newest
+            type: string
+            enum:
+              - newest
+              - price_asc
+              - price_desc
+              - name
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: pageSize
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 50
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Browse/search products (paginated)
+      tags:
+        - Zomaal Shop
+  /shop/products/popular:
+    get:
+      operationId: Shop_popular
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Popular items: featured, then best sellers (90 days), then newest'
+      tags:
+        - Zomaal Shop
+  /shop/products/{id}:
+    get:
+      operationId: Shop_product
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Product Details: gallery, price/sale price, sizes, colors, variants, specifications'
+      tags:
+        - Zomaal Shop
+  /shop/favorites:
+    get:
+      operationId: Shop_favorites
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Favorites
+      tags:
+        - Zomaal Shop
+  /shop/favorites/{productId}:
+    post:
+      operationId: Shop_addFavorite
+      parameters:
+        - name: productId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Add a product to favorites (idempotent)
+      tags:
+        - Zomaal Shop
+    delete:
+      operationId: Shop_removeFavorite
+      parameters:
+        - name: productId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Remove a product from favorites (idempotent)
+      tags:
+        - Zomaal Shop
+  /shop/cart:
+    get:
+      description: Prices and stock are re-checked live; lines that can no longer be bought carry a `problem`.
+      operationId: Shop_getCart
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: My Cart
+      tags:
+        - Zomaal Shop
+    delete:
+      operationId: Shop_clearCart
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Clear All
+      tags:
+        - Zomaal Shop
+  /shop/cart/items:
+    post:
+      operationId: Shop_addItem
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Not enough stock.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Add to cart (merges with an existing line for the same product/option)
+      tags:
+        - Zomaal Shop
+  /shop/cart/items/{id}:
+    patch:
+      operationId: Shop_updateItem
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartItemDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Change a cart line quantity
+      tags:
+        - Zomaal Shop
+    delete:
+      operationId: Shop_removeItem
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Remove from cart
+      tags:
+        - Zomaal Shop
+  /shop/addresses:
+    get:
+      operationId: Shop_listAddresses
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Saved delivery addresses (default first)
+      tags:
+        - Zomaal Shop
+    post:
+      operationId: Shop_createAddress
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShopAddressDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Add Address
+      tags:
+        - Zomaal Shop
+  /shop/addresses/{id}:
+    patch:
+      operationId: Shop_updateAddress
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShopAddressDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Edit an address, or make it the default
+      tags:
+        - Zomaal Shop
+    delete:
+      operationId: Shop_deleteAddress
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Delete an address
+      tags:
+        - Zomaal Shop
+  /shop/checkout/preview:
+    post:
+      description: Safe to call on every change (promo code typed, address switched). Nothing is reserved until POST /shop/orders.
+      operationId: Shop_preview
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutPreviewDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Checkout screen: totals, promo code result, address, payment methods, blockers'
+      tags:
+        - Zomaal Shop
+  /shop/orders:
+    post:
+      description: 'Atomic: claims the cart, reserves stock, and uses the promo in one transaction. A double-submit cannot create two orders.'
+      operationId: Shop_placeOrder
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceShopOrderDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Stock ran out or the cart changed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '422':
+          description: Promo code invalid, or payment method unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Place the order (Confirm Cash on Delivery Order)
+      tags:
+        - Zomaal Shop
+    get:
+      description: 'Figma My Orders: filter with tab (All / Processing / Shipped / Delivered / Cancelled) and optional product-name search.'
+      operationId: Shop_listOrders
+      parameters:
+        - name: tab
+          required: false
+          in: query
+          description: Figma My Orders tabs. Prefer this over status. PROCESSING covers PENDING and CONFIRMED.
+          schema:
+            type: string
+            enum:
+              - ALL
+              - PROCESSING
+              - SHIPPED
+              - DELIVERED
+              - CANCELLED
+        - name: status
+          required: false
+          in: query
+          description: Exact status filter. Ignored when tab is set.
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - CONFIRMED
+              - SHIPPED
+              - DELIVERED
+              - CANCELLED
+        - name: search
+          required: false
+          in: query
+          description: Case-insensitive match on item product name (Figma search).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: My Zomaal Shop orders
+      tags:
+        - Zomaal Shop
+  /shop/orders/{id}:
+    get:
+      description: 'Figma Order track: items, totals, address, payment, trackingNumber, and statusSteps timeline.'
+      operationId: Shop_orderDetail
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Order details / Order track
+      tags:
+        - Zomaal Shop
+  /shop/orders/{id}/cancel:
+    post:
+      description: Only while PENDING. Stock is returned. Counts toward the Cash on Delivery cancellation limit.
+      operationId: Shop_cancelOrder
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelShopOrderDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing shop.view / shop.purchase permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Order is no longer cancellable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Cancel a pending order
+      tags:
+        - Zomaal Shop
+  /purchases:
+    get:
+      description: Use tab=ALL|MANUAL|FROM_SHOP (Figma). Each item has source + sourceLabel.
+      operationId: Purchases_list
+      parameters:
+        - name: tab
+          required: false
+          in: query
+          description: 'Figma tabs: All / Manual / From Shop. Prefer this over source.'
+          schema:
+            type: string
+            enum:
+              - ALL
+              - MANUAL
+              - FROM_SHOP
+        - name: source
+          required: false
+          in: query
+          description: Exact source filter. Ignored when tab is set. MANUAL = personal/outside; SHOP = Zomaal Shop.
+          schema:
+            type: string
+            enum:
+              - MANUAL
+              - SHOP
+        - name: search
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Purchases List: totals + one row per product (All / Manual / From Shop)'
+      tags:
+        - Purchases
+    post:
+      description: Records qty × unit price × date against a warehouse product. Does not create a Zomaal Shop order — use POST /shop/orders for that.
+      operationId: Purchases_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePurchaseDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Add Purchase (manual / personal / outside the Zomaal Shop)
+      tags:
+        - Purchases
+  /purchases/product-options:
+    get:
+      description: Personal/outside purchases link to products the merchant already owns in Warehouse. To buy from Zomaal, use /shop instead — delivery creates From Shop rows automatically.
+      operationId: Purchases_productOptions
+      parameters:
+        - name: search
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Add Purchase → Select Product: your warehouse products (not Zomaal Shop catalog)'
+      tags:
+        - Purchases
+  /purchases/groups/{key}:
+    get:
+      operationId: Purchases_group
+      parameters:
+        - name: key
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Purchases Details: product card + history (date, qty, box price, total)'
+      tags:
+        - Purchases
+  /purchases/{id}:
+    patch:
+      operationId: Purchases_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePurchaseDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Edit a manual purchase (From Shop entries are read-only)
+      tags:
+        - Purchases
+    delete:
+      operationId: Purchases_remove
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Delete a manual purchase
+      tags:
+        - Purchases
+  /app/info:
+    get:
+      description: Public endpoint for the Settings → About section. Returns configured URLs and app version. Missing URLs are null — the client should hide those rows rather than invent content.
+      operationId: AppInfo_getInfo
+      parameters: []
+      responses:
+        '200':
+          description: App metadata and legal links.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppInfoResponseDto'
+      summary: About this App + Privacy Policy links
+      tags:
+        - App
 info:
   title: Zomaal API
   description: |-
@@ -12603,6 +16393,173 @@ components:
       type: http
       description: Paste the access token only. Do not paste the refresh token or include the word Bearer.
   schemas:
+    ApiErrorDto:
+      type: object
+      properties:
+        message:
+          description: Human-readable error detail. Validation failures return one or more messages.
+          oneOf:
+            - type: string
+              example: Invalid or expired OTP
+            - type: array
+              items:
+                type: string
+              example:
+                - phone must be a valid phone number
+        error:
+          type: string
+          description: HTTP error reason phrase.
+          example: Bad Request
+        statusCode:
+          type: number
+          description: HTTP status code.
+          example: 400
+      required:
+        - message
+        - error
+        - statusCode
+    AccessMeResponseDto:
+      type: object
+      properties:
+        storeId:
+          type: string
+        baseCurrency:
+          type: string
+        isOwner:
+          type: boolean
+          description: True when the caller owns the store. Owners manage staff/roles; staff never can.
+        staffMemberId:
+          type: string
+          nullable: true
+          description: StaffMember id when the caller is staff; null for owners.
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - INACTIVE
+          nullable: true
+          description: Staff account status. Null for owners.
+        roleName:
+          type: string
+          nullable: true
+          description: Assigned role name when the caller is staff; null for owners or unassigned staff.
+        effectivePermissions:
+          type: array
+          description: Effective permissions for this session. Owners receive the full catalogue.
+          items:
+            type: string
+            enum:
+              - orders.view
+              - orders.edit
+              - orders.cancel
+              - orders.export
+              - returns.view
+              - returns.process
+              - returns.scan
+              - products.view
+              - products.add
+              - products.edit
+              - products.delete
+              - expenses.view
+              - expenses.add
+              - expenses.edit
+              - expenses.delete
+              - ads.view
+              - customers.view
+              - customers.blacklist
+              - analytics.view
+              - analytics.export
+              - shop.view
+              - shop.purchase
+        permissionsByModule:
+          type: object
+          description: Same permissions grouped by module for nav / Access Restricted screens.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+              enum:
+                - orders.view
+                - orders.edit
+                - orders.cancel
+                - orders.export
+                - returns.view
+                - returns.process
+                - returns.scan
+                - products.view
+                - products.add
+                - products.edit
+                - products.delete
+                - expenses.view
+                - expenses.add
+                - expenses.edit
+                - expenses.delete
+                - ads.view
+                - customers.view
+                - customers.blacklist
+                - analytics.view
+                - analytics.export
+                - shop.view
+                - shop.purchase
+      required:
+        - storeId
+        - baseCurrency
+        - isOwner
+        - effectivePermissions
+        - permissionsByModule
+    PermissionModuleDto:
+      type: object
+      properties:
+        module:
+          type: string
+          enum:
+            - orders
+            - returns
+            - products
+            - expenses
+            - ads
+            - customers
+            - analytics
+            - shop
+        permissions:
+          type: array
+          items:
+            type: string
+            enum:
+              - orders.view
+              - orders.edit
+              - orders.cancel
+              - orders.export
+              - returns.view
+              - returns.process
+              - returns.scan
+              - products.view
+              - products.add
+              - products.edit
+              - products.delete
+              - expenses.view
+              - expenses.add
+              - expenses.edit
+              - expenses.delete
+              - ads.view
+              - customers.view
+              - customers.blacklist
+              - analytics.view
+              - analytics.export
+              - shop.view
+              - shop.purchase
+      required:
+        - module
+        - permissions
+    PermissionsCatalogueResponseDto:
+      type: object
+      properties:
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionModuleDto'
+      required:
+        - modules
     LoginDto:
       type: object
       properties:
@@ -12640,31 +16597,6 @@ components:
         - accessToken
         - refreshToken
         - isProfileCompleted
-    ApiErrorDto:
-      type: object
-      properties:
-        message:
-          description: Human-readable error detail. Validation failures return one or more messages.
-          oneOf:
-            - type: string
-              example: Invalid or expired OTP
-            - type: array
-              items:
-                type: string
-              example:
-                - phone must be a valid phone number
-        error:
-          type: string
-          description: HTTP error reason phrase.
-          example: Bad Request
-        statusCode:
-          type: number
-          description: HTTP status code.
-          example: 400
-      required:
-        - message
-        - error
-        - statusCode
     SendOtpDto:
       type: object
       properties:
@@ -12688,7 +16620,7 @@ components:
       properties:
         message:
           type: string
-          example: OTP sent successfully
+          example: Merchant account deleted
       required:
         - message
     VerifyOtpDto:
@@ -12741,6 +16673,11 @@ components:
         ownerName:
           type: string
           example: John Doe
+        ownerPhotoUrl:
+          type: string
+          description: Owner’s personal profile photo, set via PATCH /users/me.
+          example: https://example.com/avatar.png
+          nullable: true
         businessName:
           type: string
           example: John Electronics
@@ -12760,6 +16697,14 @@ components:
         isActive:
           type: boolean
           example: true
+        baseCurrency:
+          type: string
+          description: ISO 4217 store currency (e.g. MAD).
+          example: MAD
+        isCurrent:
+          type: boolean
+          description: True when this is the owner’s currently selected store (Settings header).
+          example: true
         createdAt:
           type: string
           example: '2026-07-16T10:30:00.000Z'
@@ -12774,12 +16719,15 @@ components:
       required:
         - id
         - ownerName
+        - ownerPhotoUrl
         - businessName
         - address
         - city
         - country
         - logoUrl
         - isActive
+        - baseCurrency
+        - isCurrent
         - createdAt
         - updatedAt
         - userId
@@ -12792,6 +16740,26 @@ components:
         phone:
           type: string
           example: '+212612345678'
+        name:
+          type: string
+          description: Display name, resolved from the active store (owner) or staff record. Null until one exists.
+          example: Ahmed Alaoui
+          nullable: true
+        photoUrl:
+          type: string
+          description: Personal profile photo, resolved the same way as `name`. Null until set.
+          example: https://example.com/avatar.png
+          nullable: true
+        address:
+          type: string
+          description: Personal address, resolved the same way as `name`.
+          example: 123 Rue Hassan II
+          nullable: true
+        city:
+          type: string
+          description: Personal city, resolved the same way as `name`.
+          example: Casablanca
+          nullable: true
         isPhoneVerified:
           type: boolean
           example: true
@@ -12807,18 +16775,65 @@ components:
           example: '2026-07-16T10:30:00.000Z'
           format: date-time
         store:
+          description: Currently selected store (same as GET /stores/me).
           nullable: true
           type: object
           allOf:
             - $ref: '#/components/schemas/StoreResponseDto'
+        stores:
+          description: All stores owned by this user (empty for staff).
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreResponseDto'
       required:
         - id
         - phone
+        - name
+        - photoUrl
+        - address
+        - city
         - isPhoneVerified
         - onboardingComplete
         - createdAt
         - updatedAt
         - store
+        - stores
+    UpdateUserProfileDto:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Display name. Stored on the store (owner) or staff record backing this user — whichever applies.
+          example: Ahmed Alaoui
+        photoUrl:
+          type: string
+          description: Public HTTPS URL of the personal profile photo.
+          example: https://example.com/avatar.png
+          format: uri
+        address:
+          type: string
+          description: Personal address. For a store owner this is the store’s pickup address (same field PUT /stores/me edits); for a staff member it is personal to them.
+          example: 123 Rue Hassan II
+        city:
+          type: string
+          description: Personal city, same mapping as `address`.
+          example: Casablanca
+    ChangePasswordDto:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          description: Required only if the account already has a password set. Omit when setting a password for the first time (accounts created via OTP have none until now).
+          minLength: 8
+          format: password
+          writeOnly: true
+        newPassword:
+          type: string
+          minLength: 8
+          format: password
+          writeOnly: true
+      required:
+        - newPassword
     CreateStoreDto:
       type: object
       properties:
@@ -12845,12 +16860,25 @@ components:
           description: Public HTTPS URL of the store logo.
           example: https://example.com/logo.png
           format: uri
+        baseCurrency:
+          type: string
+          description: ISO 4217 currency code for this store (e.g. MAD, USD, EUR). Defaults to MAD when omitted.
+          example: MAD
       required:
         - ownerName
         - businessName
         - address
         - city
         - country
+    StoreListResponseDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreResponseDto'
+      required:
+        - data
     UpdateStoreDto:
       type: object
       properties:
@@ -12877,6 +16905,19 @@ components:
           description: Public HTTPS URL of the store logo.
           example: https://example.com/logo.png
           format: uri
+        baseCurrency:
+          type: string
+          description: ISO 4217 currency code for this store (e.g. MAD, USD, EUR). Defaults to MAD when omitted.
+          example: MAD
+    SelectStoreDto:
+      type: object
+      properties:
+        storeId:
+          type: string
+          description: Store id to make current (must be owned by the caller).
+          example: 550e8400-e29b-41d4-a716-446655440000
+      required:
+        - storeId
     SenditConnectionErrorDto:
       type: object
       properties:
@@ -19243,10 +23284,10 @@ components:
       properties:
         value:
           type: string
-          example: '34842.00'
+          example: '0.00'
         orders:
           type: number
-          example: 198
+          example: 0
       required:
         - value
         - orders
@@ -19286,7 +23327,7 @@ components:
         productSummary:
           type: string
           description: First returned line's product name, plus a count of any others.
-          example: Adidas Running Shoes - Black
+          example: Product name
         status:
           type: string
           enum:
@@ -19295,7 +23336,7 @@ components:
             - PROCESSED
         value:
           type: string
-          example: '249.99'
+          example: '100.00'
         createdAt:
           type: string
           format: date-time
@@ -19309,6 +23350,10 @@ components:
     ReturnListResponseDto:
       type: object
       properties:
+        currency:
+          type: string
+          example: MAD
+          description: Store base currency — same unit as summary card and row values. Not invented from UI mocks.
         summary:
           $ref: '#/components/schemas/ReturnListSummaryDto'
         data:
@@ -19325,6 +23370,7 @@ components:
           type: number
           example: 20
       required:
+        - currency
         - summary
         - data
         - total
@@ -19358,7 +23404,7 @@ components:
           type: number
         totalPrice:
           type: string
-          example: '249.99'
+          example: '100.00'
         imageUrl:
           type: object
           nullable: true
@@ -19383,15 +23429,15 @@ components:
       properties:
         originalOrderValue:
           type: string
-          example: '249.99'
+          example: '100.00'
           description: Sum of the returned lines' totalPrice — what the customer paid for these items.
         deliveryCost:
           type: string
-          example: '10.00'
+          example: '25.00'
           description: The order's own courier fee if dispatched via Zomaal, otherwise the shipping amount charged to the customer (we have no visibility into a 3rd-party carrier's real cost) — same proxy convention as OrderFinancialSummaryDto.
         netLoss:
           type: string
-          example: '10.00'
+          example: '25.00'
           description: 'deliveryCost, plus each line''s loss based on its CURRENT recorded condition: 0 for GOOD/RETURNED (restocked), damageCost for DAMAGED (0 if not entered yet), full line value for LOST/MISSING. Lines with no condition recorded yet contribute 0 beyond deliveryCost — this is a live preview, not a final figure.'
       required:
         - originalOrderValue
@@ -19424,6 +23470,10 @@ components:
         address:
           type: object
           nullable: true
+        reason:
+          type: object
+          nullable: true
+          description: Free-text return reason previously saved on verify, if any. Null until staff records one.
         products:
           type: array
           items:
@@ -19465,7 +23515,7 @@ components:
       properties:
         reason:
           type: string
-          example: Item was damaged during shipping
+          example: Item damaged in transit
           description: Free-text return reason shown on the Return Detected screen.
         lines:
           type: array
@@ -20868,6 +24918,93 @@ components:
       required:
         - data
         - pagination
+    ComparePlatformOptionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          enum:
+            - WAREHOUSE
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+        label:
+          type: string
+        available:
+          type: boolean
+          description: False when the merchant has no active connection for this e-com platform. Warehouse is always true.
+      required:
+        - id
+        - label
+        - available
+    ComparePlatformsResponseDto:
+      type: object
+      properties:
+        platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComparePlatformOptionDto'
+      required:
+        - platforms
+    CompareCatalogProductDto:
+      type: object
+      properties:
+        id:
+          type: string
+        platform:
+          type: string
+          enum:
+            - WAREHOUSE
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        stockLabel:
+          type: string
+          nullable: true
+          description: e.g. "142 In Stock". Null when inventory is unknown.
+      required:
+        - id
+        - platform
+        - name
+        - imageUrl
+        - stockLabel
+    CompareCatalogPaginationDto:
+      type: object
+      properties:
+        page:
+          type: object
+          nullable: true
+        limit:
+          type: number
+        total:
+          type: object
+          nullable: true
+        totalPages:
+          type: object
+          nullable: true
+        nextCursor:
+          type: object
+          nullable: true
+          description: Cursor for the next SHOPIFY / LIGHTFUNNELS page.
+        hasNextPage:
+          type: boolean
+    CompareCatalogResponseDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompareCatalogProductDto'
+        pagination:
+          $ref: '#/components/schemas/CompareCatalogPaginationDto'
+      required:
+        - data
+        - pagination
     ProductPerformancePeriodDto:
       type: object
       properties:
@@ -20888,6 +25025,119 @@ components:
         - period
         - from
         - to
+    ProductComparisonMetricsDto:
+      type: object
+      properties:
+        totalOrders:
+          type: number
+        deliveryRate:
+          type: number
+        returnRate:
+          type: number
+        cancellationRate:
+          type: number
+        revenue:
+          type: string
+        profit:
+          type: string
+          nullable: true
+          description: Null when no warehouse cost is available for this product (platform-only catalog with no SKU link).
+        avgOrderValue:
+          type: string
+          description: revenue ÷ totalOrders. "0.0000" when there were no orders.
+        cpo:
+          type: string
+          nullable: true
+          description: Cost Per Order — product cost ÷ totalOrders. Null when no warehouse cost is available. Not ad spend.
+      required:
+        - totalOrders
+        - deliveryRate
+        - returnRate
+        - cancellationRate
+        - revenue
+        - profit
+        - avgOrderValue
+        - cpo
+    ProductComparisonSideDto:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum:
+            - WAREHOUSE
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+        productId:
+          type: string
+          description: Warehouse UUID or platform product id.
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        metrics:
+          $ref: '#/components/schemas/ProductComparisonMetricsDto'
+      required:
+        - platform
+        - productId
+        - name
+        - imageUrl
+        - metrics
+    ProductComparisonInsightDto:
+      type: object
+      properties:
+        metric:
+          type: string
+          enum:
+            - deliveryRate
+            - returnRate
+            - cancellationRate
+            - revenue
+            - profit
+            - avgOrderValue
+            - cpo
+          description: Whichever metric had the largest relative gap between the two products.
+        winner:
+          type: string
+          enum:
+            - A
+            - B
+        message:
+          type: string
+          example: Product A has 20% better delivery rate than Product B
+      required:
+        - metric
+        - winner
+        - message
+    ProductComparisonResponseDto:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/ProductPerformancePeriodDto'
+        currency:
+          type: string
+        productA:
+          $ref: '#/components/schemas/ProductComparisonSideDto'
+        productB:
+          $ref: '#/components/schemas/ProductComparisonSideDto'
+        insight:
+          nullable: true
+          description: Null when every metric ties (including both products having zero orders) — nothing meaningful to call out.
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/ProductComparisonInsightDto'
+        dataUpdatedAt:
+          type: object
+          nullable: true
+          format: date-time
+      required:
+        - period
+        - currency
+        - productA
+        - productB
+        - insight
+        - dataUpdatedAt
     ProductPerformanceMetricsDto:
       type: object
       properties:
@@ -21907,6 +26157,21 @@ components:
         lastLoginAt:
           type: string
           nullable: true
+        baseSalary:
+          type: string
+          nullable: true
+          description: Configured base salary when a salary profile exists.
+        salaryFrequency:
+          type: string
+          enum:
+            - DAILY
+            - WEEKLY
+            - MONTHLY
+          nullable: true
+        nextPaymentDate:
+          type: string
+          nullable: true
+          description: Next automatic payment date when expenseHandling is AUTOMATIC.
       required:
         - id
         - name
@@ -21922,6 +26187,10 @@ components:
             $ref: '#/components/schemas/StaffResponseDto'
         total:
           type: number
+          description: Total staff matching the current filters.
+        activeCount:
+          type: number
+          description: Active staff count for the store (ignores list filters other than store).
         page:
           type: number
         limit:
@@ -21929,6 +26198,7 @@ components:
       required:
         - staff
         - total
+        - activeCount
         - page
         - limit
     StaffDetailResponseDto:
@@ -21964,6 +26234,21 @@ components:
         lastLoginAt:
           type: string
           nullable: true
+        baseSalary:
+          type: string
+          nullable: true
+          description: Configured base salary when a salary profile exists.
+        salaryFrequency:
+          type: string
+          enum:
+            - DAILY
+            - WEEKLY
+            - MONTHLY
+          nullable: true
+        nextPaymentDate:
+          type: string
+          nullable: true
+          description: Next automatic payment date when expenseHandling is AUTOMATIC.
         effectivePermissions:
           type: array
           description: Effective permissions after applying any per-staff overrides.
@@ -21995,9 +26280,6 @@ components:
         hasOverrides:
           type: boolean
           description: True when permissionOverrides is non-empty (this person deviates from their role).
-        nextPaymentDate:
-          type: string
-          nullable: true
       required:
         - id
         - name
@@ -22125,6 +26407,171 @@ components:
           description: Staff removal is deactivate-only — there is no delete.
       required:
         - status
+    SalarySummaryResponseDto:
+      type: object
+      properties:
+        totalSalaryPaid:
+          type: string
+          description: Sum of PAID salary payments (store currency, 2 dp).
+        pendingPaymentCount:
+          type: number
+          description: Count of payments whose displayStatus is PENDING or OVERDUE.
+        pendingPaymentsTotal:
+          type: string
+          description: Sum of PENDING + OVERDUE payment amounts (store currency, 2 dp).
+      required:
+        - totalSalaryPaid
+        - pendingPaymentCount
+        - pendingPaymentsTotal
+    MonthlyTrendPointDto:
+      type: object
+      properties:
+        month:
+          type: string
+          example: 2026-09
+          description: UTC year-month.
+        total:
+          type: string
+          example: '4250.00'
+      required:
+        - month
+        - total
+    MonthlyTrendDto:
+      type: object
+      properties:
+        changePercent:
+          type: object
+          nullable: true
+          description: Percent change of the most recent month vs the one before it. Null when the prior month was zero and this one is not — growth from a zero baseline has no defined percentage.
+        direction:
+          type: string
+          enum:
+            - up
+            - down
+            - flat
+      required:
+        - direction
+    MonthlyTrendResponseDto:
+      type: object
+      properties:
+        points:
+          description: Oldest first. Every month in range appears even if its total is zero.
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthlyTrendPointDto'
+        trend:
+          $ref: '#/components/schemas/MonthlyTrendDto'
+      required:
+        - points
+        - trend
+    SalaryPaymentResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        staffMemberId:
+          type: string
+        staffName:
+          type: string
+        amount:
+          type: string
+        paymentDate:
+          type: string
+        paidAt:
+          type: string
+          nullable: true
+        paymentMethod:
+          type: string
+          enum:
+            - BANK_TRANSFER
+            - CASH
+        status:
+          type: string
+          enum:
+            - PENDING
+            - PAID
+          description: Stored status (PENDING | PAID). Prefer displayStatus for UI chips.
+        displayStatus:
+          type: string
+          enum:
+            - PAID
+            - PENDING
+            - OVERDUE
+          description: Derived for the UI. OVERDUE = PENDING with paymentDate in the past — never stored.
+        notes:
+          type: string
+          nullable: true
+        receiptUrl:
+          type: string
+          nullable: true
+      required:
+        - id
+        - staffMemberId
+        - staffName
+        - amount
+        - paymentDate
+        - paymentMethod
+        - status
+        - displayStatus
+    SalaryPaymentListResponseDto:
+      type: object
+      properties:
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/SalaryPaymentResponseDto'
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+      required:
+        - payments
+        - total
+        - page
+        - limit
+    CreateSalaryPaymentDto:
+      type: object
+      properties:
+        staffMemberIds:
+          description: Staff members to pay in this batch (Select Staff Member screen — usually one, but supports multi-select).
+          type: array
+          items:
+            type: string
+        amount:
+          type: string
+          description: Amount per staff member. Defaults to each staff member's configured base salary when omitted.
+        paymentDate:
+          type: string
+          description: ISO date this payment is for.
+        paymentMethod:
+          type: string
+          enum:
+            - BANK_TRANSFER
+            - CASH
+        notes:
+          type: string
+        receiptUrl:
+          type: string
+          description: A raw external receipt URL. Ignored when receiptAssetId is also provided — upload through POST /expenses/receipts instead.
+        receiptAssetId:
+          type: string
+          format: uuid
+          description: ID returned by POST /expenses/receipts. Attaches that upload to the first payment created in this batch and takes precedence over receiptUrl.
+      required:
+        - staffMemberIds
+        - paymentDate
+        - paymentMethod
+    SalaryPaymentBatchResponseDto:
+      type: object
+      properties:
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/SalaryPaymentResponseDto'
+      required:
+        - payments
     SalaryProfileResponseDto:
       type: object
       properties:
@@ -22204,140 +26651,6 @@ components:
         - frequency
         - paymentMethod
         - startDate
-    SalaryPaymentResponseDto:
-      type: object
-      properties:
-        id:
-          type: string
-        staffMemberId:
-          type: string
-        staffName:
-          type: string
-        amount:
-          type: string
-        paymentDate:
-          type: string
-        paidAt:
-          type: string
-          nullable: true
-        paymentMethod:
-          type: string
-          enum:
-            - BANK_TRANSFER
-            - CASH
-        status:
-          type: string
-          enum:
-            - PENDING
-            - PAID
-        notes:
-          type: string
-          nullable: true
-        receiptUrl:
-          type: string
-          nullable: true
-      required:
-        - id
-        - staffMemberId
-        - staffName
-        - amount
-        - paymentDate
-        - paymentMethod
-        - status
-    SalaryPaymentListResponseDto:
-      type: object
-      properties:
-        payments:
-          type: array
-          items:
-            $ref: '#/components/schemas/SalaryPaymentResponseDto'
-        total:
-          type: number
-      required:
-        - payments
-        - total
-    MonthlyTrendPointDto:
-      type: object
-      properties:
-        month:
-          type: string
-          example: 2026-09
-          description: UTC year-month.
-        total:
-          type: string
-          example: '4250.00'
-      required:
-        - month
-        - total
-    MonthlyTrendDto:
-      type: object
-      properties:
-        changePercent:
-          type: object
-          nullable: true
-          description: Percent change of the most recent month vs the one before it. Null when the prior month was zero and this one is not — growth from a zero baseline has no defined percentage.
-        direction:
-          type: string
-          enum:
-            - up
-            - down
-            - flat
-      required:
-        - direction
-    MonthlyTrendResponseDto:
-      type: object
-      properties:
-        points:
-          description: Oldest first. Every month in range appears even if its total is zero.
-          type: array
-          items:
-            $ref: '#/components/schemas/MonthlyTrendPointDto'
-        trend:
-          $ref: '#/components/schemas/MonthlyTrendDto'
-      required:
-        - points
-        - trend
-    CreateSalaryPaymentDto:
-      type: object
-      properties:
-        staffMemberIds:
-          description: Staff members to pay in this batch (Select Staff Member screen — usually one, but supports multi-select).
-          type: array
-          items:
-            type: string
-        amount:
-          type: string
-          description: Amount per staff member. Defaults to each staff member's configured base salary when omitted.
-        paymentDate:
-          type: string
-          description: ISO date this payment is for.
-        paymentMethod:
-          type: string
-          enum:
-            - BANK_TRANSFER
-            - CASH
-        notes:
-          type: string
-        receiptUrl:
-          type: string
-          description: A raw external receipt URL. Ignored when receiptAssetId is also provided — upload through POST /expenses/receipts instead.
-        receiptAssetId:
-          type: string
-          format: uuid
-          description: ID returned by POST /expenses/receipts. Attaches that upload to the first payment created in this batch and takes precedence over receiptUrl.
-      required:
-        - staffMemberIds
-        - paymentDate
-        - paymentMethod
-    SalaryPaymentBatchResponseDto:
-      type: object
-      properties:
-        payments:
-          type: array
-          items:
-            $ref: '#/components/schemas/SalaryPaymentResponseDto'
-      required:
-        - payments
     ExpenseCategoryResponseDto:
       type: object
       properties:
@@ -22604,3 +26917,1248 @@ components:
           type: string
           format: uuid
           description: ID returned by POST /expenses/receipts. Attaches that upload to this expense and takes precedence over receiptUrl.
+    CustomerSummaryDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440001
+        phone:
+          type: string
+          example: '+8801400715037'
+        name:
+          type: string
+          example: Alex Sansioun
+          nullable: true
+        address:
+          type: string
+          example: 123 Main Street, Apt 4B, New York, NY 10001
+          nullable: true
+        totalOrders:
+          type: number
+          example: 9
+        isHighRisk:
+          type: boolean
+          example: false
+          description: One risk action away from crossing whichever store-configured blacklist limit applies.
+        isBlacklisted:
+          type: boolean
+          example: false
+      required:
+        - id
+        - phone
+        - name
+        - address
+        - totalOrders
+        - isHighRisk
+        - isBlacklisted
+    CustomerListResponseDto:
+      type: object
+      properties:
+        customers:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerSummaryDto'
+        totalCustomers:
+          type: number
+          example: 1247
+        highRiskCount:
+          type: number
+          example: 22
+        page:
+          type: number
+          example: 1
+        limit:
+          type: number
+          example: 20
+      required:
+        - customers
+        - totalCustomers
+        - highRiskCount
+        - page
+        - limit
+    BlacklistSettingsDto:
+      type: object
+      properties:
+        returnsLimit:
+          type: number
+          example: 3
+          description: 0 = this category never triggers auto-blacklist on its own.
+        cancellationsLimit:
+          type: number
+          example: 0
+        refusalsLimit:
+          type: number
+          example: 0
+        noAnswerLimit:
+          type: number
+          example: 0
+        useCombinedLimit:
+          type: boolean
+          example: true
+          description: When true, auto-blacklist triggers off combinedLimit (sum of all four counters) instead of each category’s own limit.
+        combinedLimit:
+          type: number
+          example: 4
+        warnOnNewOrder:
+          type: boolean
+          example: true
+          description: Show a warning when a blacklisted customer places a new order.
+      required:
+        - returnsLimit
+        - cancellationsLimit
+        - refusalsLimit
+        - noAnswerLimit
+        - useCombinedLimit
+        - combinedLimit
+        - warnOnNewOrder
+    UpdateBlacklistSettingsDto:
+      type: object
+      properties:
+        returnsLimit:
+          type: number
+          minimum: 0
+        cancellationsLimit:
+          type: number
+          minimum: 0
+        refusalsLimit:
+          type: number
+          minimum: 0
+        noAnswerLimit:
+          type: number
+          minimum: 0
+        useCombinedLimit:
+          type: boolean
+        combinedLimit:
+          type: number
+          minimum: 0
+        warnOnNewOrder:
+          type: boolean
+    RiskProximityDto:
+      type: object
+      properties:
+        category:
+          type: string
+          enum:
+            - returns
+            - cancellations
+            - refusals
+            - noAnswer
+            - combined
+          example: returns
+        current:
+          type: number
+          example: 2
+        limit:
+          type: number
+          example: 3
+        remaining:
+          type: number
+          example: 1
+          description: Actions remaining until auto-blacklist.
+      required:
+        - category
+        - current
+        - limit
+        - remaining
+    AtRiskCustomerDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440001
+        phone:
+          type: string
+          example: '+8801400715037'
+        name:
+          type: string
+          example: Ahamed Rifat
+          nullable: true
+        riskProximity:
+          $ref: '#/components/schemas/RiskProximityDto'
+      required:
+        - id
+        - phone
+        - name
+        - riskProximity
+    BlacklistedCustomerDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440001
+        phone:
+          type: string
+          example: '+8801400715037'
+        name:
+          type: string
+          example: Ahamed Rifat
+          nullable: true
+        returnsCount:
+          type: number
+          example: 3
+        cancellationsCount:
+          type: number
+          example: 1
+        refusalsCount:
+          type: number
+          example: 0
+        noAnswerCount:
+          type: number
+          example: 0
+        blacklistedAt:
+          type: string
+          example: '2026-04-20T00:00:00.000Z'
+          format: date-time
+      required:
+        - id
+        - phone
+        - name
+        - returnsCount
+        - cancellationsCount
+        - refusalsCount
+        - noAnswerCount
+        - blacklistedAt
+    BlacklistScreenResponseDto:
+      type: object
+      properties:
+        totalBlacklisted:
+          type: number
+          example: 24
+        atRiskCustomers:
+          description: A bounded watchlist, not an offset-paginated list — see the endpoint description.
+          type: array
+          items:
+            $ref: '#/components/schemas/AtRiskCustomerDto'
+        blacklistedCustomers:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlacklistedCustomerDto'
+        page:
+          type: number
+          example: 1
+          description: Applies to blacklistedCustomers only.
+        limit:
+          type: number
+          example: 20
+      required:
+        - totalBlacklisted
+        - atRiskCustomers
+        - blacklistedCustomers
+        - page
+        - limit
+    RiskScoreDto:
+      type: object
+      properties:
+        returns:
+          type: number
+          example: 3
+        cancellations:
+          type: number
+          example: 1
+        refusals:
+          type: number
+          example: 0
+        noAnswer:
+          type: number
+          example: 0
+        totalRiskActions:
+          type: number
+          example: 4
+          description: Sum of the four counters above.
+      required:
+        - returns
+        - cancellations
+        - refusals
+        - noAnswer
+        - totalRiskActions
+    CustomerOrderHistoryItemDto:
+      type: object
+      properties:
+        orderId:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+        orderName:
+          type: string
+          example: '#12345'
+          nullable: true
+        productSummary:
+          type: string
+          example: Wireless Headphones
+          nullable: true
+          description: First line item name, for the single-line summary shown on the Order History row.
+        status:
+          type: string
+          example: Delivered
+        occurredAt:
+          type: string
+          example: '2026-04-16T00:00:00.000Z'
+          format: date-time
+      required:
+        - orderId
+        - orderName
+        - productSummary
+        - status
+        - occurredAt
+    CustomerDetailResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440001
+        phone:
+          type: string
+          example: '01400715037'
+        name:
+          type: string
+          example: Ahamed Rifat
+          nullable: true
+        address:
+          type: string
+          example: Araihazar, narayanganj
+          nullable: true
+        totalOrders:
+          type: number
+          example: 9
+        riskScore:
+          $ref: '#/components/schemas/RiskScoreDto'
+        isBlacklisted:
+          type: boolean
+          example: false
+        blacklistReason:
+          type: string
+          example: null
+          nullable: true
+        blacklistedAt:
+          type: string
+          example: null
+          nullable: true
+          format: date-time
+        riskProximity:
+          description: Present only when not blacklisted and within 1 action of a configured limit — backs the "High Risk Customers — N actions away from blacklist" banner. Null otherwise (including for a blacklisted customer, who gets the Blacklisted banner instead).
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/RiskProximityDto'
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerOrderHistoryItemDto'
+      required:
+        - id
+        - phone
+        - name
+        - address
+        - totalOrders
+        - riskScore
+        - isBlacklisted
+        - blacklistReason
+        - blacklistedAt
+        - riskProximity
+        - orders
+    AddToBlacklistDto:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: Reason shown on the Add to Blacklist confirmation. Auto-filled from the risk score breakdown when omitted.
+          example: 3 returns, 1 cancellation
+    SuperAdminLoginDto:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Super admin username configured through SUPERADMIN_USERNAME.
+          example: superadmin
+        password:
+          type: string
+          description: Super admin password configured through SUPERADMIN_PASSWORD.
+          minLength: 8
+          format: password
+          writeOnly: true
+      required:
+        - username
+        - password
+    SuperAdminSummaryDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: b1f2c3d4-5678-90ab-cdef-1234567890ab
+        username:
+          type: string
+          example: superadmin
+        lastLoginAt:
+          type: object
+          example: '2026-09-12T09:00:00.000Z'
+          nullable: true
+      required:
+        - id
+        - username
+        - lastLoginAt
+    SuperAdminAuthResponseDto:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Super admin bearer token. Expires after 15 minutes.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          description: Token used only with POST /admin/auth/refresh. Expires after 7 days.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        admin:
+          $ref: '#/components/schemas/SuperAdminSummaryDto'
+      required:
+        - accessToken
+        - refreshToken
+        - admin
+    SuperAdminRefreshTokenDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          description: Refresh token returned by POST /admin/auth/login or the previous refresh call. Send it in the JSON body, not in the Authorization header.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      required:
+        - refreshToken
+    SuperAdminTokenPairDto:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Super admin bearer token. Expires after 15 minutes.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          description: Token used only with POST /admin/auth/refresh. Expires after 7 days.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      required:
+        - accessToken
+        - refreshToken
+    SuperAdminChangePasswordDto:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          description: Current super admin password.
+          format: password
+          writeOnly: true
+        newPassword:
+          type: string
+          description: New super admin password.
+          minLength: 8
+          format: password
+          writeOnly: true
+      required:
+        - currentPassword
+        - newPassword
+    ShopCategoryResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        isActive:
+          type: boolean
+        sortOrder:
+          type: number
+        productCount:
+          type: number
+          description: Number of products currently in this category.
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - slug
+        - isActive
+        - sortOrder
+        - productCount
+        - createdAt
+        - updatedAt
+    CreateShopCategoryDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Boxes
+          description: Display name. A unique URL-safe slug is generated automatically.
+        sortOrder:
+          type: number
+          default: 0
+          description: Lower positions appear first in the categories list.
+      required:
+        - name
+    UpdateShopCategoryDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Boxes
+          description: Display name. A unique URL-safe slug is generated automatically.
+        sortOrder:
+          type: number
+          default: 0
+          description: Lower positions appear first in the categories list.
+        isActive:
+          type: boolean
+          description: Inactive categories are hidden from Add Product and cannot be assigned to new or activated products.
+    ShopProductCategoryRefDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - name
+    ShopProductImageDto:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+          example: /shop-media/images/3f0c…
+      required:
+        - id
+        - url
+    ShopProductResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        sku:
+          type: object
+          nullable: true
+        description:
+          type: object
+          nullable: true
+        price:
+          type: string
+          description: Fixed to 2 decimal places.
+        stock:
+          type: number
+        lowStock:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DRAFT
+        category:
+          $ref: '#/components/schemas/ShopProductCategoryRefDto'
+        images:
+          description: Gallery in display order; the first image is the cover.
+          type: array
+          items:
+            $ref: '#/components/schemas/ShopProductImageDto'
+        imageUrl:
+          type: object
+          nullable: true
+          description: Public URL of the cover image, or null if none.
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - slug
+        - sku
+        - description
+        - price
+        - stock
+        - lowStock
+        - status
+        - category
+        - images
+        - imageUrl
+        - createdAt
+        - updatedAt
+    ShopImportResultDto:
+      type: object
+      properties:
+        created:
+          type: number
+        updated:
+          type: number
+        createdCategories:
+          type: number
+      required:
+        - created
+        - updated
+        - createdCategories
+    CreateShopProductDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Corrugated Shipping Box
+        categoryId:
+          type: string
+          format: uuid
+        sku:
+          type: string
+          example: BOX-CORR-01
+        description:
+          type: string
+          example: Standard 30x20x15cm corrugated box.
+        price:
+          type: number
+          example: 12
+          description: Price merchants pay per unit.
+        stock:
+          type: number
+          default: 0
+        compareAtPrice:
+          type: object
+          nullable: true
+          example: 17
+          description: Crossed-out "was" price shown in the app. Only displayed when higher than price. Send null to clear.
+        unitLabel:
+          type: string
+          default: piece
+          example: box
+          description: What one unit is called ("x100 box").
+        isFeatured:
+          type: boolean
+          default: false
+          description: Pin to the top of Popular items.
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DRAFT
+          default: DRAFT
+      required:
+        - name
+        - categoryId
+        - price
+    UpdateShopProductDto:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Corrugated Shipping Box
+        categoryId:
+          type: string
+          format: uuid
+        sku:
+          type: string
+          example: BOX-CORR-01
+        description:
+          type: string
+          example: Standard 30x20x15cm corrugated box.
+        price:
+          type: number
+          example: 12
+          description: Price merchants pay per unit.
+        stock:
+          type: number
+          default: 0
+        compareAtPrice:
+          type: object
+          nullable: true
+          example: 17
+          description: Crossed-out "was" price shown in the app. Only displayed when higher than price. Send null to clear.
+        unitLabel:
+          type: string
+          default: piece
+          example: box
+          description: What one unit is called ("x100 box").
+        isFeatured:
+          type: boolean
+          default: false
+          description: Pin to the top of Popular items.
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DRAFT
+          default: DRAFT
+    ShopProductVariantInputDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Existing option id — omit to create a new option.
+        size:
+          type: string
+          example: XL
+        color:
+          type: string
+          example: Brown Kraft
+        colorHex:
+          type: string
+          example: '#8B6B4A'
+        sku:
+          type: string
+          example: BOX-XL-KRAFT
+        price:
+          type: object
+          nullable: true
+          description: Overrides the product price; null = use product price.
+        compareAtPrice:
+          type: object
+          nullable: true
+        stock:
+          type: number
+          minimum: 0
+          example: 120
+        isActive:
+          type: boolean
+          default: true
+      required:
+        - stock
+    ReplaceShopProductVariantsDto:
+      type: object
+      properties:
+        variants:
+          description: The complete option list, in display order. Options not listed are deleted. Send [] to remove all options (stock then comes from the product).
+          type: array
+          items:
+            $ref: '#/components/schemas/ShopProductVariantInputDto'
+      required:
+        - variants
+    ShopProductSpecInputDto:
+      type: object
+      properties:
+        label:
+          type: string
+          example: Material
+        value:
+          type: string
+          example: ABS Plastic & Aluminum
+      required:
+        - label
+        - value
+    ReplaceShopProductSpecsDto:
+      type: object
+      properties:
+        specs:
+          description: The complete Specifications list, in display order.
+          type: array
+          items:
+            $ref: '#/components/schemas/ShopProductSpecInputDto'
+      required:
+        - specs
+    ReorderShopProductImagesDto:
+      type: object
+      properties:
+        imageIds:
+          description: Every one of the product's image ids, in the new order. The first becomes the cover.
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - imageIds
+    MerchantResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The User id (login identity).
+        phone:
+          type: string
+        storeId:
+          type: string
+        businessName:
+          type: string
+        ownerName:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        baseCurrency:
+          type: string
+        logoUrl:
+          type: object
+          nullable: true
+        connectionCount:
+          type: number
+        isActive:
+          type: boolean
+        onboardingComplete:
+          type: boolean
+        productCount:
+          type: number
+        customerCount:
+          type: number
+        staffCount:
+          type: number
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - phone
+        - storeId
+        - businessName
+        - ownerName
+        - address
+        - city
+        - country
+        - baseCurrency
+        - logoUrl
+        - connectionCount
+        - isActive
+        - onboardingComplete
+        - productCount
+        - customerCount
+        - staffCount
+        - createdAt
+        - updatedAt
+    UpdateMerchantDto:
+      type: object
+      properties:
+        businessName:
+          type: string
+          example: Zomaal Demo Store
+        ownerName:
+          type: string
+          example: Jane Doe
+        address:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        isActive:
+          type: boolean
+          description: Suspends the merchant when false. Not yet enforced as an access gate elsewhere in the app — informational/operational for now.
+    AdvanceShopOrderDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - CONFIRMED
+            - SHIPPED
+            - DELIVERED
+        trackingNumber:
+          type: string
+          maxLength: 80
+      required:
+        - status
+    AdminCancelShopOrderDto:
+      type: object
+      properties:
+        reason:
+          type: string
+          example: Merchant unreachable
+          minLength: 3
+      required:
+        - reason
+    UpdateShopOrderNoteDto:
+      type: object
+      properties:
+        adminNote:
+          type: object
+          nullable: true
+          maxLength: 1000
+      required:
+        - adminNote
+    CreateShopBannerDto:
+      type: object
+      properties:
+        title:
+          type: string
+          example: 'New: kraft mailer boxes'
+        subtitle:
+          type: string
+          example: 10% off this week
+        linkType:
+          type: string
+          enum:
+            - NONE
+            - PRODUCT
+            - CATEGORY
+          default: NONE
+        linkId:
+          type: string
+          format: uuid
+          description: Product or category id when linkType is PRODUCT/CATEGORY.
+        sortOrder:
+          type: number
+          default: 0
+        isActive:
+          type: boolean
+          default: true
+        startsAt:
+          type: object
+          nullable: true
+        endsAt:
+          type: object
+          nullable: true
+    UpdateShopBannerDto:
+      type: object
+      properties:
+        title:
+          type: string
+          example: 'New: kraft mailer boxes'
+        subtitle:
+          type: string
+          example: 10% off this week
+        linkType:
+          type: string
+          enum:
+            - NONE
+            - PRODUCT
+            - CATEGORY
+          default: NONE
+        linkId:
+          type: string
+          format: uuid
+          description: Product or category id when linkType is PRODUCT/CATEGORY.
+        sortOrder:
+          type: number
+          default: 0
+        isActive:
+          type: boolean
+          default: true
+        startsAt:
+          type: object
+          nullable: true
+        endsAt:
+          type: object
+          nullable: true
+    CreateShopPromoCodeDto:
+      type: object
+      properties:
+        code:
+          type: string
+          example: WELCOME10
+          description: Letters, digits, - and _. Stored uppercase.
+        description:
+          type: string
+          example: 10% off your first order
+        type:
+          type: string
+          enum:
+            - PERCENT
+            - FIXED
+        value:
+          type: number
+          example: 10
+          description: Percent (1–100) or a fixed amount.
+        minSubtotal:
+          type: object
+          nullable: true
+          example: 200
+        maxDiscount:
+          type: object
+          nullable: true
+          example: 100
+          description: Cap for PERCENT codes.
+        usageLimit:
+          type: object
+          nullable: true
+          description: Total uses across all merchants.
+        perStoreLimit:
+          type: object
+          nullable: true
+          description: Uses per merchant.
+        startsAt:
+          type: object
+          nullable: true
+        endsAt:
+          type: object
+          nullable: true
+        isActive:
+          type: boolean
+          default: true
+      required:
+        - code
+        - type
+        - value
+    UpdateShopPromoCodeDto:
+      type: object
+      properties:
+        code:
+          type: string
+          example: WELCOME10
+          description: Letters, digits, - and _. Stored uppercase.
+        description:
+          type: string
+          example: 10% off your first order
+        type:
+          type: string
+          enum:
+            - PERCENT
+            - FIXED
+        value:
+          type: number
+          example: 10
+          description: Percent (1–100) or a fixed amount.
+        minSubtotal:
+          type: object
+          nullable: true
+          example: 200
+        maxDiscount:
+          type: object
+          nullable: true
+          example: 100
+          description: Cap for PERCENT codes.
+        usageLimit:
+          type: object
+          nullable: true
+          description: Total uses across all merchants.
+        perStoreLimit:
+          type: object
+          nullable: true
+          description: Uses per merchant.
+        startsAt:
+          type: object
+          nullable: true
+        endsAt:
+          type: object
+          nullable: true
+        isActive:
+          type: boolean
+          default: true
+    UpdateShopSettingsDto:
+      type: object
+      properties:
+        currency:
+          type: string
+          example: MAD
+        deliveryFee:
+          type: number
+          example: 20
+        freeDeliveryMinSubtotal:
+          type: object
+          nullable: true
+          example: 500
+          description: Delivery is free at or above this subtotal. null = never free.
+        codEnabled:
+          type: boolean
+        codCancellationLimit:
+          type: number
+          example: 3
+          description: 0 disables the restriction.
+        codCancellationWindowDays:
+          type: number
+          example: 90
+    AddCartItemDto:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        variantId:
+          type: string
+          format: uuid
+          description: Required when the product has options (size/color).
+        quantity:
+          type: number
+          minimum: 1
+          maximum: 10000
+          example: 20
+      required:
+        - productId
+        - quantity
+    UpdateCartItemDto:
+      type: object
+      properties:
+        quantity:
+          type: number
+          minimum: 1
+          maximum: 10000
+      required:
+        - quantity
+    CreateShopAddressDto:
+      type: object
+      properties:
+        label:
+          type: string
+          example: Home
+        fullName:
+          type: string
+          example: Youssef El Amrani
+        phone:
+          type: string
+          example: '+212600000001'
+        country:
+          type: string
+          example: Morocco
+        city:
+          type: string
+          example: Casablanca
+        district:
+          type: string
+          example: Maarif
+        address:
+          type: string
+          example: 12 Rue Abou Bakr, Apt 4
+        isDefault:
+          type: boolean
+          description: The first address is always the default.
+      required:
+        - label
+        - fullName
+        - phone
+        - country
+        - city
+        - address
+    UpdateShopAddressDto:
+      type: object
+      properties:
+        label:
+          type: string
+          example: Home
+        fullName:
+          type: string
+          example: Youssef El Amrani
+        phone:
+          type: string
+          example: '+212600000001'
+        country:
+          type: string
+          example: Morocco
+        city:
+          type: string
+          example: Casablanca
+        district:
+          type: string
+          example: Maarif
+        address:
+          type: string
+          example: 12 Rue Abou Bakr, Apt 4
+        isDefault:
+          type: boolean
+          description: The first address is always the default.
+    CheckoutPreviewDto:
+      type: object
+      properties:
+        promoCode:
+          type: string
+          example: WELCOME10
+        addressId:
+          type: string
+          format: uuid
+          description: Defaults to the default address.
+    PlaceShopOrderDto:
+      type: object
+      properties:
+        addressId:
+          type: string
+          format: uuid
+        paymentMethod:
+          type: string
+          enum:
+            - COD
+            - ONLINE
+          description: Only COD is accepted for now.
+        promoCode:
+          type: string
+          example: WELCOME10
+        note:
+          type: string
+          maxLength: 500
+      required:
+        - addressId
+        - paymentMethod
+    CancelShopOrderDto:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 300
+    CreatePurchaseDto:
+      type: object
+      properties:
+        warehouseProductId:
+          type: string
+          format: uuid
+          description: One of your own warehouse products (Select Product).
+        quantity:
+          type: number
+          minimum: 1
+          example: 100
+        unitPrice:
+          type: number
+          minimum: 0
+          example: 12.5
+          description: Unit purchase price. Total cost = quantity × unit price.
+        purchaseDate:
+          type: string
+          example: '2026-04-20'
+          description: ISO date; can’t be in the future.
+        notes:
+          type: string
+          maxLength: 500
+      required:
+        - warehouseProductId
+        - quantity
+        - unitPrice
+        - purchaseDate
+    UpdatePurchaseDto:
+      type: object
+      properties:
+        quantity:
+          type: number
+          minimum: 1
+        unitPrice:
+          type: number
+          minimum: 0
+        purchaseDate:
+          type: string
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+    AppInfoResponseDto:
+      type: object
+      properties:
+        appName:
+          type: string
+          example: Zomaal
+        version:
+          type: string
+          description: App build / marketing version shown on About this App.
+          example: 1.0.0
+        privacyPolicyUrl:
+          type: string
+          description: Public Privacy Policy URL. Null until configured.
+          example: https://zomaal.com/privacy
+          nullable: true
+        aboutUrl:
+          type: string
+          description: Public About this App URL. Null until configured.
+          example: https://zomaal.com/about
+          nullable: true
+        termsOfServiceUrl:
+          type: string
+          description: Public Terms of Service URL. Null until configured.
+          example: https://zomaal.com/terms
+          nullable: true
+        supportEmail:
+          type: string
+          description: Support contact email. Null until configured.
+          example: support@example.com
+          nullable: true
+      required:
+        - appName
+        - version
+        - privacyPolicyUrl
+        - aboutUrl
+        - termsOfServiceUrl
+        - supportEmail

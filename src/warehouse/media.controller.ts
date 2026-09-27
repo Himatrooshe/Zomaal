@@ -30,6 +30,9 @@ import {
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../access/permission.guard';
+import { RequirePermission } from '../access/require-permission.decorator';
+import { PERMISSIONS } from '../access/permissions';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import {
@@ -45,12 +48,13 @@ import { MediaService, type WarehouseMediaUploadFile } from './media.service';
   description: 'Bearer token is missing, invalid, or expired.',
   type: ApiErrorDto,
 })
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('warehouse/media')
 export class MediaController {
   constructor(private readonly media: MediaService) {}
 
   @Post()
+  @RequirePermission(PERMISSIONS.PRODUCTS_ADD)
   @UseInterceptors(
     FileInterceptor('image', {
       limits: { fileSize: 5 * 1024 * 1024, files: 1 },
@@ -106,6 +110,7 @@ export class MediaController {
   }
 
   @Get(':id/content')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiParam({
     name: 'id',
     format: 'uuid',
@@ -142,6 +147,7 @@ export class MediaController {
   }
 
   @Delete(':id')
+  @RequirePermission(PERMISSIONS.PRODUCTS_DELETE)
   @ApiParam({
     name: 'id',
     format: 'uuid',

@@ -31,6 +31,9 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { PermissionGuard } from '../access/permission.guard';
+import { RequirePermission } from '../access/require-permission.decorator';
+import { PERMISSIONS } from '../access/permissions';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import {
   EcommerceConnectionListDto,
@@ -86,7 +89,7 @@ const PRIVATE_NO_STORE_HEADERS = {
 @ApiTags('E-commerce Revenue')
 @ApiProduces('application/json')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('ecommerce')
 export class EcommerceController {
   constructor(
@@ -99,6 +102,7 @@ export class EcommerceController {
   ) {}
 
   @Get('home')
+  @RequirePermission(PERMISSIONS.ANALYTICS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Get the consolidated e-commerce home-screen payload',
@@ -198,6 +202,7 @@ export class EcommerceController {
   }
 
   @Post('connections/:connectionId/metrics/refresh')
+  @RequirePermission(PERMISSIONS.ANALYTICS_VIEW)
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
@@ -227,6 +232,7 @@ export class EcommerceController {
   }
 
   @Get('revenue/summary')
+  @RequirePermission(PERMISSIONS.ANALYTICS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Get combined revenue totals',
@@ -252,6 +258,7 @@ export class EcommerceController {
   }
 
   @Get('revenue/timeseries')
+  @RequirePermission(PERMISSIONS.ANALYTICS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Get daily combined revenue',
@@ -277,6 +284,7 @@ export class EcommerceController {
   }
 
   @Get('orders/status-summary')
+  @RequirePermission(PERMISSIONS.ORDERS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Get order counts and value by fulfillment/courier outcome',
@@ -306,6 +314,7 @@ export class EcommerceController {
   }
 
   @Get('returns/summary')
+  @RequirePermission(PERMISSIONS.RETURNS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Get returned-item counts and value by outcome',
@@ -333,6 +342,7 @@ export class EcommerceController {
   }
 
   @Post('orders/manual')
+  @RequirePermission(PERMISSIONS.ORDERS_EDIT)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create an order from a non-platform source',
@@ -359,6 +369,7 @@ export class EcommerceController {
   }
 
   @Get('orders')
+  @RequirePermission(PERMISSIONS.ORDERS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'List synchronized e-commerce orders',
@@ -379,6 +390,7 @@ export class EcommerceController {
   }
 
   @Get('scan')
+  @RequirePermission(PERMISSIONS.ORDERS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Resolve a scanned shipping barcode/QR to its order and products',
@@ -404,6 +416,7 @@ export class EcommerceController {
   }
 
   @Post('orders/:orderId/condition')
+  @RequirePermission(PERMISSIONS.RETURNS_PROCESS)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "Record a returned product's condition",
@@ -445,6 +458,7 @@ export class EcommerceController {
   }
 
   @Get('orders/:orderId/financials')
+  @RequirePermission(PERMISSIONS.ORDERS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: "Get an order's financial summary",
@@ -475,6 +489,7 @@ export class EcommerceController {
   }
 
   @Post('orders/:orderId/financials/sync')
+  @RequirePermission(PERMISSIONS.ORDERS_EDIT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "Re-check the order's shipping status and apply financial events",
@@ -510,6 +525,7 @@ export class EcommerceController {
   }
 
   @Get('orders/:orderId')
+  @RequirePermission(PERMISSIONS.ORDERS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Get details of a synchronized e-commerce order',
@@ -539,6 +555,7 @@ export class EcommerceController {
   }
 
   @Get('orders/:orderId/products')
+  @RequirePermission(PERMISSIONS.ORDERS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'View all product lines on a synchronized order',
@@ -579,6 +596,7 @@ export class EcommerceController {
   }
 
   @Get('orders/:orderId/fulfillment-preview')
+  @RequirePermission(PERMISSIONS.ORDERS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Fetch live fulfillment details',
@@ -607,6 +625,7 @@ export class EcommerceController {
   }
 
   @Post('orders/:orderId/dispatch')
+  @RequirePermission(PERMISSIONS.ORDERS_EDIT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Dispatch an order to a courier',
@@ -633,6 +652,7 @@ export class EcommerceController {
   }
 
   @Get('orders/:orderId/shipping-qr')
+  @RequirePermission(PERMISSIONS.ORDERS_VIEW)
   @ApiOperation({
     summary: "Render the order's shipment QR sticker",
     description:
@@ -717,6 +737,7 @@ export class EcommerceController {
   }
 
   @Get('orders/:orderId/timeline')
+  @RequirePermission(PERMISSIONS.ORDERS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Get the event timeline for an order',
@@ -754,6 +775,7 @@ export class EcommerceController {
   }
 
   @Post('orders/timeline/backfill')
+  @RequirePermission(PERMISSIONS.ORDERS_EDIT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:

@@ -24,7 +24,12 @@ function build() {
   const prisma: any = {
     staffMember: { findFirst: jest.fn(), findMany: jest.fn() },
     staffSalaryProfile: { findUnique: jest.fn(), upsert: jest.fn(), findMany: jest.fn(), update: jest.fn() },
-    staffSalaryPayment: { findMany: jest.fn(), count: jest.fn(), create: jest.fn() },
+    staffSalaryPayment: {
+      findMany: jest.fn(),
+      count: jest.fn(),
+      create: jest.fn(),
+      aggregate: jest.fn(),
+    },
     expenseCategory: { findFirst: jest.fn(), create: jest.fn() },
     mediaAsset: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
   };
@@ -394,6 +399,61 @@ describe('StaffSalaryService', () => {
     ]);
     expect(result.trend).toEqual({ changePercent: 0, direction: 'flat' });
     jest.useRealTimers();
+  });
+
+  it('listPayments derives OVERDUE and filters by display status', async () => {
+    const { service, prisma } = build();
+    prisma.staffMember.findFirst.mockResolvedValue({ id: 'staff-1', name: 'Sara' });
+    prisma.staffSalaryPayment.findMany.mockResolvedValue([
+      {
+        id: 'pay-1',
+        staffMemberId: 'staff-1',
+        amount: decimal('1000'),
+        paymentDate: new Date('2020-01-01T00:00:00.000Z'),
+        paidAt: null,
+        paymentMethod: SalaryPaymentMethod.CASH,
+        status: 'PENDING',
+        notes: null,
+        receiptUrl: null,
+      },
+    ]);
+    prisma.staffSalaryPayment.count.mockResolvedValue(1);
+
+    const result = await service.listPayments('owner-user', 'staff-1', {
+      status: 'OVERDUE',
+      page: 1,
+      limit: 20,
+    });
+
+    expect(prisma.staffSalaryPayment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          staffMemberId: 'staff-1',
+          status: 'PENDING',
+          paymentDate: expect.objectContaining({ lt: expect.any(Date) }),
+        }),
+      }),
+    );
+    expect(result.payments[0].displayStatus).toBe('OVERDUE');
+    expect(result.total).toBe(1);
+    expect(result.page).toBe(1);
+  });
+
+  it('summary sums paid totals and pending payment amounts', async () => {
+    const { service, prisma } = build();
+    prisma.staffSalaryPayment.aggregate.mockResolvedValue({
+      _sum: { amount: new Prisma.Decimal('4200') },
+    });
+    prisma.staffSalaryPayment.findMany.mockResolvedValue([
+      { amount: new Prisma.Decimal('500') },
+      { amount: new Prisma.Decimal('300') },
+    ]);
+
+    const result = await service.summary('owner-user');
+
+    expect(result.totalSalaryPaid).toBe('4200.00');
+    expect(result.pendingPaymentCount).toBe(2);
+    expect(result.pendingPaymentsTotal).toBe('800.00');
   });
 });
 

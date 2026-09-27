@@ -14,6 +14,7 @@ import {
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -25,6 +26,9 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { PermissionGuard } from '../access/permission.guard';
+import { RequirePermission } from '../access/require-permission.decorator';
+import { PERMISSIONS } from '../access/permissions';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { ReturnRequestService } from './return-request.service';
 import {
@@ -45,9 +49,13 @@ const PRIVATE_NO_STORE_HEADERS = {
 
 @ApiTags('E-commerce Returns')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @ApiUnauthorizedResponse({
   description: 'Missing or invalid Zomaal access token.',
+  type: ApiErrorDto,
+})
+@ApiForbiddenResponse({
+  description: "You don't have permission to access Returns.",
   type: ApiErrorDto,
 })
 @Controller('ecommerce/returns')
@@ -55,6 +63,7 @@ export class ReturnRequestController {
   constructor(private readonly returns: ReturnRequestService) {}
 
   @Get()
+  @RequirePermission(PERMISSIONS.RETURNS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'List return requests (Returns screen)',
@@ -72,6 +81,7 @@ export class ReturnRequestController {
   }
 
   @Get('search')
+  @RequirePermission(PERMISSIONS.RETURNS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Search orders for Manual Verification',
@@ -88,6 +98,7 @@ export class ReturnRequestController {
   }
 
   @Post('detect')
+  @RequirePermission(PERMISSIONS.RETURNS_SCAN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Resolve a scan/manual code to a return (Scan + Return Detected screens)',
@@ -109,6 +120,7 @@ export class ReturnRequestController {
   }
 
   @Post(':returnRequestId/verify')
+  @RequirePermission(PERMISSIONS.RETURNS_PROCESS)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Record conditions and confirm a return (Return Detected screen "Confirm")',

@@ -28,6 +28,9 @@ import {
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../access/permission.guard';
+import { RequirePermission } from '../access/require-permission.decorator';
+import { PERMISSIONS } from '../access/permissions';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import {
@@ -58,7 +61,7 @@ import { ProductService } from './product.service';
   description: 'Bearer token is missing, invalid, or expired.',
   type: ApiErrorDto,
 })
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('warehouse/products')
 export class ProductController {
   constructor(
@@ -67,6 +70,7 @@ export class ProductController {
   ) {}
 
   @Post()
+  @RequirePermission(PERMISSIONS.PRODUCTS_ADD)
   @ApiOperation({
     summary: 'Create a complete merchant warehouse product',
     description:
@@ -166,6 +170,7 @@ export class ProductController {
   }
 
   @Post('bundles')
+  @RequirePermission(PERMISSIONS.PRODUCTS_ADD)
   @ApiOperation({
     summary: 'Create a product bundle from existing variants',
     description:
@@ -190,6 +195,7 @@ export class ProductController {
   }
 
   @Get()
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiOperation({
     summary: 'Search and list merchant warehouse products',
     description:
@@ -212,6 +218,7 @@ export class ProductController {
   }
 
   @Get('compare/platforms')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiOperation({
     summary: 'List platforms available for Compare Products',
     description:
@@ -223,6 +230,7 @@ export class ProductController {
   }
 
   @Get('compare/products')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiOperation({
     summary: 'Search products for the Compare Products picker',
     description:
@@ -241,6 +249,7 @@ export class ProductController {
   }
 
   @Get('compare')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiOperation({
     summary: 'Compare two products side by side across catalogs',
     description:
@@ -264,6 +273,7 @@ export class ProductController {
   }
 
   @Get('compare/export')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiOperation({
     summary: 'Export a product comparison as a PDF',
     description:
@@ -301,6 +311,7 @@ export class ProductController {
   }
 
   @Get(':id')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiParam({
     name: 'id',
     format: 'uuid',
@@ -328,6 +339,7 @@ export class ProductController {
   }
 
   @Get(':id/performance')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiParam({
     name: 'id',
     format: 'uuid',
@@ -348,6 +360,7 @@ export class ProductController {
   }
 
   @Patch(':id')
+  @RequirePermission(PERMISSIONS.PRODUCTS_EDIT)
   @ApiParam({
     name: 'id',
     format: 'uuid',
@@ -380,6 +393,7 @@ export class ProductController {
   }
 
   @Post(':id/archive')
+  @RequirePermission(PERMISSIONS.PRODUCTS_EDIT)
   @ApiParam({
     name: 'id',
     format: 'uuid',
@@ -407,6 +421,7 @@ export class ProductController {
   }
 
   @Post(':id/activate')
+  @RequirePermission(PERMISSIONS.PRODUCTS_EDIT)
   @ApiParam({
     name: 'id',
     format: 'uuid',
@@ -434,6 +449,7 @@ export class ProductController {
   }
 
   @Post('backfill-product-codes')
+  @RequirePermission(PERMISSIONS.PRODUCTS_EDIT)
   @ApiOperation({
     summary: 'Backfill Product Tracking Codes for existing variants',
     description:

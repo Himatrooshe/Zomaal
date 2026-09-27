@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+import { AccessController } from './access.controller';
 import { PermissionGuard } from './permission.guard';
 import { StoreAccessService } from './store-access.service';
 
@@ -9,6 +10,7 @@ import { StoreAccessService } from './store-access.service';
  */
 @Global()
 @Module({
+  controllers: [AccessController],
   providers: [StoreAccessService, PermissionGuard],
   exports: [StoreAccessService, PermissionGuard],
 })

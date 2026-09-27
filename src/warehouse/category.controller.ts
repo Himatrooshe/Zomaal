@@ -28,6 +28,9 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../access/permission.guard';
+import { RequirePermission } from '../access/require-permission.decorator';
+import { PERMISSIONS } from '../access/permissions';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { CategoryService } from './category.service';
@@ -45,12 +48,13 @@ import {
   description: 'Bearer token is missing, invalid, or expired.',
   type: ApiErrorDto,
 })
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('warehouse/categories')
 export class CategoryController {
   constructor(private readonly categories: CategoryService) {}
 
   @Post()
+  @RequirePermission(PERMISSIONS.PRODUCTS_ADD)
   @ApiOperation({
     summary: 'Create a store-owned product category',
     description:
@@ -73,6 +77,7 @@ export class CategoryController {
   }
 
   @Get()
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiOperation({
     summary: 'List product categories',
     description:
@@ -102,6 +107,7 @@ export class CategoryController {
   }
 
   @Patch(':id')
+  @RequirePermission(PERMISSIONS.PRODUCTS_EDIT)
   @ApiParam({
     name: 'id',
     format: 'uuid',
@@ -134,6 +140,7 @@ export class CategoryController {
   }
 
   @Delete(':id')
+  @RequirePermission(PERMISSIONS.PRODUCTS_DELETE)
   @ApiParam({
     name: 'id',
     format: 'uuid',

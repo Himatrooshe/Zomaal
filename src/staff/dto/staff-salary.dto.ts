@@ -12,11 +12,14 @@ import {
   IsArray,
   IsDateString,
   IsIn,
+  IsInt,
   IsNumberString,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { IsPositiveAmount } from '../../common/validators/is-positive-amount.validator';
 
@@ -135,7 +138,19 @@ export class SalaryPaymentResponseDto {
   @ApiProperty() paymentDate!: string;
   @ApiPropertyOptional({ nullable: true, type: String }) paidAt!: string | null;
   @ApiProperty({ enum: SalaryPaymentMethod }) paymentMethod!: SalaryPaymentMethod;
-  @ApiProperty({ enum: SalaryPaymentStatus }) status!: SalaryPaymentStatus;
+  @ApiProperty({
+    enum: SalaryPaymentStatus,
+    description: 'Stored status (PENDING | PAID). Prefer displayStatus for UI chips.',
+  })
+  status!: SalaryPaymentStatus;
+
+  @ApiProperty({
+    enum: ['PAID', 'PENDING', 'OVERDUE'],
+    description:
+      'Derived for the UI. OVERDUE = PENDING with paymentDate in the past — never stored.',
+  })
+  displayStatus!: 'PAID' | 'PENDING' | 'OVERDUE';
+
   @ApiPropertyOptional({ nullable: true, type: String }) notes!: string | null;
   @ApiPropertyOptional({ nullable: true, type: String }) receiptUrl!: string | null;
 }
@@ -150,16 +165,45 @@ export class SalaryPaymentListResponseDto {
   payments!: SalaryPaymentResponseDto[];
 
   @ApiProperty() total!: number;
+  @ApiProperty() page!: number;
+  @ApiProperty() limit!: number;
 }
 
 export class SalaryPaymentListQueryDto {
+  @ApiPropertyOptional({
+    enum: ['PAID', 'PENDING', 'OVERDUE'],
+    description: 'Filter by derived display status (All when omitted).',
+  })
+  @IsOptional()
+  @IsIn(['PAID', 'PENDING', 'OVERDUE'])
+  status?: 'PAID' | 'PENDING' | 'OVERDUE';
+
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
+  @IsInt()
   page?: number = 1;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
   @Type(() => Number)
+  @IsInt()
+  @Max(100)
+  @Min(1)
   limit?: number = 20;
+}
+
+export class SalarySummaryResponseDto {
+  @ApiProperty({ description: 'Sum of PAID salary payments (store currency, 2 dp).' })
+  totalSalaryPaid!: string;
+
+  @ApiProperty({
+    description: 'Count of payments whose displayStatus is PENDING or OVERDUE.',
+  })
+  pendingPaymentCount!: number;
+
+  @ApiProperty({
+    description: 'Sum of PENDING + OVERDUE payment amounts (store currency, 2 dp).',
+  })
+  pendingPaymentsTotal!: string;
 }

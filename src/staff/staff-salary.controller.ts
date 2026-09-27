@@ -26,6 +26,7 @@ import {
   SalaryPaymentListResponseDto,
   SalaryProfileResponseDto,
   SalaryProfileWrapperDto,
+  SalarySummaryResponseDto,
   SetSalaryProfileDto,
 } from './dto/staff-salary.dto';
 
@@ -38,8 +39,60 @@ import {
 export class StaffSalaryController {
   constructor(private readonly salary: StaffSalaryService) {}
 
+  // Static /staff/salary/* routes MUST stay above :staffId or "salary" is captured as an id.
+
+  @Get('salary/summary')
+  @ApiOperation({
+    summary: 'Salary tab totals (Total Salary Paid / Pending Payments)',
+  })
+  @ApiOkResponse({ type: SalarySummaryResponseDto })
+  summary(@CurrentUser() user: JwtPayload): Promise<SalarySummaryResponseDto> {
+    return this.salary.summary(user.userId);
+  }
+
+  @Get('salary/trend')
+  @ApiOperation({ summary: 'Monthly payout totals across all staff (Salary bar chart)' })
+  @ApiOkResponse({ type: MonthlyTrendResponseDto })
+  trend(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: MonthlyTrendQueryDto,
+  ): Promise<MonthlyTrendResponseDto> {
+    return this.salary.trend(user.userId, query);
+  }
+
+  @Get('salary/payments')
+  @ApiOperation({
+    summary: 'List salary payments across all staff (All / Paid / Pending / Overdue filters)',
+  })
+  @ApiOkResponse({ type: SalaryPaymentListResponseDto })
+  listStorePayments(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: SalaryPaymentListQueryDto,
+  ): Promise<SalaryPaymentListResponseDto> {
+    return this.salary.listStorePayments(user.userId, query);
+  }
+
+  @Post('salary/payments')
+  @ApiOperation({
+    summary: 'Record manual salary payment(s) (Add Salary Record: choose staff, then add salary)',
+    description:
+      'Supports multi-select. Blocked, per staff member, when their salary profile is AUTOMATIC.',
+  })
+  @ApiOkResponse({ type: SalaryPaymentBatchResponseDto })
+  @ApiNotFoundResponse({ description: 'One or more staff members not found.', type: ApiErrorDto })
+  @ApiConflictResponse({
+    description: 'Manual entry is blocked for one or more staff members because automatic is on.',
+    type: ApiErrorDto,
+  })
+  createPayments(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateSalaryPaymentDto,
+  ): Promise<SalaryPaymentBatchResponseDto> {
+    return this.salary.createPayments(user.userId, dto);
+  }
+
   @Get(':staffId/salary')
-  @ApiOperation({ summary: 'Get a staff member\'s salary profile (Manage Salary Info screen)' })
+  @ApiOperation({ summary: "Get a staff member's salary profile (Manage Salary Info screen)" })
   @ApiParam({ name: 'staffId', format: 'uuid' })
   @ApiOkResponse({ type: SalaryProfileWrapperDto })
   @ApiNotFoundResponse({ description: 'Staff member not found.', type: ApiErrorDto })
@@ -52,7 +105,7 @@ export class StaffSalaryController {
 
   @Put(':staffId/salary')
   @ApiOperation({
-    summary: 'Set/update a staff member\'s salary profile',
+    summary: "Set/update a staff member's salary profile",
     description:
       'AUTOMATIC generates the salary expense on schedule and blocks manual entries for this person; MANUAL requires the owner to record each payment.',
   })
@@ -78,34 +131,5 @@ export class StaffSalaryController {
     @Query() query: SalaryPaymentListQueryDto,
   ): Promise<SalaryPaymentListResponseDto> {
     return this.salary.listPayments(user.userId, staffId, query);
-  }
-
-  @Get('salary/trend')
-  @ApiOperation({ summary: 'Monthly payout totals across all staff (Salary bar chart)' })
-  @ApiOkResponse({ type: MonthlyTrendResponseDto })
-  trend(
-    @CurrentUser() user: JwtPayload,
-    @Query() query: MonthlyTrendQueryDto,
-  ): Promise<MonthlyTrendResponseDto> {
-    return this.salary.trend(user.userId, query);
-  }
-
-  @Post('salary/payments')
-  @ApiOperation({
-    summary: 'Record manual salary payment(s) (Add Salary Record: choose staff, then add salary)',
-    description:
-      'Supports multi-select. Blocked, per staff member, when their salary profile is AUTOMATIC.',
-  })
-  @ApiOkResponse({ type: SalaryPaymentBatchResponseDto })
-  @ApiNotFoundResponse({ description: 'One or more staff members not found.', type: ApiErrorDto })
-  @ApiConflictResponse({
-    description: 'Manual entry is blocked for one or more staff members because automatic is on.',
-    type: ApiErrorDto,
-  })
-  createPayments(
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: CreateSalaryPaymentDto,
-  ): Promise<SalaryPaymentBatchResponseDto> {
-    return this.salary.createPayments(user.userId, dto);
   }
 }

@@ -9,6 +9,9 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { PermissionGuard } from '../access/permission.guard';
+import { RequirePermission } from '../access/require-permission.decorator';
+import { PERMISSIONS } from '../access/permissions';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import {
   ShippingHomeQueryDto,
@@ -18,12 +21,13 @@ import { ShippingDashboardService } from './shipping-dashboard.service';
 
 @ApiTags('Shipping Overview')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('shipping')
 export class ShippingDashboardController {
   constructor(private readonly dashboard: ShippingDashboardService) {}
 
   @Get('home')
+  @RequirePermission(PERMISSIONS.ORDERS_VIEW)
   @ApiOperation({
     summary: 'Get unified shipping home metrics',
     description:
