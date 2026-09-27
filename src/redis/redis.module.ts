@@ -4,6 +4,26 @@ import { createClient } from 'redis';
 
 export const REDIS_CLIENT = 'REDIS_CLIENT';
 
+/**
+ * Cloud Run cheap deploys skip Memorystore. Any leftover localhost default
+ * or YOUR_* placeholder must NOT trigger a connect attempt — that burned
+ * ~76s of reconnect retries on cold start.
+ */
+export function isRedisConfigured(options: {
+  redisUrl?: string | null;
+  redisHost?: string | null;
+}): boolean {
+  const url = options.redisUrl?.trim() ?? '';
+  const host = options.redisHost?.trim() ?? '';
+  if (url && !isPlaceholderRedisValue(url)) return true;
+  if (!host || isPlaceholderRedisValue(host)) return false;
+  return true;
+}
+
+function isPlaceholderRedisValue(value: string): boolean {
+  return /YOUR_REDIS|YOUR_|changeme|example\.com/i.test(value);
+}
+
 @Global()
 @Module({
   imports: [ConfigModule],
@@ -11,16 +31,22 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
     {
       provide: REDIS_CLIENT,
       useFactory: async (configService: ConfigService) => {
-        const host = configService.get<string>('REDIS_HOST', 'localhost');
+        const configuredHost = configService.get<string>('REDIS_HOST');
+        const host = configuredHost?.trim() || 'localhost';
         const port = configService.get<number>('REDIS_PORT', 6379);
+        const redisRequired =
+          configService.get<string>('REDIS_REQUIRED', 'false') === 'true';
         const configuredConnectTimeout = Number(
           configService.get<string>('REDIS_CONNECT_TIMEOUT_MS', '5000'),
         );
+        // Keep optional Redis from blocking Cloud Run cold starts for long.
         const connectTimeout =
           Number.isFinite(configuredConnectTimeout) &&
           configuredConnectTimeout > 0
-            ? configuredConnectTimeout
-            : 5000;
+            ? Math.min(configuredConnectTimeout, redisRequired ? 30_000 : 3_000)
+            : redisRequired
+              ? 5000
+              : 3000;
         const reconnectMaxAttempts = positiveInteger(
           configService.get<string>('REDIS_RECONNECT_MAX_ATTEMPTS', '20'),
           20,
@@ -34,9 +60,25 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
         // If REDIS_HOST accidentally contains the full URL (common when pasting cloud URLs)
         if (
           !redisUrl &&
-          (host.startsWith('redis://') || host.startsWith('rediss://'))
+          configuredHost &&
+          (configuredHost.startsWith('redis://') ||
+            configuredHost.startsWith('rediss://'))
         ) {
-          redisUrl = host;
+          redisUrl = configuredHost;
+        }
+
+        const redisConfigured = isRedisConfigured({
+          redisUrl,
+          redisHost: configuredHost,
+        });
+
+        // No Redis in this environment — return a disconnected client.
+        // Call sites already guard on isOpen / isReady.
+        if (!redisConfigured && !redisRequired) {
+          console.warn(
+            'Redis not configured (no REDIS_URL / REDIS_HOST); skipping connection for faster cold starts.',
+          );
+          return createClient({ url: `redis://${host}:${port}` });
         }
 
         const client = createClient({
@@ -44,7 +86,7 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           socket: {
             connectTimeout,
             reconnectStrategy: createRedisReconnectStrategy(
-              reconnectMaxAttempts,
+              redisRequired ? reconnectMaxAttempts : Math.min(reconnectMaxAttempts, 3),
               reconnectMaxDelayMs,
             ),
           },
@@ -64,9 +106,6 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           if (client.isOpen) {
             client.destroy();
           }
-
-          const redisRequired =
-            configService.get<string>('REDIS_REQUIRED', 'false') === 'true';
 
           if (redisRequired) {
             throw error;
