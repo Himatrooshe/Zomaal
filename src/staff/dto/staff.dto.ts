@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { StaffStatus } from '@prisma/client';
+import { SalaryFrequency, StaffStatus } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   ArrayUnique,
@@ -169,11 +169,36 @@ export class StaffResponseDto {
   @ApiProperty() joinedAt!: string;
   @ApiPropertyOptional({ nullable: true, type: String }) lastActiveAt!: string | null;
   @ApiPropertyOptional({ nullable: true, type: String }) lastLoginAt!: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: 'Configured base salary when a salary profile exists.',
+  })
+  baseSalary!: string | null;
+
+  @ApiPropertyOptional({
+    enum: SalaryFrequency,
+    nullable: true,
+  })
+  salaryFrequency!: SalaryFrequency | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: 'Next automatic payment date when expenseHandling is AUTOMATIC.',
+  })
+  nextPaymentDate!: string | null;
 }
 
 export class StaffListResponseDto {
   @ApiProperty({ type: [StaffResponseDto] }) staff!: StaffResponseDto[];
-  @ApiProperty() total!: number;
+  @ApiProperty({ description: 'Total staff matching the current filters.' })
+  total!: number;
+  @ApiProperty({
+    description: 'Active staff count for the store (ignores list filters other than store).',
+  })
+  activeCount!: number;
   @ApiProperty() page!: number;
   @ApiProperty() limit!: number;
 }
@@ -190,7 +215,4 @@ export class StaffDetailResponseDto extends StaffResponseDto {
     description: 'True when permissionOverrides is non-empty (this person deviates from their role).',
   })
   hasOverrides!: boolean;
-
-  @ApiPropertyOptional({ nullable: true, type: String })
-  nextPaymentDate!: string | null;
 }

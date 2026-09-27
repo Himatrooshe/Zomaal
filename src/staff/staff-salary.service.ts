@@ -30,8 +30,13 @@ import {
   SalaryPaymentListResponseDto,
   SalaryPaymentResponseDto,
   SalaryProfileResponseDto,
+  SalarySummaryResponseDto,
   SetSalaryProfileDto,
 } from './dto/staff-salary.dto';
+import {
+  deriveSalaryDisplayStatus,
+  type SalaryPaymentDisplayStatus,
+} from './salary-payment-status.util';
 
 const SALARY_PAYMENT_METHOD_TO_EXPENSE: Record<SalaryPaymentMethod, ExpensePaymentMethod> = {
   BANK_TRANSFER: ExpensePaymentMethod.BANK,
@@ -113,23 +118,95 @@ export class StaffSalaryService {
   ): Promise<SalaryPaymentListResponseDto> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
     const staff = await this.requireStaff(storeId, staffId);
+    return this.listPaymentsForWhere(
+      { staffMemberId: staffId },
+      query,
+      () => staff.name,
+    );
+  }
 
+  /** Store-wide salary payment history (Staff salary tab filters). */
+  async listStorePayments(
+    userId: string,
+    query: SalaryPaymentListQueryDto,
+  ): Promise<SalaryPaymentListResponseDto> {
+    const { storeId } = await this.storeAccess.requireOwner(userId);
+    return this.listPaymentsForWhere(
+      { staffMember: { storeId } },
+      query,
+      (payment) =>
+        (payment as StaffSalaryPayment & { staffMember?: { name: string } }).staffMember
+          ?.name ?? '',
+      true,
+    );
+  }
+
+  async summary(userId: string): Promise<SalarySummaryResponseDto> {
+    const { storeId } = await this.storeAccess.requireOwner(userId);
+
+    const [paidAgg, unpaid] = await Promise.all([
+      this.prisma.staffSalaryPayment.aggregate({
+        where: {
+          staffMember: { storeId },
+          status: SalaryPaymentStatus.PAID,
+        },
+        _sum: { amount: true },
+      }),
+      this.prisma.staffSalaryPayment.findMany({
+        where: {
+          staffMember: { storeId },
+          status: SalaryPaymentStatus.PENDING,
+        },
+        select: { amount: true },
+      }),
+    ]);
+
+    let pendingTotal = new Prisma.Decimal(0);
+    for (const row of unpaid) {
+      pendingTotal = pendingTotal.plus(row.amount);
+    }
+
+    return {
+      totalSalaryPaid: (paidAgg._sum.amount ?? new Prisma.Decimal(0)).toFixed(2),
+      pendingPaymentCount: unpaid.length,
+      pendingPaymentsTotal: pendingTotal.toFixed(2),
+    };
+  }
+
+  private async listPaymentsForWhere(
+    baseWhere: Prisma.StaffSalaryPaymentWhereInput,
+    query: SalaryPaymentListQueryDto,
+    resolveName: (payment: StaffSalaryPayment) => string,
+    includeStaff = false,
+  ): Promise<SalaryPaymentListResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+    const now = new Date();
+    const where = {
+      ...baseWhere,
+      ...displayStatusWhere(query.status, now),
+    };
 
     const [payments, total] = await Promise.all([
       this.prisma.staffSalaryPayment.findMany({
-        where: { staffMemberId: staffId },
+        where,
         orderBy: { paymentDate: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+        ...(includeStaff
+          ? { include: { staffMember: { select: { name: true } } } }
+          : {}),
       }),
-      this.prisma.staffSalaryPayment.count({ where: { staffMemberId: staffId } }),
+      this.prisma.staffSalaryPayment.count({ where }),
     ]);
 
     return {
-      payments: payments.map((p) => toPaymentResponse(p, staff.name)),
+      payments: payments.map((p) =>
+        toPaymentResponse(p, resolveName(p), now),
+      ),
       total,
+      page,
+      limit,
     };
   }
 
@@ -436,6 +513,7 @@ function toProfileResponse(profile: StaffSalaryProfile): SalaryProfileResponseDt
 function toPaymentResponse(
   payment: StaffSalaryPayment,
   staffName: string,
+  now: Date = new Date(),
 ): SalaryPaymentResponseDto {
   return {
     id: payment.id,
@@ -446,7 +524,33 @@ function toPaymentResponse(
     paidAt: payment.paidAt?.toISOString() ?? null,
     paymentMethod: payment.paymentMethod,
     status: payment.status,
+    displayStatus: deriveSalaryDisplayStatus(
+      payment.status,
+      payment.paymentDate,
+      now,
+    ),
     notes: payment.notes,
     receiptUrl: payment.receiptUrl,
+  };
+}
+
+function displayStatusWhere(
+  status: SalaryPaymentDisplayStatus | undefined,
+  now: Date,
+): Prisma.StaffSalaryPaymentWhereInput {
+  if (!status) return {};
+  if (status === 'PAID') {
+    return { status: SalaryPaymentStatus.PAID };
+  }
+  if (status === 'PENDING') {
+    return {
+      status: SalaryPaymentStatus.PENDING,
+      paymentDate: { gte: now },
+    };
+  }
+  // OVERDUE
+  return {
+    status: SalaryPaymentStatus.PENDING,
+    paymentDate: { lt: now },
   };
 }

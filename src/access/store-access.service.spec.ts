@@ -157,6 +157,60 @@ describe('StoreAccessService', () => {
       isOwner: true,
     });
   });
+
+  it('session returns owner bootstrap with full permissions', async () => {
+    const { service } = build({
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          activeStoreId: 'store-1',
+          stores: [STORE],
+        }),
+        update: jest.fn(),
+      },
+    });
+
+    const session = await service.session('owner-user');
+
+    expect(session.isOwner).toBe(true);
+    expect(session.staffMemberId).toBeNull();
+    expect(session.status).toBeNull();
+    expect(session.roleName).toBeNull();
+    expect(session.effectivePermissions).toHaveLength(ALL_PERMISSIONS.length);
+    expect(session.permissionsByModule.orders).toContain(PERMISSIONS.ORDERS_VIEW);
+  });
+
+  it('session returns staff bootstrap with role name and grouped permissions', async () => {
+    const findUnique = jest
+      .fn()
+      .mockResolvedValueOnce({
+        id: 'staff-1',
+        status: StaffStatus.ACTIVE,
+        permissionOverrides: [],
+        store: STORE,
+        role: { permissions: [PERMISSIONS.ORDERS_VIEW] },
+      })
+      .mockResolvedValueOnce({
+        status: StaffStatus.ACTIVE,
+        role: { name: 'Operations Manager' },
+      });
+    const { service, prisma } = build({
+      staffMember: {
+        findUnique,
+        update: jest.fn().mockResolvedValue({}),
+      },
+    });
+
+    const session = await service.session('staff-user');
+
+    expect(session.isOwner).toBe(false);
+    expect(session.staffMemberId).toBe('staff-1');
+    expect(session.status).toBe(StaffStatus.ACTIVE);
+    expect(session.roleName).toBe('Operations Manager');
+    expect(session.effectivePermissions).toEqual([PERMISSIONS.ORDERS_VIEW]);
+    expect(session.permissionsByModule.orders).toEqual([PERMISSIONS.ORDERS_VIEW]);
+    expect(session.permissionsByModule.returns).toEqual([]);
+    expect(prisma.staffMember.update).toHaveBeenCalled();
+  });
 });
 
 describe('resolvePermissions', () => {

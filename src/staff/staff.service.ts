@@ -21,12 +21,25 @@ import {
 const STAFF_INCLUDE = {
   user: { select: { phone: true } },
   role: { select: { id: true, name: true } },
+  salaryProfile: {
+    select: {
+      baseSalary: true,
+      frequency: true,
+      nextPaymentDate: true,
+    },
+  },
 } satisfies Prisma.StaffMemberInclude;
 
 const STAFF_DETAIL_INCLUDE = {
   user: { select: { phone: true } },
   role: { select: { id: true, name: true, permissions: true } },
-  salaryProfile: { select: { nextPaymentDate: true } },
+  salaryProfile: {
+    select: {
+      baseSalary: true,
+      frequency: true,
+      nextPaymentDate: true,
+    },
+  },
 } satisfies Prisma.StaffMemberInclude;
 
 type StaffWithBasics = Prisma.StaffMemberGetPayload<{ include: typeof STAFF_INCLUDE }>;
@@ -63,7 +76,7 @@ export class StaffService {
         : {}),
     };
 
-    const [staff, total] = await Promise.all([
+    const [staff, total, activeCount] = await Promise.all([
       this.prisma.staffMember.findMany({
         where,
         include: STAFF_INCLUDE,
@@ -72,11 +85,15 @@ export class StaffService {
         take: limit,
       }),
       this.prisma.staffMember.count({ where }),
+      this.prisma.staffMember.count({
+        where: { storeId, status: StaffStatus.ACTIVE },
+      }),
     ]);
 
     return {
       staff: staff.map(toStaffResponse),
       total,
+      activeCount,
       page,
       limit,
     };
@@ -247,6 +264,9 @@ function toStaffResponse(staff: StaffWithBasics): StaffResponseDto {
     joinedAt: staff.joinedAt.toISOString(),
     lastActiveAt: staff.lastActiveAt?.toISOString() ?? null,
     lastLoginAt: staff.lastLoginAt?.toISOString() ?? null,
+    baseSalary: staff.salaryProfile?.baseSalary.toFixed(2) ?? null,
+    salaryFrequency: staff.salaryProfile?.frequency ?? null,
+    nextPaymentDate: staff.salaryProfile?.nextPaymentDate?.toISOString() ?? null,
   };
 }
 
@@ -258,6 +278,5 @@ function toStaffDetailResponse(staff: StaffWithDetail): StaffDetailResponseDto {
       staff.permissionOverrides,
     ),
     hasOverrides: staff.permissionOverrides.length > 0,
-    nextPaymentDate: staff.salaryProfile?.nextPaymentDate?.toISOString() ?? null,
   };
 }

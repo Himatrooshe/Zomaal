@@ -27,6 +27,9 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../access/permission.guard';
+import { RequirePermission } from '../access/require-permission.decorator';
+import { PERMISSIONS } from '../access/permissions';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { AdjustInventoryDto, SetInventoryOnHandDto } from './dto/inventory.dto';
@@ -44,12 +47,13 @@ import { InventoryService } from './inventory.service';
   description: 'Bearer token is missing, invalid, or expired.',
   type: ApiErrorDto,
 })
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('warehouse/inventory/items')
 export class InventoryController {
   constructor(private readonly inventory: InventoryService) {}
 
   @Get(':id')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiParam({
     name: 'id',
     format: 'uuid',
@@ -78,6 +82,7 @@ export class InventoryController {
   }
 
   @Get(':id/movements')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiParam({ name: 'id', format: 'uuid', description: 'Inventory item ID.' })
   @ApiOperation({
     summary: 'Get auditable inventory movement history',
@@ -103,6 +108,7 @@ export class InventoryController {
   }
 
   @Post(':id/adjustments')
+  @RequirePermission(PERMISSIONS.PRODUCTS_EDIT)
   @ApiParam({ name: 'id', format: 'uuid', description: 'Inventory item ID.' })
   @ApiOperation({
     summary: 'Apply an idempotent manual stock adjustment',
@@ -132,6 +138,7 @@ export class InventoryController {
   }
 
   @Put(':id/stock')
+  @RequirePermission(PERMISSIONS.PRODUCTS_EDIT)
   @ApiParam({ name: 'id', format: 'uuid', description: 'Inventory item ID.' })
   @ApiOperation({
     summary: 'Set the final on-hand stock quantity',

@@ -22,6 +22,9 @@ import {
 import { AdsPlatform } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../access/permission.guard';
+import { RequirePermission } from '../access/require-permission.decorator';
+import { PERMISSIONS } from '../access/permissions';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { AdsConnectionService } from './ads-connection.service';
@@ -47,7 +50,7 @@ const PRIVATE_NO_STORE_HEADERS = {
 // controller (mirrors ads/tiktok.controller.ts).
 @ApiTags('Ads')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @ApiUnauthorizedResponse({
   description: 'Missing or invalid Zomaal access token.',
   type: ApiErrorDto,
@@ -60,6 +63,7 @@ export class AdsController {
   ) {}
 
   @Get('connections')
+  @RequirePermission(PERMISSIONS.ADS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'List connected ad platform accounts',
@@ -80,6 +84,7 @@ export class AdsController {
   }
 
   @Delete('connections/:id')
+  @RequirePermission(PERMISSIONS.ADS_VIEW)
   @ApiOperation({ summary: 'Disconnect an ad platform account' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiOkResponse({ type: AdsConnectionDto })
@@ -92,6 +97,7 @@ export class AdsController {
   }
 
   @Get('campaigns')
+  @RequirePermission(PERMISSIONS.ADS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Get tracked campaigns with performance metrics for one platform',
@@ -109,6 +115,7 @@ export class AdsController {
   }
 
   @Get('statistics')
+  @RequirePermission(PERMISSIONS.ADS_VIEW)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary: 'Get the cross-platform metric breakdown ring chart',

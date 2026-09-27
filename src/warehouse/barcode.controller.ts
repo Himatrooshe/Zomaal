@@ -27,6 +27,9 @@ import {
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../access/permission.guard';
+import { RequirePermission } from '../access/require-permission.decorator';
+import { PERMISSIONS } from '../access/permissions';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { BarcodeLabelService } from './barcode-label.service';
@@ -51,7 +54,7 @@ import {
   description: 'Bearer token is missing, invalid, or expired.',
   type: ApiErrorDto,
 })
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('warehouse/barcodes')
 export class BarcodeController {
   constructor(
@@ -60,6 +63,7 @@ export class BarcodeController {
   ) {}
 
   @Post('generate')
+  @RequirePermission(PERMISSIONS.PRODUCTS_ADD)
   @ApiOperation({
     summary: 'Generate an available internal Code 128 value',
     description:
@@ -80,6 +84,7 @@ export class BarcodeController {
   }
 
   @Post('validate')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiOperation({
     summary: 'Validate barcode syntax and store availability',
     description:
@@ -100,6 +105,7 @@ export class BarcodeController {
   }
 
   @Get('resolve')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiOperation({
     summary: 'Resolve a physical scanner value to store inventory',
     description:
@@ -123,6 +129,7 @@ export class BarcodeController {
   }
 
   @Get(':barcodeId/label')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiOperation({
     summary: 'Render one printable barcode sticker',
     description:
@@ -170,6 +177,7 @@ export class BarcodeController {
   }
 
   @Post('labels/batch')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @HttpCode(200)
   @ApiOperation({
     summary: 'Render a multi-page barcode label PDF',

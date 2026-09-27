@@ -20,6 +20,9 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../access/permission.guard';
+import { RequirePermission } from '../access/require-permission.decorator';
+import { PERMISSIONS } from '../access/permissions';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import type { Response } from 'express';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
@@ -33,7 +36,7 @@ import { PackagingService } from './packaging.service';
   description: 'Bearer token is missing, invalid, or expired.',
   type: ApiErrorDto,
 })
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('warehouse/packaging')
 export class PackagingController {
   constructor(
@@ -42,6 +45,7 @@ export class PackagingController {
   ) {}
 
   @Get()
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiProduces('application/json')
   @ApiOperation({
     summary: 'List packaging owned by the current merchant',
@@ -58,6 +62,7 @@ export class PackagingController {
   }
 
   @Get(':id/image')
+  @RequirePermission(PERMISSIONS.PRODUCTS_VIEW)
   @ApiParam({
     name: 'id',
     format: 'uuid',
