@@ -1,3 +1,4 @@
+import { ProfileMediaModule } from '../profile-media/profile-media.module';
 import { Module } from '@nestjs/common';
 import { StaffController } from './staff.controller';
 import { StaffService } from './staff.service';
@@ -7,7 +8,12 @@ import { StaffSalarySchedulerController } from './staff-salary-scheduler.control
 import { StaffSalarySchedulerGuard } from './staff-salary-scheduler.guard';
 
 @Module({
-  controllers: [StaffController, StaffSalaryController, StaffSalarySchedulerController],
+  imports: [ProfileMediaModule],
+  controllers: [
+    StaffController,
+    StaffSalaryController,
+    StaffSalarySchedulerController,
+  ],
   providers: [StaffService, StaffSalaryService, StaffSalarySchedulerGuard],
   exports: [StaffSalaryService],
 })

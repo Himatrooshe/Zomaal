@@ -2040,8 +2040,8 @@ enum SalaryPaymentMethod {
   CASH
 }
 
-// AUTOMATIC: paying a salary also writes the matching Expense row.
-// MANUAL: the owner records that expense themselves later.
+// AUTOMATIC: confirming payment writes the matching Expense row.
+// MANUAL: the owner records a linked expense later from the salary record.
 enum SalaryExpenseHandling {
   AUTOMATIC
   MANUAL
@@ -2085,15 +2085,25 @@ model StaffSalaryPayment {
   status        SalaryPaymentStatus @default(PENDING)
   notes         String?
   receiptUrl    String?
+  // Snapshot the agreement when the obligation is created; profile edits
+  // must never change historical obligations or their expense handling.
+  expenseHandling SalaryExpenseHandling @default(AUTOMATIC)
+  frequency       SalaryFrequency?
+  // Nullable for legacy records. One obligation per staff member per UTC due date.
+  scheduledFor    DateTime?
+  idempotencyKey  String?
+  requestHash     String?
+  // Actor IDs are retained as audit snapshots, including after an account is removed.
+  createdByUserId String?
+  paidByUserId    String?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
   staffMemberId String
   staffMember   StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
 
-  // Set when expenseHandling was AUTOMATIC — links the payment to the expense
-  // it generated, so the Expenses screen never double-counts it and deleting
-  // one can clean up the other.
+  // Set on confirmation (AUTOMATIC) or the later record-expense action
+  // (MANUAL). One linked expense, counted once by Expenses.
   expenseId String?  @unique
   expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
 
@@ -2101,6 +2111,8 @@ model StaffSalaryPayment {
 
   @@index([staffMemberId, paymentDate])
   @@index([status, paymentDate])
+  @@unique([staffMemberId, scheduledFor])
+  @@unique([staffMemberId, idempotencyKey])
 }
 
 // ============================================================================

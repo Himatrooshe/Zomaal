@@ -88,6 +88,39 @@ export class ProfileMediaService {
     return publicPath;
   }
 
+  /** Owner-managed staff photo, scoped to the active store. */
+  async uploadStaffPhoto(
+    userId: string,
+    staffId: string,
+    file?: WarehouseMediaUploadFile,
+  ): Promise<string> {
+    const { storeId } = await this.storeAccess.requireOwner(userId);
+    const staff = await this.prisma.staffMember.findFirst({
+      where: { id: staffId, storeId },
+      select: { id: true, userId: true, photoUrl: true },
+    });
+    if (!staff) throw new NotFoundException('Staff member not found');
+    if (!file) throw new BadRequestException('Photo file is required');
+    validateImage(file);
+    const leaf = `photo-${randomUUID()}.${extensionFor(file.mimetype)}`;
+    const objectName = `profile/users/${staff.userId}/${leaf}`;
+    const publicPath = `/profile-media/users/${staff.userId}/${leaf}`;
+    await this.images.save(objectName, file.buffer, file.mimetype);
+    try {
+      await this.prisma.staffMember.update({
+        where: { id: staffId, storeId },
+        data: { photoUrl: publicPath },
+      });
+    } catch (error) {
+      await this.images.remove(objectName).catch(() => undefined);
+      throw error;
+    }
+    if (staff.photoUrl?.startsWith(`/profile-media/users/${staff.userId}/`)) {
+      await this.removePreviousProfileObject(staff.photoUrl);
+    }
+    return publicPath;
+  }
+
   /**
    * Settings → Store Information → Add Store Logo.
    */

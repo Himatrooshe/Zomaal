@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SalaryFrequency, StaffStatus } from '@prisma/client';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
@@ -15,10 +15,29 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import {
+  SetSalaryProfileDto,
+  SalaryProfileResponseDto,
+} from './staff-salary.dto';
 import { ALL_PERMISSIONS, type Permission } from '../../access/permissions';
 
 export class CreateStaffDto {
+  @ApiPropertyOptional({ enum: StaffStatus, default: StaffStatus.ACTIVE })
+  @IsOptional()
+  @IsIn(Object.values(StaffStatus))
+  status?: StaffStatus;
+
+  @ApiPropertyOptional({
+    type: SetSalaryProfileDto,
+    description: 'Save salary configuration atomically with staff details.',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SetSalaryProfileDto)
+  salary?: SetSalaryProfileDto;
+
   @ApiProperty({ example: 'Sara Amrani', maxLength: 120 })
   @IsString()
   @IsNotEmpty()
@@ -26,7 +45,8 @@ export class CreateStaffDto {
   name!: string;
 
   @ApiProperty({
-    description: 'Login phone number, E.164 format. Must not already belong to another account.',
+    description:
+      'Login phone number, E.164 format. Must not already belong to another account.',
     example: '+212600000002',
   })
   @IsString()
@@ -49,7 +69,10 @@ export class CreateStaffDto {
   @IsString()
   photoUrl?: string;
 
-  @ApiPropertyOptional({ format: 'uuid', description: 'Must belong to this store.' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Must belong to this store.',
+  })
   @IsOptional()
   @IsUUID()
   roleId?: string;
@@ -68,6 +91,20 @@ export class CreateStaffDto {
 }
 
 export class UpdateStaffDto {
+  @ApiPropertyOptional({ enum: StaffStatus, default: StaffStatus.ACTIVE })
+  @IsOptional()
+  @IsIn(Object.values(StaffStatus))
+  status?: StaffStatus;
+
+  @ApiPropertyOptional({
+    type: SetSalaryProfileDto,
+    description: 'Save salary configuration atomically with staff details.',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SetSalaryProfileDto)
+  salary?: SetSalaryProfileDto;
+
   @ApiPropertyOptional({ maxLength: 120 })
   @IsOptional()
   @IsString()
@@ -90,6 +127,7 @@ export class UpdateStaffDto {
   @IsOptional()
   @IsString()
   @MinLength(8)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   password?: string;
 
   @ApiPropertyOptional({ maxLength: 120 })
@@ -138,14 +176,14 @@ export class StaffListQueryDto {
 
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number = 1;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
@@ -161,14 +199,22 @@ export class StaffResponseDto {
   @ApiProperty() id!: string;
   @ApiProperty() name!: string;
   @ApiProperty() phone!: string;
-  @ApiPropertyOptional({ nullable: true, type: String }) jobTitle!: string | null;
-  @ApiPropertyOptional({ nullable: true, type: String }) photoUrl!: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) jobTitle!:
+    | string
+    | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) photoUrl!:
+    | string
+    | null;
   @ApiProperty({ enum: StaffStatus }) status!: StaffStatus;
   @ApiPropertyOptional({ nullable: true, type: StaffRoleSummaryDto })
   role!: StaffRoleSummaryDto | null;
   @ApiProperty() joinedAt!: string;
-  @ApiPropertyOptional({ nullable: true, type: String }) lastActiveAt!: string | null;
-  @ApiPropertyOptional({ nullable: true, type: String }) lastLoginAt!: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) lastActiveAt!:
+    | string
+    | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) lastLoginAt!:
+    | string
+    | null;
 
   @ApiPropertyOptional({
     nullable: true,
@@ -186,7 +232,8 @@ export class StaffResponseDto {
   @ApiPropertyOptional({
     nullable: true,
     type: String,
-    description: 'Next automatic payment date when expenseHandling is AUTOMATIC.',
+    description:
+      'Next scheduled salary obligation date (either expense handling mode).',
   })
   nextPaymentDate!: string | null;
 }
@@ -196,7 +243,8 @@ export class StaffListResponseDto {
   @ApiProperty({ description: 'Total staff matching the current filters.' })
   total!: number;
   @ApiProperty({
-    description: 'Active staff count for the store (ignores list filters other than store).',
+    description:
+      'Active staff count for the store (ignores list filters other than store).',
   })
   activeCount!: number;
   @ApiProperty() page!: number;
@@ -204,15 +252,23 @@ export class StaffListResponseDto {
 }
 
 export class StaffDetailResponseDto extends StaffResponseDto {
+  @ApiProperty({ enum: ALL_PERMISSIONS, isArray: true })
+  permissionOverrides!: Permission[];
+
+  @ApiPropertyOptional({ type: SalaryProfileResponseDto, nullable: true })
+  salaryProfile!: SalaryProfileResponseDto | null;
+
   @ApiProperty({
     enum: ALL_PERMISSIONS,
     isArray: true,
-    description: 'Effective permissions after applying any per-staff overrides.',
+    description:
+      'Effective permissions after applying any per-staff overrides.',
   })
   effectivePermissions!: Permission[];
 
   @ApiProperty({
-    description: 'True when permissionOverrides is non-empty (this person deviates from their role).',
+    description:
+      'True when permissionOverrides is non-empty (this person deviates from their role).',
   })
   hasOverrides!: boolean;
 }

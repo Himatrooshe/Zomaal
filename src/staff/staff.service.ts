@@ -6,7 +6,17 @@ import {
 import { Prisma, StaffStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { StoreAccessService, resolvePermissions } from '../access/store-access.service';
+import {
+  StoreAccessService,
+  resolvePermissions,
+} from '../access/store-access.service';
+import {
+  advance,
+  lockStaff,
+  salaryProfileData,
+  toProfileResponse,
+} from './staff-salary.service';
+import { salaryDay } from './salary-payment-status.util';
 import type { Permission } from '../access/permissions';
 import { isUniqueConstraintError } from '../common/prisma-errors.util';
 import {
@@ -33,17 +43,15 @@ const STAFF_INCLUDE = {
 const STAFF_DETAIL_INCLUDE = {
   user: { select: { phone: true } },
   role: { select: { id: true, name: true, permissions: true } },
-  salaryProfile: {
-    select: {
-      baseSalary: true,
-      frequency: true,
-      nextPaymentDate: true,
-    },
-  },
+  salaryProfile: true,
 } satisfies Prisma.StaffMemberInclude;
 
-type StaffWithBasics = Prisma.StaffMemberGetPayload<{ include: typeof STAFF_INCLUDE }>;
-type StaffWithDetail = Prisma.StaffMemberGetPayload<{ include: typeof STAFF_DETAIL_INCLUDE }>;
+type StaffWithBasics = Prisma.StaffMemberGetPayload<{
+  include: typeof STAFF_INCLUDE;
+}>;
+type StaffWithDetail = Prisma.StaffMemberGetPayload<{
+  include: typeof STAFF_DETAIL_INCLUDE;
+}>;
 
 const BCRYPT_ROUNDS = 10;
 
@@ -99,13 +107,23 @@ export class StaffService {
     };
   }
 
-  async details(userId: string, staffId: string): Promise<StaffDetailResponseDto> {
+  async details(
+    userId: string,
+    staffId: string,
+  ): Promise<StaffDetailResponseDto> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
-    const staff = await this.requireStaff(storeId, staffId, STAFF_DETAIL_INCLUDE);
+    const staff = await this.requireStaff(
+      storeId,
+      staffId,
+      STAFF_DETAIL_INCLUDE,
+    );
     return toStaffDetailResponse(staff);
   }
 
-  async create(userId: string, dto: CreateStaffDto): Promise<StaffDetailResponseDto> {
+  async create(
+    userId: string,
+    dto: CreateStaffDto,
+  ): Promise<StaffDetailResponseDto> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
 
     const existingPhone = await this.prisma.user.findUnique({
@@ -130,6 +148,10 @@ export class StaffService {
           staffMembership: {
             create: {
               storeId,
+              status: dto.status ?? StaffStatus.ACTIVE,
+              salaryProfile: dto.salary
+                ? { create: salaryProfileData(dto.salary) }
+                : undefined,
               name: dto.name,
               jobTitle: dto.jobTitle ?? null,
               photoUrl: dto.photoUrl ?? null,
@@ -158,7 +180,9 @@ export class StaffService {
     const staff = await this.requireStaff(storeId, staffId, STAFF_INCLUDE);
 
     if (dto.phone && dto.phone !== staff.user.phone) {
-      const clash = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+      const clash = await this.prisma.user.findUnique({
+        where: { phone: dto.phone },
+      });
       if (clash) {
         throw new ConflictException('This phone number is already registered');
       }
@@ -183,22 +207,40 @@ export class StaffService {
           : { connect: { id: dto.roleId } };
 
     try {
-      const updated = await this.prisma.staffMember.update({
-        where: { id: staffId },
-        data: {
-          name: dto.name,
-          jobTitle: dto.jobTitle,
-          photoUrl: dto.photoUrl,
-          role: roleOp,
-          permissionOverrides: dto.permissionOverrides as Permission[] | undefined,
-          user: {
-            update: {
-              phone: dto.phone,
-              passwordHash,
+      const updated = await this.prisma.$transaction(async (tx) => {
+        await lockStaff(tx, storeId, staffId);
+        await resumeSchedule(tx, staffId, dto.status);
+        const currentProfile = dto.salary
+          ? await tx.staffSalaryProfile.findUnique({
+              where: { staffMemberId: staffId },
+            })
+          : null;
+        const salaryData = dto.salary
+          ? salaryProfileData(dto.salary, currentProfile)
+          : undefined;
+        return tx.staffMember.update({
+          where: { id: staffId },
+          data: {
+            status: dto.status ?? undefined,
+            salaryProfile: salaryData
+              ? { upsert: { create: salaryData, update: salaryData } }
+              : undefined,
+            name: dto.name,
+            jobTitle: dto.jobTitle,
+            photoUrl: dto.photoUrl,
+            role: roleOp,
+            permissionOverrides: dto.permissionOverrides as
+              | Permission[]
+              | undefined,
+            user: {
+              update: {
+                phone: dto.phone,
+                passwordHash,
+              },
             },
           },
-        },
-        include: STAFF_DETAIL_INCLUDE,
+          include: STAFF_DETAIL_INCLUDE,
+        });
       });
       return toStaffDetailResponse(updated);
     } catch (err) {
@@ -220,10 +262,14 @@ export class StaffService {
     const { storeId } = await this.storeAccess.requireOwner(userId);
     await this.requireStaff(storeId, staffId, STAFF_INCLUDE);
 
-    const updated = await this.prisma.staffMember.update({
-      where: { id: staffId },
-      data: { status },
-      include: STAFF_DETAIL_INCLUDE,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await lockStaff(tx, storeId, staffId);
+      await resumeSchedule(tx, staffId, status);
+      return tx.staffMember.update({
+        where: { id: staffId },
+        data: { status },
+        include: STAFF_DETAIL_INCLUDE,
+      });
     });
 
     return toStaffDetailResponse(updated);
@@ -244,8 +290,13 @@ export class StaffService {
     return staff;
   }
 
-  private async requireRoleInStore(storeId: string, roleId: string): Promise<void> {
-    const role = await this.prisma.role.findFirst({ where: { id: roleId, storeId } });
+  private async requireRoleInStore(
+    storeId: string,
+    roleId: string,
+  ): Promise<void> {
+    const role = await this.prisma.role.findFirst({
+      where: { id: roleId, storeId },
+    });
     if (!role) {
       throw new NotFoundException('Role not found');
     }
@@ -266,7 +317,8 @@ function toStaffResponse(staff: StaffWithBasics): StaffResponseDto {
     lastLoginAt: staff.lastLoginAt?.toISOString() ?? null,
     baseSalary: staff.salaryProfile?.baseSalary.toFixed(2) ?? null,
     salaryFrequency: staff.salaryProfile?.frequency ?? null,
-    nextPaymentDate: staff.salaryProfile?.nextPaymentDate?.toISOString() ?? null,
+    nextPaymentDate:
+      staff.salaryProfile?.nextPaymentDate?.toISOString() ?? null,
   };
 }
 
@@ -278,5 +330,35 @@ function toStaffDetailResponse(staff: StaffWithDetail): StaffDetailResponseDto {
       staff.permissionOverrides,
     ),
     hasOverrides: staff.permissionOverrides.length > 0,
+    permissionOverrides: resolvePermissions([], staff.permissionOverrides),
+    salaryProfile: staff.salaryProfile
+      ? toProfileResponse(staff.salaryProfile)
+      : null,
   };
+}
+
+/** Reactivation must skip time spent inactive even if the scheduler was unavailable. */
+async function resumeSchedule(
+  tx: Prisma.TransactionClient,
+  staffId: string,
+  status?: StaffStatus,
+): Promise<void> {
+  if (status !== StaffStatus.ACTIVE) return;
+  const staff = await tx.staffMember.findUniqueOrThrow({
+    where: { id: staffId },
+    select: { status: true },
+  });
+  if (staff.status === StaffStatus.ACTIVE) return;
+  const profile = await tx.staffSalaryProfile.findUnique({
+    where: { staffMemberId: staffId },
+  });
+  if (!profile?.nextPaymentDate) return;
+  let date = salaryDay(profile.nextPaymentDate);
+  const today = salaryDay(new Date());
+  while (date <= today)
+    date = advance(date, profile.frequency, profile.startDate.getUTCDate());
+  await tx.staffSalaryProfile.update({
+    where: { staffMemberId: staffId },
+    data: { nextPaymentDate: date },
+  });
 }

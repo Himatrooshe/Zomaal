@@ -12486,6 +12486,52 @@ paths:
       summary: Edit a staff member (Edit Staff info screen)
       tags:
         - Staff
+  /staff/{staffId}/photo:
+    post:
+      operationId: Staff_uploadPhoto
+      parameters:
+        - name: staffId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - photo
+              properties:
+                photo:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffDetailResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage staff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Upload or replace a staff photo (owner only)
+      tags:
+        - Staff
   /staff/{staffId}/status:
     patch:
       description: Removal is deactivate-only — staff members are never deleted.
@@ -12652,7 +12698,7 @@ paths:
       tags:
         - Staff Salary
     post:
-      description: Supports multi-select. Blocked, per staff member, when their salary profile is AUTOMATIC.
+      description: Defaults to PENDING. PAID explicitly confirms payment now. Reuse the idempotency key for retries. One salary obligation per staff member per UTC date; use the existing record when already accrued.
       operationId: StaffSalary_createPayments
       parameters: []
       requestBody:
@@ -12687,14 +12733,132 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '409':
-          description: Manual entry is blocked for one or more staff members because automatic is on.
+          description: A record for this salary date exists, or the retry key was reused with different data.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
-      summary: 'Record manual salary payment(s) (Add Salary Record: choose staff, then add salary)'
+      summary: Add salary record(s) for selected staff
+      tags:
+        - Staff Salary
+  /staff/salary/payments/{paymentId}/pay:
+    post:
+      operationId: StaffSalary_confirmPayment
+      parameters:
+        - name: paymentId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmSalaryPaymentDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalaryPaymentResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Confirm an actual salary payout (retry safe)
+      tags:
+        - Staff Salary
+  /staff/salary/payments/{paymentId}/expense:
+    post:
+      description: Uses the confirmed salary amount, payment timestamp and method. Returns the same expense on retries.
+      operationId: StaffSalary_recordExpense
+      parameters:
+        - name: paymentId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalaryPaymentResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Record the linked expense for a paid salary (retry safe)
+      tags:
+        - Staff Salary
+  /staff/{staffId}/salary/annual-summary:
+    get:
+      description: Calendar year in UTC. Annual total is a projection, not a contractual commitment; future occurrences use the current profile.
+      operationId: StaffSalary_annualSummary
+      parameters:
+        - name: staffId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+        - name: year
+          required: false
+          in: query
+          description: UTC calendar year, defaults to current year.
+          schema:
+            minimum: 2000
+            maximum: 2100
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalaryAnnualSummaryDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Only the store owner can manage salaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Annual salary paid and remaining obligations
       tags:
         - Staff Salary
   /staff/{staffId}/salary:
@@ -12738,7 +12902,7 @@ paths:
       tags:
         - Staff Salary
     put:
-      description: AUTOMATIC generates the salary expense on schedule and blocks manual entries for this person; MANUAL requires the owner to record each payment.
+      description: Both modes accrue pending obligations. AUTOMATIC creates an expense on payment confirmation; MANUAL records the linked expense later. Neither mode transfers money.
       operationId: StaffSalary_setProfile
       parameters:
         - name: staffId
@@ -26171,7 +26335,7 @@ components:
         nextPaymentDate:
           type: string
           nullable: true
-          description: Next automatic payment date when expenseHandling is AUTOMATIC.
+          description: Next scheduled salary obligation date (either expense handling mode).
       required:
         - id
         - name
@@ -26201,6 +26365,41 @@ components:
         - activeCount
         - page
         - limit
+    SalaryProfileResponseDto:
+      type: object
+      properties:
+        baseSalary:
+          type: string
+        frequency:
+          type: string
+          enum:
+            - DAILY
+            - WEEKLY
+            - MONTHLY
+        paymentMethod:
+          type: string
+          enum:
+            - BANK_TRANSFER
+            - CASH
+        expenseHandling:
+          type: string
+          enum:
+            - AUTOMATIC
+            - MANUAL
+        startDate:
+          type: string
+        nextPaymentDate:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required:
+        - baseSalary
+        - frequency
+        - paymentMethod
+        - expenseHandling
+        - startDate
     StaffDetailResponseDto:
       type: object
       properties:
@@ -26248,7 +26447,39 @@ components:
         nextPaymentDate:
           type: string
           nullable: true
-          description: Next automatic payment date when expenseHandling is AUTOMATIC.
+          description: Next scheduled salary obligation date (either expense handling mode).
+        permissionOverrides:
+          type: array
+          items:
+            type: string
+            enum:
+              - orders.view
+              - orders.edit
+              - orders.cancel
+              - orders.export
+              - returns.view
+              - returns.process
+              - returns.scan
+              - products.view
+              - products.add
+              - products.edit
+              - products.delete
+              - expenses.view
+              - expenses.add
+              - expenses.edit
+              - expenses.delete
+              - ads.view
+              - customers.view
+              - customers.blacklist
+              - analytics.view
+              - analytics.export
+              - shop.view
+              - shop.purchase
+        salaryProfile:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/SalaryProfileResponseDto'
         effectivePermissions:
           type: array
           description: Effective permissions after applying any per-staff overrides.
@@ -26286,11 +26517,57 @@ components:
         - phone
         - status
         - joinedAt
+        - permissionOverrides
         - effectivePermissions
         - hasOverrides
+    SetSalaryProfileDto:
+      type: object
+      properties:
+        baseSalary:
+          type: string
+          example: '3500.00'
+          description: Base salary amount in the store currency.
+        frequency:
+          type: string
+          enum:
+            - DAILY
+            - WEEKLY
+            - MONTHLY
+        paymentMethod:
+          type: string
+          enum:
+            - BANK_TRANSFER
+            - CASH
+        expenseHandling:
+          type: string
+          enum:
+            - AUTOMATIC
+            - MANUAL
+          default: AUTOMATIC
+          description: 'AUTOMATIC: confirming payment creates its expense. MANUAL: record a linked expense later. Both modes accrue recurring PENDING obligations; neither transfers money.'
+        startDate:
+          type: string
+          description: ISO date the salary schedule starts from.
+        notes:
+          type: string
+      required:
+        - baseSalary
+        - frequency
+        - paymentMethod
+        - startDate
     CreateStaffDto:
       type: object
       properties:
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - INACTIVE
+          default: ACTIVE
+        salary:
+          description: Save salary configuration atomically with staff details.
+          allOf:
+            - $ref: '#/components/schemas/SetSalaryProfileDto'
         name:
           type: string
           example: Sara Amrani
@@ -26348,6 +26625,16 @@ components:
     UpdateStaffDto:
       type: object
       properties:
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - INACTIVE
+          default: ACTIVE
+        salary:
+          description: Save salary configuration atomically with staff details.
+          allOf:
+            - $ref: '#/components/schemas/SetSalaryProfileDto'
         name:
           type: string
           maxLength: 120
@@ -26410,6 +26697,8 @@ components:
     SalarySummaryResponseDto:
       type: object
       properties:
+        currency:
+          type: string
         totalSalaryPaid:
           type: string
           description: Sum of PAID salary payments (store currency, 2 dp).
@@ -26420,6 +26709,7 @@ components:
           type: string
           description: Sum of PENDING + OVERDUE payment amounts (store currency, 2 dp).
       required:
+        - currency
         - totalSalaryPaid
         - pendingPaymentCount
         - pendingPaymentsTotal
@@ -26497,13 +26787,39 @@ components:
             - PAID
             - PENDING
             - OVERDUE
-          description: Derived for the UI. OVERDUE = PENDING with paymentDate in the past — never stored.
+          description: Derived for the UI. OVERDUE = PENDING with paymentDate before today in UTC — never stored.
         notes:
           type: string
           nullable: true
         receiptUrl:
           type: string
           nullable: true
+        photoUrl:
+          type: string
+          nullable: true
+        jobTitle:
+          type: string
+          nullable: true
+        frequency:
+          type: string
+          nullable: true
+          enum:
+            - DAILY
+            - WEEKLY
+            - MONTHLY
+        nextPaymentDate:
+          type: string
+          nullable: true
+        expenseHandling:
+          type: string
+          enum:
+            - AUTOMATIC
+            - MANUAL
+        expenseId:
+          type: string
+          nullable: true
+        expenseRecorded:
+          type: boolean
       required:
         - id
         - staffMemberId
@@ -26513,6 +26829,8 @@ components:
         - paymentMethod
         - status
         - displayStatus
+        - expenseHandling
+        - expenseRecorded
     SalaryPaymentListResponseDto:
       type: object
       properties:
@@ -26534,6 +26852,29 @@ components:
     CreateSalaryPaymentDto:
       type: object
       properties:
+        idempotencyKey:
+          type: string
+          format: uuid
+          description: Reuse this key when retrying the same batch; use a new key for a new record.
+        status:
+          type: string
+          enum:
+            - PENDING
+            - PAID
+          default: PENDING
+        expenseHandling:
+          type: string
+          enum:
+            - AUTOMATIC
+            - MANUAL
+          description: Defaults to the staff salary profile, or AUTOMATIC without one.
+        frequency:
+          type: string
+          enum:
+            - DAILY
+            - WEEKLY
+            - MONTHLY
+          description: Snapshot for this record; does not create or change a recurring profile.
         staffMemberIds:
           description: Staff members to pay in this batch (Select Staff Member screen — usually one, but supports multi-select).
           type: array
@@ -26544,7 +26885,7 @@ components:
           description: Amount per staff member. Defaults to each staff member's configured base salary when omitted.
         paymentDate:
           type: string
-          description: ISO date this payment is for.
+          description: Salary due date in UTC. One obligation per staff member per date.
         paymentMethod:
           type: string
           enum:
@@ -26560,6 +26901,7 @@ components:
           format: uuid
           description: ID returned by POST /expenses/receipts. Attaches that upload to the first payment created in this batch and takes precedence over receiptUrl.
       required:
+        - idempotencyKey
         - staffMemberIds
         - paymentDate
         - paymentMethod
@@ -26572,41 +26914,48 @@ components:
             $ref: '#/components/schemas/SalaryPaymentResponseDto'
       required:
         - payments
-    SalaryProfileResponseDto:
+    ConfirmSalaryPaymentDto:
       type: object
       properties:
-        baseSalary:
+        paidAt:
           type: string
-        frequency:
-          type: string
-          enum:
-            - DAILY
-            - WEEKLY
-            - MONTHLY
+          description: Actual payment timestamp, defaults to now. Cannot be in the future.
         paymentMethod:
           type: string
           enum:
             - BANK_TRANSFER
             - CASH
-        expenseHandling:
+        receiptAssetId:
           type: string
-          enum:
-            - AUTOMATIC
-            - MANUAL
-        startDate:
+          format: uuid
+    SalaryAnnualSummaryDto:
+      type: object
+      properties:
+        year:
+          type: number
+        currency:
           type: string
-        nextPaymentDate:
+        totalPaidThisYear:
           type: string
-          nullable: true
-        notes:
+          description: Actual PAID amounts by paidAt within this year.
+        remainingPayments:
+          type: number
+          description: Unpaid records due in this year plus not-yet-created scheduled obligations.
+        remainingAmount:
           type: string
-          nullable: true
+        annualTotal:
+          type: string
+          description: Paid this year + unpaid/projected obligations; not a fixed annual commitment.
+        projected:
+          type: boolean
       required:
-        - baseSalary
-        - frequency
-        - paymentMethod
-        - expenseHandling
-        - startDate
+        - year
+        - currency
+        - totalPaidThisYear
+        - remainingPayments
+        - remainingAmount
+        - annualTotal
+        - projected
     SalaryProfileWrapperDto:
       type: object
       properties:
@@ -26616,41 +26965,6 @@ components:
           type: object
           allOf:
             - $ref: '#/components/schemas/SalaryProfileResponseDto'
-    SetSalaryProfileDto:
-      type: object
-      properties:
-        baseSalary:
-          type: string
-          example: '3500.00'
-          description: Base salary amount in the store currency.
-        frequency:
-          type: string
-          enum:
-            - DAILY
-            - WEEKLY
-            - MONTHLY
-        paymentMethod:
-          type: string
-          enum:
-            - BANK_TRANSFER
-            - CASH
-        expenseHandling:
-          type: string
-          enum:
-            - AUTOMATIC
-            - MANUAL
-          default: AUTOMATIC
-          description: 'AUTOMATIC: the system generates the salary expense on schedule and manual entries are blocked. MANUAL: the owner records each payment by hand.'
-        startDate:
-          type: string
-          description: ISO date the salary schedule starts from.
-        notes:
-          type: string
-      required:
-        - baseSalary
-        - frequency
-        - paymentMethod
-        - startDate
     ExpenseCategoryResponseDto:
       type: object
       properties:
@@ -26792,6 +27106,10 @@ components:
     ExpenseResponseDto:
       type: object
       properties:
+        salaryPaymentId:
+          type: string
+          nullable: true
+          description: Source salary record, when linked.
         id:
           type: string
         title:
@@ -26818,7 +27136,7 @@ components:
           nullable: true
         isSalaryGenerated:
           type: boolean
-          description: True for expenses generated from a staff salary payment — edit/delete from Staff Salary instead.
+          description: True for an expense linked to a confirmed salary payment. These expenses cannot be edited or deleted.
         createdAt:
           type: string
       required:

@@ -100,6 +100,21 @@ export function validateEnvironment(
     );
   }
 
+  const staffSalarySchedulerEnabled =
+    asString(config.STAFF_SALARY_SCHEDULER_ENABLED) || 'false';
+  const staffSalarySchedulerSecret = asString(
+    config.STAFF_SALARY_SCHEDULER_SECRET,
+  );
+  if (!['true', 'false'].includes(staffSalarySchedulerEnabled))
+    errors.push('STAFF_SALARY_SCHEDULER_ENABLED must be true or false');
+  if (
+    staffSalarySchedulerEnabled === 'true' &&
+    staffSalarySchedulerSecret.length < 32
+  )
+    errors.push(
+      'STAFF_SALARY_SCHEDULER_SECRET must be at least 32 characters when salary processing is enabled',
+    );
+
   const ecommerceSyncSchedulerEnabled =
     config.ECOMMERCE_SYNC_SCHEDULER_ENABLED === 'true';
   const ecommerceSyncSchedulerSecret = asString(
@@ -437,6 +452,8 @@ export function validateEnvironment(
 
   return {
     ...config,
+    STAFF_SALARY_SCHEDULER_ENABLED: staffSalarySchedulerEnabled,
+    STAFF_SALARY_SCHEDULER_SECRET: staffSalarySchedulerSecret,
     PORT: port,
     PRODUCT_IMAGE_BUCKET: productImageBucket,
     OAUTH_MOBILE_REDIRECT_SCHEMES: oauthMobileRedirectSchemes.join(','),
@@ -478,7 +495,8 @@ export function validateEnvironment(
     LIGHTFUNNELS_HTTP_TIMEOUT_MS: lightfunnelsHttpTimeoutMs,
     APP_NAME: asString(config.APP_NAME) || 'Zomaal',
     APP_VERSION: asString(config.APP_VERSION) || '1.0.0',
-    PRIVACY_POLICY_URL: normalizeUrl(asString(config.PRIVACY_POLICY_URL)) || null,
+    PRIVACY_POLICY_URL:
+      normalizeUrl(asString(config.PRIVACY_POLICY_URL)) || null,
     ABOUT_APP_URL: normalizeUrl(asString(config.ABOUT_APP_URL)) || null,
     TERMS_OF_SERVICE_URL:
       normalizeUrl(asString(config.TERMS_OF_SERVICE_URL)) || null,

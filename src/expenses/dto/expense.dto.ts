@@ -71,12 +71,15 @@ export class ExpenseReceiptResponseDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ example: 'image/webp' }) contentType!: string;
   @ApiProperty({ example: 182430 }) sizeBytes!: number;
-  @ApiProperty({ example: '/expenses/receipts/6ee20108-004a-49c8-bff1-f197b7b67939' })
+  @ApiProperty({
+    example: '/expenses/receipts/6ee20108-004a-49c8-bff1-f197b7b67939',
+  })
   previewPath!: string;
   @ApiPropertyOptional({
     nullable: true,
     format: 'date-time',
-    description: 'Temporary uploads expire after 24 hours if never attached to an expense or payment.',
+    description:
+      'Temporary uploads expire after 24 hours if never attached to an expense or payment.',
   })
   expiresAt!: string | null;
 }
@@ -124,17 +127,30 @@ export class ExpenseListQueryDto {
 }
 
 export class ExpenseResponseDto {
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: 'Source salary record, when linked.',
+  })
+  salaryPaymentId!: string | null;
   @ApiProperty() id!: string;
   @ApiProperty() title!: string;
   @ApiProperty() amount!: string;
-  @ApiProperty({ enum: ExpensePaymentMethod }) paymentMethod!: ExpensePaymentMethod;
+  @ApiProperty({ enum: ExpensePaymentMethod })
+  paymentMethod!: ExpensePaymentMethod;
   @ApiProperty() spentAt!: string;
   @ApiPropertyOptional({ nullable: true, type: String }) notes!: string | null;
-  @ApiPropertyOptional({ nullable: true, type: String }) receiptUrl!: string | null;
-  @ApiProperty({ type: ExpenseCategoryResponseDto }) category!: ExpenseCategoryResponseDto;
-  @ApiPropertyOptional({ nullable: true, type: String }) staffMemberId!: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) receiptUrl!:
+    | string
+    | null;
+  @ApiProperty({ type: ExpenseCategoryResponseDto })
+  category!: ExpenseCategoryResponseDto;
+  @ApiPropertyOptional({ nullable: true, type: String }) staffMemberId!:
+    | string
+    | null;
   @ApiProperty({
-    description: 'True for expenses generated from a staff salary payment — edit/delete from Staff Salary instead.',
+    description:
+      'True for an expense linked to a confirmed salary payment. These expenses cannot be edited or deleted.',
   })
   isSalaryGenerated!: boolean;
   @ApiProperty() createdAt!: string;
@@ -167,5 +183,6 @@ export class ExpenseSummaryQueryDto {
 
 export class ExpenseSummaryResponseDto {
   @ApiProperty() totalAmount!: string;
-  @ApiProperty({ type: [ExpenseGroupTotalDto] }) byGroup!: ExpenseGroupTotalDto[];
+  @ApiProperty({ type: [ExpenseGroupTotalDto] })
+  byGroup!: ExpenseGroupTotalDto[];
 }

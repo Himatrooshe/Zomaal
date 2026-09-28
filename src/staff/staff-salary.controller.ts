@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -20,6 +31,10 @@ import {
 } from '../common/dto/monthly-trend.dto';
 import { StaffSalaryService } from './staff-salary.service';
 import {
+  ConfirmSalaryPaymentDto,
+  SalaryAnnualQueryDto,
+  SalaryAnnualSummaryDto,
+  SalaryPaymentResponseDto,
   CreateSalaryPaymentDto,
   SalaryPaymentBatchResponseDto,
   SalaryPaymentListQueryDto,
@@ -33,8 +48,14 @@ import {
 @ApiTags('Staff Salary')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@ApiUnauthorizedResponse({ description: 'Missing or invalid Zomaal access token.', type: ApiErrorDto })
-@ApiForbiddenResponse({ description: 'Only the store owner can manage salaries.', type: ApiErrorDto })
+@ApiUnauthorizedResponse({
+  description: 'Missing or invalid Zomaal access token.',
+  type: ApiErrorDto,
+})
+@ApiForbiddenResponse({
+  description: 'Only the store owner can manage salaries.',
+  type: ApiErrorDto,
+})
 @Controller('staff')
 export class StaffSalaryController {
   constructor(private readonly salary: StaffSalaryService) {}
@@ -51,7 +72,9 @@ export class StaffSalaryController {
   }
 
   @Get('salary/trend')
-  @ApiOperation({ summary: 'Monthly payout totals across all staff (Salary bar chart)' })
+  @ApiOperation({
+    summary: 'Monthly payout totals across all staff (Salary bar chart)',
+  })
   @ApiOkResponse({ type: MonthlyTrendResponseDto })
   trend(
     @CurrentUser() user: JwtPayload,
@@ -62,7 +85,8 @@ export class StaffSalaryController {
 
   @Get('salary/payments')
   @ApiOperation({
-    summary: 'List salary payments across all staff (All / Paid / Pending / Overdue filters)',
+    summary:
+      'List salary payments across all staff (All / Paid / Pending / Overdue filters)',
   })
   @ApiOkResponse({ type: SalaryPaymentListResponseDto })
   listStorePayments(
@@ -74,14 +98,18 @@ export class StaffSalaryController {
 
   @Post('salary/payments')
   @ApiOperation({
-    summary: 'Record manual salary payment(s) (Add Salary Record: choose staff, then add salary)',
+    summary: 'Add salary record(s) for selected staff',
     description:
-      'Supports multi-select. Blocked, per staff member, when their salary profile is AUTOMATIC.',
+      'Defaults to PENDING. PAID explicitly confirms payment now. Reuse the idempotency key for retries. One salary obligation per staff member per UTC date; use the existing record when already accrued.',
   })
   @ApiOkResponse({ type: SalaryPaymentBatchResponseDto })
-  @ApiNotFoundResponse({ description: 'One or more staff members not found.', type: ApiErrorDto })
+  @ApiNotFoundResponse({
+    description: 'One or more staff members not found.',
+    type: ApiErrorDto,
+  })
   @ApiConflictResponse({
-    description: 'Manual entry is blocked for one or more staff members because automatic is on.',
+    description:
+      'A record for this salary date exists, or the retry key was reused with different data.',
     type: ApiErrorDto,
   })
   createPayments(
@@ -91,11 +119,61 @@ export class StaffSalaryController {
     return this.salary.createPayments(user.userId, dto);
   }
 
+  @Post('salary/payments/:paymentId/pay')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Confirm an actual salary payout (retry safe)' })
+  @ApiParam({ name: 'paymentId', format: 'uuid' })
+  @ApiOkResponse({ type: SalaryPaymentResponseDto })
+  confirmPayment(
+    @CurrentUser() user: JwtPayload,
+    @Param('paymentId', new ParseUUIDPipe()) paymentId: string,
+    @Body() dto: ConfirmSalaryPaymentDto,
+  ): Promise<SalaryPaymentResponseDto> {
+    return this.salary.confirmPayment(user.userId, paymentId, dto);
+  }
+
+  @Post('salary/payments/:paymentId/expense')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Record the linked expense for a paid salary (retry safe)',
+    description:
+      'Uses the confirmed salary amount, payment timestamp and method. Returns the same expense on retries.',
+  })
+  @ApiParam({ name: 'paymentId', format: 'uuid' })
+  @ApiOkResponse({ type: SalaryPaymentResponseDto })
+  recordExpense(
+    @CurrentUser() user: JwtPayload,
+    @Param('paymentId', new ParseUUIDPipe()) paymentId: string,
+  ): Promise<SalaryPaymentResponseDto> {
+    return this.salary.recordExpense(user.userId, paymentId);
+  }
+
+  @Get(':staffId/salary/annual-summary')
+  @ApiOperation({
+    summary: 'Annual salary paid and remaining obligations',
+    description:
+      'Calendar year in UTC. Annual total is a projection, not a contractual commitment; future occurrences use the current profile.',
+  })
+  @ApiParam({ name: 'staffId', format: 'uuid' })
+  @ApiOkResponse({ type: SalaryAnnualSummaryDto })
+  annualSummary(
+    @CurrentUser() user: JwtPayload,
+    @Param('staffId', new ParseUUIDPipe()) staffId: string,
+    @Query() query: SalaryAnnualQueryDto,
+  ): Promise<SalaryAnnualSummaryDto> {
+    return this.salary.annualSummary(user.userId, staffId, query);
+  }
+
   @Get(':staffId/salary')
-  @ApiOperation({ summary: "Get a staff member's salary profile (Manage Salary Info screen)" })
+  @ApiOperation({
+    summary: "Get a staff member's salary profile (Manage Salary Info screen)",
+  })
   @ApiParam({ name: 'staffId', format: 'uuid' })
   @ApiOkResponse({ type: SalaryProfileWrapperDto })
-  @ApiNotFoundResponse({ description: 'Staff member not found.', type: ApiErrorDto })
+  @ApiNotFoundResponse({
+    description: 'Staff member not found.',
+    type: ApiErrorDto,
+  })
   getProfile(
     @CurrentUser() user: JwtPayload,
     @Param('staffId', new ParseUUIDPipe()) staffId: string,
@@ -107,11 +185,14 @@ export class StaffSalaryController {
   @ApiOperation({
     summary: "Set/update a staff member's salary profile",
     description:
-      'AUTOMATIC generates the salary expense on schedule and blocks manual entries for this person; MANUAL requires the owner to record each payment.',
+      'Both modes accrue pending obligations. AUTOMATIC creates an expense on payment confirmation; MANUAL records the linked expense later. Neither mode transfers money.',
   })
   @ApiParam({ name: 'staffId', format: 'uuid' })
   @ApiOkResponse({ type: SalaryProfileResponseDto })
-  @ApiNotFoundResponse({ description: 'Staff member not found.', type: ApiErrorDto })
+  @ApiNotFoundResponse({
+    description: 'Staff member not found.',
+    type: ApiErrorDto,
+  })
   setProfile(
     @CurrentUser() user: JwtPayload,
     @Param('staffId', new ParseUUIDPipe()) staffId: string,
@@ -124,7 +205,10 @@ export class StaffSalaryController {
   @ApiOperation({ summary: 'List salary payment history for a staff member' })
   @ApiParam({ name: 'staffId', format: 'uuid' })
   @ApiOkResponse({ type: SalaryPaymentListResponseDto })
-  @ApiNotFoundResponse({ description: 'Staff member not found.', type: ApiErrorDto })
+  @ApiNotFoundResponse({
+    description: 'Staff member not found.',
+    type: ApiErrorDto,
+  })
   listPayments(
     @CurrentUser() user: JwtPayload,
     @Param('staffId', new ParseUUIDPipe()) staffId: string,

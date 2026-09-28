@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import {
   ExpensePaymentMethod,
   Prisma,
@@ -12,19 +13,29 @@ import {
   SalaryPaymentMethod,
   SalaryPaymentStatus,
   StaffStatus,
-  type StaffSalaryPayment,
   type StaffSalaryProfile,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreAccessService } from '../access/store-access.service';
-import { attachReceipt, receiptPreviewPath } from '../common/media/attach-receipt.util';
-import { calculateTrend, lastNMonthKeys, monthKey, monthsAgoStart } from '../common/trend.util';
+import {
+  attachReceipt,
+  receiptPreviewPath,
+} from '../common/media/attach-receipt.util';
+import {
+  calculateTrend,
+  lastNMonthKeys,
+  monthKey,
+  monthsAgoStart,
+} from '../common/trend.util';
 import {
   MonthlyTrendQueryDto,
   MonthlyTrendResponseDto,
 } from '../common/dto/monthly-trend.dto';
 import {
+  ConfirmSalaryPaymentDto,
   CreateSalaryPaymentDto,
+  SalaryAnnualQueryDto,
+  SalaryAnnualSummaryDto,
   SalaryPaymentBatchResponseDto,
   SalaryPaymentListQueryDto,
   SalaryPaymentListResponseDto,
@@ -35,14 +46,24 @@ import {
 } from './dto/staff-salary.dto';
 import {
   deriveSalaryDisplayStatus,
+  salaryDay,
   type SalaryPaymentDisplayStatus,
 } from './salary-payment-status.util';
 
-const SALARY_PAYMENT_METHOD_TO_EXPENSE: Record<SalaryPaymentMethod, ExpensePaymentMethod> = {
+const PAYMENT_INCLUDE = {
+  staffMember: { include: { salaryProfile: true } },
+} satisfies Prisma.StaffSalaryPaymentInclude;
+type Payment = Prisma.StaffSalaryPaymentGetPayload<{
+  include: typeof PAYMENT_INCLUDE;
+}>;
+const METHODS: Record<SalaryPaymentMethod, ExpensePaymentMethod> = {
   BANK_TRANSFER: ExpensePaymentMethod.BANK,
   CASH: ExpensePaymentMethod.CASH,
 };
 
+/** Lock order: batch advisory lock (when applicable), staff, profile/payment.
+ * All writers use the staff lock so schedule edits, batches and confirmations serialize.
+ */
 @Injectable()
 export class StaffSalaryService {
   constructor(
@@ -56,11 +77,9 @@ export class StaffSalaryService {
   ): Promise<{ profile: SalaryProfileResponseDto | null }> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
     await this.requireStaff(storeId, staffId);
-
     const profile = await this.prisma.staffSalaryProfile.findUnique({
       where: { staffMemberId: staffId },
     });
-
     return { profile: profile ? toProfileResponse(profile) : null };
   }
 
@@ -70,45 +89,19 @@ export class StaffSalaryService {
     dto: SetSalaryProfileDto,
   ): Promise<SalaryProfileResponseDto> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
-    await this.requireStaff(storeId, staffId);
-
-    const startDate = new Date(dto.startDate);
-    const expenseHandling = dto.expenseHandling ?? SalaryExpenseHandling.AUTOMATIC;
-
-    const existing = await this.prisma.staffSalaryProfile.findUnique({
-      where: { staffMemberId: staffId },
+    return this.prisma.$transaction(async (tx) => {
+      await lockStaff(tx, storeId, staffId);
+      const existing = await tx.staffSalaryProfile.findUnique({
+        where: { staffMemberId: staffId },
+      });
+      const data = salaryProfileData(dto, existing);
+      const profile = await tx.staffSalaryProfile.upsert({
+        where: { staffMemberId: staffId },
+        create: { staffMemberId: staffId, ...data },
+        update: data,
+      });
+      return toProfileResponse(profile);
     });
-
-    const profile = await this.prisma.staffSalaryProfile.upsert({
-      where: { staffMemberId: staffId },
-      create: {
-        staffMemberId: staffId,
-        baseSalary: dto.baseSalary,
-        frequency: dto.frequency,
-        paymentMethod: dto.paymentMethod,
-        expenseHandling,
-        startDate,
-        // First automatic payment is due on the schedule's own start date.
-        nextPaymentDate: expenseHandling === SalaryExpenseHandling.AUTOMATIC ? startDate : null,
-        notes: dto.notes ?? null,
-      },
-      update: {
-        baseSalary: dto.baseSalary,
-        frequency: dto.frequency,
-        paymentMethod: dto.paymentMethod,
-        expenseHandling,
-        startDate,
-        notes: dto.notes,
-        nextPaymentDate:
-          expenseHandling === SalaryExpenseHandling.AUTOMATIC
-            ? resolveNextPaymentDateOnUpdate(existing, startDate)
-            : // Switching to MANUAL clears the schedule — a human is now
-              // responsible for every entry.
-              null,
-      },
-    });
-
-    return toProfileResponse(profile);
   }
 
   async listPayments(
@@ -117,352 +110,561 @@ export class StaffSalaryService {
     query: SalaryPaymentListQueryDto,
   ): Promise<SalaryPaymentListResponseDto> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
-    const staff = await this.requireStaff(storeId, staffId);
+    await this.requireStaff(storeId, staffId);
     return this.listPaymentsForWhere(
-      { staffMemberId: staffId },
+      { staffMemberId: staffId, staffMember: { storeId } },
       query,
-      () => staff.name,
     );
   }
 
-  /** Store-wide salary payment history (Staff salary tab filters). */
   async listStorePayments(
     userId: string,
     query: SalaryPaymentListQueryDto,
   ): Promise<SalaryPaymentListResponseDto> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
-    return this.listPaymentsForWhere(
-      { staffMember: { storeId } },
-      query,
-      (payment) =>
-        (payment as StaffSalaryPayment & { staffMember?: { name: string } }).staffMember
-          ?.name ?? '',
-      true,
-    );
-  }
-
-  async summary(userId: string): Promise<SalarySummaryResponseDto> {
-    const { storeId } = await this.storeAccess.requireOwner(userId);
-
-    const [paidAgg, unpaid] = await Promise.all([
-      this.prisma.staffSalaryPayment.aggregate({
-        where: {
-          staffMember: { storeId },
-          status: SalaryPaymentStatus.PAID,
-        },
-        _sum: { amount: true },
-      }),
-      this.prisma.staffSalaryPayment.findMany({
-        where: {
-          staffMember: { storeId },
-          status: SalaryPaymentStatus.PENDING,
-        },
-        select: { amount: true },
-      }),
-    ]);
-
-    let pendingTotal = new Prisma.Decimal(0);
-    for (const row of unpaid) {
-      pendingTotal = pendingTotal.plus(row.amount);
-    }
-
-    return {
-      totalSalaryPaid: (paidAgg._sum.amount ?? new Prisma.Decimal(0)).toFixed(2),
-      pendingPaymentCount: unpaid.length,
-      pendingPaymentsTotal: pendingTotal.toFixed(2),
-    };
+    return this.listPaymentsForWhere({ staffMember: { storeId } }, query);
   }
 
   private async listPaymentsForWhere(
     baseWhere: Prisma.StaffSalaryPaymentWhereInput,
     query: SalaryPaymentListQueryDto,
-    resolveName: (payment: StaffSalaryPayment) => string,
-    includeStaff = false,
   ): Promise<SalaryPaymentListResponseDto> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const now = new Date();
-    const where = {
-      ...baseWhere,
-      ...displayStatusWhere(query.status, now),
-    };
-
+    const page = query.page ?? 1,
+      limit = query.limit ?? 20,
+      now = new Date();
+    const where = { ...baseWhere, ...displayStatusWhere(query.status, now) };
     const [payments, total] = await Promise.all([
       this.prisma.staffSalaryPayment.findMany({
         where,
-        orderBy: { paymentDate: 'desc' },
+        orderBy: [{ paymentDate: 'desc' }, { id: 'asc' }],
         skip: (page - 1) * limit,
         take: limit,
-        ...(includeStaff
-          ? { include: { staffMember: { select: { name: true } } } }
-          : {}),
+        include: PAYMENT_INCLUDE,
       }),
       this.prisma.staffSalaryPayment.count({ where }),
     ]);
-
     return {
-      payments: payments.map((p) =>
-        toPaymentResponse(p, resolveName(p), now),
-      ),
+      payments: payments.map((p) => toPaymentResponse(p, now)),
       total,
       page,
       limit,
     };
   }
 
-  /** Monthly payout totals across all staff (Salary bar chart). */
-  async trend(userId: string, query: MonthlyTrendQueryDto): Promise<MonthlyTrendResponseDto> {
+  async summary(userId: string): Promise<SalarySummaryResponseDto> {
+    const { storeId, baseCurrency } =
+      await this.storeAccess.requireOwner(userId);
+    const [paid, pending] = await Promise.all([
+      this.prisma.staffSalaryPayment.aggregate({
+        where: { staffMember: { storeId }, status: SalaryPaymentStatus.PAID },
+        _sum: { amount: true },
+      }),
+      this.prisma.staffSalaryPayment.aggregate({
+        where: {
+          staffMember: { storeId },
+          status: SalaryPaymentStatus.PENDING,
+        },
+        _sum: { amount: true },
+        _count: true,
+      }),
+    ]);
+    return {
+      currency: baseCurrency,
+      totalSalaryPaid: (paid._sum.amount ?? new Prisma.Decimal(0)).toFixed(2),
+      pendingPaymentCount: pending._count as number,
+      pendingPaymentsTotal: (
+        pending._sum.amount ?? new Prisma.Decimal(0)
+      ).toFixed(2),
+    };
+  }
+
+  async trend(
+    userId: string,
+    query: MonthlyTrendQueryDto,
+  ): Promise<MonthlyTrendResponseDto> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
-    const months = query.months ?? 6;
-    const keys = lastNMonthKeys(months);
-    const since = monthsAgoStart(months);
-
+    const months = query.months ?? 6,
+      keys = lastNMonthKeys(months);
     const payments = await this.prisma.staffSalaryPayment.findMany({
-      where: { staffMember: { storeId }, paymentDate: { gte: since } },
-      select: { amount: true, paymentDate: true },
+      where: {
+        staffMember: { storeId },
+        status: SalaryPaymentStatus.PAID,
+        paidAt: { gte: monthsAgoStart(months), lte: new Date() },
+      },
+      select: { amount: true, paidAt: true },
     });
-
     const totals = new Map<string, Prisma.Decimal>();
-    for (const payment of payments) {
-      const key = monthKey(payment.paymentDate);
-      totals.set(key, (totals.get(key) ?? new Prisma.Decimal(0)).plus(payment.amount));
+    for (const p of payments) {
+      if (!p.paidAt) continue;
+      const key = monthKey(p.paidAt);
+      totals.set(
+        key,
+        (totals.get(key) ?? new Prisma.Decimal(0)).plus(p.amount),
+      );
     }
-
     const points = keys.map((month) => ({
       month,
       total: (totals.get(month) ?? new Prisma.Decimal(0)).toFixed(2),
     }));
-
-    const current = Number(points[points.length - 1]?.total ?? 0);
-    const previous = Number(points[points.length - 2]?.total ?? 0);
-
-    return { points, trend: calculateTrend(current, previous) };
+    return {
+      points,
+      trend: calculateTrend(
+        Number(points.at(-1)?.total ?? 0),
+        Number(points.at(-2)?.total ?? 0),
+      ),
+    };
   }
 
-  /**
-   * Manual salary entry (Add Salary Record: choose staff, then enter the
-   * payment). Blocked per staff member whose profile is AUTOMATIC — that
-   * person's salary is generated by runAutomaticPayments instead, and
-   * letting both paths write would double-count the expense.
-   */
   async createPayments(
     userId: string,
     dto: CreateSalaryPaymentDto,
   ): Promise<SalaryPaymentBatchResponseDto> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
-
-    const staffMembers = await this.prisma.staffMember.findMany({
-      where: { id: { in: dto.staffMemberIds }, storeId },
-      include: { salaryProfile: true },
-    });
-
-    const foundIds = new Set(staffMembers.map((s) => s.id));
-    const missing = dto.staffMemberIds.filter((id) => !foundIds.has(id));
-    if (missing.length > 0) {
-      throw new NotFoundException(`Staff member(s) not found: ${missing.join(', ')}`);
-    }
-
-    const automatic = staffMembers.filter(
-      (s) => s.salaryProfile?.expenseHandling === SalaryExpenseHandling.AUTOMATIC,
-    );
-    if (automatic.length > 0) {
-      throw new ConflictException(
-        `Manual salary entry is blocked while automatic is on for: ${automatic
-          .map((s) => s.name)
-          .join(', ')}`,
-      );
-    }
-
-    const missingAmount = !dto.amount;
-    const noProfileNoAmount = staffMembers.filter(
-      (s) => missingAmount && !s.salaryProfile,
-    );
-    if (noProfileNoAmount.length > 0) {
-      throw new BadRequestException(
-        `Amount is required for staff with no salary profile set: ${noProfileNoAmount
-          .map((s) => s.name)
-          .join(', ')}`,
-      );
-    }
-
-    const categoryId = await this.resolveSalaryCategoryId(storeId);
-    const paymentDate = new Date(dto.paymentDate);
-
-    const payments = await this.prisma.$transaction(async (tx) => {
-      const created = await Promise.all(
-        staffMembers.map((staff, index) => {
-          const amount = dto.amount ?? staff.salaryProfile!.baseSalary.toString();
-          return tx.staffSalaryPayment.create({
+    const ids = [...dto.staffMemberIds].sort();
+    const date = salaryDay(new Date(dto.paymentDate));
+    const status = dto.status ?? SalaryPaymentStatus.PENDING;
+    const fingerprint = createHash('sha256')
+      .update(
+        JSON.stringify({
+          ids,
+          date: date.toISOString(),
+          status,
+          amount: dto.amount ? new Prisma.Decimal(dto.amount).toString() : null,
+          method: dto.paymentMethod,
+          handling: dto.expenseHandling ?? null,
+          frequency: dto.frequency ?? null,
+          notes: dto.notes ?? null,
+          receipt: dto.receiptAssetId ?? dto.receiptUrl ?? null,
+          receiptOwner: dto.receiptAssetId ? dto.staffMemberIds[0] : null,
+        }),
+      )
+      .digest('hex');
+    const payments = await this.prisma.$transaction(
+      async (tx) => {
+        // Scope the key to the store, including disjoint batches retried with the same key.
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${storeId + ':' + dto.idempotencyKey}, 0))::text`;
+        const retry = await tx.staffSalaryPayment.findMany({
+          where: {
+            idempotencyKey: dto.idempotencyKey,
+            staffMember: { storeId },
+          },
+          include: PAYMENT_INCLUDE,
+        });
+        if (retry.length) {
+          if (
+            retry.length !== ids.length ||
+            retry.some((p) => p.requestHash !== fingerprint)
+          )
+            throw new ConflictException(
+              'Idempotency key was already used for a different salary batch',
+            );
+          return retry;
+        }
+        const created: Payment[] = [];
+        for (const id of ids) {
+          await lockStaff(tx, storeId, id);
+          const staff = await tx.staffMember.findUniqueOrThrow({
+            where: { id },
+            include: { salaryProfile: true },
+          });
+          const prior = await findSalaryForDay(tx, id, date);
+          if (prior)
+            throw new ConflictException(
+              `Salary record ${prior.id} already exists for this staff member and date; confirm that record instead`,
+            );
+          const amount =
+            dto.amount ?? staff.salaryProfile?.baseSalary.toString();
+          if (!amount)
+            throw new BadRequestException(
+              `Amount is required for ${staff.name}: no salary profile is set`,
+            );
+          const payment = await tx.staffSalaryPayment.create({
             data: {
-              staffMember: { connect: { id: staff.id } },
+              staffMemberId: id,
               amount,
-              paymentDate,
-              paidAt: new Date(),
+              createdByUserId: userId,
+              paidByUserId: status === SalaryPaymentStatus.PAID ? userId : null,
+              paymentDate: date,
+              scheduledFor: date,
+              idempotencyKey: dto.idempotencyKey,
+              requestHash: fingerprint,
+              status,
+              paidAt: status === SalaryPaymentStatus.PAID ? new Date() : null,
               paymentMethod: dto.paymentMethod,
-              status: SalaryPaymentStatus.PAID,
+              expenseHandling:
+                dto.expenseHandling ??
+                staff.salaryProfile?.expenseHandling ??
+                SalaryExpenseHandling.AUTOMATIC,
+              frequency:
+                dto.frequency ?? staff.salaryProfile?.frequency ?? null,
               notes: dto.notes ?? null,
-              // One receipt (e.g. a single bank-transfer batch confirmation)
-              // commonly covers the whole batch, but the schema is 1 receipt
-              // : 1 payment. Rather than duplicate the upload across every
-              // payment, attach it to the first one only — the others in the
-              // batch are still clearly linked by shared paymentDate/notes.
               receiptUrl:
-                dto.receiptAssetId && index === 0
+                dto.receiptAssetId && id === dto.staffMemberIds[0]
                   ? receiptPreviewPath(dto.receiptAssetId)
                   : (dto.receiptUrl ?? null),
-              expense: {
-                create: {
-                  storeId,
-                  title: `Salary — ${staff.name}`,
-                  amount,
-                  paymentMethod: SALARY_PAYMENT_METHOD_TO_EXPENSE[dto.paymentMethod],
-                  spentAt: paymentDate,
-                  categoryId,
-                  staffMemberId: staff.id,
-                  createdByUserId: userId,
-                },
-              },
             },
+            include: PAYMENT_INCLUDE,
           });
-        }),
-      );
-
-      if (dto.receiptAssetId) {
-        await attachReceipt(tx, storeId, dto.receiptAssetId, {
-          salaryPaymentId: created[0].id,
-        });
-      }
-
-      return created;
-    });
-
+          if (dto.receiptAssetId && id === dto.staffMemberIds[0])
+            await attachReceipt(tx, storeId, dto.receiptAssetId, {
+              salaryPaymentId: payment.id,
+            });
+          if (
+            status === SalaryPaymentStatus.PAID &&
+            payment.expenseHandling === SalaryExpenseHandling.AUTOMATIC
+          )
+            await this.linkExpense(tx, storeId, userId, payment);
+          created.push(payment);
+        }
+        return created;
+      },
+      { timeout: 30000 },
+    );
+    const byId = new Map(payments.map((p) => [p.staffMemberId, p]));
     return {
-      payments: payments.map((p, i) => toPaymentResponse(p, staffMembers[i].name)),
+      payments: dto.staffMemberIds.map((id) =>
+        toPaymentResponse(byId.get(id)!),
+      ),
     };
   }
 
-  /**
-   * Called only by the internal scheduler (staff-salary-scheduler.controller)
-   * — processes every AUTOMATIC profile whose nextPaymentDate has arrived,
-   * across every store. One period per run; a run that fires at least as
-   * often as the shortest frequency (DAILY) never falls behind.
-   */
-  async runAutomaticPayments(): Promise<{ processed: number; skippedInactive: number }> {
-    const due = await this.prisma.staffSalaryProfile.findMany({
-      where: {
-        expenseHandling: SalaryExpenseHandling.AUTOMATIC,
-        nextPaymentDate: { lte: new Date() },
-      },
-      include: { staffMember: { select: { id: true, name: true, storeId: true, status: true } } },
-    });
-
-    let processed = 0;
-    let skippedInactive = 0;
-    for (const profile of due) {
-      const paymentDate = profile.nextPaymentDate!;
-      const nextPaymentDate = advance(paymentDate, profile.frequency, profile.startDate.getUTCDate());
-
-      // A deactivated staff member's automatic schedule must still tick
-      // forward — leaving nextPaymentDate frozen in the past would, on
-      // reactivation, suddenly generate a back-dated payment for a period
-      // they were inactive for the whole time. Advance without paying.
-      if (profile.staffMember.status !== StaffStatus.ACTIVE) {
-        await this.prisma.staffSalaryProfile.update({
-          where: { id: profile.id },
-          data: { nextPaymentDate },
+  async confirmPayment(
+    userId: string,
+    paymentId: string,
+    dto: ConfirmSalaryPaymentDto,
+  ): Promise<SalaryPaymentResponseDto> {
+    const { storeId } = await this.storeAccess.requireOwner(userId);
+    const paidAt = dto.paidAt ? new Date(dto.paidAt) : new Date();
+    if (paidAt > new Date())
+      throw new BadRequestException(
+        'Payment timestamp cannot be in the future',
+      );
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await this.lockPayment(tx, storeId, paymentId);
+      if (payment.status === SalaryPaymentStatus.PAID)
+        return toPaymentResponse(payment);
+      if (dto.receiptAssetId) {
+        if (payment.receiptUrl)
+          throw new ConflictException(
+            'This salary record already has a receipt',
+          );
+        await attachReceipt(tx, storeId, dto.receiptAssetId, {
+          salaryPaymentId: paymentId,
         });
-        skippedInactive += 1;
-        continue;
       }
-
-      const categoryId = await this.resolveSalaryCategoryId(profile.staffMember.storeId);
-
-      await this.prisma.staffSalaryPayment.create({
+      const updated = await tx.staffSalaryPayment.update({
+        where: { id: paymentId },
         data: {
-          staffMember: { connect: { id: profile.staffMemberId } },
-          amount: profile.baseSalary,
-          paymentDate,
-          paidAt: new Date(),
-          paymentMethod: profile.paymentMethod,
           status: SalaryPaymentStatus.PAID,
-          expense: {
-            create: {
-              storeId: profile.staffMember.storeId,
-              title: `Salary — ${profile.staffMember.name}`,
-              amount: profile.baseSalary,
-              paymentMethod: SALARY_PAYMENT_METHOD_TO_EXPENSE[profile.paymentMethod],
-              spentAt: paymentDate,
-              categoryId,
-              staffMemberId: profile.staffMemberId,
-            },
-          },
+          paidAt,
+          paidByUserId: userId,
+          paymentMethod: dto.paymentMethod ?? payment.paymentMethod,
+          receiptUrl: dto.receiptAssetId
+            ? receiptPreviewPath(dto.receiptAssetId)
+            : payment.receiptUrl,
         },
+        include: PAYMENT_INCLUDE,
       });
+      if (updated.expenseHandling === SalaryExpenseHandling.AUTOMATIC)
+        await this.linkExpense(tx, storeId, userId, updated);
+      return toPaymentResponse(updated);
+    });
+  }
 
-      await this.prisma.staffSalaryProfile.update({
-        where: { id: profile.id },
-        data: { nextPaymentDate },
-      });
+  async recordExpense(
+    userId: string,
+    paymentId: string,
+  ): Promise<SalaryPaymentResponseDto> {
+    const { storeId } = await this.storeAccess.requireOwner(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await this.lockPayment(tx, storeId, paymentId);
+      if (payment.status !== SalaryPaymentStatus.PAID)
+        throw new ConflictException(
+          'Confirm salary payment before recording its expense',
+        );
+      await this.linkExpense(tx, storeId, userId, payment);
+      return toPaymentResponse(payment);
+    });
+  }
 
-      processed += 1;
+  private async lockPayment(
+    tx: Prisma.TransactionClient,
+    storeId: string,
+    paymentId: string,
+  ): Promise<Payment> {
+    const scoped = await tx.staffSalaryPayment.findFirst({
+      where: { id: paymentId, staffMember: { storeId } },
+      select: { staffMemberId: true },
+    });
+    if (!scoped) throw new NotFoundException('Salary payment not found');
+    await lockStaff(tx, storeId, scoped.staffMemberId);
+    return tx.staffSalaryPayment.findUniqueOrThrow({
+      where: { id: paymentId },
+      include: PAYMENT_INCLUDE,
+    });
+  }
+
+  private async linkExpense(
+    tx: Prisma.TransactionClient,
+    storeId: string,
+    userId: string,
+    payment: Payment,
+  ): Promise<void> {
+    if (payment.expenseId) return;
+    const category =
+      (await tx.expenseCategory.findFirst({
+        where: { storeId, group: 'SALARY' },
+        select: { id: true },
+      })) ??
+      (await tx.expenseCategory.upsert({
+        where: { storeId_name: { storeId, name: 'Employee salary' } },
+        create: {
+          storeId,
+          name: 'Employee salary',
+          group: 'SALARY',
+          isSystem: true,
+        },
+        update: {},
+        select: { id: true, group: true },
+      }));
+    if ('group' in category && category.group !== 'SALARY')
+      throw new ConflictException(
+        'The Employee salary category must belong to the SALARY group',
+      );
+    const expense = await tx.expense.create({
+      data: {
+        storeId,
+        title: `Salary — ${payment.staffMember.name}`,
+        amount: payment.amount,
+        paymentMethod: METHODS[payment.paymentMethod],
+        spentAt: payment.paidAt!,
+        categoryId: category.id,
+        staffMemberId: payment.staffMemberId,
+        createdByUserId: userId,
+        notes: payment.notes,
+        receiptUrl: payment.receiptUrl,
+      },
+    });
+    await tx.staffSalaryPayment.update({
+      where: { id: payment.id },
+      data: { expenseId: expense.id },
+    });
+    payment.expenseId = expense.id;
+  }
+
+  /** Accrue obligations, never claim a bank/cash transfer occurred. Safe across replicas. */
+  async runAutomaticPayments(): Promise<{
+    processed: number;
+    skippedInactive: number;
+  }> {
+    const today = salaryDay(new Date());
+    const due = await this.prisma.staffSalaryProfile.findMany({
+      where: { nextPaymentDate: { lt: new Date(today.getTime() + 86400000) } },
+      select: {
+        staffMemberId: true,
+        staffMember: { select: { storeId: true } },
+      },
+      orderBy: [{ nextPaymentDate: 'asc' }, { staffMemberId: 'asc' }],
+      take: 500,
+    });
+    let processed = 0,
+      skippedInactive = 0;
+    for (const candidate of due) {
+      const result = await this.prisma.$transaction(
+        async (tx) => {
+          await lockStaff(
+            tx,
+            candidate.staffMember.storeId,
+            candidate.staffMemberId,
+          );
+          const profile = await tx.staffSalaryProfile.findUnique({
+            where: { staffMemberId: candidate.staffMemberId },
+            include: { staffMember: { select: { status: true } } },
+          });
+          if (
+            !profile?.nextPaymentDate ||
+            salaryDay(profile.nextPaymentDate) > today
+          )
+            return { processed: 0, skippedInactive: 0 };
+          let date = salaryDay(profile.nextPaymentDate),
+            count = 0,
+            periods = 0;
+          const inactive = profile.staffMember.status !== StaffStatus.ACTIVE;
+          // Bound active catch-up transactions; later invocations continue from the cursor.
+          while (date <= today && (inactive || periods < 366)) {
+            if (!inactive) {
+              const existing = await findSalaryForDay(
+                tx,
+                profile.staffMemberId,
+                date,
+              );
+              if (!existing) {
+                await tx.staffSalaryPayment.create({
+                  data: {
+                    staffMemberId: profile.staffMemberId,
+                    amount: profile.baseSalary,
+                    paymentDate: date,
+                    scheduledFor: date,
+                    status: SalaryPaymentStatus.PENDING,
+                    frequency: profile.frequency,
+                    expenseHandling: profile.expenseHandling,
+                    paymentMethod: profile.paymentMethod,
+                    notes: profile.notes,
+                  },
+                });
+                count++;
+              }
+            }
+            date = advance(
+              date,
+              profile.frequency,
+              profile.startDate.getUTCDate(),
+            );
+            periods++;
+          }
+          await tx.staffSalaryProfile.update({
+            where: { id: profile.id },
+            data: { nextPaymentDate: date },
+          });
+          return { processed: count, skippedInactive: inactive ? 1 : 0 };
+        },
+        { timeout: 30000 },
+      );
+      processed += result.processed;
+      skippedInactive += result.skippedInactive;
     }
-
     return { processed, skippedInactive };
+  }
+
+  async annualSummary(
+    userId: string,
+    staffId: string,
+    query: SalaryAnnualQueryDto,
+  ): Promise<SalaryAnnualSummaryDto> {
+    const { storeId, baseCurrency } =
+      await this.storeAccess.requireOwner(userId);
+    const staff = await this.requireStaff(storeId, staffId);
+    const year = query.year ?? new Date().getUTCFullYear();
+    const from = new Date(Date.UTC(year, 0, 1)),
+      to = new Date(Date.UTC(year + 1, 0, 1));
+    const [payments, profile] = await Promise.all([
+      this.prisma.staffSalaryPayment.findMany({
+        where: {
+          staffMemberId: staffId,
+          OR: [
+            { paymentDate: { gte: from, lt: to } },
+            { paidAt: { gte: from, lt: to } },
+          ],
+        },
+      }),
+      this.prisma.staffSalaryProfile.findUnique({
+        where: { staffMemberId: staffId },
+      }),
+    ]);
+    let paid = new Prisma.Decimal(0),
+      remaining = new Prisma.Decimal(0),
+      count = 0,
+      projected = false;
+    const dates = new Set(
+      payments.map((p) => salaryDay(p.scheduledFor ?? p.paymentDate).getTime()),
+    );
+    for (const p of payments) {
+      if (
+        p.status === SalaryPaymentStatus.PAID &&
+        p.paidAt &&
+        p.paidAt >= from &&
+        p.paidAt < to
+      )
+        paid = paid.plus(p.amount);
+      if (
+        p.status === SalaryPaymentStatus.PENDING &&
+        p.paymentDate >= from &&
+        p.paymentDate < to
+      ) {
+        remaining = remaining.plus(p.amount);
+        count++;
+      }
+    }
+    if (profile?.nextPaymentDate && staff.status === StaffStatus.ACTIVE) {
+      let date = salaryDay(profile.nextPaymentDate);
+      // Skip to requested year without iterating decades of daily occurrences.
+      if (date < from && profile.frequency !== SalaryFrequency.MONTHLY) {
+        const step =
+          profile.frequency === SalaryFrequency.DAILY ? 86400000 : 604800000;
+        date = new Date(
+          date.getTime() +
+            Math.ceil((from.getTime() - date.getTime()) / step) * step,
+        );
+      }
+      while (date < to) {
+        if (date >= from && !dates.has(date.getTime())) {
+          remaining = remaining.plus(profile.baseSalary);
+          count++;
+          projected = true;
+        }
+        date = advance(date, profile.frequency, profile.startDate.getUTCDate());
+      }
+    }
+    return {
+      year,
+      currency: baseCurrency,
+      totalPaidThisYear: paid.toFixed(2),
+      remainingPayments: count,
+      remainingAmount: remaining.toFixed(2),
+      annualTotal: paid.plus(remaining).toFixed(2),
+      projected,
+    };
   }
 
   private async requireStaff(storeId: string, staffId: string) {
     const staff = await this.prisma.staffMember.findFirst({
       where: { id: staffId, storeId },
     });
-    if (!staff) {
-      throw new NotFoundException('Staff member not found');
-    }
+    if (!staff) throw new NotFoundException('Staff member not found');
     return staff;
   }
-
-  private async resolveSalaryCategoryId(storeId: string): Promise<string> {
-    const existing = await this.prisma.expenseCategory.findFirst({
-      where: { storeId, group: 'SALARY' },
-      select: { id: true },
-    });
-    if (existing) return existing.id;
-
-    const created = await this.prisma.expenseCategory.create({
-      data: { storeId, name: 'Salaries', group: 'SALARY', isSystem: true },
-      select: { id: true },
-    });
-    return created.id;
-  }
 }
 
-/**
- * `anchorDay` is the day-of-month the schedule is meant to land on — the
- * profile's original startDate, NOT the previous payment's date. Deriving
- * the anchor from the previous payment instead would permanently drift a
- * schedule once it's clamped by a short month (Jan 31 -> Feb 28 -> Mar 28
- * forever, since 28 becomes the new "day"). Anchoring to startDate instead
- * gives Jan 31 -> Feb 28 -> Mar 31 -> Apr 30 -> May 31 — it returns to the
- * 31st every time a long-enough month comes back around.
- */
-function resolveNextPaymentDateOnUpdate(
-  existing: StaffSalaryProfile | null,
-  newStartDate: Date,
+export async function lockStaff(
+  tx: Prisma.TransactionClient,
+  storeId: string,
+  staffId: string,
+): Promise<void> {
+  const rows = await tx.$queryRaw<
+    { id: string }[]
+  >`SELECT "id" FROM "StaffMember" WHERE "id" = ${staffId} AND "storeId" = ${storeId} FOR UPDATE`;
+  if (!rows.length) throw new NotFoundException('Staff member not found');
+}
+
+export function salaryProfileData(
+  dto: SetSalaryProfileDto,
+  existing?: StaffSalaryProfile | null,
+) {
+  const startDate = salaryDay(new Date(dto.startDate));
+  const unchanged =
+    existing && salaryDay(existing.startDate).getTime() === startDate.getTime();
+  return {
+    baseSalary: dto.baseSalary,
+    frequency: dto.frequency,
+    paymentMethod: dto.paymentMethod,
+    expenseHandling:
+      dto.expenseHandling ??
+      existing?.expenseHandling ??
+      SalaryExpenseHandling.AUTOMATIC,
+    startDate,
+    nextPaymentDate:
+      unchanged && existing.nextPaymentDate
+        ? existing.nextPaymentDate
+        : startDate,
+    notes: dto.notes ?? null,
+  };
+}
+
+export function advance(
+  date: Date,
+  frequency: SalaryFrequency,
+  anchorDay: number,
 ): Date {
-  // No profile yet, or it was MANUAL (nextPaymentDate already null): the
-  // schedule starts fresh from the (possibly just-set) startDate.
-  if (!existing || existing.nextPaymentDate === null) {
-    return newStartDate;
-  }
-  // Already AUTOMATIC and startDate hasn't changed: this is an edit to some
-  // other field (baseSalary, notes, ...) — leave the running schedule alone
-  // rather than resetting it back to startDate on every unrelated save.
-  if (existing.startDate.getTime() === newStartDate.getTime()) {
-    return existing.nextPaymentDate;
-  }
-  // startDate was deliberately changed while already AUTOMATIC: honor it.
-  return newStartDate;
-}
-export function advance(date: Date, frequency: SalaryFrequency, anchorDay: number): Date {
   switch (frequency) {
     case SalaryFrequency.DAILY: {
       const next = new Date(date);
@@ -492,13 +694,19 @@ function addMonthClamped(date: Date, anchorDay: number): Date {
     ),
   );
   const lastDayOfTargetMonth = new Date(
-    Date.UTC(firstOfTargetMonth.getUTCFullYear(), firstOfTargetMonth.getUTCMonth() + 1, 0),
+    Date.UTC(
+      firstOfTargetMonth.getUTCFullYear(),
+      firstOfTargetMonth.getUTCMonth() + 1,
+      0,
+    ),
   ).getUTCDate();
   firstOfTargetMonth.setUTCDate(Math.min(anchorDay, lastDayOfTargetMonth));
   return firstOfTargetMonth;
 }
 
-function toProfileResponse(profile: StaffSalaryProfile): SalaryProfileResponseDto {
+export function toProfileResponse(
+  profile: StaffSalaryProfile,
+): SalaryProfileResponseDto {
   return {
     baseSalary: profile.baseSalary.toFixed(2),
     frequency: profile.frequency,
@@ -511,46 +719,61 @@ function toProfileResponse(profile: StaffSalaryProfile): SalaryProfileResponseDt
 }
 
 function toPaymentResponse(
-  payment: StaffSalaryPayment,
-  staffName: string,
-  now: Date = new Date(),
+  p: Payment,
+  now = new Date(),
 ): SalaryPaymentResponseDto {
   return {
-    id: payment.id,
-    staffMemberId: payment.staffMemberId,
-    staffName,
-    amount: payment.amount.toFixed(2),
-    paymentDate: payment.paymentDate.toISOString(),
-    paidAt: payment.paidAt?.toISOString() ?? null,
-    paymentMethod: payment.paymentMethod,
-    status: payment.status,
-    displayStatus: deriveSalaryDisplayStatus(
-      payment.status,
-      payment.paymentDate,
-      now,
-    ),
-    notes: payment.notes,
-    receiptUrl: payment.receiptUrl,
+    id: p.id,
+    staffMemberId: p.staffMemberId,
+    staffName: p.staffMember.name,
+    photoUrl: p.staffMember.photoUrl,
+    jobTitle: p.staffMember.jobTitle,
+    amount: p.amount.toFixed(2),
+    paymentDate: p.paymentDate.toISOString(),
+    paidAt: p.paidAt?.toISOString() ?? null,
+    paymentMethod: p.paymentMethod,
+    status: p.status,
+    displayStatus: deriveSalaryDisplayStatus(p.status, p.paymentDate, now),
+    notes: p.notes,
+    receiptUrl: p.receiptUrl,
+    frequency: p.frequency,
+    nextPaymentDate:
+      p.staffMember.salaryProfile?.nextPaymentDate?.toISOString() ?? null,
+    expenseHandling: p.expenseHandling,
+    expenseId: p.expenseId,
+    expenseRecorded: !!p.expenseId,
   };
 }
-
 function displayStatusWhere(
   status: SalaryPaymentDisplayStatus | undefined,
   now: Date,
 ): Prisma.StaffSalaryPaymentWhereInput {
   if (!status) return {};
-  if (status === 'PAID') {
-    return { status: SalaryPaymentStatus.PAID };
-  }
-  if (status === 'PENDING') {
-    return {
-      status: SalaryPaymentStatus.PENDING,
-      paymentDate: { gte: now },
-    };
-  }
-  // OVERDUE
+  if (status === 'PAID') return { status: SalaryPaymentStatus.PAID };
   return {
     status: SalaryPaymentStatus.PENDING,
-    paymentDate: { lt: now },
+    paymentDate:
+      status === 'PENDING' ? { gte: salaryDay(now) } : { lt: salaryDay(now) },
   };
+}
+
+/** Include legacy records whose due-date key predates this migration. */
+async function findSalaryForDay(
+  tx: Prisma.TransactionClient,
+  staffMemberId: string,
+  day: Date,
+) {
+  const keyed = await tx.staffSalaryPayment.findUnique({
+    where: { staffMemberId_scheduledFor: { staffMemberId, scheduledFor: day } },
+    select: { id: true },
+  });
+  if (keyed) return keyed;
+  return tx.staffSalaryPayment.findFirst({
+    where: {
+      staffMemberId,
+      scheduledFor: null,
+      paymentDate: { gte: day, lt: new Date(day.getTime() + 86400000) },
+    },
+    select: { id: true },
+  });
 }
