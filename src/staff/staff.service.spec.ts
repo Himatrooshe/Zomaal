@@ -1,4 +1,8 @@
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { StaffStatus } from '@prisma/client';
 import { StaffService } from './staff.service';
 import { PERMISSIONS } from '../access/permissions';
@@ -6,12 +10,25 @@ import { PERMISSIONS } from '../access/permissions';
 const STORE_ACCESS = { storeId: 'store-1', isOwner: true };
 
 function build() {
-  const prisma = {
+  const prisma: any = {
     user: { findUnique: jest.fn(), create: jest.fn() },
-    staffMember: { findMany: jest.fn(), findFirst: jest.fn(), count: jest.fn(), update: jest.fn() },
+    staffMember: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      count: jest.fn(),
+      update: jest.fn(),
+    },
     role: { findFirst: jest.fn() },
+    staffSalaryProfile: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      update: jest.fn(),
+    },
+    $queryRaw: jest.fn().mockResolvedValue([{ id: 'staff-1' }]),
   };
-  const storeAccess = { requireOwner: jest.fn().mockResolvedValue(STORE_ACCESS) };
+  prisma.$transaction = jest.fn((cb) => cb(prisma));
+  const storeAccess = {
+    requireOwner: jest.fn().mockResolvedValue(STORE_ACCESS),
+  };
   const service = new StaffService(prisma as never, storeAccess as never);
   return { service, prisma, storeAccess };
 }
@@ -27,7 +44,11 @@ const STAFF_ROW = {
   lastLoginAt: null,
   permissionOverrides: [],
   user: { phone: '+212600000002' },
-  role: { id: 'role-1', name: 'Manager', permissions: [PERMISSIONS.ORDERS_VIEW] },
+  role: {
+    id: 'role-1',
+    name: 'Manager',
+    permissions: [PERMISSIONS.ORDERS_VIEW],
+  },
   salaryProfile: null,
 };
 
@@ -35,7 +56,9 @@ describe('StaffService', () => {
   it('rejects any non-owner via requireOwner', async () => {
     const { service, storeAccess, prisma } = build();
     storeAccess.requireOwner.mockRejectedValue(new ForbiddenException('nope'));
-    await expect(service.list('staff-user', {})).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.list('staff-user', {})).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     expect(prisma.staffMember.findMany).not.toHaveBeenCalled();
   });
 
@@ -133,9 +156,16 @@ describe('StaffService', () => {
   it('deactivating staff never deletes the row', async () => {
     const { service, prisma } = build();
     prisma.staffMember.findFirst.mockResolvedValue(STAFF_ROW);
-    prisma.staffMember.update.mockResolvedValue({ ...STAFF_ROW, status: StaffStatus.INACTIVE });
+    prisma.staffMember.update.mockResolvedValue({
+      ...STAFF_ROW,
+      status: StaffStatus.INACTIVE,
+    });
 
-    const result = await service.setStatus('owner-user', 'staff-1', StaffStatus.INACTIVE);
+    const result = await service.setStatus(
+      'owner-user',
+      'staff-1',
+      StaffStatus.INACTIVE,
+    );
 
     expect(result.status).toBe(StaffStatus.INACTIVE);
     expect(prisma.staffMember.update).toHaveBeenCalledWith(

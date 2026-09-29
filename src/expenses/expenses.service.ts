@@ -8,13 +8,24 @@ import { ExpenseGroup, MediaAssetPurpose, Prisma } from '@prisma/client';
 import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import type { StoreAccess } from '../access/store-access.service';
-import { MediaService, type WarehouseMediaUploadFile } from '../warehouse/media.service';
-import { attachReceipt, receiptPreviewPath } from '../common/media/attach-receipt.util';
+import {
+  MediaService,
+  type WarehouseMediaUploadFile,
+} from '../warehouse/media.service';
+import {
+  attachReceipt,
+  receiptPreviewPath,
+} from '../common/media/attach-receipt.util';
 import {
   isForeignKeyConstraintError,
   isUniqueConstraintError,
 } from '../common/prisma-errors.util';
-import { calculateTrend, lastNMonthKeys, monthKey, monthsAgoStart } from '../common/trend.util';
+import {
+  calculateTrend,
+  lastNMonthKeys,
+  monthKey,
+  monthsAgoStart,
+} from '../common/trend.util';
 import {
   MonthlyTrendQueryDto,
   MonthlyTrendResponseDto,
@@ -37,9 +48,12 @@ import {
 
 const EXPENSE_INCLUDE = {
   category: true,
+  salaryPayment: { select: { id: true } },
 } satisfies Prisma.ExpenseInclude;
 
-type ExpenseWithCategory = Prisma.ExpenseGetPayload<{ include: typeof EXPENSE_INCLUDE }>;
+type ExpenseWithCategory = Prisma.ExpenseGetPayload<{
+  include: typeof EXPENSE_INCLUDE;
+}>;
 
 @Injectable()
 export class ExpensesService {
@@ -73,7 +87,11 @@ export class ExpensesService {
     };
   }
 
-  async streamReceipt(access: StoreAccess, assetId: string, response: Response): Promise<void> {
+  async streamReceipt(
+    access: StoreAccess,
+    assetId: string,
+    response: Response,
+  ): Promise<void> {
     return this.media.streamForStore(access.storeId, assetId, response);
   }
 
@@ -97,9 +115,9 @@ export class ExpensesService {
     // some salary expenses could land in the wrong one. And a category that
     // can never receive a directly-created expense (rejectSalaryCategory in
     // create()/update() below) is a dead end for the owner anyway.
-    if ((dto.group ?? ExpenseGroup.OTHER) === ExpenseGroup.SALARY) {
+    if (isSystemManagedGroup(dto.group ?? ExpenseGroup.OTHER)) {
       throw new ConflictException(
-        'The SALARY category is managed automatically by Staff Salary and cannot be created directly.',
+        'Shipping, advertising, purchase, and salary categories are managed by their source modules and cannot be created directly.',
       );
     }
 
@@ -140,9 +158,18 @@ export class ExpensesService {
     // but never let a DIFFERENT category be reassigned into SALARY — same
     // "only one SALARY category, resolved deterministically" reasoning as
     // createCategory().
-    if (dto.group === ExpenseGroup.SALARY && category.group !== ExpenseGroup.SALARY) {
+    if (
+      dto.group &&
+      isSystemManagedGroup(dto.group) &&
+      dto.group !== category.group
+    ) {
       throw new ConflictException(
-        'The SALARY category is managed automatically by Staff Salary and cannot be assigned directly.',
+        'System-managed expense groups cannot be assigned to or removed from a custom category.',
+      );
+    }
+    if (category.isSystem && dto.group && dto.group !== category.group) {
+      throw new ConflictException(
+        'System expense categories cannot change groups.',
       );
     }
 
@@ -201,7 +228,11 @@ export class ExpensesService {
 
   // ---- Expenses -----------------------------------------------------------
 
-  async list(storeId: string, query: ExpenseListQueryDto): Promise<ExpenseListResponseDto> {
+  async list(
+    storeId: string,
+    query: ExpenseListQueryDto,
+  ): Promise<ExpenseListResponseDto> {
+    assertDateRange(query.dateFrom, query.dateTo);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
@@ -209,12 +240,14 @@ export class ExpensesService {
       storeId,
       ...(query.categoryId ? { categoryId: query.categoryId } : {}),
       ...(query.group ? { category: { group: query.group } } : {}),
-      ...(query.search ? { title: { contains: query.search, mode: 'insensitive' } } : {}),
+      ...(query.search
+        ? { title: { contains: query.search, mode: 'insensitive' } }
+        : {}),
       ...(query.dateFrom || query.dateTo
         ? {
             spentAt: {
               ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-              ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
+              ...(query.dateTo ? { lt: endOfDateFilter(query.dateTo) } : {}),
             },
           }
         : {}),
@@ -245,13 +278,14 @@ export class ExpensesService {
     storeId: string,
     query: ExpenseSummaryQueryDto,
   ): Promise<ExpenseSummaryResponseDto> {
+    assertDateRange(query.dateFrom, query.dateTo);
     const where: Prisma.ExpenseWhereInput = {
       storeId,
       ...(query.dateFrom || query.dateTo
         ? {
             spentAt: {
               ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-              ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
+              ...(query.dateTo ? { lt: endOfDateFilter(query.dateTo) } : {}),
             },
           }
         : {}),
@@ -266,7 +300,10 @@ export class ExpensesService {
     let totalAmount = new Prisma.Decimal(0);
     for (const expense of expenses) {
       const group = expense.category.group;
-      totals.set(group, (totals.get(group) ?? new Prisma.Decimal(0)).plus(expense.amount));
+      totals.set(
+        group,
+        (totals.get(group) ?? new Prisma.Decimal(0)).plus(expense.amount),
+      );
       totalAmount = totalAmount.plus(expense.amount);
     }
 
@@ -280,7 +317,10 @@ export class ExpensesService {
   }
 
   /** Monthly totals for the Expenses trend/line chart. */
-  async trend(storeId: string, query: MonthlyTrendQueryDto): Promise<MonthlyTrendResponseDto> {
+  async trend(
+    storeId: string,
+    query: MonthlyTrendQueryDto,
+  ): Promise<MonthlyTrendResponseDto> {
     const months = query.months ?? 6;
     const keys = lastNMonthKeys(months);
     const since = monthsAgoStart(months);
@@ -293,7 +333,10 @@ export class ExpensesService {
     const totals = new Map<string, Prisma.Decimal>();
     for (const expense of expenses) {
       const key = monthKey(expense.spentAt);
-      totals.set(key, (totals.get(key) ?? new Prisma.Decimal(0)).plus(expense.amount));
+      totals.set(
+        key,
+        (totals.get(key) ?? new Prisma.Decimal(0)).plus(expense.amount),
+      );
     }
 
     const points = keys.map((month) => ({
@@ -307,7 +350,10 @@ export class ExpensesService {
     return { points, trend: calculateTrend(current, previous) };
   }
 
-  async create(access: StoreAccess, dto: CreateExpenseDto): Promise<ExpenseResponseDto> {
+  async create(
+    access: StoreAccess,
+    dto: CreateExpenseDto,
+  ): Promise<ExpenseResponseDto> {
     const category = await this.requireCategory(access.storeId, dto.categoryId);
     this.rejectSalaryCategory(category.group);
 
@@ -321,19 +367,33 @@ export class ExpensesService {
           spentAt: new Date(dto.spentAt),
           categoryId: dto.categoryId,
           notes: dto.notes ?? null,
-          receiptUrl: dto.receiptAssetId ? receiptPreviewPath(dto.receiptAssetId) : (dto.receiptUrl ?? null),
+          receiptUrl: dto.receiptAssetId
+            ? receiptPreviewPath(dto.receiptAssetId)
+            : (dto.receiptUrl ?? null),
           createdByUserId: access.userId,
         },
       });
 
       if (dto.receiptAssetId) {
-        await attachReceipt(tx, access.storeId, dto.receiptAssetId, { expenseId: created.id });
+        await attachReceipt(tx, access.storeId, dto.receiptAssetId, {
+          expenseId: created.id,
+        });
       }
 
-      return tx.expense.findUniqueOrThrow({ where: { id: created.id }, include: EXPENSE_INCLUDE });
+      return tx.expense.findUniqueOrThrow({
+        where: { id: created.id },
+        include: EXPENSE_INCLUDE,
+      });
     });
 
     return toExpenseResponse(expense);
+  }
+
+  async details(
+    storeId: string,
+    expenseId: string,
+  ): Promise<ExpenseResponseDto> {
+    return toExpenseResponse(await this.requireExpense(storeId, expenseId));
   }
 
   async update(
@@ -345,23 +405,30 @@ export class ExpensesService {
     this.rejectIfSalaryGenerated(expense);
 
     if (dto.categoryId && dto.categoryId !== expense.categoryId) {
-      const category = await this.requireCategory(access.storeId, dto.categoryId);
+      const category = await this.requireCategory(
+        access.storeId,
+        dto.categoryId,
+      );
       this.rejectSalaryCategory(category.group);
     }
 
+    let previousReceipt: { id: string } | null = null;
     if (dto.receiptAssetId) {
       // expenseId is @unique on MediaAsset — replacing the receipt means
       // freeing the old one first (best-effort GCS delete, same as remove()),
       // done outside the transaction since the GCS call can't roll back with it.
-      const existingReceipt = await this.prisma.mediaAsset.findUnique({ where: { expenseId } });
-      if (existingReceipt && existingReceipt.id !== dto.receiptAssetId) {
-        await this.media.deleteAttachedAsset(existingReceipt.id).catch(() => undefined);
-      }
+      const existingReceipt = await this.prisma.mediaAsset.findUnique({
+        where: { expenseId },
+      });
+      if (existingReceipt && existingReceipt.id !== dto.receiptAssetId)
+        previousReceipt = existingReceipt;
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (dto.receiptAssetId) {
-        await attachReceipt(tx, access.storeId, dto.receiptAssetId, { expenseId });
+        await attachReceipt(tx, access.storeId, dto.receiptAssetId, {
+          expenseId,
+        });
       }
 
       return tx.expense.update({
@@ -373,11 +440,18 @@ export class ExpensesService {
           spentAt: dto.spentAt ? new Date(dto.spentAt) : undefined,
           categoryId: dto.categoryId,
           notes: dto.notes,
-          receiptUrl: dto.receiptAssetId ? receiptPreviewPath(dto.receiptAssetId) : dto.receiptUrl,
+          receiptUrl: dto.receiptAssetId
+            ? receiptPreviewPath(dto.receiptAssetId)
+            : dto.receiptUrl,
         },
         include: EXPENSE_INCLUDE,
       });
     });
+
+    if (previousReceipt)
+      await this.media
+        .deleteAttachedAsset(previousReceipt.id)
+        .catch(() => undefined);
 
     return toExpenseResponse(updated);
   }
@@ -389,11 +463,12 @@ export class ExpensesService {
     // The FK is SetNull, not Cascade, so deleting the expense wouldn't clean
     // up an attached receipt on its own — do it explicitly so nothing is
     // left orphaned in Cloud Storage.
-    const receipt = await this.prisma.mediaAsset.findUnique({ where: { expenseId } });
-    if (receipt) {
-      await this.media.deleteAttachedAsset(receipt.id).catch(() => undefined);
-    }
+    const receipt = await this.prisma.mediaAsset.findUnique({
+      where: { expenseId },
+    });
     await this.prisma.expense.delete({ where: { id: expenseId } });
+    if (receipt)
+      await this.media.deleteAttachedAsset(receipt.id).catch(() => undefined);
   }
 
   private rejectSalaryCategory(group: ExpenseGroup): void {
@@ -404,10 +479,12 @@ export class ExpensesService {
     }
   }
 
-  private rejectIfSalaryGenerated(expense: { staffMemberId: string | null }): void {
+  private rejectIfSalaryGenerated(expense: {
+    staffMemberId: string | null;
+  }): void {
     if (expense.staffMemberId) {
       throw new ConflictException(
-        'This expense was generated from a salary payment — edit or delete it from Staff Salary instead.',
+        'This expense is linked to a confirmed salary payment and cannot be edited or deleted.',
       );
     }
   }
@@ -422,7 +499,10 @@ export class ExpensesService {
     return category;
   }
 
-  private async requireExpense(storeId: string, expenseId: string): Promise<ExpenseWithCategory> {
+  private async requireExpense(
+    storeId: string,
+    expenseId: string,
+  ): Promise<ExpenseWithCategory> {
     const expense = await this.prisma.expense.findFirst({
       where: { id: expenseId, storeId },
       include: EXPENSE_INCLUDE,
@@ -431,6 +511,34 @@ export class ExpensesService {
       throw new NotFoundException('Expense not found');
     }
     return expense;
+  }
+}
+
+function isSystemManagedGroup(group: ExpenseGroup): boolean {
+  return (
+    [
+      ExpenseGroup.SHIPPING,
+      ExpenseGroup.ADS,
+      ExpenseGroup.PURCHASES,
+      ExpenseGroup.SALARY,
+    ] as ExpenseGroup[]
+  ).includes(group);
+}
+
+function endOfDateFilter(value: string): Date {
+  const date = new Date(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(date.getTime() + 24 * 60 * 60 * 1000)
+    : date;
+}
+
+function assertDateRange(dateFrom?: string, dateTo?: string): void {
+  if (
+    dateFrom &&
+    dateTo &&
+    new Date(dateFrom).getTime() > endOfDateFilter(dateTo).getTime()
+  ) {
+    throw new BadRequestException('dateFrom must be before or equal to dateTo');
   }
 }
 
@@ -463,6 +571,7 @@ function toExpenseResponse(expense: ExpenseWithCategory): ExpenseResponseDto {
     receiptUrl: expense.receiptUrl,
     category: toCategoryResponse(expense.category),
     staffMemberId: expense.staffMemberId,
+    salaryPaymentId: expense.salaryPayment?.id ?? null,
     isSalaryGenerated: expense.staffMemberId !== null,
     createdAt: expense.createdAt.toISOString(),
   };

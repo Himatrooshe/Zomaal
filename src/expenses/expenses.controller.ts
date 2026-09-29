@@ -68,8 +68,14 @@ import {
 @ApiTags('Expenses')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, PermissionGuard)
-@ApiUnauthorizedResponse({ description: 'Missing or invalid Zomaal access token.', type: ApiErrorDto })
-@ApiForbiddenResponse({ description: "You don't have permission to access Expenses.", type: ApiErrorDto })
+@ApiUnauthorizedResponse({
+  description: 'Missing or invalid Zomaal access token.',
+  type: ApiErrorDto,
+})
+@ApiForbiddenResponse({
+  description: "You don't have permission to access Expenses.",
+  type: ApiErrorDto,
+})
 @Controller('expenses')
 export class ExpensesController {
   constructor(private readonly expenses: ExpensesService) {}
@@ -78,7 +84,9 @@ export class ExpensesController {
 
   @Get('categories')
   @RequirePermission(PERMISSIONS.EXPENSES_VIEW)
-  @ApiOperation({ summary: 'List expense categories (Add Expense / Create Category screens)' })
+  @ApiOperation({
+    summary: 'List expense categories (Add Expense / Create Category screens)',
+  })
   @ApiOkResponse({ type: ExpenseCategoryListResponseDto })
   async listCategories(
     @CurrentStoreAccess() access: StoreAccess,
@@ -88,9 +96,14 @@ export class ExpensesController {
 
   @Post('categories')
   @RequirePermission(PERMISSIONS.EXPENSES_ADD)
-  @ApiOperation({ summary: 'Create an expense category (Create Category screen)' })
+  @ApiOperation({
+    summary: 'Create an expense category (Create Category screen)',
+  })
   @ApiOkResponse({ type: ExpenseCategoryResponseDto })
-  @ApiConflictResponse({ description: 'A category with this name already exists.', type: ApiErrorDto })
+  @ApiConflictResponse({
+    description: 'A category with this name already exists.',
+    type: ApiErrorDto,
+  })
   createCategory(
     @CurrentStoreAccess() access: StoreAccess,
     @Body() dto: CreateExpenseCategoryDto,
@@ -103,8 +116,14 @@ export class ExpensesController {
   @ApiOperation({ summary: 'Update an expense category' })
   @ApiParam({ name: 'categoryId', format: 'uuid' })
   @ApiOkResponse({ type: ExpenseCategoryResponseDto })
-  @ApiNotFoundResponse({ description: 'Category not found.', type: ApiErrorDto })
-  @ApiConflictResponse({ description: 'A category with this name already exists.', type: ApiErrorDto })
+  @ApiNotFoundResponse({
+    description: 'Category not found.',
+    type: ApiErrorDto,
+  })
+  @ApiConflictResponse({
+    description: 'A category with this name already exists.',
+    type: ApiErrorDto,
+  })
   updateCategory(
     @CurrentStoreAccess() access: StoreAccess,
     @Param('categoryId', new ParseUUIDPipe()) categoryId: string,
@@ -119,9 +138,13 @@ export class ExpensesController {
   @ApiOperation({ summary: 'Delete an expense category' })
   @ApiParam({ name: 'categoryId', format: 'uuid' })
   @ApiNoContentResponse()
-  @ApiNotFoundResponse({ description: 'Category not found.', type: ApiErrorDto })
+  @ApiNotFoundResponse({
+    description: 'Category not found.',
+    type: ApiErrorDto,
+  })
   @ApiConflictResponse({
-    description: 'The category is a system category, or still has expenses recorded against it.',
+    description:
+      'The category is a system category, or still has expenses recorded against it.',
     type: ApiErrorDto,
   })
   removeCategory(
@@ -135,7 +158,11 @@ export class ExpensesController {
 
   @Post('receipts')
   @RequirePermission(PERMISSIONS.EXPENSES_ADD)
-  @UseInterceptors(FileInterceptor('receipt', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  @UseInterceptors(
+    FileInterceptor('receipt', {
+      limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -156,8 +183,14 @@ export class ExpensesController {
       'Stores the image privately and returns an id valid for 24 hours. Pass it as receiptAssetId when creating the expense or salary payment to attach it permanently.',
   })
   @ApiCreatedResponse({ type: ExpenseReceiptResponseDto })
-  @ApiBadRequestResponse({ description: 'Missing file or unsupported/corrupt image.', type: ApiErrorDto })
-  @ApiServiceUnavailableResponse({ description: 'Private image storage is unavailable.', type: ApiErrorDto })
+  @ApiBadRequestResponse({
+    description: 'Missing file or unsupported/corrupt image.',
+    type: ApiErrorDto,
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'Private image storage is unavailable.',
+    type: ApiErrorDto,
+  })
   uploadReceipt(
     @CurrentStoreAccess() access: StoreAccess,
     @UploadedFile() file?: WarehouseMediaUploadFile,
@@ -170,9 +203,15 @@ export class ExpensesController {
   @ApiParam({ name: 'assetId', format: 'uuid' })
   @ApiProduces('image/jpeg', 'image/png', 'image/webp')
   @ApiOperation({ summary: 'Read a private receipt photo' })
-  @ApiOkResponse({ description: 'Raw image bytes.', schema: { type: 'string', format: 'binary' } })
+  @ApiOkResponse({
+    description: 'Raw image bytes.',
+    schema: { type: 'string', format: 'binary' },
+  })
   @ApiNotFoundResponse({ description: 'Receipt not found.', type: ApiErrorDto })
-  @ApiServiceUnavailableResponse({ description: 'The private image could not be read.', type: ApiErrorDto })
+  @ApiServiceUnavailableResponse({
+    description: 'The private image could not be read.',
+    type: ApiErrorDto,
+  })
   streamReceipt(
     @CurrentStoreAccess() access: StoreAccess,
     @Param('assetId', new ParseUUIDPipe()) assetId: string,
@@ -222,11 +261,18 @@ export class ExpensesController {
   @RequirePermission(PERMISSIONS.EXPENSES_ADD)
   @ApiOperation({
     summary: 'Add an expense (Add Expense screen)',
-    description: 'Categories in the SALARY group are rejected here — record those from Staff Salary instead.',
+    description:
+      'Categories in the SALARY group are rejected here — record those from Staff Salary instead.',
   })
   @ApiOkResponse({ type: ExpenseResponseDto })
-  @ApiNotFoundResponse({ description: 'Category not found.', type: ApiErrorDto })
-  @ApiConflictResponse({ description: 'The category is a SALARY-group category.', type: ApiErrorDto })
+  @ApiNotFoundResponse({
+    description: 'Category not found.',
+    type: ApiErrorDto,
+  })
+  @ApiConflictResponse({
+    description: 'The category is a SALARY-group category.',
+    type: ApiErrorDto,
+  })
   create(
     @CurrentStoreAccess() access: StoreAccess,
     @Body() dto: CreateExpenseDto,
@@ -234,14 +280,31 @@ export class ExpensesController {
     return this.expenses.create(access, dto);
   }
 
+  @Get(':expenseId')
+  @RequirePermission(PERMISSIONS.EXPENSES_VIEW)
+  @ApiOperation({ summary: 'Get one expense (Expense details screen)' })
+  @ApiParam({ name: 'expenseId', format: 'uuid' })
+  @ApiOkResponse({ type: ExpenseResponseDto })
+  @ApiNotFoundResponse({ description: 'Expense not found.', type: ApiErrorDto })
+  details(
+    @CurrentStoreAccess() access: StoreAccess,
+    @Param('expenseId', new ParseUUIDPipe()) expenseId: string,
+  ): Promise<ExpenseResponseDto> {
+    return this.expenses.details(access.storeId, expenseId);
+  }
+
   @Patch(':expenseId')
   @RequirePermission(PERMISSIONS.EXPENSES_EDIT)
   @ApiOperation({ summary: 'Edit an expense' })
   @ApiParam({ name: 'expenseId', format: 'uuid' })
   @ApiOkResponse({ type: ExpenseResponseDto })
-  @ApiNotFoundResponse({ description: 'Expense or category not found.', type: ApiErrorDto })
+  @ApiNotFoundResponse({
+    description: 'Expense or category not found.',
+    type: ApiErrorDto,
+  })
   @ApiConflictResponse({
-    description: 'The expense was generated from a salary payment, or the new category is SALARY-group.',
+    description:
+      'The expense was generated from a salary payment, or the new category is SALARY-group.',
     type: ApiErrorDto,
   })
   update(

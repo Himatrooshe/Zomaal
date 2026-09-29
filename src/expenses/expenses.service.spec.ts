@@ -1,12 +1,19 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ExpenseGroup, ExpensePaymentMethod, Prisma } from '@prisma/client';
 import { ExpensesService } from './expenses.service';
 
 function foreignKeyConstraintError() {
-  return new Prisma.PrismaClientKnownRequestError('Foreign key constraint failed', {
-    code: 'P2003',
-    clientVersion: 'test',
-  });
+  return new Prisma.PrismaClientKnownRequestError(
+    'Foreign key constraint failed',
+    {
+      code: 'P2003',
+      clientVersion: 'test',
+    },
+  );
 }
 
 function uniqueConstraintError() {
@@ -21,7 +28,11 @@ function decimal(value: string) {
     toString: () => value,
     toFixed: (n: number) => Number(value).toFixed(n),
     plus: (other: unknown) =>
-      decimal((Number(value) + Number((other as { toString(): string }).toString())).toString()),
+      decimal(
+        (
+          Number(value) + Number((other as { toString(): string }).toString())
+        ).toString(),
+      ),
   };
 }
 
@@ -65,7 +76,11 @@ function build() {
   return { service, prisma, media };
 }
 
-const ACCESS = { storeId: 'store-1', userId: 'owner-user', isOwner: true } as never;
+const ACCESS = {
+  storeId: 'store-1',
+  userId: 'owner-user',
+  isOwner: true,
+} as never;
 
 const CATEGORY = {
   id: 'cat-1',
@@ -76,7 +91,12 @@ const CATEGORY = {
   isSystem: false,
 };
 
-const SALARY_CATEGORY = { ...CATEGORY, id: 'cat-salary', group: ExpenseGroup.SALARY, isSystem: true };
+const SALARY_CATEGORY = {
+  ...CATEGORY,
+  id: 'cat-salary',
+  group: ExpenseGroup.SALARY,
+  isSystem: true,
+};
 
 describe('ExpensesService', () => {
   it('rejects creating a category with a duplicate name in the store', async () => {
@@ -91,11 +111,14 @@ describe('ExpensesService', () => {
 
   it('blocks deleting a system category', async () => {
     const { service, prisma } = build();
-    prisma.expenseCategory.findFirst.mockResolvedValue({ ...CATEGORY, isSystem: true });
+    prisma.expenseCategory.findFirst.mockResolvedValue({
+      ...CATEGORY,
+      isSystem: true,
+    });
 
-    await expect(service.removeCategory('store-1', 'cat-1')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.removeCategory('store-1', 'cat-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.expenseCategory.delete).not.toHaveBeenCalled();
   });
 
@@ -104,9 +127,9 @@ describe('ExpensesService', () => {
     prisma.expenseCategory.findFirst.mockResolvedValue(CATEGORY);
     prisma.expense.count.mockResolvedValue(3);
 
-    await expect(service.removeCategory('store-1', 'cat-1')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.removeCategory('store-1', 'cat-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.expenseCategory.delete).not.toHaveBeenCalled();
   });
 
@@ -170,7 +193,10 @@ describe('ExpensesService', () => {
     expect(result.isSalaryGenerated).toBe(false);
     expect(prisma.expense.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ createdByUserId: 'owner-user', storeId: 'store-1' }),
+        data: expect.objectContaining({
+          createdByUserId: 'owner-user',
+          storeId: 'store-1',
+        }),
       }),
     );
   });
@@ -198,16 +224,27 @@ describe('ExpensesService', () => {
       category: SALARY_CATEGORY,
     });
 
-    await expect(service.remove(ACCESS, 'exp-1')).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.remove(ACCESS, 'exp-1')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
     expect(prisma.expense.delete).not.toHaveBeenCalled();
   });
 
   it('summary sums totals per group and a grand total across all five groups', async () => {
     const { service, prisma } = build();
     prisma.expense.findMany.mockResolvedValue([
-      { amount: new Prisma.Decimal('100'), category: { group: ExpenseGroup.SHIPPING } },
-      { amount: new Prisma.Decimal('50'), category: { group: ExpenseGroup.SHIPPING } },
-      { amount: new Prisma.Decimal('25'), category: { group: ExpenseGroup.OTHER } },
+      {
+        amount: new Prisma.Decimal('100'),
+        category: { group: ExpenseGroup.SHIPPING },
+      },
+      {
+        amount: new Prisma.Decimal('50'),
+        category: { group: ExpenseGroup.SHIPPING },
+      },
+      {
+        amount: new Prisma.Decimal('25'),
+        category: { group: ExpenseGroup.OTHER },
+      },
     ]);
 
     const result = await service.summary('store-1', {});
@@ -228,19 +265,35 @@ describe('ExpensesService', () => {
     const { service, prisma } = build();
 
     await expect(
-      service.createCategory('store-1', { name: 'My Bonuses', group: ExpenseGroup.SALARY }),
+      service.createCategory('store-1', {
+        name: 'My Bonuses',
+        group: ExpenseGroup.SALARY,
+      }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.expenseCategory.create).not.toHaveBeenCalled();
     // Must reject before even checking name uniqueness against the DB.
     expect(prisma.expenseCategory.findUnique).not.toHaveBeenCalled();
   });
 
+  it.each([ExpenseGroup.SHIPPING, ExpenseGroup.ADS, ExpenseGroup.PURCHASES])(
+    'rejects creating a custom %s source category',
+    async (group) => {
+      const { service, prisma } = build();
+      await expect(
+        service.createCategory('store-1', { name: 'Custom source', group }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.expenseCategory.create).not.toHaveBeenCalled();
+    },
+  );
+
   it('rejects reassigning an existing category into the SALARY group', async () => {
     const { service, prisma } = build();
     prisma.expenseCategory.findFirst.mockResolvedValue(CATEGORY); // group: OTHER
 
     await expect(
-      service.updateCategory('store-1', 'cat-1', { group: ExpenseGroup.SALARY }),
+      service.updateCategory('store-1', 'cat-1', {
+        group: ExpenseGroup.SALARY,
+      }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.expenseCategory.update).not.toHaveBeenCalled();
   });
@@ -251,9 +304,23 @@ describe('ExpensesService', () => {
     prisma.expenseCategory.update.mockResolvedValue(SALARY_CATEGORY);
 
     await expect(
-      service.updateCategory('store-1', 'cat-salary', { group: ExpenseGroup.SALARY, color: '#000' }),
+      service.updateCategory('store-1', 'cat-salary', {
+        group: ExpenseGroup.SALARY,
+        color: '#000',
+      }),
     ).resolves.toBeDefined();
     expect(prisma.expenseCategory.update).toHaveBeenCalled();
+  });
+
+  it('does not allow a system category to be moved out of its source group', async () => {
+    const { service, prisma } = build();
+    prisma.expenseCategory.findFirst.mockResolvedValue(SALARY_CATEGORY);
+    await expect(
+      service.updateCategory('store-1', 'cat-salary', {
+        group: ExpenseGroup.OTHER,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.expenseCategory.update).not.toHaveBeenCalled();
   });
 
   it('converts a racing category-name INSERT into a clean 409, not a raw 500', async () => {
@@ -270,11 +337,13 @@ describe('ExpensesService', () => {
     const { service, prisma } = build();
     prisma.expenseCategory.findFirst.mockResolvedValue(CATEGORY);
     prisma.expense.count.mockResolvedValue(0); // pre-check saw nothing in use
-    prisma.expenseCategory.delete.mockRejectedValue(foreignKeyConstraintError()); // but lost the race
+    prisma.expenseCategory.delete.mockRejectedValue(
+      foreignKeyConstraintError(),
+    ); // but lost the race
 
-    await expect(service.removeCategory('store-1', 'cat-1')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.removeCategory('store-1', 'cat-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('attaches a receiptAssetId to the new expense and points receiptUrl at the receipts route', async () => {
@@ -307,8 +376,15 @@ describe('ExpensesService', () => {
     expect(result.receiptUrl).toBe('/expenses/receipts/asset-1');
     expect(prisma.mediaAsset.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ id: 'asset-1', storeId: 'store-1', purpose: 'RECEIPT' }),
-        data: expect.objectContaining({ status: 'ATTACHED', expenseId: 'exp-1' }),
+        where: expect.objectContaining({
+          id: 'asset-1',
+          storeId: 'store-1',
+          purpose: 'RECEIPT',
+        }),
+        data: expect.objectContaining({
+          status: 'ATTACHED',
+          expenseId: 'exp-1',
+        }),
       }),
     );
   });
@@ -357,8 +433,26 @@ describe('ExpensesService', () => {
 
     expect(media.deleteAttachedAsset).toHaveBeenCalledWith('old-asset');
     expect(prisma.mediaAsset.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ expenseId: 'exp-1' }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ expenseId: 'exp-1' }),
+      }),
     );
+  });
+
+  it('keeps the old receipt when replacement attachment fails', async () => {
+    const { service, prisma, media } = build();
+    prisma.expense.findFirst.mockResolvedValue({
+      id: 'exp-1',
+      staffMemberId: null,
+      categoryId: 'cat-1',
+      category: CATEGORY,
+    });
+    prisma.mediaAsset.findUnique.mockResolvedValue({ id: 'old-asset' });
+    prisma.mediaAsset.updateMany.mockResolvedValue({ count: 0 });
+    await expect(
+      service.update(ACCESS, 'exp-1', { receiptAssetId: 'expired-asset' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(media.deleteAttachedAsset).not.toHaveBeenCalled();
   });
 
   it('deleting an expense with a linked receipt cleans it up (best-effort)', async () => {
@@ -373,15 +467,23 @@ describe('ExpensesService', () => {
     await service.remove(ACCESS, 'exp-1');
 
     expect(media.deleteAttachedAsset).toHaveBeenCalledWith('receipt-1');
-    expect(prisma.expense.delete).toHaveBeenCalledWith({ where: { id: 'exp-1' } });
+    expect(prisma.expense.delete).toHaveBeenCalledWith({
+      where: { id: 'exp-1' },
+    });
   });
 
   it('trend: fills every month in range, including ones with zero activity', async () => {
     const { service, prisma } = build();
     const now = new Date('2026-09-15T00:00:00.000Z');
     prisma.expense.findMany.mockResolvedValue([
-      { amount: new Prisma.Decimal('100'), spentAt: new Date('2026-08-05T00:00:00.000Z') },
-      { amount: new Prisma.Decimal('50'), spentAt: new Date('2026-08-20T00:00:00.000Z') },
+      {
+        amount: new Prisma.Decimal('100'),
+        spentAt: new Date('2026-08-05T00:00:00.000Z'),
+      },
+      {
+        amount: new Prisma.Decimal('50'),
+        spentAt: new Date('2026-08-20T00:00:00.000Z'),
+      },
       // September deliberately has nothing.
     ]);
     jest.useFakeTimers().setSystemTime(now);
@@ -396,5 +498,38 @@ describe('ExpensesService', () => {
     // Last month (Sep, 0) vs prior (Aug, 150) -> down, not null (150 wasn't zero).
     expect(result.trend).toEqual({ changePercent: -100, direction: 'down' });
     jest.useRealTimers();
+  });
+
+  it('treats a date-only dateTo as the full UTC calendar day', async () => {
+    const { service, prisma } = build();
+    prisma.expense.findMany.mockResolvedValue([]);
+    prisma.expense.count.mockResolvedValue(0);
+    prisma.expense.aggregate.mockResolvedValue({ _sum: { amount: null } });
+    await service.list('store-1', { dateTo: '2026-08-31' });
+    expect(prisma.expense.findMany.mock.calls[0][0].where.spentAt).toEqual({
+      lt: new Date('2026-09-01T00:00:00.000Z'),
+    });
+  });
+
+  it('returns one store-scoped expense for the details screen', async () => {
+    const { service, prisma } = build();
+    const row = {
+      id: 'exp-1',
+      title: 'Packaging',
+      amount: decimal('10'),
+      paymentMethod: ExpensePaymentMethod.CASH,
+      spentAt: new Date('2026-08-31'),
+      notes: null,
+      receiptUrl: null,
+      category: CATEGORY,
+      staffMemberId: null,
+      salaryPayment: null,
+      createdAt: new Date(),
+    };
+    prisma.expense.findFirst.mockResolvedValue(row);
+    expect((await service.details('store-1', 'exp-1')).id).toBe('exp-1');
+    expect(prisma.expense.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'exp-1', storeId: 'store-1' } }),
+    );
   });
 });

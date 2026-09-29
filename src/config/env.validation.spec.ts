@@ -315,3 +315,35 @@ describe('validateEnvironment Lightfunnels configuration', () => {
     ).toThrow('LIGHTFUNNELS_TOKEN_ENCRYPTION_KEY');
   });
 });
+
+describe('salary scheduler configuration', () => {
+  const base = {
+    DATABASE_URL: 'postgresql://localhost/test',
+    JWT_SECRET: 'x'.repeat(32),
+    SHIPPING_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64'),
+  };
+  it('defaults to disabled and requires a strong secret when enabled', () => {
+    expect(validateEnvironment(base).STAFF_SALARY_SCHEDULER_ENABLED).toBe(
+      'false',
+    );
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        STAFF_SALARY_SCHEDULER_ENABLED: 'true',
+        STAFF_SALARY_SCHEDULER_SECRET: 'short',
+      }),
+    ).toThrow('STAFF_SALARY_SCHEDULER_SECRET');
+    expect(
+      validateEnvironment({
+        ...base,
+        STAFF_SALARY_SCHEDULER_ENABLED: 'true',
+        STAFF_SALARY_SCHEDULER_SECRET: 'x'.repeat(32),
+      }).STAFF_SALARY_SCHEDULER_ENABLED,
+    ).toBe('true');
+  });
+  it('rejects a misspelled enabled flag', () => {
+    expect(() =>
+      validateEnvironment({ ...base, STAFF_SALARY_SCHEDULER_ENABLED: 'yes' }),
+    ).toThrow('STAFF_SALARY_SCHEDULER_ENABLED');
+  });
+});

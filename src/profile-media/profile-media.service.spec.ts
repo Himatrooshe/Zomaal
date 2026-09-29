@@ -12,7 +12,7 @@ describe('ProfileMediaService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
-      staffMember: { update: jest.fn() },
+      staffMember: { update: jest.fn(), findFirst: jest.fn() },
     };
     const images = {
       save: jest.fn().mockResolvedValue(undefined),
@@ -95,5 +95,55 @@ describe('ProfileMediaService', () => {
     await expect(
       service.streamUserPhoto('user-1', '../secret.png', {} as never),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+  it('uploads an owner-managed staff photo only within the active store', async () => {
+    const { service, prisma, images } = build();
+    prisma.staffMember.findFirst.mockResolvedValue({
+      id: 'staff-1',
+      userId: 'staff-user',
+      photoUrl: null,
+    });
+    const path = await service.uploadStaffPhoto('owner', 'staff-1', png);
+    expect(prisma.staffMember.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'staff-1', storeId: 'store-1' } }),
+    );
+    expect(path).toMatch(/^\/profile-media\/users\/staff-user\/photo-.+\.png$/);
+    expect(images.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects another store staff photo before storing a file', async () => {
+    const { service, prisma, images } = build();
+    prisma.staffMember.findFirst.mockResolvedValue(null);
+    await expect(
+      service.uploadStaffPhoto('owner', 'other-staff', png),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(images.save).not.toHaveBeenCalled();
+  });
+
+  it('removes the new upload if the staff database update fails', async () => {
+    const { service, prisma, images } = build();
+    prisma.staffMember.findFirst.mockResolvedValue({
+      id: 'staff-1',
+      userId: 'staff-user',
+      photoUrl: null,
+    });
+    prisma.staffMember.update.mockRejectedValue(
+      new Error('database unavailable'),
+    );
+    await expect(
+      service.uploadStaffPhoto('owner', 'staff-1', png),
+    ).rejects.toThrow('database unavailable');
+    expect(images.remove).toHaveBeenCalledWith(images.save.mock.calls[0][0]);
+  });
+  it('never deletes another user photo referenced by a legacy photo URL', async () => {
+    const { service, prisma, images } = build();
+    prisma.staffMember.findFirst.mockResolvedValue({
+      id: 'staff-1',
+      userId: 'staff-user',
+      photoUrl:
+        '/profile-media/users/another-user/photo-14a3a49b-2d65-45cd-b467-8ae3e6f59142.png',
+    });
+    await service.uploadStaffPhoto('owner', 'staff-1', png);
+    expect(images.remove).not.toHaveBeenCalled();
   });
 });

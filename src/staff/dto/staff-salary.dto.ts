@@ -8,6 +8,9 @@ import {
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
+  ArrayMaxSize,
+  Matches,
+  IsUrl,
   ArrayUnique,
   IsArray,
   IsDateString,
@@ -24,9 +27,15 @@ import {
 import { IsPositiveAmount } from '../../common/validators/is-positive-amount.validator';
 
 export class SetSalaryProfileDto {
-  @ApiProperty({ example: '3500.00', description: 'Base salary amount in the store currency.' })
+  @ApiProperty({
+    example: '3500.00',
+    description: 'Base salary amount in the store currency.',
+  })
   @IsNumberString()
   @IsPositiveAmount()
+  @Matches(/^\d{1,16}(?:\.\d{1,2})?$/, {
+    message: 'Amount must have at most 16 integer digits and 2 decimal places',
+  })
   baseSalary!: string;
 
   @ApiProperty({ enum: SalaryFrequency })
@@ -41,7 +50,7 @@ export class SetSalaryProfileDto {
     enum: SalaryExpenseHandling,
     default: SalaryExpenseHandling.AUTOMATIC,
     description:
-      'AUTOMATIC: the system generates the salary expense on schedule and manual entries are blocked. MANUAL: the owner records each payment by hand.',
+      'AUTOMATIC: the scheduler marks the due salary PAID and creates its linked expense. MANUAL: the scheduler creates a PENDING obligation; the owner records the expense to mark it PAID.',
   })
   @IsOptional()
   @IsIn(Object.values(SalaryExpenseHandling))
@@ -61,10 +70,14 @@ export class SetSalaryProfileDto {
 export class SalaryProfileResponseDto {
   @ApiProperty() baseSalary!: string;
   @ApiProperty({ enum: SalaryFrequency }) frequency!: SalaryFrequency;
-  @ApiProperty({ enum: SalaryPaymentMethod }) paymentMethod!: SalaryPaymentMethod;
-  @ApiProperty({ enum: SalaryExpenseHandling }) expenseHandling!: SalaryExpenseHandling;
+  @ApiProperty({ enum: SalaryPaymentMethod })
+  paymentMethod!: SalaryPaymentMethod;
+  @ApiProperty({ enum: SalaryExpenseHandling })
+  expenseHandling!: SalaryExpenseHandling;
   @ApiProperty() startDate!: string;
-  @ApiPropertyOptional({ nullable: true, type: String }) nextPaymentDate!: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) nextPaymentDate!:
+    | string
+    | null;
   @ApiPropertyOptional({ nullable: true, type: String }) notes!: string | null;
 }
 
@@ -79,26 +92,66 @@ export class SalaryProfileWrapperDto {
 
 export class CreateSalaryPaymentDto {
   @ApiProperty({
+    format: 'uuid',
+    description:
+      'Reuse this key when retrying the same batch; use a new key for a new record.',
+  })
+  @IsUUID()
+  idempotencyKey!: string;
+
+  @ApiPropertyOptional({
+    enum: SalaryPaymentStatus,
+    default: SalaryPaymentStatus.PENDING,
+  })
+  @IsOptional()
+  @IsIn(Object.values(SalaryPaymentStatus))
+  status?: SalaryPaymentStatus;
+
+  @ApiPropertyOptional({
+    enum: SalaryExpenseHandling,
+    description:
+      'Defaults to the staff salary profile, or AUTOMATIC without one.',
+  })
+  @IsOptional()
+  @IsIn(Object.values(SalaryExpenseHandling))
+  expenseHandling?: SalaryExpenseHandling;
+
+  @ApiPropertyOptional({
+    enum: SalaryFrequency,
+    description:
+      'Snapshot for this record; does not create or change a recurring profile.',
+  })
+  @IsOptional()
+  @IsIn(Object.values(SalaryFrequency))
+  frequency?: SalaryFrequency;
+  @ApiProperty({
     type: [String],
     description:
       'Staff members to pay in this batch (Select Staff Member screen — usually one, but supports multi-select).',
   })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(100)
   @ArrayUnique()
   @IsUUID('4', { each: true })
   staffMemberIds!: string[];
 
   @ApiPropertyOptional({
     description:
-      'Amount per staff member. Defaults to each staff member\'s configured base salary when omitted.',
+      "Amount per staff member. Defaults to each staff member's configured base salary when omitted.",
   })
   @IsOptional()
   @IsNumberString()
   @IsPositiveAmount()
+  @Matches(/^\d{1,16}(?:\.\d{1,2})?$/, {
+    message: 'Amount must have at most 16 integer digits and 2 decimal places',
+  })
   amount?: string;
 
-  @ApiProperty({ description: 'ISO date this payment is for.' })
+  @ApiProperty({
+    description:
+      'Salary due date in UTC. One obligation per staff member per date.',
+  })
   @IsDateString()
   paymentDate!: string;
 
@@ -118,6 +171,12 @@ export class CreateSalaryPaymentDto {
   })
   @IsOptional()
   @IsString()
+  @IsUrl({
+    require_protocol: true,
+    protocols: ['https', 'http'],
+    require_tld: false,
+  })
+  @MaxLength(2048)
   receiptUrl?: string;
 
   @ApiPropertyOptional({
@@ -137,22 +196,43 @@ export class SalaryPaymentResponseDto {
   @ApiProperty() amount!: string;
   @ApiProperty() paymentDate!: string;
   @ApiPropertyOptional({ nullable: true, type: String }) paidAt!: string | null;
-  @ApiProperty({ enum: SalaryPaymentMethod }) paymentMethod!: SalaryPaymentMethod;
+  @ApiProperty({ enum: SalaryPaymentMethod })
+  paymentMethod!: SalaryPaymentMethod;
   @ApiProperty({
     enum: SalaryPaymentStatus,
-    description: 'Stored status (PENDING | PAID). Prefer displayStatus for UI chips.',
+    description:
+      'Stored status (PENDING | PAID). Prefer displayStatus for UI chips.',
   })
   status!: SalaryPaymentStatus;
 
   @ApiProperty({
     enum: ['PAID', 'PENDING', 'OVERDUE'],
     description:
-      'Derived for the UI. OVERDUE = PENDING with paymentDate in the past — never stored.',
+      'Derived for the UI. OVERDUE = PENDING with paymentDate before today in UTC — never stored.',
   })
   displayStatus!: 'PAID' | 'PENDING' | 'OVERDUE';
 
   @ApiPropertyOptional({ nullable: true, type: String }) notes!: string | null;
-  @ApiPropertyOptional({ nullable: true, type: String }) receiptUrl!: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) receiptUrl!:
+    | string
+    | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) photoUrl!:
+    | string
+    | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) jobTitle!:
+    | string
+    | null;
+  @ApiPropertyOptional({ nullable: true, enum: SalaryFrequency })
+  frequency!: SalaryFrequency | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) nextPaymentDate!:
+    | string
+    | null;
+  @ApiProperty({ enum: SalaryExpenseHandling })
+  expenseHandling!: SalaryExpenseHandling;
+  @ApiPropertyOptional({ nullable: true, type: String }) expenseId!:
+    | string
+    | null;
+  @ApiProperty() expenseRecorded!: boolean;
 }
 
 export class SalaryPaymentBatchResponseDto {
@@ -182,6 +262,7 @@ export class SalaryPaymentListQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(1)
   page?: number = 1;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
@@ -194,7 +275,10 @@ export class SalaryPaymentListQueryDto {
 }
 
 export class SalarySummaryResponseDto {
-  @ApiProperty({ description: 'Sum of PAID salary payments (store currency, 2 dp).' })
+  @ApiProperty() currency!: string;
+  @ApiProperty({
+    description: 'Sum of PAID salary payments (store currency, 2 dp).',
+  })
   totalSalaryPaid!: string;
 
   @ApiProperty({
@@ -203,7 +287,63 @@ export class SalarySummaryResponseDto {
   pendingPaymentCount!: number;
 
   @ApiProperty({
-    description: 'Sum of PENDING + OVERDUE payment amounts (store currency, 2 dp).',
+    description:
+      'Sum of PENDING + OVERDUE payment amounts (store currency, 2 dp).',
   })
   pendingPaymentsTotal!: string;
+}
+
+export class ConfirmSalaryPaymentDto {
+  @ApiPropertyOptional({
+    description:
+      'Actual payment timestamp, defaults to now. Cannot be in the future.',
+  })
+  @IsOptional()
+  @IsDateString()
+  paidAt?: string;
+
+  @ApiPropertyOptional({ enum: SalaryPaymentMethod })
+  @IsOptional()
+  @IsIn(Object.values(SalaryPaymentMethod))
+  paymentMethod?: SalaryPaymentMethod;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  receiptAssetId?: string;
+}
+
+export class SalaryAnnualQueryDto {
+  @ApiPropertyOptional({
+    minimum: 2000,
+    maximum: 2100,
+    description: 'UTC calendar year, defaults to current year.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year?: number;
+}
+
+export class SalaryAnnualSummaryDto {
+  @ApiProperty() year!: number;
+  @ApiProperty() currency!: string;
+  @ApiProperty({
+    description: 'Actual PAID amounts by paidAt within this year.',
+  })
+  totalPaidThisYear!: string;
+  @ApiProperty({
+    description:
+      'Unpaid records due in this year plus not-yet-created scheduled obligations.',
+  })
+  remainingPayments!: number;
+  @ApiProperty() remainingAmount!: string;
+  @ApiProperty({
+    description:
+      'Paid this year + unpaid/projected obligations; not a fixed annual commitment.',
+  })
+  annualTotal!: string;
+  @ApiProperty() projected!: boolean;
 }

@@ -147,6 +147,11 @@ jobs:
       - name: Test
         run: npm test -- --runInBand
 
+      - name: Verify salary transactions in PostgreSQL
+        env:
+          STAFF_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run test:e2e -- --runInBand staff-salary.postgres
+
       - name: Build
         run: npm run build
 

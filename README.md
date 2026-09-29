@@ -44,7 +44,7 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
-Production API: `https://zomaal-backend-828793303867.us-central1.run.app`
+Production API: `https://zomaal-backend-563898960389.us-central1.run.app/`
 
 ## Logger user
 

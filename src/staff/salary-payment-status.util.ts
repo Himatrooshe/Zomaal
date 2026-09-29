@@ -21,8 +21,16 @@ export function deriveSalaryDisplayStatus(
   if (status === SalaryPaymentStatus.PAID) {
     return 'PAID';
   }
-  if (paymentDate.getTime() < now.getTime()) {
+  // Salary dates are UTC calendar days: a payment due today is pending
+  // throughout today, not overdue immediately after midnight.
+  if (paymentDate.getTime() < salaryDay(now).getTime()) {
     return 'OVERDUE';
   }
   return 'PENDING';
+}
+
+export function salaryDay(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
 }
