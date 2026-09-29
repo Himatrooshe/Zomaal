@@ -1,0 +1,25 @@
+---
+description: Always push, commit, and open PRs as the human git author — never as the agent.
+alwaysApply: true
+---
+
+# Git author — always the human, never the agent
+
+## Rule
+
+- **Commits, pushes, and pull requests must use the human developer’s git identity**, not Cursor / the AI agent.
+- Do **not** set or override `GIT_AUTHOR_*`, `GIT_COMMITTER_*`, or `git config user.*` to an agent or Cursor identity.
+- Use the **terminal** with the user’s existing git remote and credentials (e.g. `origin` → `github-personal`, SSH as **Himatrooshe**).
+- Prefer:
+  1. `git push` / `git push -u origin HEAD` via the user’s configured remote
+  2. Create PRs with the user’s GitHub account (`Himatrooshe`) — e.g. `gh` if logged in as them, or the GitHub API with **their** credential helper token
+- Do **not** create PRs or commits that show a Cursor / bot / agent author or committer.
+- Before `git commit`, if unsure, verify with:
+  - `git config user.name`
+  - `git config user.email`
+  Expected for this repo: **Himatrooshe** / **mozahidulislamoshe01@gmail.com** (use whatever is already configured locally — do not invent a different author).
+- After commit, `git log -1 --format='%an <%ae>'` should show the human, not an agent.
+
+## Why
+
+GitHub history and PRs must attribute work to the freelancer’s account for clients, reviews, and ownership. Agent-authored pushes break that trail.

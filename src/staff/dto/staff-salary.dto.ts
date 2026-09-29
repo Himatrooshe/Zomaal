@@ -50,7 +50,7 @@ export class SetSalaryProfileDto {
     enum: SalaryExpenseHandling,
     default: SalaryExpenseHandling.AUTOMATIC,
     description:
-      'AUTOMATIC: confirming payment creates its expense. MANUAL: record a linked expense later. Both modes accrue recurring PENDING obligations; neither transfers money.',
+      'AUTOMATIC: the scheduler marks the due salary PAID and creates its linked expense. MANUAL: the scheduler creates a PENDING obligation; the owner records the expense to mark it PAID.',
   })
   @IsOptional()
   @IsIn(Object.values(SalaryExpenseHandling))

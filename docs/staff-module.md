@@ -6,17 +6,17 @@ Owner-managed team accounts, permissions, recurring salary obligations, and link
 
 Only the active store's owner can manage Staff, Roles, or Salary. A role cannot delegate these actions. Inactive staff cannot sign in or use an existing token to access store data. Removal is deactivation; historical salary records remain.
 
-| Flow | API |
-| --- | --- |
-| Staff list, search, status filter, counts | `GET /staff` |
-| Details, effective permissions, overrides, salary profile | `GET /staff/:staffId` |
-| Create login and staff profile | `POST /staff` |
-| Update details, password, permissions, status, salary | `PATCH /staff/:staffId` |
-| Activate/deactivate | `PATCH /staff/:staffId/status` |
-| Upload/replace JPEG, PNG or WebP photo, maximum 5 MiB | `POST /staff/:staffId/photo`, multipart field `photo` |
-| Role management | `/roles` |
-| Permission catalog | `GET /access/permissions` |
-| Current user's permissions and store context | `GET /access/me` |
+| Flow                                                      | API                                                   |
+| --------------------------------------------------------- | ----------------------------------------------------- |
+| Staff list, search, status filter, counts                 | `GET /staff`                                          |
+| Details, effective permissions, overrides, salary profile | `GET /staff/:staffId`                                 |
+| Create login and staff profile                            | `POST /staff`                                         |
+| Update details, password, permissions, status, salary     | `PATCH /staff/:staffId`                               |
+| Activate/deactivate                                       | `PATCH /staff/:staffId/status`                        |
+| Upload/replace JPEG, PNG or WebP photo, maximum 5 MiB     | `POST /staff/:staffId/photo`, multipart field `photo` |
+| Role management                                           | `/roles`                                              |
+| Permission catalog                                        | `GET /access/permissions`                             |
+| Current user's permissions and store context              | `GET /access/me`                                      |
 
 Create and update accept optional `status` and nested `salary` (same fields as the salary-profile PUT). Account, staff and salary changes commit atomically. Create defaults to ACTIVE. Omitting salary preserves it; omitting or submitting an empty update password preserves the password. Passwords are never returned. Upload the photo after creating the staff member.
 
@@ -25,13 +25,13 @@ A nonempty `permissionOverrides` list replaces the role permissions. An empty li
 ## Salary lifecycle and expenses
 
 1. `PUT /staff/:staffId/salary` sets base salary, DAILY/WEEKLY/MONTHLY frequency, start date, CASH/BANK_TRANSFER, expense handling, and notes. `GET` on the same route returns `{ profile: null }` when unset.
-2. The scheduler accrues **PENDING** obligations in both expense-handling modes. It never transfers money or marks salaries paid.
-3. `POST /staff/salary/payments/:paymentId/pay` confirms an actual payout. Optional fields: `paidAt` (not future), `paymentMethod`, and a previously uploaded `receiptAssetId`.
-4. **AUTOMATIC** creates the linked Expense in the confirmation transaction. **MANUAL** leaves expense recording to `POST /staff/salary/payments/:paymentId/expense` after confirmation.
+2. The scheduler creates the due record. **AUTOMATIC** marks it **PAID** and creates the linked Expense on the exact due date. **MANUAL** leaves it **PENDING** until the owner records the Expense.
+3. `POST /staff/salary/payments/:paymentId/pay` is available for an automatic payout that needs explicit confirmation or correction. Manual records should use the expense action.
+4. `POST /staff/salary/payments/:paymentId/expense` records the linked Expense and marks a manual salary **PAID** in one transaction.
 
 Both actions are retry safe. A salary record can have one linked Expense. The expense uses the confirmed amount, actual payout timestamp and payment method. Salary records retain the amount, frequency and expense-handling agreement from creation; editing a profile does not rewrite them. Creator/payer IDs are retained for audit. Existing historical actor/frequency information remains unknown instead of being invented.
 
-Expenses totals count actual Expense rows once. Pending salary obligations are liabilities shown in Salary, not expense totals. Paid MANUAL salaries appear in Salary paid totals immediately and Expenses only after the explicit record-expense action. Expense responses include `salaryPaymentId` and `staffMemberId` to navigate to the source. Linked salary expenses cannot be directly edited or deleted. Reversal/correction of a confirmed payout is not currently exposed.
+Expenses totals count actual Expense rows once. Pending manual salary obligations are liabilities shown in Salary, not expense totals. A manual salary appears in paid totals and Expenses when the owner records its linked Expense. Expense responses include `salaryPaymentId` and `staffMemberId` to navigate to the source. Linked salary expenses cannot be directly edited or deleted. Reversal/correction of a confirmed payout is not currently exposed.
 
 ## Add Salary Record and retries
 
@@ -45,13 +45,13 @@ Upload receipts through `POST /expenses/receipts`. A batch receipt is attached t
 
 ## Salary screens
 
-| Data | API |
-| --- | --- |
-| Total paid, pending count and amount, currency | `GET /staff/salary/summary` |
-| Actual paid totals by payout month | `GET /staff/salary/trend?months=6` |
-| All/Paid/Pending/Overdue list | `GET /staff/salary/payments?status=OVERDUE&page=1&limit=20` |
-| A person's payment history | `GET /staff/:staffId/salary/payments` |
-| Annual paid, remaining count/amount, projected total | `GET /staff/:staffId/salary/annual-summary?year=2026` |
+| Data                                                 | API                                                         |
+| ---------------------------------------------------- | ----------------------------------------------------------- |
+| Total paid, pending count and amount, currency       | `GET /staff/salary/summary`                                 |
+| Actual paid totals by payout month                   | `GET /staff/salary/trend?months=6`                          |
+| All/Paid/Pending/Overdue list                        | `GET /staff/salary/payments?status=OVERDUE&page=1&limit=20` |
+| A person's payment history                           | `GET /staff/:staffId/salary/payments`                       |
+| Annual paid, remaining count/amount, projected total | `GET /staff/:staffId/salary/annual-summary?year=2026`       |
 
 Payments include photo, job title, frequency snapshot, next scheduled date, expense handling, linked expense ID, and `expenseRecorded`. `displayStatus` derives OVERDUE when an unpaid due date is **before today in UTC**; due today stays PENDING all day. Paid monthly charts use `paidAt`, not the due date. Monetary outputs are strings with two decimal places.
 
@@ -67,7 +67,7 @@ Configure:
 - `STAFF_SALARY_SCHEDULER_SECRET`: at least 32 random characters, held in the deployment secret store.
 - An external scheduler calling `POST /internal/staff-salary/run` daily (or more often) with `x-zomaal-scheduler-secret`.
 
-Cloud Run needs an external trigger; enabling the environment flag alone does not schedule calls. The endpoint is disabled by default. It processes up to 500 due profiles per invocation, up to 366 periods per active profile, and leaves a cursor for the next invocation. Monitor successful responses and due backlog; invoke more frequently while catching up. Concurrent runs serialize each staff member and atomically commit obligations with cursor advancement. Inactive schedules advance without new obligations; reactivation also advances past inactive periods if the scheduler was unavailable. Monthly schedules preserve the original day, clamping short months (Jan 31 → Feb 28 → Mar 31).
+Cloud Run needs an external trigger; enabling the environment flag alone does not schedule calls. The endpoint is disabled by default. It processes up to 500 due profiles per invocation, up to 366 periods per profile, and leaves a cursor for the next invocation. Monitor successful responses and due backlog; invoke more frequently while catching up. Concurrent runs serialize each staff member and atomically commit obligations with cursor advancement. Staff status does not alter salary scheduling; daily, weekly, and monthly profiles follow their configured cadence. Monthly schedules preserve the original day, clamping short months (Jan 31 → Feb 28 → Mar 31).
 
 ## Verification
 

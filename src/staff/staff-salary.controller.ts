@@ -185,7 +185,7 @@ export class StaffSalaryController {
   @ApiOperation({
     summary: "Set/update a staff member's salary profile",
     description:
-      'Both modes accrue pending obligations. AUTOMATIC creates an expense on payment confirmation; MANUAL records the linked expense later. Neither mode transfers money.',
+      'AUTOMATIC marks the due record PAID and creates its Expense on schedule. MANUAL creates a PENDING record; the owner records its Expense to mark it PAID. Both actions are linked to the individual staff member.',
   })
   @ApiParam({ name: 'staffId', format: 'uuid' })
   @ApiOkResponse({ type: SalaryProfileResponseDto })

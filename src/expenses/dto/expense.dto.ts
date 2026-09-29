@@ -10,6 +10,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  IsUrl,
   Max,
   MaxLength,
   Min,
@@ -53,6 +54,11 @@ export class CreateExpenseDto {
   })
   @IsOptional()
   @IsString()
+  @IsUrl({
+    require_protocol: true,
+    protocols: ['http', 'https'],
+    require_tld: false,
+  })
   receiptUrl?: string;
 
   @ApiPropertyOptional({

@@ -277,34 +277,31 @@ describe('StaffSalaryService lifecycle', () => {
     await service.confirmPayment('owner', payment.id, {});
     expect(prisma.expense.create).toHaveBeenCalledTimes(1);
   });
-  it('manual handling defers the linked expense and its record action is retry safe', async () => {
+  it('manual handling records the linked expense and its record action is retry safe', async () => {
     const { service, prisma } = build();
-    prisma.staffSalaryPayment.update.mockImplementation(({ data }: any) => ({
+    prisma.staffSalaryPayment.findUniqueOrThrow.mockResolvedValue({
       ...payment,
-      ...data,
       expenseHandling: 'MANUAL',
-    }));
-    await service.confirmPayment('owner', payment.id, {});
-    expect(prisma.expense.create).not.toHaveBeenCalled();
+    });
+    await service.recordExpense('owner', payment.id);
     prisma.staffSalaryPayment.findUniqueOrThrow.mockResolvedValue({
       ...payment,
       status: 'PAID',
       paidAt: new Date('2026-01-01'),
       expenseHandling: 'MANUAL',
+      expenseId: 'expense-1',
     });
-    await service.recordExpense('owner', payment.id);
     await service.recordExpense('owner', payment.id);
     expect(prisma.expense.create).toHaveBeenCalledTimes(1);
   });
-  it('pending salaries cannot be recorded as expenses and future confirmations fail', async () => {
+  it('recording a pending salary marks it paid and future confirmations fail', async () => {
     const { service, prisma } = build();
-    await expect(
-      service.recordExpense('owner', payment.id),
-    ).rejects.toBeInstanceOf(ConflictException);
+    const result = await service.recordExpense('owner', payment.id);
+    expect(result).toMatchObject({ status: 'PAID', expenseId: 'expense-1' });
     await expect(
       service.confirmPayment('owner', payment.id, { paidAt: '2100-01-01' }),
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(prisma.expense.create).not.toHaveBeenCalled();
+    expect(prisma.expense.create).toHaveBeenCalledTimes(1);
   });
   it('stale receipts reject the transaction', async () => {
     const { service, prisma } = build();
@@ -315,7 +312,7 @@ describe('StaffSalaryService lifecycle', () => {
     expect(prisma.expense.create).not.toHaveBeenCalled();
   });
   it.each([SalaryExpenseHandling.AUTOMATIC, SalaryExpenseHandling.MANUAL])(
-    'scheduler accrues pending %s obligations and catches up',
+    'scheduler handles %s obligations and catches up',
     async (mode) => {
       jest.useFakeTimers().setSystemTime(new Date('2026-10-31T12:00:00Z'));
       const { service, prisma } = build();
@@ -333,11 +330,16 @@ describe('StaffSalaryService lifecycle', () => {
       });
       expect(
         prisma.staffSalaryPayment.create.mock.calls[0][0].data,
-      ).toMatchObject({ status: 'PENDING', expenseHandling: mode });
+      ).toMatchObject({
+        status: mode === SalaryExpenseHandling.AUTOMATIC ? 'PAID' : 'PENDING',
+        expenseHandling: mode,
+      });
       expect(
         prisma.staffSalaryProfile.update.mock.calls[0][0].data.nextPaymentDate.toISOString(),
       ).toBe('2026-11-30T00:00:00.000Z');
-      expect(prisma.expense.create).not.toHaveBeenCalled();
+      expect(prisma.expense.create).toHaveBeenCalledTimes(
+        mode === SalaryExpenseHandling.AUTOMATIC ? 2 : 0,
+      );
     },
   );
   it('scheduler skips existing occurrences and another worker that already advanced the cursor', async () => {
@@ -351,7 +353,7 @@ describe('StaffSalaryService lifecycle', () => {
       staffMember: staff,
     });
     prisma.staffSalaryPayment.findUnique.mockResolvedValue(payment);
-    expect((await service.runAutomaticPayments()).processed).toBe(0);
+    expect((await service.runAutomaticPayments()).processed).toBe(1);
     prisma.staffSalaryProfile.findUnique.mockResolvedValue({
       ...profile,
       nextPaymentDate: new Date('2026-10-31'),
@@ -377,7 +379,7 @@ describe('StaffSalaryService lifecycle', () => {
       prisma.staffSalaryPayment.create.mock.calls[0][0].data.paymentDate,
     ).toEqual(new Date('2026-09-30'));
   });
-  it('inactive schedules advance fully without creating debt', async () => {
+  it('inactive schedules continue normally', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-12-31'));
     const { service, prisma } = build();
     prisma.staffSalaryProfile.findMany.mockResolvedValue([
@@ -388,8 +390,8 @@ describe('StaffSalaryService lifecycle', () => {
       staffMember: { ...staff, status: 'INACTIVE' },
     });
     expect(await service.runAutomaticPayments()).toEqual({
-      processed: 0,
-      skippedInactive: 1,
+      processed: 4,
+      skippedInactive: 0,
     });
     expect(
       prisma.staffSalaryProfile.update.mock.calls[0][0].data.nextPaymentDate.toISOString(),
@@ -417,7 +419,7 @@ describe('StaffSalaryService lifecycle', () => {
       projected: true,
     });
   });
-  it('inactive staff annual summary excludes future projections', async () => {
+  it('inactive staff annual summary includes future projections', async () => {
     const { service, prisma } = build();
     prisma.staffMember.findFirst.mockResolvedValue({
       ...staff,
@@ -426,7 +428,7 @@ describe('StaffSalaryService lifecycle', () => {
     expect(
       (await service.annualSummary('owner', staff.id, { year: 2026 }))
         .projected,
-    ).toBe(false);
+    ).toBe(true);
   });
   it('trend reads only actual paid timestamps, keeping pending liabilities out', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-09-29'));

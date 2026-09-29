@@ -11,12 +11,10 @@ import {
   resolvePermissions,
 } from '../access/store-access.service';
 import {
-  advance,
   lockStaff,
   salaryProfileData,
   toProfileResponse,
 } from './staff-salary.service';
-import { salaryDay } from './salary-payment-status.util';
 import type { Permission } from '../access/permissions';
 import { isUniqueConstraintError } from '../common/prisma-errors.util';
 import {
@@ -209,7 +207,6 @@ export class StaffService {
     try {
       const updated = await this.prisma.$transaction(async (tx) => {
         await lockStaff(tx, storeId, staffId);
-        await resumeSchedule(tx, staffId, dto.status);
         const currentProfile = dto.salary
           ? await tx.staffSalaryProfile.findUnique({
               where: { staffMemberId: staffId },
@@ -264,7 +261,6 @@ export class StaffService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await lockStaff(tx, storeId, staffId);
-      await resumeSchedule(tx, staffId, status);
       return tx.staffMember.update({
         where: { id: staffId },
         data: { status },
@@ -335,30 +331,4 @@ function toStaffDetailResponse(staff: StaffWithDetail): StaffDetailResponseDto {
       ? toProfileResponse(staff.salaryProfile)
       : null,
   };
-}
-
-/** Reactivation must skip time spent inactive even if the scheduler was unavailable. */
-async function resumeSchedule(
-  tx: Prisma.TransactionClient,
-  staffId: string,
-  status?: StaffStatus,
-): Promise<void> {
-  if (status !== StaffStatus.ACTIVE) return;
-  const staff = await tx.staffMember.findUniqueOrThrow({
-    where: { id: staffId },
-    select: { status: true },
-  });
-  if (staff.status === StaffStatus.ACTIVE) return;
-  const profile = await tx.staffSalaryProfile.findUnique({
-    where: { staffMemberId: staffId },
-  });
-  if (!profile?.nextPaymentDate) return;
-  let date = salaryDay(profile.nextPaymentDate);
-  const today = salaryDay(new Date());
-  while (date <= today)
-    date = advance(date, profile.frequency, profile.startDate.getUTCDate());
-  await tx.staffSalaryProfile.update({
-    where: { staffMemberId: staffId },
-    data: { nextPaymentDate: date },
-  });
 }

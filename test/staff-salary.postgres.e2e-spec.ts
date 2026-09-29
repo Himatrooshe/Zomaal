@@ -96,7 +96,7 @@ postgres('Staff salary PostgreSQL transactions', () => {
     });
   }
 
-  it('concurrent scheduler runs create one pending obligation and no expense', async () => {
+  it('concurrent scheduler runs create one paid automatic obligation and expense', async () => {
     const staff = await person();
     await Promise.all([
       salary.runAutomaticPayments(),
@@ -107,12 +107,12 @@ postgres('Staff salary PostgreSQL transactions', () => {
     });
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      status: 'PENDING',
-      paidAt: null,
-      expenseId: null,
+      status: 'PAID',
+      paidAt: expect.any(Date),
+      expenseId: expect.any(String),
     });
     expect(await db.expense.count({ where: { staffMemberId: staff.id } })).toBe(
-      0,
+      1,
     );
     const profile = await db.staffSalaryProfile.findUniqueOrThrow({
       where: { staffMemberId: staff.id },
@@ -120,15 +120,15 @@ postgres('Staff salary PostgreSQL transactions', () => {
     expect(profile.nextPaymentDate!.getTime()).toBeGreaterThan(today.getTime());
   });
 
-  it('concurrent payment confirmations produce one expense with actor and amount retained', async () => {
-    const staff = await person();
+  it('concurrent manual expense records produce one expense with actor and amount retained', async () => {
+    const staff = await person(SalaryExpenseHandling.MANUAL);
     await salary.runAutomaticPayments();
     const row = await db.staffSalaryPayment.findFirstOrThrow({
       where: { staffMemberId: staff.id },
     });
     const results = await Promise.all([
-      salary.confirmPayment(ownerId, row.id, {}),
-      salary.confirmPayment(ownerId, row.id, {}),
+      salary.recordExpense(ownerId, row.id),
+      salary.recordExpense(ownerId, row.id),
     ]);
     expect(results[0].expenseId).toBe(results[1].expenseId);
     const expenses = await db.expense.findMany({
@@ -178,10 +178,6 @@ postgres('Staff salary PostgreSQL transactions', () => {
     const row = await db.staffSalaryPayment.findFirstOrThrow({
       where: { staffMemberId: staff.id },
     });
-    await salary.confirmPayment(ownerId, row.id, {});
-    expect(await db.expense.count({ where: { staffMemberId: staff.id } })).toBe(
-      0,
-    );
     const results = await Promise.all([
       salary.recordExpense(ownerId, row.id),
       salary.recordExpense(ownerId, row.id),
@@ -217,8 +213,8 @@ postgres('Staff salary PostgreSQL transactions', () => {
     ).toBe(0);
   });
 
-  it('failure to create an automatic expense rolls payment confirmation back to pending', async () => {
-    const staff = await person();
+  it('failure to create a manual expense rolls the payment back to pending', async () => {
+    const staff = await person(SalaryExpenseHandling.MANUAL);
     await salary.runAutomaticPayments();
     const row = await db.staffSalaryPayment.findFirstOrThrow({
       where: { staffMemberId: staff.id },
@@ -231,9 +227,7 @@ postgres('Staff salary PostgreSQL transactions', () => {
       'CREATE TRIGGER staff_test_expense_failure BEFORE INSERT ON "Expense" FOR EACH ROW EXECUTE FUNCTION staff_test_expense_failure()',
     );
     try {
-      await expect(
-        salary.confirmPayment(ownerId, row.id, {}),
-      ).rejects.toThrow();
+      await expect(salary.recordExpense(ownerId, row.id)).rejects.toThrow();
       const unchanged = await db.staffSalaryPayment.findUniqueOrThrow({
         where: { id: row.id },
       });
@@ -251,14 +245,14 @@ postgres('Staff salary PostgreSQL transactions', () => {
     }
   });
 
-  it('reactivation skips inactive periods even when the scheduler never ran', async () => {
+  it('reactivation keeps the salary schedule running', async () => {
     const staff = await person();
     await staffService.setStatus(ownerId, staff.id, StaffStatus.INACTIVE);
     await staffService.setStatus(ownerId, staff.id, StaffStatus.ACTIVE);
     await salary.runAutomaticPayments();
     expect(
       await db.staffSalaryPayment.count({ where: { staffMemberId: staff.id } }),
-    ).toBe(0);
+    ).toBe(1);
   });
 
   it('staff creation saves account status and salary atomically, with no password in responses', async () => {

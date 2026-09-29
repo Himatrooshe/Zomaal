@@ -309,10 +309,7 @@ export class StaffSalaryService {
             await attachReceipt(tx, storeId, dto.receiptAssetId, {
               salaryPaymentId: payment.id,
             });
-          if (
-            status === SalaryPaymentStatus.PAID &&
-            payment.expenseHandling === SalaryExpenseHandling.AUTOMATIC
-          )
+          if (status === SalaryPaymentStatus.PAID)
             await this.linkExpense(tx, storeId, userId, payment);
           created.push(payment);
         }
@@ -343,6 +340,10 @@ export class StaffSalaryService {
       const payment = await this.lockPayment(tx, storeId, paymentId);
       if (payment.status === SalaryPaymentStatus.PAID)
         return toPaymentResponse(payment);
+      if (payment.expenseHandling === SalaryExpenseHandling.MANUAL)
+        throw new ConflictException(
+          'Manual salaries are marked paid when the owner records their expense.',
+        );
       if (dto.receiptAssetId) {
         if (payment.receiptUrl)
           throw new ConflictException(
@@ -365,8 +366,7 @@ export class StaffSalaryService {
         },
         include: PAYMENT_INCLUDE,
       });
-      if (updated.expenseHandling === SalaryExpenseHandling.AUTOMATIC)
-        await this.linkExpense(tx, storeId, userId, updated);
+      await this.linkExpense(tx, storeId, userId, updated);
       return toPaymentResponse(updated);
     });
   }
@@ -378,12 +378,20 @@ export class StaffSalaryService {
     const { storeId } = await this.storeAccess.requireOwner(userId);
     return this.prisma.$transaction(async (tx) => {
       const payment = await this.lockPayment(tx, storeId, paymentId);
-      if (payment.status !== SalaryPaymentStatus.PAID)
-        throw new ConflictException(
-          'Confirm salary payment before recording its expense',
-        );
-      await this.linkExpense(tx, storeId, userId, payment);
-      return toPaymentResponse(payment);
+      const paid =
+        payment.status === SalaryPaymentStatus.PAID && payment.paidAt
+          ? payment
+          : await tx.staffSalaryPayment.update({
+              where: { id: paymentId },
+              data: {
+                status: SalaryPaymentStatus.PAID,
+                paidAt: payment.paidAt ?? new Date(),
+                paidByUserId: payment.paidByUserId ?? userId,
+              },
+              include: PAYMENT_INCLUDE,
+            });
+      await this.linkExpense(tx, storeId, userId, paid);
+      return toPaymentResponse(paid);
     });
   }
 
@@ -407,7 +415,7 @@ export class StaffSalaryService {
   private async linkExpense(
     tx: Prisma.TransactionClient,
     storeId: string,
-    userId: string,
+    userId: string | null,
     payment: Payment,
   ): Promise<void> {
     if (payment.expenseId) return;
@@ -489,31 +497,59 @@ export class StaffSalaryService {
           let date = salaryDay(profile.nextPaymentDate),
             count = 0,
             periods = 0;
-          const inactive = profile.staffMember.status !== StaffStatus.ACTIVE;
-          // Bound active catch-up transactions; later invocations continue from the cursor.
-          while (date <= today && (inactive || periods < 366)) {
-            if (!inactive) {
-              const existing = await findSalaryForDay(
+          // Bound catch-up transactions; later invocations continue from the cursor.
+          while (date <= today && periods < 366) {
+            const existing = await findSalaryForDay(
+              tx,
+              profile.staffMemberId,
+              date,
+            );
+            if (!existing) {
+              const payment = await tx.staffSalaryPayment.create({
+                data: {
+                  staffMemberId: profile.staffMemberId,
+                  amount: profile.baseSalary,
+                  paymentDate: date,
+                  scheduledFor: date,
+                  status:
+                    profile.expenseHandling === SalaryExpenseHandling.AUTOMATIC
+                      ? SalaryPaymentStatus.PAID
+                      : SalaryPaymentStatus.PENDING,
+                  paidAt:
+                    profile.expenseHandling === SalaryExpenseHandling.AUTOMATIC
+                      ? new Date()
+                      : null,
+                  paymentMethod: profile.paymentMethod,
+                  expenseHandling: profile.expenseHandling,
+                  frequency: profile.frequency,
+                  notes: profile.notes,
+                },
+                include: PAYMENT_INCLUDE,
+              });
+              if (profile.expenseHandling === SalaryExpenseHandling.AUTOMATIC)
+                await this.linkExpense(
+                  tx,
+                  candidate.staffMember.storeId,
+                  null,
+                  payment,
+                );
+              count++;
+            } else if (
+              profile.expenseHandling === SalaryExpenseHandling.AUTOMATIC &&
+              existing.status === SalaryPaymentStatus.PENDING
+            ) {
+              const paid = await tx.staffSalaryPayment.update({
+                where: { id: existing.id },
+                data: { status: SalaryPaymentStatus.PAID, paidAt: new Date() },
+                include: PAYMENT_INCLUDE,
+              });
+              await this.linkExpense(
                 tx,
-                profile.staffMemberId,
-                date,
+                candidate.staffMember.storeId,
+                null,
+                paid,
               );
-              if (!existing) {
-                await tx.staffSalaryPayment.create({
-                  data: {
-                    staffMemberId: profile.staffMemberId,
-                    amount: profile.baseSalary,
-                    paymentDate: date,
-                    scheduledFor: date,
-                    status: SalaryPaymentStatus.PENDING,
-                    frequency: profile.frequency,
-                    expenseHandling: profile.expenseHandling,
-                    paymentMethod: profile.paymentMethod,
-                    notes: profile.notes,
-                  },
-                });
-                count++;
-              }
+              count++;
             }
             date = advance(
               date,
@@ -526,7 +562,7 @@ export class StaffSalaryService {
             where: { id: profile.id },
             data: { nextPaymentDate: date },
           });
-          return { processed: count, skippedInactive: inactive ? 1 : 0 };
+          return { processed: count, skippedInactive: 0 };
         },
         { timeout: 30000 },
       );
@@ -585,7 +621,7 @@ export class StaffSalaryService {
         count++;
       }
     }
-    if (profile?.nextPaymentDate && staff.status === StaffStatus.ACTIVE) {
+    if (profile?.nextPaymentDate) {
       let date = salaryDay(profile.nextPaymentDate);
       // Skip to requested year without iterating decades of daily occurrences.
       if (date < from && profile.frequency !== SalaryFrequency.MONTHLY) {
@@ -765,7 +801,7 @@ async function findSalaryForDay(
 ) {
   const keyed = await tx.staffSalaryPayment.findUnique({
     where: { staffMemberId_scheduledFor: { staffMemberId, scheduledFor: day } },
-    select: { id: true },
+    select: { id: true, status: true },
   });
   if (keyed) return keyed;
   return tx.staffSalaryPayment.findFirst({
@@ -774,6 +810,6 @@ async function findSalaryForDay(
       scheduledFor: null,
       paymentDate: { gte: day, lt: new Date(day.getTime() + 86400000) },
     },
-    select: { id: true },
+    select: { id: true, status: true },
   });
 }

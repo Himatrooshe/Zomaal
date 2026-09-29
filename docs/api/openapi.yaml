@@ -12902,7 +12902,7 @@ paths:
       tags:
         - Staff Salary
     put:
-      description: Both modes accrue pending obligations. AUTOMATIC creates an expense on payment confirmation; MANUAL records the linked expense later. Neither mode transfers money.
+      description: AUTOMATIC marks the due record PAID and creates its Expense on schedule. MANUAL creates a PENDING record; the owner records its Expense to mark it PAID. Both actions are linked to the individual staff member.
       operationId: StaffSalary_setProfile
       parameters:
         - name: staffId
@@ -13495,6 +13495,45 @@ paths:
       tags:
         - Expenses
   /expenses/{expenseId}:
+    get:
+      operationId: Expenses_details
+      parameters:
+        - name: expenseId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpenseResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Expense not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get one expense (Expense details screen)
+      tags:
+        - Expenses
     patch:
       operationId: Expenses_update
       parameters:
@@ -26544,7 +26583,7 @@ components:
             - AUTOMATIC
             - MANUAL
           default: AUTOMATIC
-          description: 'AUTOMATIC: confirming payment creates its expense. MANUAL: record a linked expense later. Both modes accrue recurring PENDING obligations; neither transfers money.'
+          description: 'AUTOMATIC: the scheduler marks the due salary PAID and creates its linked expense. MANUAL: the scheduler creates a PENDING obligation; the owner records the expense to mark it PAID.'
         startDate:
           type: string
           description: ISO date the salary schedule starts from.

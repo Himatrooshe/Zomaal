@@ -115,9 +115,9 @@ export class ExpensesService {
     // some salary expenses could land in the wrong one. And a category that
     // can never receive a directly-created expense (rejectSalaryCategory in
     // create()/update() below) is a dead end for the owner anyway.
-    if ((dto.group ?? ExpenseGroup.OTHER) === ExpenseGroup.SALARY) {
+    if (isSystemManagedGroup(dto.group ?? ExpenseGroup.OTHER)) {
       throw new ConflictException(
-        'The SALARY category is managed automatically by Staff Salary and cannot be created directly.',
+        'Shipping, advertising, purchase, and salary categories are managed by their source modules and cannot be created directly.',
       );
     }
 
@@ -159,11 +159,17 @@ export class ExpensesService {
     // "only one SALARY category, resolved deterministically" reasoning as
     // createCategory().
     if (
-      dto.group === ExpenseGroup.SALARY &&
-      category.group !== ExpenseGroup.SALARY
+      dto.group &&
+      isSystemManagedGroup(dto.group) &&
+      dto.group !== category.group
     ) {
       throw new ConflictException(
-        'The SALARY category is managed automatically by Staff Salary and cannot be assigned directly.',
+        'System-managed expense groups cannot be assigned to or removed from a custom category.',
+      );
+    }
+    if (category.isSystem && dto.group && dto.group !== category.group) {
+      throw new ConflictException(
+        'System expense categories cannot change groups.',
       );
     }
 
@@ -226,6 +232,7 @@ export class ExpensesService {
     storeId: string,
     query: ExpenseListQueryDto,
   ): Promise<ExpenseListResponseDto> {
+    assertDateRange(query.dateFrom, query.dateTo);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
@@ -240,7 +247,7 @@ export class ExpensesService {
         ? {
             spentAt: {
               ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-              ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
+              ...(query.dateTo ? { lt: endOfDateFilter(query.dateTo) } : {}),
             },
           }
         : {}),
@@ -271,13 +278,14 @@ export class ExpensesService {
     storeId: string,
     query: ExpenseSummaryQueryDto,
   ): Promise<ExpenseSummaryResponseDto> {
+    assertDateRange(query.dateFrom, query.dateTo);
     const where: Prisma.ExpenseWhereInput = {
       storeId,
       ...(query.dateFrom || query.dateTo
         ? {
             spentAt: {
               ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-              ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
+              ...(query.dateTo ? { lt: endOfDateFilter(query.dateTo) } : {}),
             },
           }
         : {}),
@@ -381,6 +389,13 @@ export class ExpensesService {
     return toExpenseResponse(expense);
   }
 
+  async details(
+    storeId: string,
+    expenseId: string,
+  ): Promise<ExpenseResponseDto> {
+    return toExpenseResponse(await this.requireExpense(storeId, expenseId));
+  }
+
   async update(
     access: StoreAccess,
     expenseId: string,
@@ -397,6 +412,7 @@ export class ExpensesService {
       this.rejectSalaryCategory(category.group);
     }
 
+    let previousReceipt: { id: string } | null = null;
     if (dto.receiptAssetId) {
       // expenseId is @unique on MediaAsset — replacing the receipt means
       // freeing the old one first (best-effort GCS delete, same as remove()),
@@ -404,11 +420,8 @@ export class ExpensesService {
       const existingReceipt = await this.prisma.mediaAsset.findUnique({
         where: { expenseId },
       });
-      if (existingReceipt && existingReceipt.id !== dto.receiptAssetId) {
-        await this.media
-          .deleteAttachedAsset(existingReceipt.id)
-          .catch(() => undefined);
-      }
+      if (existingReceipt && existingReceipt.id !== dto.receiptAssetId)
+        previousReceipt = existingReceipt;
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -435,6 +448,11 @@ export class ExpensesService {
       });
     });
 
+    if (previousReceipt)
+      await this.media
+        .deleteAttachedAsset(previousReceipt.id)
+        .catch(() => undefined);
+
     return toExpenseResponse(updated);
   }
 
@@ -448,10 +466,9 @@ export class ExpensesService {
     const receipt = await this.prisma.mediaAsset.findUnique({
       where: { expenseId },
     });
-    if (receipt) {
-      await this.media.deleteAttachedAsset(receipt.id).catch(() => undefined);
-    }
     await this.prisma.expense.delete({ where: { id: expenseId } });
+    if (receipt)
+      await this.media.deleteAttachedAsset(receipt.id).catch(() => undefined);
   }
 
   private rejectSalaryCategory(group: ExpenseGroup): void {
@@ -494,6 +511,34 @@ export class ExpensesService {
       throw new NotFoundException('Expense not found');
     }
     return expense;
+  }
+}
+
+function isSystemManagedGroup(group: ExpenseGroup): boolean {
+  return (
+    [
+      ExpenseGroup.SHIPPING,
+      ExpenseGroup.ADS,
+      ExpenseGroup.PURCHASES,
+      ExpenseGroup.SALARY,
+    ] as ExpenseGroup[]
+  ).includes(group);
+}
+
+function endOfDateFilter(value: string): Date {
+  const date = new Date(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(date.getTime() + 24 * 60 * 60 * 1000)
+    : date;
+}
+
+function assertDateRange(dateFrom?: string, dateTo?: string): void {
+  if (
+    dateFrom &&
+    dateTo &&
+    new Date(dateFrom).getTime() > endOfDateFilter(dateTo).getTime()
+  ) {
+    throw new BadRequestException('dateFrom must be before or equal to dateTo');
   }
 }
 
