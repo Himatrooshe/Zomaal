@@ -37,13 +37,15 @@ export class ShopifyProductIdParamDto {
 export class ShopifyOrderIdParamDto {
   @ApiProperty({
     description:
-      'Numeric Shopify order ID. Use the numeric suffix from `gid://shopify/Order/<id>` returned by the order list.',
+      'Numeric Shopify order ID. A URL-encoded full `gid://shopify/Order/<id>` returned by the order list is also accepted and normalized.',
     example: '6632134869234',
     pattern: '^[1-9]\\d{0,19}$',
   })
+  @Transform(normalizeShopifyOrderId)
   @IsString()
   @Matches(/^[1-9]\d{0,19}$/, {
-    message: 'orderId must be a positive numeric Shopify order ID',
+    message:
+      'orderId must be a positive numeric Shopify order ID or Shopify Order GID',
   })
   orderId!: string;
 }
@@ -196,4 +198,15 @@ function trimQueryValue(params: TransformFnParams): unknown {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeShopifyOrderId(params: TransformFnParams): unknown {
+  const value: unknown = params.value;
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  const gidMatch = /^gid:\/\/shopify\/Order\/([1-9]\d{0,19})$/.exec(trimmed);
+  return gidMatch?.[1] ?? trimmed;
 }

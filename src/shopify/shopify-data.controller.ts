@@ -181,12 +181,12 @@ export class ShopifyDataController {
   @ApiOperation({
     summary: 'Get complete details for one Shopify order',
     description:
-      'Returns order totals, status, discounts, cursor-paginated line items, and fulfillment tracking. Customer contact details and addresses are intentionally excluded. Use the numeric suffix of the GraphQL order ID returned by the order list.',
+      'Returns order totals, status, discounts, cursor-paginated line items, and fulfillment tracking. Customer contact details and addresses are intentionally excluded. Use the numeric suffix of the GraphQL order ID, or URL-encode the complete GID before placing it in the path.',
   })
   @ApiParam({
     name: 'orderId',
     description:
-      'Numeric suffix from a Shopify order GID, for example `6632134869234` from `gid://shopify/Order/6632134869234`.',
+      'Numeric suffix from a Shopify order GID, for example `6632134869234`. A complete GID is accepted when URL-encoded as one path segment.',
     example: '6632134869234',
     schema: {
       type: 'string',

@@ -104,6 +104,25 @@ $ npm run test:cov
 
 ## Deployment
 
+### Production integration configuration
+
+The Google Cloud project must contain these Secret Manager secrets, and the
+Cloud Run runtime service account must have `roles/secretmanager.secretAccessor`:
+
+- `zomaal-youcan-client-id`
+- `zomaal-youcan-client-secret`
+- `zomaal-youcan-token-encryption-key`
+- `zomaal-lightfunnels-client-id`
+- `zomaal-lightfunnels-client-secret`
+- `zomaal-lightfunnels-token-encryption-key`
+- `zomaal-twilio-account-sid`
+- `zomaal-twilio-auth-token`
+- `zomaal-twilio-service-sid`
+
+Encryption-key secrets must contain base64-encoded 32-byte keys. The deployment
+workflow enables YouCan and Lightfunnels only after this configuration exists,
+so a missing setting fails deployment instead of producing live `503` responses.
+
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
 If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:

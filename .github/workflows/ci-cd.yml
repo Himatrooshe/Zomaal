@@ -220,9 +220,24 @@ jobs:
           # OAuth scope configuration already present on the Cloud Run service.
           # Commas inside one value must be escaped for deploy-cloudrun's parser.
           env_vars: |-
+            YOUCAN_ENABLED=true
+            YOUCAN_REDIRECT_URI=https://zomaal-backend-563898960389.us-central1.run.app/auth/youcan/callback
             YOUCAN_SCOPES=*
+            LIGHTFUNNELS_ENABLED=true
+            LIGHTFUNNELS_REDIRECT_URI=https://zomaal-backend-563898960389.us-central1.run.app/auth/lightfunnels/callback
             LIGHTFUNNELS_SCOPES=orders\,funnels\,products\,customers
           env_vars_update_strategy: merge
+          secrets: |-
+            YOUCAN_CLIENT_ID=zomaal-youcan-client-id:latest
+            YOUCAN_CLIENT_SECRET=zomaal-youcan-client-secret:latest
+            YOUCAN_TOKEN_ENCRYPTION_KEY=zomaal-youcan-token-encryption-key:latest
+            LIGHTFUNNELS_CLIENT_ID=zomaal-lightfunnels-client-id:latest
+            LIGHTFUNNELS_CLIENT_SECRET=zomaal-lightfunnels-client-secret:latest
+            LIGHTFUNNELS_TOKEN_ENCRYPTION_KEY=zomaal-lightfunnels-token-encryption-key:latest
+            TWILIO_ACCOUNT_SID=zomaal-twilio-account-sid:latest
+            TWILIO_AUTH_TOKEN=zomaal-twilio-auth-token:latest
+            TWILIO_SERVICE_SID=zomaal-twilio-service-sid:latest
+          secrets_update_strategy: merge
 
       - name: Smoke-test the deployed revision
         shell: bash

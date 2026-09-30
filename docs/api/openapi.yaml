@@ -6877,13 +6877,13 @@ paths:
         - Shopify Data
   /shopify/orders/{orderId}:
     get:
-      description: Returns order totals, status, discounts, cursor-paginated line items, and fulfillment tracking. Customer contact details and addresses are intentionally excluded. Use the numeric suffix of the GraphQL order ID returned by the order list.
+      description: Returns order totals, status, discounts, cursor-paginated line items, and fulfillment tracking. Customer contact details and addresses are intentionally excluded. Use the numeric suffix of the GraphQL order ID, or URL-encode the complete GID before placing it in the path.
       operationId: ShopifyData_getOrder
       parameters:
         - name: orderId
           required: true
           in: path
-          description: Numeric suffix from a Shopify order GID, for example `6632134869234` from `gid://shopify/Order/6632134869234`.
+          description: Numeric suffix from a Shopify order GID, for example `6632134869234`. A complete GID is accepted when URL-encoded as one path segment.
           schema:
             type: string
             pattern: ^[1-9]\d{0,19}$

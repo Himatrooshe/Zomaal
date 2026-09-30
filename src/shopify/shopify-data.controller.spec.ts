@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   type ExecutionContext,
   type INestApplication,
   ValidationPipe,
@@ -8,6 +9,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
   ShopifyDataPageQueryDto,
+  ShopifyOrderIdParamDto,
   ShopifyOrderDetailsQueryDto,
 } from './dto/shopify-data-query.dto';
 import { ShopifyDataController } from './shopify-data.controller';
@@ -191,6 +193,34 @@ describe('ShopifyDataController OpenAPI contract', () => {
       fulfillmentsFirst: 20,
     });
     expect(query.lineItemsAfter).toBeUndefined();
+  });
+
+  it.each([
+    ['6632134869234', '6632134869234'],
+    [' gid://shopify/Order/6632134869234 ', '6632134869234'],
+  ])(
+    'normalizes a Shopify order identifier from %s',
+    async (value, expected) => {
+      const pipe = new ValidationPipe({ transform: true });
+
+      const params = (await pipe.transform(
+        { orderId: value },
+        { type: 'param', metatype: ShopifyOrderIdParamDto },
+      )) as ShopifyOrderIdParamDto;
+
+      expect(params.orderId).toBe(expected);
+    },
+  );
+
+  it('rejects a Shopify product GID as an order identifier', async () => {
+    const pipe = new ValidationPipe({ transform: true });
+
+    await expect(
+      pipe.transform(
+        { orderId: 'gid://shopify/Product/6632134869234' },
+        { type: 'param', metatype: ShopifyOrderIdParamDto },
+      ),
+    ).rejects.toThrow(BadRequestException);
   });
 });
 
