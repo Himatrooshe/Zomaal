@@ -203,6 +203,27 @@ export class ShippingIntegrationsController {
             },
           },
         },
+        {
+          title: 'Ameex credentials',
+          type: 'object',
+          required: ['credentials'],
+          additionalProperties: false,
+          properties: {
+            credentials: {
+              type: 'object',
+              required: ['apiId', 'apiKey'],
+              additionalProperties: false,
+              properties: {
+                apiId: { type: 'string', example: '8024' },
+                apiKey: {
+                  type: 'string',
+                  writeOnly: true,
+                  example: 'your-ameex-api-key',
+                },
+              },
+            },
+          },
+        },
       ],
     },
     examples: {
@@ -237,6 +258,15 @@ export class ShippingIntegrationsController {
           credentials: {
             customerId: '12345',
             apiKey: 'your-ozoneexpress-api-key',
+          },
+        },
+      },
+      ameex: {
+        summary: 'Ameex credentials',
+        value: {
+          credentials: {
+            apiId: '8024',
+            apiKey: 'your-ameex-api-key',
           },
         },
       },

@@ -26,6 +26,14 @@ export class ConnectSenditDto {
 export class SenditConnectionStatusDto {
   @ApiProperty({
     description:
+      'Canonical integration code used by /shipping/integrations routes.',
+    enum: ['sendit'],
+    example: 'sendit',
+  })
+  companyCode: 'sendit';
+
+  @ApiProperty({
+    description:
       'Whether this Zomaal user currently has stored Sendit credentials.',
     example: true,
   })

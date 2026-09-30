@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   ServiceUnavailableException,
@@ -24,9 +25,12 @@ export class SenditConnectionService {
 
   async connect(userId: string, payload: ConnectSenditDto) {
     const credentials = {
-      publicKey: payload.public_key,
-      secretKey: payload.secret_key,
+      publicKey: payload.public_key.trim(),
+      secretKey: payload.secret_key.trim(),
     };
+    if (!credentials.publicKey || !credentials.secretKey) {
+      throw new BadRequestException('Sendit credentials must not be blank');
+    }
     const login = await this.senditClient.authenticate(credentials);
     const accountName = login.data?.name ?? null;
 
@@ -59,6 +63,7 @@ export class SenditConnectionService {
     if (!connection) {
       return {
         connected: false,
+        companyCode: 'sendit' as const,
         provider: 'sendit.ma' as const,
         accountName: null,
         connectedAt: null,
@@ -74,6 +79,7 @@ export class SenditConnectionService {
     this.senditClient.clearUserToken(userId);
     return {
       connected: false,
+      companyCode: 'sendit' as const,
       provider: 'sendit.ma' as const,
       accountName: null,
       connectedAt: null,
@@ -99,6 +105,7 @@ export class SenditConnectionService {
   private toStatus(accountName: string | null, connectedAt: Date) {
     return {
       connected: true,
+      companyCode: 'sendit' as const,
       provider: 'sendit.ma' as const,
       accountName,
       connectedAt: connectedAt.toISOString(),

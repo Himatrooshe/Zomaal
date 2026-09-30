@@ -1,4 +1,7 @@
-import { BadGatewayException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AmeexClient } from './ameex.client';
 
@@ -37,6 +40,7 @@ describe('AmeexClient', () => {
       'C-Api-Id': 'api-id',
       'C-Api-Key': 'api-key',
     });
+    expect(options?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('rejects an HTTP 200 response with an explicit provider error', async () => {
@@ -57,6 +61,17 @@ describe('AmeexClient', () => {
 
     await expect(client.checkConnection(credentials)).rejects.toBeInstanceOf(
       BadGatewayException,
+    );
+  });
+
+  it('maps network failures to service unavailable', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError('fetch failed'));
+    const client = new AmeexClient({
+      get: jest.fn((_key: string, fallback: unknown) => fallback),
+    } as unknown as ConfigService);
+
+    await expect(client.checkConnection(credentials)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
     );
   });
 

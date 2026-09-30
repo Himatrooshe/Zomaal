@@ -18,6 +18,13 @@ export class ConnectAmeexDto {
 }
 
 export class AmeexConnectionStatusDto {
+  @ApiProperty({
+    description:
+      'Canonical integration code used by /shipping/integrations routes.',
+    enum: ['ameex'],
+  })
+  companyCode: 'ameex';
+
   @ApiProperty() connected: boolean;
   @ApiProperty({ enum: ['ameex.ma'] }) provider: 'ameex.ma';
   @ApiProperty({ nullable: true, format: 'date-time' })

@@ -127,6 +127,7 @@ export class AmeexClient {
           'C-Api-Key': credentials.apiKey,
         },
         body: form,
+        signal: AbortSignal.timeout(this.requestTimeoutMs()),
       });
     } catch {
       throw new ServiceUnavailableException('Ameex is currently unreachable');
@@ -151,6 +152,13 @@ export class AmeexClient {
     return this.config
       .get<string>('AMEEX_API_BASE_URL', 'https://api.ameex.app/customer')
       .replace(/\/+$/, '');
+  }
+
+  private requestTimeoutMs() {
+    const configured = Number(
+      this.config.get<string | number>('AMEEX_API_TIMEOUT_MS', 10000),
+    );
+    return Number.isFinite(configured) && configured > 0 ? configured : 10000;
   }
 }
 

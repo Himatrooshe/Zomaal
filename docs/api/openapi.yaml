@@ -5964,6 +5964,26 @@ paths:
                           type: string
                           writeOnly: true
                           example: your-ozoneexpress-api-key
+                - title: Ameex credentials
+                  type: object
+                  required:
+                    - credentials
+                  additionalProperties: false
+                  properties:
+                    credentials:
+                      type: object
+                      required:
+                        - apiId
+                        - apiKey
+                      additionalProperties: false
+                      properties:
+                        apiId:
+                          type: string
+                          example: '8024'
+                        apiKey:
+                          type: string
+                          writeOnly: true
+                          example: your-ameex-api-key
             examples:
               sendit:
                 summary: Sendit credentials
@@ -5987,6 +6007,12 @@ paths:
                   credentials:
                     customerId: '12345'
                     apiKey: your-ozoneexpress-api-key
+              ameex:
+                summary: Ameex credentials
+                value:
+                  credentials:
+                    apiId: '8024'
+                    apiKey: your-ameex-api-key
       responses:
         '201':
           description: Provider credentials verified and connection saved.
@@ -17149,6 +17175,12 @@ components:
     SenditConnectionStatusDto:
       type: object
       properties:
+        companyCode:
+          type: string
+          description: Canonical integration code used by /shipping/integrations routes.
+          enum:
+            - sendit
+          example: sendit
         connected:
           type: boolean
           description: Whether this Zomaal user currently has stored Sendit credentials.
@@ -17175,6 +17207,7 @@ components:
           description: Human-readable connection state.
           example: Sendit account is connected
       required:
+        - companyCode
         - connected
         - provider
         - accountName
@@ -19747,6 +19780,11 @@ components:
     AmeexConnectionStatusDto:
       type: object
       properties:
+        companyCode:
+          type: string
+          description: Canonical integration code used by /shipping/integrations routes.
+          enum:
+            - ameex
         connected:
           type: boolean
         provider:
@@ -19767,6 +19805,7 @@ components:
         message:
           type: string
       required:
+        - companyCode
         - connected
         - provider
         - connectedAt

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   ServiceUnavailableException,
@@ -22,6 +23,9 @@ export class AmeexConnectionService {
       apiId: payload.apiId.trim(),
       apiKey: payload.apiKey.trim(),
     };
+    if (!credentials.apiId || !credentials.apiKey) {
+      throw new BadRequestException('Ameex credentials must not be blank');
+    }
     await this.client.checkConnection(credentials);
     const connection = await this.prisma.ameexConnection.upsert({
       where: { userId },
@@ -47,6 +51,7 @@ export class AmeexConnectionService {
     if (!connection) {
       return {
         connected: false,
+        companyCode: 'ameex' as const,
         provider: 'ameex.ma' as const,
         connectedAt: null,
         message: 'Ameex account is not connected',
@@ -63,6 +68,7 @@ export class AmeexConnectionService {
     await this.prisma.ameexConnection.deleteMany({ where: { userId } });
     return {
       connected: false,
+      companyCode: 'ameex' as const,
       provider: 'ameex.ma' as const,
       connectedAt: null,
       message: 'Ameex account disconnected',
@@ -95,6 +101,7 @@ export class AmeexConnectionService {
   private toStatus(connectedAt: Date) {
     return {
       connected: true,
+      companyCode: 'ameex' as const,
       provider: 'ameex.ma' as const,
       connectedAt: connectedAt.toISOString(),
       message: 'Ameex account is connected',

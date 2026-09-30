@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -229,17 +230,25 @@ export class SenditClient {
   async authenticate(
     credentials: SenditCredentials,
   ): Promise<SenditLoginResponse> {
-    const response = await fetch(this.buildUrl('/login'), {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        public_key: credentials.publicKey,
-        secret_key: credentials.secretKey,
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(this.buildUrl('/login'), {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          public_key: credentials.publicKey,
+          secret_key: credentials.secretKey,
+        }),
+        signal: AbortSignal.timeout(this.getRequestTimeoutMs()),
+      });
+    } catch {
+      throw new ServiceUnavailableException(
+        'Sendit is currently unreachable. Please try again.',
+      );
+    }
 
     if (response.status === 401 || response.status === 422) {
       const errorText = await response.text();
@@ -291,15 +300,23 @@ export class SenditClient {
     } = {},
   ): Promise<T> {
     const token = await this.getAccessToken(userId, credentials);
-    const response = await fetch(this.buildUrl(path, options.query), {
-      method,
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-    });
+    let response: Response;
+    try {
+      response = await fetch(this.buildUrl(path, options.query), {
+        method,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+        signal: AbortSignal.timeout(this.getRequestTimeoutMs()),
+      });
+    } catch {
+      throw new ServiceUnavailableException(
+        'Sendit is currently unreachable. Please try again.',
+      );
+    }
 
     if (response.status === 401 || response.status === 403) {
       this.clearUserToken(userId);
@@ -346,5 +363,12 @@ export class SenditClient {
     );
 
     return ttlSeconds * 1000;
+  }
+
+  private getRequestTimeoutMs(): number {
+    const configured = Number(
+      this.configService.get<string | number>('SENDIT_API_TIMEOUT_MS', 10000),
+    );
+    return Number.isFinite(configured) && configured > 0 ? configured : 10000;
   }
 }
