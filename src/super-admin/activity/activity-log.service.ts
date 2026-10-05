@@ -12,6 +12,8 @@ export const ActivityEntity = {
   SHOP_BANNER: 'SHOP_BANNER',
   SHOP_PROMO: 'SHOP_PROMO',
   SHOP_SETTINGS: 'SHOP_SETTINGS',
+  PLAN: 'PLAN',
+  SUBSCRIPTION: 'SUBSCRIPTION',
 } as const;
 export type ActivityEntity =
   (typeof ActivityEntity)[keyof typeof ActivityEntity];

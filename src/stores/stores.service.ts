@@ -12,12 +12,14 @@ import {
   defaultRoleSeeds,
 } from '../access/store-defaults.util';
 import { StoreAccessService } from '../access/store-access.service';
+import { SubscriptionService } from '../billing/subscription.service';
 
 @Injectable()
 export class StoresService {
   constructor(
     private prisma: PrismaService,
     private storeAccess: StoreAccessService,
+    private subscriptions: SubscriptionService,
   ) {}
 
   async create(userId: string, createStoreDto: CreateStoreDto) {
@@ -31,6 +33,9 @@ export class StoresService {
         'Staff members cannot create stores; ask the store owner',
       );
     }
+
+    // Q17.6: Starter = one store; Pro = multiple businesses.
+    await this.subscriptions.assertCanCreateStore(userId);
 
     const { baseCurrency, ...rest } = createStoreDto;
     const store = await this.prisma.store.create({
@@ -54,6 +59,7 @@ export class StoresService {
         activeStoreId: store.id,
       },
     });
+    await this.subscriptions.startTrialIfMissing(userId);
 
     return this.toResponse(store, true);
   }

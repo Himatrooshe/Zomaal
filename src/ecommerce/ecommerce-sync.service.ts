@@ -23,6 +23,7 @@ import { ShopifyRevenueAdapter } from './shopify-revenue.adapter';
 import { YouCanRevenueAdapter } from './youcan-revenue.adapter';
 import { EcommerceOrderTimelineService } from './ecommerce-order-timeline.service';
 import { CustomerRiskService } from '../customers/customer-risk.service';
+import { activeAccountWhere } from '../billing/subscription-status.util';
 
 const MAX_PAGES_PER_REQUEST = 5;
 
@@ -131,6 +132,8 @@ export class EcommerceSyncService {
         // otherwise get re-selected forever (lastSyncedAt never sets) and
         // fail adapterFor() on every tick.
         platform: { not: EcommercePlatform.MANUAL },
+        // Q17.4: expired trial/subscription — syncing stops.
+        store: { user: activeAccountWhere(startedAt) },
         OR: [
           { syncStartedAt: { not: null } },
           { lastSyncedAt: null },

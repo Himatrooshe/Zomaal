@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -8,7 +9,7 @@ import { UsersService } from './users.service';
 
 type UserUpdateCall = {
   where: { id: string };
-  data: { hashedRefreshToken: string | null; passwordHash: string };
+  data: Record<string, unknown>;
 };
 
 type PrismaStub = {
@@ -16,6 +17,8 @@ type PrismaStub = {
     findUnique: jest.Mock;
     update: jest.Mock<unknown, [UserUpdateCall]>;
     delete: jest.Mock;
+    findMany: jest.Mock;
+    deleteMany: jest.Mock;
   };
   store: { update: jest.Mock };
   staffMember: { update: jest.Mock };
@@ -27,6 +30,8 @@ function build() {
       findUnique: jest.fn(),
       update: jest.fn<unknown, [UserUpdateCall]>(),
       delete: jest.fn(),
+      findMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
     store: { update: jest.fn() },
     staffMember: { update: jest.fn() },
@@ -417,16 +422,44 @@ describe('UsersService', () => {
   });
 
   describe('deleteAccount', () => {
-    it('deletes the user', async () => {
+    const NOW = new Date('2026-10-05T12:00:00.000Z');
+    const IN_30_DAYS = new Date('2026-11-04T12:00:00.000Z');
+
+    it('schedules deletion 30 days out and signs out other devices', async () => {
       const { service, prisma } = build();
-      prisma.user.findUnique.mockResolvedValue(BASE_USER);
-
-      const result = await service.deleteAccount('user-1');
-
-      expect(prisma.user.delete).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
+      prisma.user.findUnique.mockResolvedValue({
+        ...BASE_USER,
+        deletionScheduledFor: null,
       });
-      expect(result).toEqual({ message: 'Account deleted successfully' });
+
+      const result = await service.deleteAccount('user-1', NOW);
+
+      expect(prisma.user.delete).not.toHaveBeenCalled();
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: {
+          deletionRequestedAt: NOW,
+          deletionScheduledFor: IN_30_DAYS,
+          hashedRefreshToken: null,
+        },
+      });
+      expect(result.deletionScheduledFor).toBe(IN_30_DAYS.toISOString());
+    });
+
+    it('keeps the original date when asked again', async () => {
+      const { service, prisma } = build();
+      prisma.user.findUnique.mockResolvedValue({
+        ...BASE_USER,
+        deletionScheduledFor: IN_30_DAYS,
+      });
+
+      const result = await service.deleteAccount(
+        'user-1',
+        new Date('2026-10-20T00:00:00.000Z'),
+      );
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(result.deletionScheduledFor).toBe(IN_30_DAYS.toISOString());
     });
 
     it('throws NotFoundException when the user no longer exists', async () => {
@@ -436,6 +469,65 @@ describe('UsersService', () => {
       await expect(service.deleteAccount('missing')).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  describe('cancelDeletion', () => {
+    it('clears a pending deletion', async () => {
+      const { service, prisma } = build();
+      prisma.user.findUnique.mockResolvedValue({
+        ...BASE_USER,
+        deletionScheduledFor: new Date('2026-11-04T12:00:00.000Z'),
+      });
+
+      await service.cancelDeletion('user-1');
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { deletionRequestedAt: null, deletionScheduledFor: null },
+      });
+    });
+
+    it('409 when nothing is pending', async () => {
+      const { service, prisma } = build();
+      prisma.user.findUnique.mockResolvedValue({
+        ...BASE_USER,
+        deletionScheduledFor: null,
+      });
+
+      await expect(service.cancelDeletion('user-1')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+    });
+  });
+
+  describe('purgeDueAccounts', () => {
+    it('deletes only accounts still due, so a last-second cancel wins', async () => {
+      const { service, prisma } = build();
+      const now = new Date('2026-11-04T12:00:00.000Z');
+      prisma.user.findMany.mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
+      prisma.user.deleteMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+
+      const result = await service.purgeDueAccounts(now);
+
+      expect(prisma.user.deleteMany).toHaveBeenCalledWith({
+        where: { id: 'a', deletionScheduledFor: { lte: now } },
+      });
+      expect(result).toEqual({ due: 2, deleted: 1, failed: 0 });
+    });
+
+    it('keeps going when one purge fails', async () => {
+      const { service, prisma } = build();
+      prisma.user.findMany.mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
+      prisma.user.deleteMany
+        .mockRejectedValueOnce(new Error('boom'))
+        .mockResolvedValueOnce({ count: 1 });
+
+      const result = await service.purgeDueAccounts();
+
+      expect(result).toEqual({ due: 2, deleted: 1, failed: 1 });
     });
   });
 });

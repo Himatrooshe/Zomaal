@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { QuickLivraisonClient } from './quicklivraison.client';
 import { QuickLivraisonConnectionService } from './quicklivraison-connection.service';
 import { QuickLivraisonShipmentService } from './quicklivraison-shipment.service';
+import { userWithActiveAccountWhere } from '../billing/subscription-status.util';
 
 @Injectable()
 export class QuickLivraisonSyncService {
@@ -63,6 +64,7 @@ export class QuickLivraisonSyncService {
     );
     const connections = await this.prisma.quickLivraisonConnection.findMany({
       where: {
+        user: userWithActiveAccountWhere(startedAt),
         OR: [
           { lastSyncedAt: null },
           { lastSyncedAt: { lte: staleBefore } },

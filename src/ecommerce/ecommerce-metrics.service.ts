@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ShopifyConnectionService } from '../shopify/shopify-connection.service';
 import { YouCanDataService } from '../youcan/youcan-data.service';
 import type { EcommerceMetricsRefreshDto } from './dto/ecommerce-response.dto';
+import { activeAccountWhere } from '../billing/subscription-status.util';
 
 const LIGHTFUNNELS_COUNT_PAGE_SIZE = 100;
 const LIGHTFUNNELS_MAX_COUNT_PAGES = 100;
@@ -84,6 +85,7 @@ export class EcommerceMetricsService {
     const connections = await this.prisma.ecommerceConnection.findMany({
       where: {
         status: EcommerceConnectionStatus.ACTIVE,
+        store: { user: activeAccountWhere() },
         OR: [
           { metricsSyncedAt: null },
           { metricsSyncedAt: { lte: staleBefore } },

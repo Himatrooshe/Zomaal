@@ -26,6 +26,7 @@ import { ZomaalShopModule } from './zomaal-shop/zomaal-shop.module';
 import { AppInfoModule } from './app-info/app-info.module';
 import { ProfileMediaModule } from './profile-media/profile-media.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     AppInfoModule,
     ProfileMediaModule,
     NotificationsModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

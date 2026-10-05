@@ -22,11 +22,14 @@ import { ShopBannersService } from './shop/shop-banners.service';
 import { ShopPromoCodesService } from './shop/shop-promo-codes.service';
 import { ShopOrdersAdminService } from './shop/shop-orders-admin.service';
 import { ShopStorefrontAdminController } from './shop/shop-storefront-admin.controller';
+import { AdminBillingController } from './billing/admin-billing.controller';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
     PassportModule,
     ZomaalShopModule,
+    BillingModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -48,6 +51,7 @@ import { ShopStorefrontAdminController } from './shop/shop-storefront-admin.cont
     ActivityLogController,
     PlatformController,
     ShopStorefrontAdminController,
+    AdminBillingController,
   ],
   providers: [
     SuperAdminAuthService,

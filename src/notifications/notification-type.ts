@@ -10,6 +10,9 @@ export const NotificationType = {
   PLATFORM_DISCONNECTED: 'PLATFORM_DISCONNECTED',
   PLATFORM_SYNC_FAILED: 'PLATFORM_SYNC_FAILED',
   COURIER_SYNC_FAILED: 'COURIER_SYNC_FAILED',
+  TRIAL_ENDING: 'TRIAL_ENDING',
+  SUBSCRIPTION_ENDING: 'SUBSCRIPTION_ENDING',
+  SUBSCRIPTION_EXPIRED: 'SUBSCRIPTION_EXPIRED',
 } as const;
 
 export type NotificationType =
@@ -68,6 +71,21 @@ export const NOTIFICATION_DEFINITIONS: Record<
   COURIER_SYNC_FAILED: {
     severity: NotificationSeverity.WARNING,
     category: NotificationCategory.INTEGRATIONS,
+    audiencePermission: null,
+  },
+  TRIAL_ENDING: {
+    severity: NotificationSeverity.WARNING,
+    category: NotificationCategory.BILLING,
+    audiencePermission: null,
+  },
+  SUBSCRIPTION_ENDING: {
+    severity: NotificationSeverity.WARNING,
+    category: NotificationCategory.BILLING,
+    audiencePermission: null,
+  },
+  SUBSCRIPTION_EXPIRED: {
+    severity: NotificationSeverity.CRITICAL,
+    category: NotificationCategory.BILLING,
     audiencePermission: null,
   },
 };

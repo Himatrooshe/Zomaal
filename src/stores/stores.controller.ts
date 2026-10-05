@@ -32,6 +32,7 @@ import {
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { MessageResponseDto } from '../auth/dto/auth-response.dto';
 import { StoresService } from './stores.service';
+import { AllowWhenLocked } from '../billing/billing.decorators';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 import { SelectStoreDto } from './dto/select-store.dto';
@@ -238,6 +239,7 @@ export class StoresController {
   }
 
   @Post('select')
+  @AllowWhenLocked()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Switch the active store',

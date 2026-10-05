@@ -36,6 +36,7 @@ import {
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
+import { AllowWhenLocked } from '../billing/billing.decorators';
 
 const tokenResponseHeaders = {
   'Cache-Control': {
@@ -51,6 +52,7 @@ const tokenResponseHeaders = {
 @ApiTags('Auth')
 @ApiConsumes('application/json')
 @ApiProduces('application/json')
+@AllowWhenLocked()
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
