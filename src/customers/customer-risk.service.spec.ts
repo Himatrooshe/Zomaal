@@ -27,11 +27,22 @@ function build() {
     ecommerceOrderEvent: {
       upsert: jest.fn(),
     },
+    ecommerceOrder: {
+      findUnique: jest.fn().mockResolvedValue({ orderName: '#1001' }),
+    },
   };
-  const service = new CustomerRiskService(prisma as never,
-      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn(), touchLastActive: jest.fn() } as never,
-    );
-  return { service, prisma };
+  const notifications = { raise: jest.fn().mockResolvedValue({ id: 'n-1' }) };
+  const service = new CustomerRiskService(
+    prisma as never,
+    {
+      require: jest.fn(),
+      requireOwner: jest.fn(),
+      requireStore: jest.fn(),
+      touchLastActive: jest.fn(),
+    } as never,
+    notifications as never,
+  );
+  return { service, prisma, notifications };
 }
 
 describe('CustomerRiskService', () => {
@@ -363,6 +374,57 @@ describe('CustomerRiskService', () => {
 
       expect(prisma.ecommerceOrderEvent.upsert).not.toHaveBeenCalled();
     });
+
+    it('raises a deduplicated critical notification for a blacklisted customer order', async () => {
+      const { service, notifications } = build();
+
+      await service.recordNewOrder({
+        storeId: 'store-1',
+        customerId: 'customer-1',
+        isBlacklisted: true,
+        orderId: 'order-1',
+        occurredAt: new Date('2026-04-16T00:00:00.000Z'),
+      });
+
+      expect(notifications.raise).toHaveBeenCalledWith(
+        expect.objectContaining({
+          storeId: 'store-1',
+          type: 'BLACKLISTED_CUSTOMER_ORDER',
+          entityType: 'ECOMMERCE_ORDER',
+          entityId: 'order-1',
+          dedupeKey: 'BLACKLISTED_CUSTOMER_ORDER:order-1',
+        }),
+      );
+    });
+
+    it('does not fail order ingestion when the notification cannot be written', async () => {
+      const { service, notifications } = build();
+      notifications.raise.mockRejectedValue(new Error('db down'));
+
+      await expect(
+        service.recordNewOrder({
+          storeId: 'store-1',
+          customerId: 'customer-1',
+          isBlacklisted: true,
+          orderId: 'order-1',
+          occurredAt: new Date('2026-04-16T00:00:00.000Z'),
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('raises no notification for a non-blacklisted customer', async () => {
+      const { service, notifications } = build();
+
+      await service.recordNewOrder({
+        storeId: 'store-1',
+        customerId: 'customer-1',
+        isBlacklisted: false,
+        orderId: 'order-1',
+        occurredAt: new Date('2026-04-16T00:00:00.000Z'),
+      });
+
+      expect(notifications.raise).not.toHaveBeenCalled();
+    });
   });
 
   describe('getSettings / updateSettings', () => {
@@ -394,12 +456,18 @@ describe('CustomerRiskService', () => {
   describe('recordShipmentOutcome', () => {
     it('no-ops when the user has no store', async () => {
       const { prisma } = build();
-      const serviceWithStore = new CustomerRiskService(prisma as never, {
-        require: jest.fn(),
-        requireOwner: jest.fn(),
-        requireStore: jest.fn().mockRejectedValue(new NotFoundException('Store not found')),
-        touchLastActive: jest.fn(),
-      } as never);
+      const serviceWithStore = new CustomerRiskService(
+        prisma as never,
+        {
+          require: jest.fn(),
+          requireOwner: jest.fn(),
+          requireStore: jest
+            .fn()
+            .mockRejectedValue(new NotFoundException('Store not found')),
+          touchLastActive: jest.fn(),
+        } as never,
+        { raise: jest.fn() } as never,
+      );
 
       await serviceWithStore.recordShipmentOutcome({
         userId: 'user-1',
@@ -413,12 +481,16 @@ describe('CustomerRiskService', () => {
     it('resolves the store from userId, then upserts the customer and increments the counter', async () => {
       const { prisma } = build();
       const requireStore = jest.fn().mockResolvedValue({ id: 'store-1' });
-      const serviceWithStore = new CustomerRiskService(prisma as never, {
-        require: jest.fn(),
-        requireOwner: jest.fn(),
-        requireStore,
-        touchLastActive: jest.fn(),
-      } as never);
+      const serviceWithStore = new CustomerRiskService(
+        prisma as never,
+        {
+          require: jest.fn(),
+          requireOwner: jest.fn(),
+          requireStore,
+          touchLastActive: jest.fn(),
+        } as never,
+        { raise: jest.fn() } as never,
+      );
       prisma.customer.upsert.mockResolvedValue({
         id: 'customer-1',
         isBlacklisted: false,

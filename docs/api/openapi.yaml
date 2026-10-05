@@ -16536,6 +16536,190 @@ paths:
       summary: About this App + Privacy Policy links
       tags:
         - App
+  /notifications:
+    get:
+      description: Newest first. Staff only receive alerts for modules their role can view; salary and integration alerts are owner-only.
+      operationId: Notifications_list
+      parameters:
+        - name: tab
+          required: false
+          in: query
+          schema:
+            default: ALL
+            type: string
+            enum:
+              - ALL
+              - CRITICAL
+              - WARNING
+              - INVENTORY
+        - name: unreadOnly
+          required: false
+          in: query
+          schema:
+            default: false
+            type: boolean
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Notifications list — All / Critical / Warning / Inventory tabs
+      tags:
+        - Notifications
+  /notifications/unread-count:
+    get:
+      operationId: Notifications_unreadCount
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnreadCountResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Unread badge counts per tab for the calling user
+      tags:
+        - Notifications
+  /notifications/read-all:
+    post:
+      operationId: Notifications_markAllRead
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkAllReadDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkAllReadResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Mark every visible notification (optionally one tab) as read
+      tags:
+        - Notifications
+  /notifications/{notificationId}/read:
+    post:
+      operationId: Notifications_markRead
+      parameters:
+        - name: notificationId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '204':
+          description: ''
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Not found, or not visible to this user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Mark one notification as read (idempotent)
+      tags:
+        - Notifications
+  /notifications/devices:
+    put:
+      description: Call after login and whenever FCM rotates the token. Idempotent per token.
+      operationId: Notifications_registerDevice
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterPushDeviceDto'
+      responses:
+        '204':
+          description: ''
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Register this device for push notifications
+      tags:
+        - Notifications
+  /notifications/devices/{token}:
+    delete:
+      operationId: Notifications_unregisterDevice
+      parameters:
+        - name: token
+          required: true
+          in: path
+          description: FCM registration token
+          schema:
+            type: string
+      responses:
+        '204':
+          description: ''
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Stop push on this device (call on logout)
+      tags:
+        - Notifications
 info:
   title: Zomaal API
   description: |-
@@ -28558,3 +28742,146 @@ components:
         - aboutUrl
         - termsOfServiceUrl
         - supportEmail
+    NotificationResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - LOW_STOCK
+            - OUT_OF_STOCK
+            - SALARY_OVERDUE
+            - BLACKLISTED_CUSTOMER_ORDER
+            - SALES_DROP
+            - PLATFORM_DISCONNECTED
+            - PLATFORM_SYNC_FAILED
+            - COURIER_SYNC_FAILED
+        severity:
+          type: string
+          enum:
+            - CRITICAL
+            - WARNING
+            - INFO
+        category:
+          type: string
+          enum:
+            - INVENTORY
+            - STAFF
+            - CUSTOMERS
+            - SALES
+            - INTEGRATIONS
+          description: INVENTORY rows make up the Inventory tab.
+        title:
+          type: string
+        message:
+          type: string
+          nullable: true
+        entityType:
+          type: string
+          nullable: true
+          description: 'What the alert points at, for deep-linking: WAREHOUSE_VARIANT, ECOMMERCE_ORDER, STAFF_SALARY_PAYMENT, ECOMMERCE_CONNECTION, SHIPPING_PROVIDER.'
+        entityId:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Type-specific figures (e.g. available units, % change).
+        resolvedAt:
+          type: string
+          nullable: true
+          description: When the underlying condition cleared (e.g. stock was replenished). Null while it still holds or for one-off alerts.
+        isRead:
+          type: boolean
+          description: Read state for the calling user.
+        readAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - type
+        - severity
+        - category
+        - title
+        - message
+        - entityType
+        - entityId
+        - metadata
+        - resolvedAt
+        - isRead
+        - readAt
+        - createdAt
+    NotificationListResponseDto:
+      type: object
+      properties:
+        items:
+          description: Newest first.
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationResponseDto'
+        unreadCount:
+          type: number
+          description: Unread across all tabs for the calling user.
+        pagination:
+          $ref: '#/components/schemas/PaginationDto'
+      required:
+        - items
+        - unreadCount
+        - pagination
+    UnreadCountResponseDto:
+      type: object
+      properties:
+        all:
+          type: number
+        critical:
+          type: number
+        warning:
+          type: number
+        inventory:
+          type: number
+      required:
+        - all
+        - critical
+        - warning
+        - inventory
+    MarkAllReadDto:
+      type: object
+      properties:
+        tab:
+          type: string
+          enum:
+            - ALL
+            - CRITICAL
+            - WARNING
+            - INVENTORY
+          default: ALL
+          description: Only mark notifications in this tab as read.
+    MarkAllReadResponseDto:
+      type: object
+      properties:
+        marked:
+          type: number
+      required:
+        - marked
+    RegisterPushDeviceDto:
+      type: object
+      properties:
+        token:
+          type: string
+          description: FCM registration token from the mobile app.
+          example: your-fcm-registration-token
+        platform:
+          type: string
+          enum:
+            - IOS
+            - ANDROID
+            - WEB
+      required:
+        - token
+        - platform

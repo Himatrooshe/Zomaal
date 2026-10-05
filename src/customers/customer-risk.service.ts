@@ -10,6 +10,8 @@ import {
 // Plain constants file, no NestJS module involved — safe to import directly
 // rather than duplicating the event type as a raw string.
 import { OrderEventType } from '../ecommerce/constants/order-event-type';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/notification-type';
 
 export type RiskCategory =
   | 'RETURNS'
@@ -44,8 +46,10 @@ const CATEGORY_LABEL: Record<RiskCategory, string> = {
  */
 @Injectable()
 export class CustomerRiskService {
-  constructor(private readonly prisma: PrismaService,
+  constructor(
+    private readonly prisma: PrismaService,
     private readonly storeAccess: StoreAccessService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -139,6 +143,31 @@ export class CustomerRiskService {
         synthetic: false,
       },
       update: {}, // events are immutable once stored — never overwrite
+    });
+
+    // Never fail order ingestion because an alert couldn't be written.
+    await this.raiseBlacklistedOrderAlert(params).catch(() => undefined);
+  }
+
+  private async raiseBlacklistedOrderAlert(params: {
+    storeId: string;
+    customerId: string;
+    orderId: string;
+  }): Promise<void> {
+    const order = await this.prisma.ecommerceOrder.findUnique({
+      where: { id: params.orderId },
+      select: { orderName: true },
+    });
+    const label = order?.orderName ? `Order ${order.orderName}` : 'A new order';
+    await this.notifications.raise({
+      storeId: params.storeId,
+      type: NotificationType.BLACKLISTED_CUSTOMER_ORDER,
+      title: 'Blacklisted customer placed an order',
+      message: `${label} is from a blacklisted customer. Review it before shipping.`,
+      entityType: 'ECOMMERCE_ORDER',
+      entityId: params.orderId,
+      metadata: { customerId: params.customerId },
+      dedupeKey: `${NotificationType.BLACKLISTED_CUSTOMER_ORDER}:${params.orderId}`,
     });
   }
 

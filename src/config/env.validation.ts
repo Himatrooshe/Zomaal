@@ -115,6 +115,31 @@ export function validateEnvironment(
       'STAFF_SALARY_SCHEDULER_SECRET must be at least 32 characters when salary processing is enabled',
     );
 
+  const notificationsSchedulerEnabled =
+    asString(config.NOTIFICATIONS_SCHEDULER_ENABLED) || 'false';
+  const notificationsSchedulerSecret = asString(
+    config.NOTIFICATIONS_SCHEDULER_SECRET,
+  );
+  if (!['true', 'false'].includes(notificationsSchedulerEnabled))
+    errors.push('NOTIFICATIONS_SCHEDULER_ENABLED must be true or false');
+  if (
+    notificationsSchedulerEnabled === 'true' &&
+    notificationsSchedulerSecret.length < 32
+  )
+    errors.push(
+      'NOTIFICATIONS_SCHEDULER_SECRET must be at least 32 characters when notification evaluation is enabled',
+    );
+
+  const pushNotificationsEnabled =
+    asString(config.PUSH_NOTIFICATIONS_ENABLED) || 'false';
+  const fcmProjectId = asString(config.FCM_PROJECT_ID);
+  if (!['true', 'false'].includes(pushNotificationsEnabled))
+    errors.push('PUSH_NOTIFICATIONS_ENABLED must be true or false');
+  if (pushNotificationsEnabled === 'true' && !fcmProjectId)
+    errors.push(
+      'FCM_PROJECT_ID is required when PUSH_NOTIFICATIONS_ENABLED is true',
+    );
+
   const ecommerceSyncSchedulerEnabled =
     config.ECOMMERCE_SYNC_SCHEDULER_ENABLED === 'true';
   const ecommerceSyncSchedulerSecret = asString(
@@ -454,6 +479,10 @@ export function validateEnvironment(
     ...config,
     STAFF_SALARY_SCHEDULER_ENABLED: staffSalarySchedulerEnabled,
     STAFF_SALARY_SCHEDULER_SECRET: staffSalarySchedulerSecret,
+    NOTIFICATIONS_SCHEDULER_ENABLED: notificationsSchedulerEnabled,
+    NOTIFICATIONS_SCHEDULER_SECRET: notificationsSchedulerSecret,
+    PUSH_NOTIFICATIONS_ENABLED: pushNotificationsEnabled,
+    FCM_PROJECT_ID: fcmProjectId,
     PORT: port,
     PRODUCT_IMAGE_BUCKET: productImageBucket,
     OAUTH_MOBILE_REDIRECT_SCHEMES: oauthMobileRedirectSchemes.join(','),
