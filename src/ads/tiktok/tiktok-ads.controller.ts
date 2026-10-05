@@ -38,6 +38,8 @@ import {
 } from '../dto/tiktok-campaign.dto';
 import { TikTokAdsAuthService } from './tiktok-ads-auth.service';
 import { TikTokAdsCampaignService } from './tiktok-ads-campaign.service';
+import { RequirePlanFeature } from '../../billing/billing.decorators';
+import { PLAN_FEATURES } from '../../billing/plan-features';
 
 @ApiTags('Ads — TikTok')
 @ApiBearerAuth()
@@ -46,6 +48,7 @@ import { TikTokAdsCampaignService } from './tiktok-ads-campaign.service';
   description: 'Missing or invalid Zomaal access token.',
   type: ApiErrorDto,
 })
+@RequirePlanFeature(PLAN_FEATURES.ADS)
 @Controller('ads/tiktok')
 export class TikTokAdsController {
   constructor(

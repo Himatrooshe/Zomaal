@@ -47,6 +47,8 @@ import {
   UpdateCartItemDto,
   UpdateShopAddressDto,
 } from './dto/shop.dto';
+import { RequirePlanFeature } from '../billing/billing.decorators';
+import { PLAN_FEATURES } from '../billing/plan-features';
 
 const OBJ = { schema: { type: 'object' } } as const;
 const ARR = { schema: { type: 'array', items: { type: 'object' } } } as const;
@@ -70,6 +72,7 @@ const ARR = { schema: { type: 'array', items: { type: 'object' } } } as const;
   description: 'Missing shop.view / shop.purchase permission.',
   type: ApiErrorDto,
 })
+@RequirePlanFeature(PLAN_FEATURES.SHOP)
 @Controller('shop')
 export class ShopController {
   constructor(

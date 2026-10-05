@@ -12,6 +12,11 @@ import {
   type RaiseNotificationInput,
 } from './notifications.service';
 import { NotificationType } from './notification-type';
+import {
+  daysLeft,
+  deriveSubscriptionStatus,
+} from '../billing/subscription-status.util';
+import { ENDING_SOON_DAYS } from '../billing/plan-features';
 
 const STORE_BATCH = 100;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -114,6 +119,7 @@ export class NotificationEvaluatorService {
       [NotificationType.SALES_DROP, await this.salesDropAlerts(store, now)],
       ...(await this.platformAlerts(store.id)),
       [NotificationType.COURIER_SYNC_FAILED, await this.courierAlerts(store)],
+      ...(await this.billingAlerts(store, now)),
     ];
 
     let raised = 0;
@@ -124,6 +130,84 @@ export class NotificationEvaluatorService {
       resolved += r.resolved;
     }
     return { raised, resolved };
+  }
+
+  /**
+   * Q17: warn the owner before the trial / paid period ends and once it has.
+   * Subscriptions are activated manually (no auto-renew), so an active plan
+   * always gets the "ending soon" warning. The key carries the end date, so
+   * a renewal resolves the old alert and the next period alerts afresh.
+   */
+  async billingAlerts(
+    store: StoreRef,
+    now: Date,
+  ): Promise<[NotificationType, RaiseNotificationInput[]][]> {
+    const sub = await this.prisma.subscription.findUnique({
+      where: { userId: store.userId },
+      select: {
+        planId: true,
+        accessEndsAt: true,
+        cancelAtPeriodEnd: true,
+        plan: { select: { name: true } },
+      },
+    });
+    const trialEnding: RaiseNotificationInput[] = [];
+    const subEnding: RaiseNotificationInput[] = [];
+    const expired: RaiseNotificationInput[] = [];
+
+    if (sub) {
+      const status = deriveSubscriptionStatus(sub, now);
+      const left = daysLeft(sub.accessEndsAt, now);
+      const endsOn = sub.accessEndsAt.toISOString();
+      const day = endsOn.slice(0, 10);
+      const base = {
+        storeId: store.id,
+        entityType: 'SUBSCRIPTION',
+        metadata: { accessEndsAt: endsOn, status },
+      };
+      const inDays = `${left} day${left === 1 ? '' : 's'}`;
+
+      if (status === 'TRIALING' && left <= ENDING_SOON_DAYS) {
+        trialEnding.push({
+          ...base,
+          type: NotificationType.TRIAL_ENDING,
+          title: `Your free trial ends in ${inDays}`,
+          message:
+            'Choose a plan to keep making changes and syncing your stores.',
+          dedupeKey: `${NotificationType.TRIAL_ENDING}:${day}`,
+        });
+      } else if (status === 'ACTIVE' && left <= ENDING_SOON_DAYS) {
+        subEnding.push({
+          ...base,
+          type: NotificationType.SUBSCRIPTION_ENDING,
+          title: sub.plan
+            ? `Your ${sub.plan.name} plan ends in ${inDays}`
+            : `Your plan ends in ${inDays}`,
+          message: sub.cancelAtPeriodEnd
+            ? 'Your subscription was cancelled and will not renew.'
+            : 'Renew to keep making changes and syncing your stores.',
+          dedupeKey: `${NotificationType.SUBSCRIPTION_ENDING}:${day}`,
+        });
+      } else if (status === 'TRIAL_ENDED' || status === 'EXPIRED') {
+        expired.push({
+          ...base,
+          type: NotificationType.SUBSCRIPTION_EXPIRED,
+          title:
+            status === 'TRIAL_ENDED'
+              ? 'Your free trial has ended'
+              : 'Your subscription has expired',
+          message:
+            'Your account is read-only and syncing is paused. Choose a plan to continue.',
+          dedupeKey: `${NotificationType.SUBSCRIPTION_EXPIRED}:${day}`,
+        });
+      }
+    }
+
+    return [
+      [NotificationType.TRIAL_ENDING, trialEnding],
+      [NotificationType.SUBSCRIPTION_ENDING, subEnding],
+      [NotificationType.SUBSCRIPTION_EXPIRED, expired],
+    ];
   }
 
   async stockAlerts(

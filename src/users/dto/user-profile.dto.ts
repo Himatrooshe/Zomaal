@@ -48,6 +48,26 @@ export class UserProfileDto {
   @ApiProperty({ example: false })
   onboardingComplete: boolean;
 
+  @ApiProperty({
+    description:
+      'Set when the user asked to delete their account. Null when no deletion is pending.',
+    example: null,
+    nullable: true,
+    type: String,
+    format: 'date-time',
+  })
+  deletionRequestedAt: string | null;
+
+  @ApiProperty({
+    description:
+      'When the account will be permanently deleted (30 days after the request). Cancel before then with POST /users/me/deletion/cancel.',
+    example: null,
+    nullable: true,
+    type: String,
+    format: 'date-time',
+  })
+  deletionScheduledFor: string | null;
+
   @ApiProperty({ example: '2026-07-16T10:30:00.000Z', format: 'date-time' })
   createdAt: string;
 

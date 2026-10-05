@@ -36,6 +36,8 @@ import {
   AdsStatisticsQueryDto,
   AdsStatisticsResponseDto,
 } from './dto/ads-dashboard.dto';
+import { RequirePlanFeature } from '../billing/billing.decorators';
+import { PLAN_FEATURES } from '../billing/plan-features';
 
 const PRIVATE_NO_STORE_HEADERS = {
   'Cache-Control': {
@@ -55,6 +57,7 @@ const PRIVATE_NO_STORE_HEADERS = {
   description: 'Missing or invalid Zomaal access token.',
   type: ApiErrorDto,
 })
+@RequirePlanFeature(PLAN_FEATURES.ADS)
 @Controller('ads')
 export class AdsController {
   constructor(

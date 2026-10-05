@@ -19,6 +19,11 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  // Delete Account has a 30-day grace period: the account keeps working and
+  // can cancel until deletionScheduledFor, then the purge job deletes it.
+  deletionRequestedAt  DateTime?
+  deletionScheduledFor DateTime?
+
   // A user is EITHER a store owner (via `stores`) OR a staff member of
   // someone else's store (via `staffMembership`) — never both.
   // Owners may own multiple stores (Settings store switcher); `activeStoreId`
@@ -44,6 +49,10 @@ model User {
   shippingCourierSuggestions ShippingCourierSuggestion[]
   notificationReads          NotificationRead[]
   pushDevices                PushDevice[]
+  subscription               Subscription?
+  billingInvoices            BillingInvoice[]
+
+  @@index([deletionScheduledFor])
 }
 
 // The single platform-level operator identity for the Zomaal Shop admin
@@ -2233,6 +2242,7 @@ enum NotificationCategory {
   CUSTOMERS
   SALES
   INTEGRATIONS
+  BILLING
 }
 
 model Notification {
@@ -2299,4 +2309,94 @@ model PushDevice {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ============================================================================
+// Plans & billing — one subscription per owner account (covers all their
+// stores; staff inherit their owner's). Payment happens on the web; until a
+// gateway is chosen, Zomaal admin activates plans manually (provider MANUAL).
+// ============================================================================
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+// Managed by Zomaal admin — prices are never hardcoded.
+model Plan {
+  id           String   @id @default(uuid())
+  code         String   @unique // e.g. STARTER, PRO
+  name         String
+  description  String?
+  monthlyPrice Decimal? @db.Decimal(20, 4) // null = not sold monthly
+  yearlyPrice  Decimal? @db.Decimal(20, 4) // null = not sold yearly
+  currency     String   @default("MAD")
+  taxIncluded  Boolean  @default(true)
+  // Null = unlimited stores.
+  maxStores    Int?
+  // Entitlement keys from billing/plan-features.ts (ads, shop, whatsapp).
+  features     String[]
+  // Marketing bullets for the Plans & Pricing screen.
+  featureList  String[]
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions Subscription[]
+  invoices      BillingInvoice[]
+}
+
+model Subscription {
+  id                 String           @id @default(uuid())
+  // Null while on the free trial.
+  planId             String?
+  plan               Plan?            @relation(fields: [planId], references: [id], onDelete: Restrict)
+  interval           BillingInterval?
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean          @default(false)
+  canceledAt         DateTime?
+  // When access ends (trial end or paid period end). Status is derived from
+  // this at read time, so nothing has to run on a schedule to lock accounts.
+  accessEndsAt       DateTime
+  provider           String           @default("MANUAL")
+  providerReference  String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  invoices BillingInvoice[]
+
+  @@index([accessEndsAt])
+}
+
+// Billing history. Kept (userId set null) when the account is deleted —
+// payment records must outlive the account.
+model BillingInvoice {
+  id                String          @id @default(uuid())
+  planName          String // snapshot at payment time
+  interval          BillingInterval
+  amount            Decimal         @db.Decimal(20, 4)
+  currency          String
+  periodStart       DateTime
+  periodEnd         DateTime
+  paidAt            DateTime
+  provider          String          @default("MANUAL")
+  providerReference String?
+  note              String?
+  recordedByAdminId String?
+  createdAt         DateTime        @default(now())
+
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  planId         String?
+  plan           Plan?         @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@index([userId, paidAt])
 }

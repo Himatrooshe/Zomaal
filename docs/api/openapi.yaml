@@ -486,16 +486,16 @@ paths:
       tags:
         - Users
     delete:
-      description: Permanently deletes the current user. For a store owner this cascades to the store and everything scoped to it; for a staff member it removes their staff membership. Irreversible.
+      description: Schedules permanent deletion 30 days from now and signs out other devices. Until then the user can log in and cancel with POST /users/me/deletion/cancel. After the grace period the user is deleted — for a store owner this cascades to every store and everything scoped to it; for a staff member it removes their staff membership. Calling again while pending returns the existing date.
       operationId: Users_deleteAccount
       parameters: []
       responses:
         '200':
-          description: Account deleted.
+          description: Deletion scheduled.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageResponseDto'
+                $ref: '#/components/schemas/AccountDeletionResponseDto'
         '401':
           description: Missing, invalid, expired, or non-access bearer token.
           content:
@@ -604,6 +604,34 @@ paths:
       security:
         - bearer: []
       summary: Change Password
+      tags:
+        - Users
+  /users/me/deletion/cancel:
+    post:
+      operationId: Users_cancelDeletion
+      parameters: []
+      responses:
+        '200':
+          description: Deletion cancelled; the account stays.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletionResponseDto'
+        '401':
+          description: Missing, invalid, expired, or non-access bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: No account deletion is pending.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Cancel a pending account deletion
       tags:
         - Users
   /stores:
@@ -14815,6 +14843,8 @@ paths:
               - SHOP_BANNER
               - SHOP_PROMO
               - SHOP_SETTINGS
+              - PLAN
+              - SUBSCRIPTION
       responses:
         '200':
           description: ''
@@ -15477,6 +15507,227 @@ paths:
       summary: Update shop settings
       tags:
         - Admin Shop Operations
+  /admin/plans:
+    get:
+      operationId: AdminBilling_listPlans
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: All plans, including inactive ones
+      tags:
+        - Admin Billing
+    post:
+      operationId: AdminBilling_createPlan
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlanDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Code already used, or no price set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Create a plan (prices are set here, never hardcoded)
+      tags:
+        - Admin Billing
+  /admin/plans/{planId}:
+    patch:
+      description: Price changes apply to future payments only. Set isActive=false to stop selling a plan without affecting current subscribers.
+      operationId: AdminBilling_updatePlan
+      parameters:
+        - name: planId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlanDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Update a plan
+      tags:
+        - Admin Billing
+  /admin/merchants/{userId}/subscription:
+    get:
+      operationId: AdminBilling_getSubscription
+      parameters:
+        - name: userId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSubscriptionResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: A merchant's subscription and billing history
+      tags:
+        - Admin Billing
+  /admin/merchants/{userId}/subscription/activate:
+    post:
+      description: Used until a payment gateway is integrated. Renewing the same plan before it ends extends from the current period end. Adds a billing-history entry.
+      operationId: AdminBilling_activate
+      parameters:
+        - name: userId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateSubscriptionDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSubscriptionResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Merchant or plan not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Plan not sold at that interval.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Record a payment received outside the app and activate / extend the plan
+      tags:
+        - Admin Billing
+  /admin/merchants/{userId}/subscription/extend-trial:
+    post:
+      operationId: AdminBilling_extendTrial
+      parameters:
+        - name: userId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtendTrialDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSubscriptionResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Already on a paid plan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Give a merchant extra free-trial days
+      tags:
+        - Admin Billing
   /shop/home:
     get:
       operationId: Shop_home
@@ -16720,6 +16971,164 @@ paths:
       summary: Stop push on this device (call on logout)
       tags:
         - Notifications
+  /billing/plans:
+    get:
+      operationId: Billing_plans
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Plans & Pricing screen — active plans, cheapest first
+      tags:
+        - Billing
+  /billing/subscription:
+    get:
+      description: Owners and staff can call this (staff need it to show the locked overlay). Staff get canManage=false.
+      operationId: Billing_subscription
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Plan & Billing screen, trial banner and locked overlay state
+      tags:
+        - Billing
+  /billing/subscription/cancel:
+    post:
+      operationId: Billing_cancel
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Staff cannot manage billing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Not on an active paid plan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Cancel subscription — takes effect at the end of the paid period, no refund
+      tags:
+        - Billing
+  /billing/subscription/resume:
+    post:
+      operationId: Billing_resume
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Staff cannot manage billing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: No pending cancellation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Undo a pending cancellation before the period ends
+      tags:
+        - Billing
+  /billing/invoices:
+    get:
+      operationId: Billing_invoices
+      parameters:
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingInvoiceListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Staff cannot view billing history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Billing history (owner only), newest first
+      tags:
+        - Billing
 info:
   title: Zomaal API
   description: |-
@@ -17179,6 +17588,18 @@ components:
         onboardingComplete:
           type: boolean
           example: false
+        deletionRequestedAt:
+          type: string
+          description: Set when the user asked to delete their account. Null when no deletion is pending.
+          example: null
+          nullable: true
+          format: date-time
+        deletionScheduledFor:
+          type: string
+          description: When the account will be permanently deleted (30 days after the request). Cancel before then with POST /users/me/deletion/cancel.
+          example: null
+          nullable: true
+          format: date-time
         createdAt:
           type: string
           example: '2026-07-16T10:30:00.000Z'
@@ -17207,6 +17628,8 @@ components:
         - city
         - isPhoneVerified
         - onboardingComplete
+        - deletionRequestedAt
+        - deletionScheduledFor
         - createdAt
         - updatedAt
         - store
@@ -17247,6 +17670,19 @@ components:
           writeOnly: true
       required:
         - newPassword
+    AccountDeletionResponseDto:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Your account will be permanently deleted in 30 days. Log in and cancel before then to keep it.
+        deletionScheduledFor:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - message
+        - deletionScheduledFor
     CreateStoreDto:
       type: object
       properties:
@@ -28537,6 +28973,376 @@ components:
         codCancellationWindowDays:
           type: number
           example: 90
+    PlanResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          description: Stable code, e.g. STARTER or PRO.
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        monthlyPrice:
+          type: string
+          nullable: true
+          description: Null when not sold monthly.
+        yearlyPrice:
+          type: string
+          nullable: true
+          description: Null when not sold yearly.
+        currency:
+          type: string
+        taxIncluded:
+          type: boolean
+        maxStores:
+          type: number
+          nullable: true
+          description: Null = unlimited stores.
+        features:
+          type: array
+          items:
+            type: string
+            enum:
+              - ads
+              - shop
+              - whatsapp
+        featureList:
+          description: Bullets for the Plans & Pricing screen.
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        sortOrder:
+          type: number
+      required:
+        - id
+        - code
+        - name
+        - description
+        - monthlyPrice
+        - yearlyPrice
+        - currency
+        - taxIncluded
+        - maxStores
+        - features
+        - featureList
+        - isActive
+        - sortOrder
+    CreatePlanDto:
+      type: object
+      properties:
+        code:
+          type: string
+          example: STARTER
+          description: Uppercase letters, digits, underscore.
+        name:
+          type: string
+          example: Starter
+        description:
+          type: string
+        monthlyPrice:
+          type: string
+          example: '99.00'
+          description: Omit if not sold monthly.
+        yearlyPrice:
+          type: string
+          example: '990.00'
+          description: Omit if not sold yearly.
+        currency:
+          type: string
+          default: MAD
+        taxIncluded:
+          type: boolean
+          default: true
+        maxStores:
+          type: object
+          minimum: 1
+          description: Omit for unlimited stores.
+        features:
+          type: array
+          default: []
+          description: Paid features this plan unlocks. Empty = core app only.
+          items:
+            type: string
+            enum:
+              - ads
+              - shop
+              - whatsapp
+        featureList:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+          default: true
+        sortOrder:
+          type: number
+          default: 0
+      required:
+        - code
+        - name
+    UpdatePlanDto:
+      type: object
+      properties:
+        code:
+          type: string
+          example: STARTER
+          description: Uppercase letters, digits, underscore.
+        name:
+          type: string
+          example: Starter
+        description:
+          type: string
+        monthlyPrice:
+          type: string
+          example: '99.00'
+          description: Omit if not sold monthly.
+        yearlyPrice:
+          type: string
+          example: '990.00'
+          description: Omit if not sold yearly.
+        currency:
+          type: string
+          default: MAD
+        taxIncluded:
+          type: boolean
+          default: true
+        maxStores:
+          type: object
+          minimum: 1
+          description: Omit for unlimited stores.
+        features:
+          type: array
+          default: []
+          description: Paid features this plan unlocks. Empty = core app only.
+          items:
+            type: string
+            enum:
+              - ads
+              - shop
+              - whatsapp
+        featureList:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+          default: true
+        sortOrder:
+          type: number
+          default: 0
+    EntitlementsDto:
+      type: object
+      properties:
+        maxStores:
+          type: number
+          nullable: true
+          description: Null = unlimited.
+        storesUsed:
+          type: number
+          description: Stores this account owns now.
+        features:
+          type: array
+          items:
+            type: string
+            enum:
+              - ads
+              - shop
+              - whatsapp
+      required:
+        - maxStores
+        - storesUsed
+        - features
+    SubscriptionResponseDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - TRIALING
+            - ACTIVE
+            - TRIAL_ENDED
+            - EXPIRED
+          description: 'TRIALING / ACTIVE = full access. TRIAL_ENDED / EXPIRED = read-only: data stays visible, changes and syncing stop.'
+        isReadOnly:
+          type: boolean
+          description: True when TRIAL_ENDED or EXPIRED — show the plan overlay.
+        plan:
+          nullable: true
+          description: Null during the free trial.
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/PlanResponseDto'
+        interval:
+          type: string
+          enum:
+            - MONTHLY
+            - YEARLY
+          nullable: true
+        trialEndsAt:
+          type: string
+          nullable: true
+        trialDaysLeft:
+          type: number
+          nullable: true
+          description: Only while TRIALING — for the banner.
+        currentPeriodStart:
+          type: string
+          nullable: true
+        currentPeriodEnd:
+          type: string
+          nullable: true
+        renewsAt:
+          type: string
+          nullable: true
+          description: '"Next billing" date. Null when cancelled, trialing, or expired.'
+        cancelAtPeriodEnd:
+          type: boolean
+          description: Cancelled; access continues until currentPeriodEnd.
+        canceledAt:
+          type: string
+          nullable: true
+        accessEndsAt:
+          type: string
+          description: When access ends (trial end or paid period end).
+        provider:
+          type: string
+          example: MANUAL
+        paymentMethod:
+          type: object
+          nullable: true
+          description: Card on file. Always null until a payment gateway is integrated.
+        entitlements:
+          $ref: '#/components/schemas/EntitlementsDto'
+        checkoutUrl:
+          type: string
+          nullable: true
+          description: 'Web page where the owner pays (Q17.1: web only). Null until configured.'
+        canManage:
+          type: boolean
+          description: True for the owner. Staff can see status but not cancel or view invoices.
+      required:
+        - status
+        - isReadOnly
+        - plan
+        - interval
+        - trialEndsAt
+        - trialDaysLeft
+        - currentPeriodStart
+        - currentPeriodEnd
+        - renewsAt
+        - cancelAtPeriodEnd
+        - canceledAt
+        - accessEndsAt
+        - provider
+        - paymentMethod
+        - entitlements
+        - checkoutUrl
+        - canManage
+    BillingInvoiceResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        planName:
+          type: string
+        interval:
+          type: string
+          enum:
+            - MONTHLY
+            - YEARLY
+        amount:
+          type: string
+          description: Decimal string, 2 places.
+        currency:
+          type: string
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        paidAt:
+          type: string
+        provider:
+          type: string
+          example: MANUAL
+        providerReference:
+          type: string
+          nullable: true
+      required:
+        - id
+        - planName
+        - interval
+        - amount
+        - currency
+        - periodStart
+        - periodEnd
+        - paidAt
+        - provider
+        - providerReference
+    AdminSubscriptionResponseDto:
+      type: object
+      properties:
+        subscription:
+          $ref: '#/components/schemas/SubscriptionResponseDto'
+        invoices:
+          type: array
+          items:
+            $ref: '#/components/schemas/BillingInvoiceResponseDto'
+      required:
+        - subscription
+        - invoices
+    ActivateSubscriptionDto:
+      type: object
+      properties:
+        planId:
+          type: string
+          format: uuid
+        interval:
+          type: string
+          enum:
+            - MONTHLY
+            - YEARLY
+        periods:
+          type: number
+          minimum: 1
+          maximum: 24
+          default: 1
+          description: How many intervals were paid for.
+        amount:
+          type: string
+          example: '99.00'
+          description: Amount actually received.
+        currency:
+          type: string
+          description: Defaults to the plan's currency.
+        paidAt:
+          type: string
+          description: Defaults to now.
+        providerReference:
+          type: string
+          description: Bank transfer reference, receipt number…
+        note:
+          type: string
+      required:
+        - planId
+        - interval
+        - amount
+    ExtendTrialDto:
+      type: object
+      properties:
+        days:
+          type: number
+          minimum: 1
+          maximum: 90
+      required:
+        - days
     AddCartItemDto:
       type: object
       properties:
@@ -28759,6 +29565,9 @@ components:
             - PLATFORM_DISCONNECTED
             - PLATFORM_SYNC_FAILED
             - COURIER_SYNC_FAILED
+            - TRIAL_ENDING
+            - SUBSCRIPTION_ENDING
+            - SUBSCRIPTION_EXPIRED
         severity:
           type: string
           enum:
@@ -28773,6 +29582,7 @@ components:
             - CUSTOMERS
             - SALES
             - INTEGRATIONS
+            - BILLING
           description: INVENTORY rows make up the Inventory tab.
         title:
           type: string
@@ -28885,3 +29695,16 @@ components:
       required:
         - token
         - platform
+    BillingInvoiceListResponseDto:
+      type: object
+      properties:
+        items:
+          description: Newest first.
+          type: array
+          items:
+            $ref: '#/components/schemas/BillingInvoiceResponseDto'
+        pagination:
+          $ref: '#/components/schemas/PaginationDto'
+      required:
+        - items
+        - pagination

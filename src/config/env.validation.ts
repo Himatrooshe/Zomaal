@@ -130,6 +130,20 @@ export function validateEnvironment(
       'NOTIFICATIONS_SCHEDULER_SECRET must be at least 32 characters when notification evaluation is enabled',
     );
 
+  const accountsSchedulerEnabled =
+    asString(config.ACCOUNTS_SCHEDULER_ENABLED) || 'false';
+  const accountsSchedulerSecret = asString(config.ACCOUNTS_SCHEDULER_SECRET);
+  if (!['true', 'false'].includes(accountsSchedulerEnabled))
+    errors.push('ACCOUNTS_SCHEDULER_ENABLED must be true or false');
+  if (accountsSchedulerEnabled === 'true' && accountsSchedulerSecret.length < 32)
+    errors.push(
+      'ACCOUNTS_SCHEDULER_SECRET must be at least 32 characters when account purging is enabled',
+    );
+
+  const billingCheckoutUrl = asString(config.BILLING_CHECKOUT_URL);
+  if (billingCheckoutUrl && !/^https:\/\/\S+$/.test(billingCheckoutUrl))
+    errors.push('BILLING_CHECKOUT_URL must be an https:// URL');
+
   const pushNotificationsEnabled =
     asString(config.PUSH_NOTIFICATIONS_ENABLED) || 'false';
   const fcmProjectId = asString(config.FCM_PROJECT_ID);
@@ -481,6 +495,9 @@ export function validateEnvironment(
     STAFF_SALARY_SCHEDULER_SECRET: staffSalarySchedulerSecret,
     NOTIFICATIONS_SCHEDULER_ENABLED: notificationsSchedulerEnabled,
     NOTIFICATIONS_SCHEDULER_SECRET: notificationsSchedulerSecret,
+    ACCOUNTS_SCHEDULER_ENABLED: accountsSchedulerEnabled,
+    ACCOUNTS_SCHEDULER_SECRET: accountsSchedulerSecret,
+    BILLING_CHECKOUT_URL: billingCheckoutUrl,
     PUSH_NOTIFICATIONS_ENABLED: pushNotificationsEnabled,
     FCM_PROJECT_ID: fcmProjectId,
     PORT: port,

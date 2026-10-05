@@ -11,6 +11,7 @@ function build() {
     staffSalaryPayment: { findMany: jest.fn().mockResolvedValue([]) },
     ecommerceConnection: { findMany: jest.fn().mockResolvedValue([]) },
     user: { findUnique: jest.fn().mockResolvedValue(null) },
+    subscription: { findUnique: jest.fn().mockResolvedValue(null) },
   };
   const notifications = {
     reconcile: jest.fn().mockResolvedValue({ raised: 0, resolved: 0 }),
@@ -316,6 +317,9 @@ describe('NotificationEvaluatorService', () => {
           'PLATFORM_SYNC_FAILED',
           'SALARY_OVERDUE',
           'SALES_DROP',
+          'TRIAL_ENDING',
+          'SUBSCRIPTION_ENDING',
+          'SUBSCRIPTION_EXPIRED',
         ].sort(),
       );
       expect(prisma.store.findMany).toHaveBeenLastCalledWith(
@@ -324,7 +328,7 @@ describe('NotificationEvaluatorService', () => {
       expect(summary).toEqual({
         stores: 1,
         failedStores: 0,
-        raised: 7,
+        raised: 10,
         resolved: 0,
       });
     });
@@ -340,6 +344,79 @@ describe('NotificationEvaluatorService', () => {
 
       expect(summary.stores).toBe(2);
       expect(summary.failedStores).toBe(1);
+    });
+  });
+
+  describe('billingAlerts', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const desired = async (sub: unknown) => {
+      const { service, prisma } = build();
+      prisma.subscription.findUnique.mockResolvedValue(sub);
+      const batches = await service.billingAlerts(STORE, NOW);
+      return Object.fromEntries(batches);
+    };
+
+    it('warns when the trial ends within 3 days, keyed by end date', async () => {
+      const ends = new Date(NOW.getTime() + 2 * DAY);
+      const out = await desired({
+        planId: null,
+        accessEndsAt: ends,
+        cancelAtPeriodEnd: false,
+        plan: null,
+      });
+
+      expect(out.TRIAL_ENDING).toHaveLength(1);
+      expect(out.TRIAL_ENDING[0]).toMatchObject({
+        title: 'Your free trial ends in 2 days',
+        dedupeKey: `TRIAL_ENDING:${ends.toISOString().slice(0, 10)}`,
+      });
+      expect(out.SUBSCRIPTION_ENDING).toEqual([]);
+      expect(out.SUBSCRIPTION_EXPIRED).toEqual([]);
+    });
+
+    it('says nothing early in the trial', async () => {
+      const out = await desired({
+        planId: null,
+        accessEndsAt: new Date(NOW.getTime() + 6 * DAY),
+        cancelAtPeriodEnd: false,
+        plan: null,
+      });
+      expect(out.TRIAL_ENDING).toEqual([]);
+    });
+
+    it('warns before a paid period ends, mentioning cancellation', async () => {
+      const out = await desired({
+        planId: 'plan-1',
+        accessEndsAt: new Date(NOW.getTime() + 1 * DAY),
+        cancelAtPeriodEnd: true,
+        plan: { name: 'Pro' },
+      });
+      expect(out.SUBSCRIPTION_ENDING[0]).toMatchObject({
+        title: 'Your Pro plan ends in 1 day',
+        message: 'Your subscription was cancelled and will not renew.',
+      });
+    });
+
+    it('raises a critical alert once access has ended', async () => {
+      const out = await desired({
+        planId: null,
+        accessEndsAt: new Date(NOW.getTime() - DAY),
+        cancelAtPeriodEnd: false,
+        plan: null,
+      });
+      expect(out.SUBSCRIPTION_EXPIRED[0].title).toBe(
+        'Your free trial has ended',
+      );
+      expect(out.TRIAL_ENDING).toEqual([]);
+    });
+
+    it('resolves everything when there is no subscription row', async () => {
+      const out = await desired(null);
+      expect(out).toEqual({
+        TRIAL_ENDING: [],
+        SUBSCRIPTION_ENDING: [],
+        SUBSCRIPTION_EXPIRED: [],
+      });
     });
   });
 });

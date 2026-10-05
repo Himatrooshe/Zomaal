@@ -16,6 +16,7 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConflictResponse,
   ApiConsumes,
   ApiCreatedResponse,
   ApiNotFoundResponse,
@@ -37,11 +38,14 @@ import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ProfileMediaService } from '../profile-media/profile-media.service';
 import type { WarehouseMediaUploadFile } from '../warehouse/media.service';
+import { AllowWhenLocked } from '../billing/billing.decorators';
+import { AccountDeletionResponseDto } from './dto/account-deletion.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
 @ApiProduces('application/json')
 @UseGuards(JwtAuthGuard)
+@AllowWhenLocked()
 @Controller('users')
 export class UsersController {
   constructor(
@@ -99,7 +103,8 @@ export class UsersController {
     type: UserProfileDto,
   })
   @ApiBadRequestResponse({
-    description: 'Missing file, unsupported/corrupt image, or no store/staff yet.',
+    description:
+      'Missing file, unsupported/corrupt image, or no store/staff yet.',
     type: ApiErrorDto,
   })
   @ApiServiceUnavailableResponse({
@@ -213,11 +218,11 @@ export class UsersController {
   @ApiOperation({
     summary: 'Delete Account',
     description:
-      'Permanently deletes the current user. For a store owner this cascades to the store and everything scoped to it; for a staff member it removes their staff membership. Irreversible.',
+      'Schedules permanent deletion 30 days from now and signs out other devices. Until then the user can log in and cancel with POST /users/me/deletion/cancel. After the grace period the user is deleted — for a store owner this cascades to every store and everything scoped to it; for a staff member it removes their staff membership. Calling again while pending returns the existing date.',
   })
   @ApiOkResponse({
-    description: 'Account deleted.',
-    type: MessageResponseDto,
+    description: 'Deletion scheduled.',
+    type: AccountDeletionResponseDto,
   })
   @ApiUnauthorizedResponse({
     description: 'Missing, invalid, expired, or non-access bearer token.',
@@ -229,5 +234,26 @@ export class UsersController {
   })
   deleteAccount(@CurrentUser() user: JwtPayload) {
     return this.usersService.deleteAccount(user.userId);
+  }
+
+  @Post('me/deletion/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Cancel a pending account deletion',
+  })
+  @ApiOkResponse({
+    description: 'Deletion cancelled; the account stays.',
+    type: AccountDeletionResponseDto,
+  })
+  @ApiConflictResponse({
+    description: 'No account deletion is pending.',
+    type: ApiErrorDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, expired, or non-access bearer token.',
+    type: ApiErrorDto,
+  })
+  cancelDeletion(@CurrentUser() user: JwtPayload) {
+    return this.usersService.cancelDeletion(user.userId);
   }
 }

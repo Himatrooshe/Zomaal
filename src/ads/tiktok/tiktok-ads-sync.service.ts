@@ -3,6 +3,7 @@ import { AdsConnectionStatus, AdsPlatform, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdsConnectionService } from '../ads-connection.service';
 import { TikTokAdsApiService, type TikTokDailyMetric } from './tiktok-ads-api.service';
+import { activeAccountWhere } from '../../billing/subscription-status.util';
 
 const SYNC_LOOKBACK_DAYS = 7; // re-pull the last week every run — TikTok
 // reporting numbers get revised for a few days after the fact (attribution
@@ -37,7 +38,11 @@ export class TikTokAdsSyncService {
     };
 
     const activeConnections = await this.prisma.adsConnection.findMany({
-      where: { platform: AdsPlatform.TIKTOK, status: AdsConnectionStatus.ACTIVE },
+      where: {
+        platform: AdsPlatform.TIKTOK,
+        status: AdsConnectionStatus.ACTIVE,
+        store: { user: activeAccountWhere() },
+      },
       include: { campaigns: { where: { tracked: true } } },
     });
 

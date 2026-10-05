@@ -36,6 +36,7 @@ import {
   RegisterPushDeviceDto,
   UnreadCountResponseDto,
 } from './dto/notification.dto';
+import { AllowWhenLocked } from '../billing/billing.decorators';
 
 // Not permission-gated as a whole: every user has a notifications screen.
 // Per-row visibility (staff only see their modules) is applied in the service.
@@ -46,6 +47,7 @@ import {
   description: 'Missing or invalid Zomaal access token.',
   type: ApiErrorDto,
 })
+@AllowWhenLocked()
 @Controller('notifications')
 export class NotificationsController {
   constructor(

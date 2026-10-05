@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -9,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ACCOUNT_DELETION_GRACE_DAYS } from '../billing/plan-features';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -22,6 +25,8 @@ type UserWithProfileRelations = Prisma.UserGetPayload<{
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async getProfile(userId: string) {
@@ -152,22 +157,100 @@ export class UsersService {
     return { message: 'Password updated successfully' };
   }
 
-  async deleteAccount(userId: string) {
+  /**
+   * Q17.7: deletion has a 30-day grace period. The request signs out other
+   * devices; the account (and, for an owner, every store) is removed by
+   * purgeDueAccounts once the grace period ends.
+   */
+  async deleteAccount(userId: string, now: Date = new Date()) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    await this.prisma.user.delete({ where: { id: userId } });
+    const scheduledFor =
+      user.deletionScheduledFor ??
+      new Date(
+        now.getTime() + ACCOUNT_DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000,
+      );
 
-    return { message: 'Account deleted successfully' };
+    if (!user.deletionScheduledFor) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          deletionRequestedAt: now,
+          deletionScheduledFor: scheduledFor,
+          hashedRefreshToken: null,
+        },
+      });
+    }
+
+    return {
+      message: `Your account will be permanently deleted in ${ACCOUNT_DELETION_GRACE_DAYS} days. Log in and cancel before then to keep it.`,
+      deletionScheduledFor: scheduledFor.toISOString(),
+    };
+  }
+
+  async cancelDeletion(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (!user.deletionScheduledFor) {
+      throw new ConflictException('No account deletion is pending');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { deletionRequestedAt: null, deletionScheduledFor: null },
+    });
+
+    return {
+      message: 'Account deletion cancelled',
+      deletionScheduledFor: null,
+    };
+  }
+
+  /** Scheduler: permanently delete accounts whose grace period has ended. */
+  async purgeDueAccounts(now: Date = new Date(), batchSize = 50) {
+    const due = await this.prisma.user.findMany({
+      where: { deletionScheduledFor: { lte: now } },
+      select: { id: true },
+      orderBy: { deletionScheduledFor: 'asc' },
+      take: batchSize,
+    });
+
+    let deleted = 0;
+    let failed = 0;
+    for (const { id } of due) {
+      try {
+        // deleteMany re-checks the condition, so a last-second cancel wins.
+        const result = await this.prisma.user.deleteMany({
+          where: { id, deletionScheduledFor: { lte: now } },
+        });
+        deleted += result.count;
+      } catch (error) {
+        failed += 1;
+        this.logger.error(`Failed to purge account ${id}: ${String(error)}`);
+      }
+    }
+
+    return { due: due.length, deleted, failed };
   }
 
   private toProfileResponse(user: UserWithProfileRelations) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { hashedRefreshToken, passwordHash, staffMembership, stores, activeStore, activeStoreId, ...result } =
-      user;
+    const {
+      hashedRefreshToken,
+      passwordHash,
+      staffMembership,
+      stores,
+      activeStore,
+      activeStoreId,
+      ...result
+    } = user;
 
     const current =
       activeStore ??
