@@ -42,6 +42,8 @@ model User {
   ozoneExpressShipments      OzoneExpressShipment[]
   ameexShipments             AmeexShipment[]
   shippingCourierSuggestions ShippingCourierSuggestion[]
+  notificationReads          NotificationRead[]
+  pushDevices                PushDevice[]
 }
 
 // The single platform-level operator identity for the Zomaal Shop admin
@@ -895,6 +897,7 @@ model Store {
   shopAddresses           ShopAddress[]
   shopOrders              ShopOrder[]
   purchases               MerchantPurchase[]
+  notifications           Notification[]
 
   @@index([userId])
 }
@@ -2210,4 +2213,90 @@ model Expense {
 
   @@index([storeId, spentAt])
   @@index([storeId, categoryId])
+}
+
+// ============================================================================
+// Notifications — system-generated alerts per store. The merchant only reads
+// them; every row is produced by NotificationsService from another module's
+// real data (stock, salary, customers, sales, connections).
+// ============================================================================
+
+enum NotificationSeverity {
+  CRITICAL
+  WARNING
+  INFO
+}
+
+enum NotificationCategory {
+  INVENTORY
+  STAFF
+  CUSTOMERS
+  SALES
+  INTEGRATIONS
+}
+
+model Notification {
+  id                 String               @id @default(uuid())
+  type               String // NotificationType constant, e.g. LOW_STOCK
+  severity           NotificationSeverity
+  category           NotificationCategory
+  title              String
+  message            String?
+  // Who may see it: a permission key from access/permissions.ts. Null means
+  // owner-only (staff/salary/integrations are never delegated to staff).
+  audiencePermission String?
+  // What the alert points at, so the client can deep-link to it.
+  entityType         String?
+  entityId           String?
+  metadata           Json?
+  // Set while the underlying condition is still live; cleared when it
+  // resolves, so the same condition can alert again later. Postgres allows
+  // many NULLs under a unique index, which is what makes this race-safe.
+  dedupeKey          String?
+  resolvedAt         DateTime?
+  pushedAt           DateTime?
+  createdAt          DateTime             @default(now())
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  reads NotificationRead[]
+
+  @@unique([storeId, dedupeKey])
+  @@index([storeId, createdAt])
+  @@index([storeId, severity, createdAt])
+  @@index([storeId, category, createdAt])
+}
+
+// Read state is per user — the owner and each staff member read separately.
+model NotificationRead {
+  readAt DateTime @default(now())
+
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([notificationId, userId])
+  @@index([userId])
+}
+
+enum PushPlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
+// FCM registration token for one installed app on one device.
+model PushDevice {
+  id         String       @id @default(uuid())
+  token      String       @unique
+  platform   PushPlatform
+  createdAt  DateTime     @default(now())
+  lastSeenAt DateTime     @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

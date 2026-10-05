@@ -24,6 +24,7 @@ import 'dotenv/config';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CustomerRiskService } from '../src/customers/customer-risk.service';
 import { StoreAccessService } from '../src/access/store-access.service';
+import type { NotificationsService } from '../src/notifications/notifications.service';
 import { EcommercePlatform } from '@prisma/client';
 
 const BATCH_SIZE = 200;
@@ -32,7 +33,15 @@ async function main() {
   const prisma = new PrismaService();
   await prisma.$connect();
   const storeAccess = new StoreAccessService(prisma);
-  const customerRisk = new CustomerRiskService(prisma, storeAccess);
+  // Backfilling history must never alert merchants about old orders.
+  const silentNotifications = {
+    raise: () => Promise.resolve(null),
+  } as unknown as NotificationsService;
+  const customerRisk = new CustomerRiskService(
+    prisma,
+    storeAccess,
+    silentNotifications,
+  );
 
   let linked = 0;
   let skippedNoPhone = 0;

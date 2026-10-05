@@ -25,6 +25,7 @@ import { SuperAdminModule } from './super-admin/super-admin.module';
 import { ZomaalShopModule } from './zomaal-shop/zomaal-shop.module';
 import { AppInfoModule } from './app-info/app-info.module';
 import { ProfileMediaModule } from './profile-media/profile-media.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { ProfileMediaModule } from './profile-media/profile-media.module';
     ZomaalShopModule,
     AppInfoModule,
     ProfileMediaModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
