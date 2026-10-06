@@ -11,20 +11,27 @@ import { TikTokAdsApiService } from './tiktok/tiktok-ads-api.service';
 import { TikTokAdsAuthService } from './tiktok/tiktok-ads-auth.service';
 import { TikTokAdsCampaignService } from './tiktok/tiktok-ads-campaign.service';
 import { TikTokAdsSyncService } from './tiktok/tiktok-ads-sync.service';
+import { GoogleAdsController } from './google/google-ads.controller';
+import { GoogleAdsOAuthController } from './google/google-ads-oauth.controller';
+import { GoogleAdsApiService } from './google/google-ads-api.service';
+import { GoogleAdsAuthService } from './google/google-ads-auth.service';
+import { GoogleAdsCampaignService } from './google/google-ads-campaign.service';
+import { GoogleAdsSyncService } from './google/google-ads-sync.service';
 
-// TikTok is the first ad platform implementation. Adding Meta/Google/
-// Snapchat later means: a MetaAdsApiService/MetaAdsAuthService/etc. under
-// src/ads/meta/, registered here, writing into the same AdsConnection/
-// AdsCampaign/AdsMetricSnapshot tables — AdsController, AdsDashboardService,
-// and AdsConnectionService are already generic and need no changes.
+// Each ad platform (TikTok, Google; Meta/Snapchat later) has its own
+// *AdsApiService/*AdsAuthService/etc. under src/ads/<platform>/, writing into
+// the same AdsConnection/AdsCampaign/AdsMetricSnapshot tables —
+// AdsController, AdsDashboardService and AdsConnectionService are generic.
 //
-// Pause/resume (POST .../status) is deferred — TikTokAdsApiService already
-// has setCampaignStatus() implemented but nothing calls it yet.
+// Pause/resume is wired for Google (POST /ads/google/campaigns/.../status).
+// TikTokAdsApiService.setCampaignStatus() exists but is not exposed yet.
 @Module({
   controllers: [
     AdsController,
     TikTokAdsController,
     TikTokAdsOAuthController,
+    GoogleAdsController,
+    GoogleAdsOAuthController,
     AdsSchedulerController,
   ],
   providers: [
@@ -36,6 +43,10 @@ import { TikTokAdsSyncService } from './tiktok/tiktok-ads-sync.service';
     TikTokAdsAuthService,
     TikTokAdsCampaignService,
     TikTokAdsSyncService,
+    GoogleAdsApiService,
+    GoogleAdsAuthService,
+    GoogleAdsCampaignService,
+    GoogleAdsSyncService,
   ],
   exports: [AdsConnectionService, AdsDashboardService],
 })

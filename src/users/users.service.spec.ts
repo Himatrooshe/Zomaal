@@ -9,7 +9,10 @@ import { UsersService } from './users.service';
 
 type UserUpdateCall = {
   where: { id: string };
-  data: Record<string, unknown>;
+  data: { passwordHash: string; hashedRefreshToken?: string | null } & Record<
+    string,
+    unknown
+  >;
 };
 
 type PrismaStub = {

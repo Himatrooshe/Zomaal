@@ -51,6 +51,8 @@ export const PERMISSIONS = {
   // "View Ads" — the Add/Edit Staff screens label this module "Advertising",
   // Staff Details labels it "Ads". Same module, one key.
   ADS_VIEW: 'ads.view',
+  // Pause / resume campaigns on the ad platform.
+  ADS_MANAGE: 'ads.manage',
 
   // "View Customers, Manage Blacklist"
   CUSTOMERS_VIEW: 'customers.view',
@@ -96,7 +98,7 @@ export const PERMISSIONS_BY_MODULE: Record<PermissionModule, Permission[]> = {
     PERMISSIONS.EXPENSES_EDIT,
     PERMISSIONS.EXPENSES_DELETE,
   ],
-  [PERMISSION_MODULES.ADS]: [PERMISSIONS.ADS_VIEW],
+  [PERMISSION_MODULES.ADS]: [PERMISSIONS.ADS_VIEW, PERMISSIONS.ADS_MANAGE],
   [PERMISSION_MODULES.CUSTOMERS]: [
     PERMISSIONS.CUSTOMERS_VIEW,
     PERMISSIONS.CUSTOMERS_BLACKLIST,

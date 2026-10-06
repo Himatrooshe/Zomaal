@@ -127,13 +127,19 @@ export class AdsDashboardService {
     const byPlatform = new Map<AdsPlatform, number>();
     let latestSync: Date | null = null;
 
+    // Google creates one connection per advertiser account, so a platform can
+    // have several; ratio metrics must come from the combined totals.
+    const snapshotsByPlatform = new Map<AdsPlatform, SnapshotLike[]>();
     for (const connection of connections) {
-      const allSnapshots = connection.campaigns.flatMap((c) => c.metrics);
-      const agg = aggregateSnapshots(allSnapshots, false);
-      byPlatform.set(connection.platform, metricValue(metric, agg));
+      const snapshots = snapshotsByPlatform.get(connection.platform) ?? [];
+      snapshots.push(...connection.campaigns.flatMap((c) => c.metrics));
+      snapshotsByPlatform.set(connection.platform, snapshots);
       if (connection.lastSyncedAt && (!latestSync || connection.lastSyncedAt > latestSync)) {
         latestSync = connection.lastSyncedAt;
       }
+    }
+    for (const [platform, snapshots] of snapshotsByPlatform) {
+      byPlatform.set(platform, metricValue(metric, aggregateSnapshots(snapshots, false)));
     }
 
     const total = [...byPlatform.values()].reduce((sum, value) => sum + value, 0);

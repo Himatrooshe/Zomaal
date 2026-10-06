@@ -75,3 +75,10 @@ export function adsAccessTokenContext(
 ): string {
   return `ads:${platform}:${externalAdvertiserId}:access-token`;
 }
+
+export function adsRefreshTokenContext(
+  platform: string,
+  externalAdvertiserId: string,
+): string {
+  return `ads:${platform}:${externalAdvertiserId}:refresh-token`;
+}
