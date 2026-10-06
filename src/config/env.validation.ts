@@ -140,6 +140,23 @@ export function validateEnvironment(
       'ACCOUNTS_SCHEDULER_SECRET must be at least 32 characters when account purging is enabled',
     );
 
+  const googleAdsEnabled = asString(config.GOOGLE_ADS_ENABLED) || 'false';
+  if (!['true', 'false'].includes(googleAdsEnabled))
+    errors.push('GOOGLE_ADS_ENABLED must be true or false');
+  if (googleAdsEnabled === 'true') {
+    for (const key of [
+      'GOOGLE_ADS_CLIENT_ID',
+      'GOOGLE_ADS_CLIENT_SECRET',
+      'GOOGLE_ADS_REDIRECT_URI',
+    ]) {
+      if (!asString(config[key]))
+        errors.push(`${key} is required when GOOGLE_ADS_ENABLED=true`);
+    }
+  }
+  const googleAdsApiVersion = asString(config.GOOGLE_ADS_API_VERSION);
+  if (googleAdsApiVersion && !/^v\d{2,3}$/.test(googleAdsApiVersion))
+    errors.push('GOOGLE_ADS_API_VERSION must look like v25');
+
   const billingCheckoutUrl = asString(config.BILLING_CHECKOUT_URL);
   if (billingCheckoutUrl && !/^https:\/\/\S+$/.test(billingCheckoutUrl))
     errors.push('BILLING_CHECKOUT_URL must be an https:// URL');
@@ -498,6 +515,7 @@ export function validateEnvironment(
     ACCOUNTS_SCHEDULER_ENABLED: accountsSchedulerEnabled,
     ACCOUNTS_SCHEDULER_SECRET: accountsSchedulerSecret,
     BILLING_CHECKOUT_URL: billingCheckoutUrl,
+    GOOGLE_ADS_ENABLED: googleAdsEnabled,
     PUSH_NOTIFICATIONS_ENABLED: pushNotificationsEnabled,
     FCM_PROJECT_ID: fcmProjectId,
     PORT: port,

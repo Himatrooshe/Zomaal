@@ -12189,6 +12189,243 @@ paths:
       summary: Complete TikTok Ads OAuth authorization
       tags:
         - Ads — TikTok OAuth
+  /ads/google/auth/start:
+    post:
+      description: Returns a short-lived Google sign-in URL. Open it in the merchant's browser. After consent Google calls GET /auth/google-ads/callback, which stores one connection per advertiser account the user can access.
+      operationId: GoogleAds_begin
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleAdsAuthStartResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: Google Ads is not enabled or configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Start connecting a Google Ads account
+      tags:
+        - Ads — Google
+  /ads/google/campaigns/{connectionId}:
+    get:
+      description: refresh=true re-fetches the live list from Google first; otherwise returns the last-known list.
+      operationId: GoogleAds_listCampaigns
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+        - name: refresh
+          required: false
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleCampaignListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Google denied access (message from Google).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Reconnect Google Ads before using this feature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List campaigns for "Select Campaigns"
+      tags:
+        - Ads — Google
+  /ads/google/campaigns/{connectionId}/selection:
+    post:
+      description: Only tracked campaigns are synced and shown on the dashboard.
+      operationId: GoogleAds_saveSelection
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveGoogleCampaignSelectionDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleCampaignListResponseDto'
+        '400':
+          description: Invalid payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Save which campaigns to track ("Save Campaigns")
+      tags:
+        - Ads — Google
+  /ads/google/campaigns/{connectionId}/{externalCampaignId}/status:
+    post:
+      description: PAUSED stops the ads immediately on Google. ENABLED resumes them.
+      operationId: GoogleAds_setStatus
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+        - name: externalCampaignId
+          required: true
+          in: path
+          description: Google campaign id (digits).
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetGoogleCampaignStatusDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleCampaignDto'
+        '400':
+          description: Invalid status or campaign id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Connection or campaign not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Reconnect Google Ads before using this feature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Pause or resume a campaign on Google Ads
+      tags:
+        - Ads — Google
+  /auth/google-ads/callback:
+    get:
+      description: Public browser callback invoked by Google. Consumes the single-use state, exchanges the code, and stores one AdsConnection per accessible advertiser account. Do not add a Zomaal bearer token.
+      operationId: GoogleAdsOAuth_callback
+      parameters:
+        - name: error
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: state
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: code
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connection result when no frontend success redirect is configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleAdsAuthCompleteResponseDto'
+        '302':
+          description: Redirects to GOOGLE_ADS_AUTH_SUCCESS_REDIRECT_URL with google_ads=connected (or the failure URL with google_ads=failed).
+        '400':
+          description: Missing parameter, scope not granted, or no advertiser account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Authorization was rejected, or OAuth state is invalid, expired, or reused.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Complete Google Ads OAuth authorization
+      tags:
+        - Ads — Google OAuth
   /roles:
     get:
       description: Owner-only. Role management can never be delegated to a staff member.
@@ -17287,6 +17524,7 @@ components:
               - expenses.edit
               - expenses.delete
               - ads.view
+              - ads.manage
               - customers.view
               - customers.blacklist
               - analytics.view
@@ -17317,6 +17555,7 @@ components:
                 - expenses.edit
                 - expenses.delete
                 - ads.view
+                - ads.manage
                 - customers.view
                 - customers.blacklist
                 - analytics.view
@@ -17364,6 +17603,7 @@ components:
               - expenses.edit
               - expenses.delete
               - ads.view
+              - ads.manage
               - customers.view
               - customers.blacklist
               - analytics.view
@@ -26828,6 +27068,102 @@ components:
             $ref: '#/components/schemas/AdsConnectionDto'
       required:
         - connections
+    GoogleAdsAuthStartResponseDto:
+      type: object
+      properties:
+        authorizationUrl:
+          type: string
+          description: Single-use Google sign-in URL ("Continue with Google"). Open it in the browser — do not request it server-to-server.
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - authorizationUrl
+        - expiresAt
+    GoogleCampaignDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        externalCampaignId:
+          type: string
+          description: Google Ads campaign id (digits).
+        name:
+          type: string
+        status:
+          type: string
+          description: 'Google campaign status: ENABLED or PAUSED.'
+        objective:
+          type: object
+          nullable: true
+          description: Campaign type, e.g. SEARCH, DISPLAY, PERFORMANCE_MAX, VIDEO, SHOPPING.
+        budget:
+          type: object
+          nullable: true
+          description: Daily budget, 2 decimals.
+        currency:
+          type: object
+          nullable: true
+        startDate:
+          type: object
+          nullable: true
+          format: date-time
+        endDate:
+          type: object
+          nullable: true
+          format: date-time
+        tracked:
+          type: boolean
+          description: Selected on "Select Campaigns" — only tracked campaigns are synced.
+      required:
+        - id
+        - externalCampaignId
+        - name
+        - status
+        - tracked
+    GoogleCampaignListResponseDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/GoogleCampaignDto'
+      required:
+        - data
+    SaveGoogleCampaignSelectionDto:
+      type: object
+      properties:
+        externalCampaignIds:
+          description: externalCampaignId values to track. Every other campaign on this connection is un-tracked.
+          example:
+            - '12345678901'
+          type: array
+          items:
+            type: string
+      required:
+        - externalCampaignIds
+    SetGoogleCampaignStatusDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - PAUSED
+            - ENABLED
+          description: PAUSED stops the ads immediately.
+      required:
+        - status
+    GoogleAdsAuthCompleteResponseDto:
+      type: object
+      properties:
+        connections:
+          description: One connection per Google Ads advertiser account the user can access.
+          type: array
+          items:
+            $ref: '#/components/schemas/AdsConnectionDto'
+      required:
+        - connections
     RoleResponseDto:
       type: object
       properties:
@@ -26859,6 +27195,7 @@ components:
               - expenses.edit
               - expenses.delete
               - ads.view
+              - ads.manage
               - customers.view
               - customers.blacklist
               - analytics.view
@@ -26926,6 +27263,7 @@ components:
               - expenses.edit
               - expenses.delete
               - ads.view
+              - ads.manage
               - customers.view
               - customers.blacklist
               - analytics.view
@@ -26970,6 +27308,7 @@ components:
               - expenses.edit
               - expenses.delete
               - ads.view
+              - ads.manage
               - customers.view
               - customers.blacklist
               - analytics.view
@@ -27167,6 +27506,7 @@ components:
               - expenses.edit
               - expenses.delete
               - ads.view
+              - ads.manage
               - customers.view
               - customers.blacklist
               - analytics.view
@@ -27200,6 +27540,7 @@ components:
               - expenses.edit
               - expenses.delete
               - ads.view
+              - ads.manage
               - customers.view
               - customers.blacklist
               - analytics.view
@@ -27310,6 +27651,7 @@ components:
               - expenses.edit
               - expenses.delete
               - ads.view
+              - ads.manage
               - customers.view
               - customers.blacklist
               - analytics.view
@@ -27375,6 +27717,7 @@ components:
               - expenses.edit
               - expenses.delete
               - ads.view
+              - ads.manage
               - customers.view
               - customers.blacklist
               - analytics.view
