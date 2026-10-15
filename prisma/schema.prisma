@@ -2400,3 +2400,13 @@ model BillingInvoice {
 
   @@index([userId, paidAt])
 }
+
+// Fixed-window request counters (OTP sends, login attempts) used when Redis
+// is not connected, so rate limits still apply in every environment.
+model RateLimitBucket {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}

@@ -28,14 +28,14 @@ function build() {
   const jwtService = { signAsync: jest.fn().mockResolvedValue('signed-token') };
   const configService = { get: jest.fn().mockReturnValue('test-secret') };
   const otpProvider = { sendOtp: jest.fn(), verifyOtp: jest.fn() };
-  const redisClient = { isOpen: false };
+  const rateLimit = { assert: jest.fn(), clear: jest.fn() };
 
   const service = new AuthService(
     prisma as never,
     jwtService as never,
     configService as never,
     otpProvider,
-    redisClient as never,
+    rateLimit as never,
   );
 
   return { service, prisma, jwtService, configService, otpProvider };
@@ -58,7 +58,7 @@ function buildWithRealJwt() {
     jwtService,
     configService as never,
     otpProvider,
-    { isOpen: false } as never,
+    { assert: jest.fn(), clear: jest.fn() } as never,
   );
   return { service, prisma, jwtService, otpProvider };
 }

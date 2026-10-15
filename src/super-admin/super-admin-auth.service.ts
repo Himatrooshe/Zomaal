@@ -1,21 +1,14 @@
-import {
-  HttpException,
-  HttpStatus,
-  Inject,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
-import type { RedisClientType } from 'redis';
 import {
   hashRefreshToken,
   refreshTokenMatches,
 } from '../auth/refresh-token-hash.util';
 import { PrismaService } from '../prisma/prisma.service';
-import { REDIS_CLIENT } from '../redis/redis.module';
+import { RateLimitService } from '../redis/rate-limit.service';
 import { SuperAdminLoginDto } from './dto/super-admin-login.dto';
 import { SuperAdminChangePasswordDto } from './dto/super-admin-change-password.dto';
 import type { SuperAdminJwtTokenPayload } from './interfaces/super-admin-jwt-payload.interface';
@@ -33,7 +26,7 @@ export class SuperAdminAuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private activity: ActivityLogService,
-    @Inject(REDIS_CLIENT) private redisClient: RedisClientType,
+    private rateLimit: RateLimitService,
   ) {}
 
   async login(dto: SuperAdminLoginDto) {
@@ -214,31 +207,16 @@ export class SuperAdminAuthService {
     return secret;
   }
 
-  private async assertRateLimit(
+  private assertRateLimit(
     key: string,
     limit: number,
     windowSeconds: number,
     message: string,
   ) {
-    if (!this.redisClient.isOpen) {
-      return;
-    }
-
-    const count = await this.redisClient.incr(key);
-
-    if (count === 1) {
-      await this.redisClient.expire(key, windowSeconds);
-    }
-
-    if (count > limit) {
-      throw new HttpException(message, HttpStatus.TOO_MANY_REQUESTS);
-    }
+    return this.rateLimit.assert(key, limit, windowSeconds, message);
   }
 
-  private async clearRateLimit(key: string) {
-    if (!this.redisClient.isOpen) {
-      return;
-    }
-    await this.redisClient.del(key);
+  private clearRateLimit(key: string) {
+    return this.rateLimit.clear(key);
   }
 }
