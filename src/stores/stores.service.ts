@@ -14,6 +14,8 @@ import {
 import { StoreAccessService } from '../access/store-access.service';
 import { SubscriptionService } from '../billing/subscription.service';
 
+const DEFAULT_COUNTRY = 'Morocco';
+
 @Injectable()
 export class StoresService {
   constructor(
@@ -37,10 +39,11 @@ export class StoresService {
     // Q17.6: Starter = one store; Pro = multiple businesses.
     await this.subscriptions.assertCanCreateStore(userId);
 
-    const { baseCurrency, ...rest } = createStoreDto;
+    const { baseCurrency, country = DEFAULT_COUNTRY, ...rest } = createStoreDto;
     const store = await this.prisma.store.create({
       data: {
         ...rest,
+        country,
         ...(baseCurrency !== undefined && {
           baseCurrency: baseCurrency.toUpperCase(),
         }),
@@ -88,19 +91,14 @@ export class StoresService {
       orderBy: { createdAt: 'asc' },
     });
     return {
-      data: stores.map((s) =>
-        this.toResponse(s, s.id === user?.activeStoreId),
-      ),
+      data: stores.map((s) => this.toResponse(s, s.id === user?.activeStoreId)),
     };
   }
 
   async update(userId: string, updateStoreDto: UpdateStoreDto) {
     const access = await this.storeAccess.requireOwner(userId);
     const { baseCurrency, ...rest } = updateStoreDto;
-    if (
-      Object.keys(rest).length === 0 &&
-      baseCurrency === undefined
-    ) {
+    if (Object.keys(rest).length === 0 && baseCurrency === undefined) {
       throw new BadRequestException('Provide at least one field to update');
     }
 

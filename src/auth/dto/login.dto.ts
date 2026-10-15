@@ -1,6 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsNotEmpty,
+  IsOptional,
   IsPhoneNumber,
   IsString,
   MinLength,
@@ -28,4 +30,13 @@ export class LoginDto {
   @IsNotEmpty()
   @MinLength(8)
   password!: string;
+
+  @ApiPropertyOptional({
+    description:
+      '"Remember me". When true the refresh token lasts 30 days instead of 7, and keeps that lifetime on every refresh.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  rememberMe?: boolean;
 }

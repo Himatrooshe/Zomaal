@@ -20,6 +20,15 @@ import { REDIS_CLIENT } from '../redis/redis.module';
 import type { RedisClientType } from 'redis';
 import type { JwtTokenPayload } from './interfaces/jwt-payload.interface';
 import { LoginDto } from './dto/login.dto';
+import { ResetPasswordDto } from './dto/forgot-password.dto';
+import { createHmac, randomUUID } from 'crypto';
+import {
+  hashRefreshToken,
+  refreshTokenMatches,
+} from './refresh-token-hash.util';
+
+const BCRYPT_ROUNDS = 10;
+const PASSWORD_RESET_TTL_SECONDS = 10 * 60;
 
 @Injectable()
 export class AuthService {
@@ -32,7 +41,7 @@ export class AuthService {
   ) {}
 
   async sendOtp(sendOtpDto: SendOtpDto) {
-    const { phone, channel } = sendOtpDto;
+    const { phone, channel = 'sms' } = sendOtpDto;
 
     await this.assertRateLimit(
       `auth:otp:send:${channel}:${phone}`,
@@ -86,7 +95,7 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const { phone, password } = loginDto;
+    const { phone, password, rememberMe = false } = loginDto;
 
     await this.assertRateLimit(
       `auth:login:${phone}`,
@@ -119,7 +128,7 @@ export class AuthService {
       );
     }
 
-    const tokens = await this.generateTokens(user.id, user.phone);
+    const tokens = await this.generateTokens(user.id, user.phone, rememberMe);
     await this.updateRefreshToken(user.id, tokens.refreshToken);
     await this.clearRateLimit(`auth:login:${phone}`);
 
@@ -143,7 +152,7 @@ export class AuthService {
   // written directly. Request sends an OTP to the *new* number; confirm
   // verifies it before the swap actually happens, exactly like sign-up.
   async requestPhoneChange(userId: string, dto: SendOtpDto) {
-    const { phone, channel } = dto;
+    const { phone, channel = 'sms' } = dto;
 
     await this.assertRateLimit(
       `auth:phone-change:request:${userId}`,
@@ -257,21 +266,137 @@ export class AuthService {
       throw new UnauthorizedException('Access Denied');
     }
 
-    const refreshTokenMatches = await bcrypt.compare(
-      refreshToken,
-      user.hashedRefreshToken,
-    );
-    if (!refreshTokenMatches) {
+    if (!refreshTokenMatches(refreshToken, user.hashedRefreshToken)) {
       throw new UnauthorizedException('Access Denied');
     }
 
-    const tokens = await this.generateTokens(user.id, user.phone);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.phone,
+      payload.rm === true,
+    );
     await this.updateRefreshToken(user.id, tokens.refreshToken);
 
     return tokens;
   }
 
-  private async generateTokens(userId: string, phone: string) {
+  // Forgot password, step 1. The response is identical whether or not the
+  // number has an account, so the endpoint can't be used to discover users;
+  // an OTP is only actually sent (and paid for) when the account exists.
+  async requestPasswordReset(phone: string) {
+    await this.assertRateLimit(
+      `auth:password-reset:request:${phone}`,
+      3,
+      10 * 60,
+      'Too many password reset requests. Please try again later.',
+    );
+
+    const user = await this.prisma.user.findUnique({
+      where: { phone },
+      select: { id: true },
+    });
+    if (user) {
+      try {
+        await this.otpProvider.sendOtp(phone, 'sms');
+      } catch (error) {
+        // A 400 (blocked country, landline…) only happens for existing
+        // accounts, so returning it would reveal the number is registered.
+        if (!(error instanceof BadRequestException)) {
+          throw error;
+        }
+      }
+    }
+
+    return {
+      message: 'If an account exists for this number, an OTP has been sent',
+    };
+  }
+
+  // Step 2: the OTP screen. Returns a short-lived reset token so the
+  // "New password" screen can come after the code is confirmed.
+  async verifyPasswordReset(dto: VerifyOtpDto) {
+    const { phone, otp } = dto;
+
+    await this.assertRateLimit(
+      `auth:password-reset:verify:${phone}`,
+      5,
+      10 * 60,
+      'Too many OTP verification attempts. Please request a new OTP later.',
+    );
+
+    const user = await this.prisma.user.findUnique({
+      where: { phone },
+      select: { id: true, phone: true, passwordHash: true },
+    });
+    if (!user || !(await this.otpProvider.verifyOtp(phone, otp))) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+    await this.clearRateLimit(`auth:password-reset:verify:${phone}`);
+
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_SECONDS * 1000);
+    const resetToken = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        phone: user.phone,
+        type: 'password_reset',
+        pwv: this.passwordFingerprint(user.passwordHash),
+      } satisfies JwtTokenPayload,
+      {
+        secret: this.getJwtSecret(),
+        expiresIn: PASSWORD_RESET_TTL_SECONDS,
+      },
+    );
+
+    return { resetToken, expiresAt: expiresAt.toISOString() };
+  }
+
+  // Step 3. The token carries a fingerprint of the password it was issued
+  // against, so once the password changes the token (and any sibling token
+  // from the same OTP) stops working — single use without server state.
+  async resetPassword(dto: ResetPasswordDto) {
+    let payload: JwtTokenPayload;
+    try {
+      payload = await this.jwtService.verifyAsync<JwtTokenPayload>(
+        dto.resetToken,
+        { secret: this.getJwtSecret() },
+      );
+    } catch {
+      throw new UnauthorizedException('Reset link is invalid or has expired');
+    }
+    if (payload.type !== 'password_reset' || !payload.pwv) {
+      throw new UnauthorizedException('Reset link is invalid or has expired');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, passwordHash: true },
+    });
+    if (!user || this.passwordFingerprint(user.passwordHash) !== payload.pwv) {
+      throw new UnauthorizedException('Reset link is invalid or has expired');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+    // Signs out every device: a reset usually means the old password leaked.
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, hashedRefreshToken: null, isPhoneVerified: true },
+    });
+
+    return { message: 'Password reset successfully' };
+  }
+
+  private passwordFingerprint(passwordHash: string | null): string {
+    return createHmac('sha256', this.getJwtSecret())
+      .update(passwordHash ?? '')
+      .digest('base64url')
+      .slice(0, 22);
+  }
+
+  private async generateTokens(
+    userId: string,
+    phone: string,
+    rememberMe = false,
+  ) {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
         { sub: userId, phone, type: 'access' } satisfies JwtTokenPayload,
@@ -281,10 +406,16 @@ export class AuthService {
         },
       ),
       this.jwtService.signAsync(
-        { sub: userId, phone, type: 'refresh' } satisfies JwtTokenPayload,
+        {
+          sub: userId,
+          phone,
+          type: 'refresh',
+          ...(rememberMe && { rm: true }),
+        } satisfies JwtTokenPayload,
         {
           secret: this.getJwtSecret(),
-          expiresIn: '7d',
+          expiresIn: rememberMe ? '30d' : '7d',
+          jwtid: randomUUID(),
         },
       ),
     ]);
@@ -293,10 +424,9 @@ export class AuthService {
   }
 
   private async updateRefreshToken(userId: string, refreshToken: string) {
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { hashedRefreshToken },
+      data: { hashedRefreshToken: hashRefreshToken(refreshToken) },
     });
   }
 

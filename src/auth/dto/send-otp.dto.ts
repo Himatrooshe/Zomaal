@@ -1,5 +1,15 @@
-import { IsString, IsPhoneNumber, IsIn, IsNotEmpty } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsString,
+  IsPhoneNumber,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+// Q1.2: OTP goes by SMS only for now; WhatsApp delivery is not offered yet.
+export const OTP_CHANNELS = ['sms'] as const;
+export type OtpChannel = (typeof OTP_CHANNELS)[number];
 
 export class SendOtpDto {
   @ApiProperty({
@@ -12,12 +22,14 @@ export class SendOtpDto {
   @IsPhoneNumber()
   phone!: string;
 
-  @ApiProperty({
-    description: 'OTP delivery channel.',
+  @ApiPropertyOptional({
+    description: 'OTP delivery channel. Only SMS is available for now.',
     example: 'sms',
-    enum: ['sms', 'whatsapp'],
+    enum: OTP_CHANNELS,
+    default: 'sms',
   })
+  @IsOptional()
   @IsString()
-  @IsIn(['sms', 'whatsapp'])
-  channel!: 'sms' | 'whatsapp';
+  @IsIn(OTP_CHANNELS, { message: 'channel must be sms' })
+  channel?: OtpChannel;
 }

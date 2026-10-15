@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsOptional, IsUrl, Matches } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsUrl,
+  Matches,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateStoreDto {
@@ -31,10 +37,15 @@ export class CreateStoreDto {
   @IsNotEmpty()
   city!: string;
 
-  @ApiProperty({ example: 'Morocco' })
+  @ApiPropertyOptional({
+    description: 'The app serves Morocco only for now; defaults to Morocco.',
+    example: 'Morocco',
+    default: 'Morocco',
+  })
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  country!: string;
+  country?: string;
 
   @ApiPropertyOptional({
     description: 'Public HTTPS URL of the store logo.',
