@@ -1,6 +1,9 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { OTP_CHANNELS, type OtpChannel } from './send-otp.dto';
 import {
+  IsIn,
   IsNotEmpty,
+  IsOptional,
   IsPhoneNumber,
   IsString,
   MaxLength,
@@ -17,6 +20,15 @@ export class ForgotPasswordRequestDto {
   @IsNotEmpty()
   @IsPhoneNumber()
   phone!: string;
+
+  @ApiPropertyOptional({
+    description: 'OTP delivery channel.',
+    enum: OTP_CHANNELS,
+    default: 'sms',
+  })
+  @IsOptional()
+  @IsIn(OTP_CHANNELS, { message: 'channel must be sms or whatsapp' })
+  channel?: OtpChannel;
 }
 
 export class ResetPasswordDto {

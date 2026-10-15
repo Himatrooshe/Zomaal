@@ -111,7 +111,7 @@ paths:
         - Auth
   /auth/send-otp:
     post:
-      description: 'Requires `Content-Type: application/json`. Requests a six-digit OTP by SMS (the only channel for now; `channel` may be omitted). This endpoint does not require an access token and is limited to three requests per phone in ten minutes.'
+      description: 'Requires `Content-Type: application/json`. Requests a six-digit OTP by SMS (default) or WhatsApp. This endpoint does not require an access token and is limited to three requests per phone/channel in ten minutes.'
       operationId: Auth_sendOtp
       parameters: []
       requestBody:
@@ -125,6 +125,12 @@ paths:
                 summary: Send by SMS
                 value:
                   phone: '+212612345678'
+                  channel: sms
+              whatsapp:
+                summary: Send by WhatsApp
+                value:
+                  phone: '+212612345678'
+                  channel: whatsapp
       responses:
         '200':
           description: OTP request accepted. In development OTP mode no SMS is sent; use DEV_OTP_CODE.
@@ -133,19 +139,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/MessageResponseDto'
         '400':
-          description: Invalid phone number, a channel other than sms, or unexpected request field.
+          description: Invalid phone number or channel, a landline, a country the channel cannot reach, or unexpected request field. Show `message` to the user.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '429':
-          description: More than 3 OTP requests in 10 minutes.
+          description: More than 3 OTP requests in 10 minutes, or the SMS provider limit for this number was reached.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '503':
-          description: OTP provider is not configured.
+          description: OTP provider is not configured or temporarily unavailable. Retry later.
           content:
             application/json:
               schema:
@@ -255,7 +261,7 @@ paths:
         - Auth
   /auth/forgot-password/request:
     post:
-      description: Step 1 of 3. Sends an SMS OTP if the number has an account. Always returns the same message, so it cannot be used to check which numbers are registered. Limited to three requests per phone in ten minutes.
+      description: Step 1 of 3. Sends an OTP by SMS (default) or WhatsApp if the number has an account. Always returns the same message, so it cannot be used to check which numbers are registered. Limited to three requests per phone in ten minutes.
       operationId: Auth_requestPasswordReset
       parameters: []
       requestBody:
@@ -265,10 +271,15 @@ paths:
             schema:
               $ref: '#/components/schemas/ForgotPasswordRequestDto'
             examples:
-              default:
-                summary: Request
+              sms:
+                summary: By SMS
                 value:
                   phone: '+212612345678'
+              whatsapp:
+                summary: By WhatsApp
+                value:
+                  phone: '+212612345678'
+                  channel: whatsapp
       responses:
         '200':
           description: ''
@@ -425,6 +436,12 @@ paths:
                 summary: Send by SMS
                 value:
                   phone: '+212612345678'
+                  channel: sms
+              whatsapp:
+                summary: Send by WhatsApp
+                value:
+                  phone: '+212612345678'
+                  channel: whatsapp
       responses:
         '200':
           description: OTP sent to the new phone number.
@@ -17805,10 +17822,11 @@ components:
           pattern: ^\+[1-9]\d{7,14}$
         channel:
           type: string
-          description: OTP delivery channel. Only SMS is available for now.
+          description: OTP delivery channel (the WhatsApp / SMS toggle).
           example: sms
           enum:
             - sms
+            - whatsapp
           default: sms
       required:
         - phone
@@ -17869,6 +17887,13 @@ components:
           description: Phone number of the account, in E.164 format.
           example: '+212612345678'
           pattern: ^\+[1-9]\d{7,14}$
+        channel:
+          type: string
+          description: OTP delivery channel.
+          enum:
+            - sms
+            - whatsapp
+          default: sms
       required:
         - phone
     PasswordResetTokenResponseDto:

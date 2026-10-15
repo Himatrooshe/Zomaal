@@ -22,7 +22,7 @@ Answer: A password, not a numeric passcode (minimum 8 characters).
 SMS goes through Twilio today. Should WhatsApp OTP also go through Twilio (WhatsApp sender), or through the same WhatsApp
 Business API used for automation (tab 15)?
 Assumption: Twilio for both.
-Answer: SMS only for now (Twilio Verify). The API rejects `channel: "whatsapp"`; the WhatsApp/SMS toggle is hidden.
+Answer: Twilio Verify for both. SMS is the default; `channel: "whatsapp"` sends through the Twilio WhatsApp sender attached to the Verify service.
 
 **Q1.3 — How is the country "auto-detected"?**
 From the phone prefix, or from IP? Can the user change it later? Does country decide currency, timezone, and
@@ -49,12 +49,12 @@ Answer: Pending — the trial currently starts at store creation.
 
 | Screen | Method | Path |
 |---|---|---|
-| Phone Number | POST | `/auth/send-otp` — `{ phone }` (SMS) |
+| Phone Number | POST | `/auth/send-otp` — `{ phone, channel?: "sms" \| "whatsapp" }` (default sms) |
 | Verify OTP | POST | `/auth/verify-otp` — logs in or registers; returns tokens + `isProfileCompleted` |
 | Set Password | PATCH | `/users/me/password` — `{ newPassword }` (first time, no `currentPassword`) |
 | Create Store | POST | `/stores` (+ `POST /stores/me/logo`) — `country` defaults to Morocco, currency MAD |
 | Login | POST | `/auth/login` — `{ phone, password, rememberMe? }`; refresh token 30 days with rememberMe, else 7 |
-| Forgot password — phone | POST | `/auth/forgot-password/request` — `{ phone }`; same reply whether or not the account exists |
+| Forgot password — phone | POST | `/auth/forgot-password/request` — `{ phone, channel? }`; same reply whether or not the account exists |
 | Forgot password — OTP | POST | `/auth/forgot-password/verify` — `{ phone, otp }` → `{ resetToken, expiresAt }` (10 min) |
 | Forgot password — new password | POST | `/auth/forgot-password/reset` — `{ resetToken, newPassword }`; single use, signs out all devices |
 | Trial banner | GET | `/billing/subscription` — `status`, `trialDaysLeft` |

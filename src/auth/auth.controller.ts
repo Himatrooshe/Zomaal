@@ -115,14 +115,18 @@ export class AuthController {
   @ApiOperation({
     summary: 'Send OTP to phone number',
     description:
-      'Requires `Content-Type: application/json`. Requests a six-digit OTP by SMS (the only channel for now; `channel` may be omitted). This endpoint does not require an access token and is limited to three requests per phone in ten minutes.',
+      'Requires `Content-Type: application/json`. Requests a six-digit OTP by SMS (default) or WhatsApp. This endpoint does not require an access token and is limited to three requests per phone/channel in ten minutes.',
   })
   @ApiBody({
     type: SendOtpDto,
     examples: {
       sms: {
         summary: 'Send by SMS',
-        value: { phone: '+212612345678' },
+        value: { phone: '+212612345678', channel: 'sms' },
+      },
+      whatsapp: {
+        summary: 'Send by WhatsApp',
+        value: { phone: '+212612345678', channel: 'whatsapp' },
       },
     },
   })
@@ -133,7 +137,7 @@ export class AuthController {
   })
   @ApiBadRequestResponse({
     description:
-      'Invalid phone number, a channel other than sms, a landline, a country SMS cannot be sent to, or unexpected request field. Show `message` to the user.',
+      'Invalid phone number or channel, a landline, a country the channel cannot reach, or unexpected request field. Show `message` to the user.',
     type: ApiErrorDto,
   })
   @ApiTooManyRequestsResponse({
@@ -230,12 +234,16 @@ export class AuthController {
   @ApiOperation({
     summary: 'Forgot password — send an OTP',
     description:
-      'Step 1 of 3. Sends an SMS OTP if the number has an account. Always returns the same message, so it cannot be used to check which numbers are registered. Limited to three requests per phone in ten minutes.',
+      'Step 1 of 3. Sends an OTP by SMS (default) or WhatsApp if the number has an account. Always returns the same message, so it cannot be used to check which numbers are registered. Limited to three requests per phone in ten minutes.',
   })
   @ApiBody({
     type: ForgotPasswordRequestDto,
     examples: {
-      default: { summary: 'Request', value: { phone: '+212612345678' } },
+      sms: { summary: 'By SMS', value: { phone: '+212612345678' } },
+      whatsapp: {
+        summary: 'By WhatsApp',
+        value: { phone: '+212612345678', channel: 'whatsapp' },
+      },
     },
   })
   @ApiOkResponse({ type: MessageResponseDto })
@@ -252,7 +260,7 @@ export class AuthController {
     type: ApiErrorDto,
   })
   requestPasswordReset(@Body() dto: ForgotPasswordRequestDto) {
-    return this.authService.requestPasswordReset(dto.phone);
+    return this.authService.requestPasswordReset(dto.phone, dto.channel);
   }
 
   @Post('forgot-password/verify')
@@ -353,7 +361,11 @@ export class AuthController {
     examples: {
       sms: {
         summary: 'Send by SMS',
-        value: { phone: '+212612345678' },
+        value: { phone: '+212612345678', channel: 'sms' },
+      },
+      whatsapp: {
+        summary: 'Send by WhatsApp',
+        value: { phone: '+212612345678', channel: 'whatsapp' },
       },
     },
   })

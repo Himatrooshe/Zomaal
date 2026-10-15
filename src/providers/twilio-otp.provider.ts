@@ -53,7 +53,7 @@ export class TwilioOtpProvider implements OtpProvider {
       this.logger.error(
         `Error sending OTP to ${this.maskPhone(phone)}: ${String(error)}`,
       );
-      throw this.toSendException(twilioErrorCode(error));
+      throw this.toSendException(twilioErrorCode(error), channel);
     }
   }
 
@@ -88,18 +88,22 @@ export class TwilioOtpProvider implements OtpProvider {
     }
   }
 
-  private toSendException(code: number | undefined): HttpException {
+  private toSendException(
+    code: number | undefined,
+    channel: 'sms' | 'whatsapp',
+  ): HttpException {
+    const channelName = channel === 'whatsapp' ? 'WhatsApp' : 'SMS';
     if (code !== undefined && TWILIO_INVALID_NUMBER.has(code)) {
       return new BadRequestException('This phone number is not valid');
     }
     if (code === TWILIO_LANDLINE) {
       return new BadRequestException(
-        'This number cannot receive SMS. Use a mobile number.',
+        `This number cannot receive ${channelName}. Use a mobile number.`,
       );
     }
     if (code !== undefined && TWILIO_COUNTRY_BLOCKED.has(code)) {
       return new BadRequestException(
-        'SMS verification is not available for this country',
+        `${channelName} verification is not available for this country`,
       );
     }
     if (code === TWILIO_DELIVERY_BLOCKED) {

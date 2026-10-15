@@ -73,6 +73,17 @@ describe('AuthService.sendOtp', () => {
 
     expect(otpProvider.sendOtp).toHaveBeenCalledWith(SYNTHETIC_PHONE, 'sms');
   });
+
+  it('sends by WhatsApp when requested', async () => {
+    const { service, otpProvider } = build();
+
+    await service.sendOtp({ phone: SYNTHETIC_PHONE, channel: 'whatsapp' });
+
+    expect(otpProvider.sendOtp).toHaveBeenCalledWith(
+      SYNTHETIC_PHONE,
+      'whatsapp',
+    );
+  });
 });
 
 describe('AuthService.login rememberMe', () => {

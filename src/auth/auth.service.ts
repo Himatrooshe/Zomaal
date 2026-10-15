@@ -14,7 +14,7 @@ import { StaffStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import type { OtpProvider } from '../interfaces/otp-provider.interface';
-import { SendOtpDto } from './dto/send-otp.dto';
+import { SendOtpDto, type OtpChannel } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import type { RedisClientType } from 'redis';
@@ -283,7 +283,7 @@ export class AuthService {
   // Forgot password, step 1. The response is identical whether or not the
   // number has an account, so the endpoint can't be used to discover users;
   // an OTP is only actually sent (and paid for) when the account exists.
-  async requestPasswordReset(phone: string) {
+  async requestPasswordReset(phone: string, channel: OtpChannel = 'sms') {
     await this.assertRateLimit(
       `auth:password-reset:request:${phone}`,
       3,
@@ -297,7 +297,7 @@ export class AuthService {
     });
     if (user) {
       try {
-        await this.otpProvider.sendOtp(phone, 'sms');
+        await this.otpProvider.sendOtp(phone, channel);
       } catch (error) {
         // A 400 (blocked country, landline…) only happens for existing
         // accounts, so returning it would reveal the number is registered.

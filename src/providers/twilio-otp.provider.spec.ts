@@ -64,6 +64,15 @@ describe('TwilioOtpProvider.sendOtp', () => {
     expect((error as BadRequestException).message).toBe(message);
   });
 
+  it('names the WhatsApp channel in a country-blocked error', async () => {
+    const { provider, verifications } = build();
+    verifications.create.mockRejectedValue(twilioError(60605));
+
+    await expect(provider.sendOtp(SYNTHETIC_PHONE, 'whatsapp')).rejects.toThrow(
+      'WhatsApp verification is not available for this country',
+    );
+  });
+
   it('maps Twilio max send attempts to a 429', async () => {
     const { provider, verifications } = build();
     verifications.create.mockRejectedValue(twilioError(60203));
