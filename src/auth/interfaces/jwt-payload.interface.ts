@@ -6,5 +6,9 @@ export interface JwtPayload {
 export interface JwtTokenPayload {
   sub: string;
   phone: string;
-  type: 'access' | 'refresh';
+  type: 'access' | 'refresh' | 'password_reset';
+  /** Refresh tokens only: issued with "Remember me". */
+  rm?: boolean;
+  /** Password-reset tokens only: fingerprint of the password at issue time. */
+  pwv?: string;
 }

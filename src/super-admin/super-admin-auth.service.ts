@@ -8,7 +8,12 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import type { RedisClientType } from 'redis';
+import {
+  hashRefreshToken,
+  refreshTokenMatches,
+} from '../auth/refresh-token-hash.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { SuperAdminLoginDto } from './dto/super-admin-login.dto';
@@ -102,11 +107,7 @@ export class SuperAdminAuthService {
       throw new UnauthorizedException('Access Denied');
     }
 
-    const refreshTokenMatches = await bcrypt.compare(
-      refreshToken,
-      admin.hashedRefreshToken,
-    );
-    if (!refreshTokenMatches) {
+    if (!refreshTokenMatches(refreshToken, admin.hashedRefreshToken)) {
       throw new UnauthorizedException('Access Denied');
     }
 
@@ -187,7 +188,7 @@ export class SuperAdminAuthService {
           username,
           type: 'refresh',
         } satisfies SuperAdminJwtTokenPayload,
-        { secret: this.getJwtSecret(), expiresIn: '7d' },
+        { secret: this.getJwtSecret(), expiresIn: '7d', jwtid: randomUUID() },
       ),
     ]);
 
@@ -195,10 +196,9 @@ export class SuperAdminAuthService {
   }
 
   private async updateRefreshToken(adminId: string, refreshToken: string) {
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
     await this.prisma.superAdmin.update({
       where: { id: adminId },
-      data: { hashedRefreshToken },
+      data: { hashedRefreshToken: hashRefreshToken(refreshToken) },
     });
   }
 

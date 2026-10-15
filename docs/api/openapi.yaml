@@ -48,22 +48,28 @@ paths:
         - Access
   /auth/login:
     post:
-      description: Returns the same 15-minute access token and 7-day refresh token pair as OTP verification.
+      description: 'Merchants and staff use the same login. Returns a 15-minute access token and a refresh token that lasts 7 days, or 30 days with `rememberMe: true`.'
       operationId: Auth_login
       parameters: []
       requestBody:
         required: true
-        description: Logger phone number and password.
+        description: Phone number and password.
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginDto'
             examples:
-              logger:
-                summary: Configured logger user
+              default:
+                summary: Log in
                 value:
                   phone: '+212600000001'
                   password: your-password
+              rememberMe:
+                summary: Log in with "Remember me"
+                value:
+                  phone: '+212600000001'
+                  password: your-password
+                  rememberMe: true
       responses:
         '200':
           description: Authentication succeeded.
@@ -105,7 +111,7 @@ paths:
         - Auth
   /auth/send-otp:
     post:
-      description: 'Requires `Content-Type: application/json`. Requests a six-digit OTP through SMS or WhatsApp. This endpoint does not require an access token and is limited to three requests per phone/channel in ten minutes.'
+      description: 'Requires `Content-Type: application/json`. Requests a six-digit OTP by SMS (default) or WhatsApp. This endpoint does not require an access token and is limited to three requests per phone/channel in ten minutes.'
       operationId: Auth_sendOtp
       parameters: []
       requestBody:
@@ -133,19 +139,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/MessageResponseDto'
         '400':
-          description: Invalid phone number, channel, or unexpected request field.
+          description: Invalid phone number or channel, a landline, a country the channel cannot reach, or unexpected request field. Show `message` to the user.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '429':
-          description: More than 3 OTP requests in 10 minutes.
+          description: More than 3 OTP requests in 10 minutes, or the SMS provider limit for this number was reached.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '503':
-          description: OTP provider is not configured.
+          description: OTP provider is not configured or temporarily unavailable. Retry later.
           content:
             application/json:
               schema:
@@ -253,6 +259,144 @@ paths:
       summary: Rotate refresh token and issue a new token pair
       tags:
         - Auth
+  /auth/forgot-password/request:
+    post:
+      description: Step 1 of 3. Sends an OTP by SMS (default) or WhatsApp if the number has an account. Always returns the same message, so it cannot be used to check which numbers are registered. Limited to three requests per phone in ten minutes.
+      operationId: Auth_requestPasswordReset
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequestDto'
+            examples:
+              sms:
+                summary: By SMS
+                value:
+                  phone: '+212612345678'
+              whatsapp:
+                summary: By WhatsApp
+                value:
+                  phone: '+212612345678'
+                  channel: whatsapp
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '400':
+          description: Invalid phone number or unexpected field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '429':
+          description: More than 3 requests in 10 minutes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: OTP provider is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Forgot password — send an OTP
+      tags:
+        - Auth
+  /auth/forgot-password/verify:
+    post:
+      description: Step 2 of 3. Returns a reset token valid for 10 minutes. Does not log the user in.
+      operationId: Auth_verifyPasswordReset
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpDto'
+            examples:
+              default:
+                summary: Verify
+                value:
+                  phone: '+212612345678'
+                  otp: '123456'
+      responses:
+        '200':
+          headers:
+            Cache-Control:
+              description: Prevents access and refresh tokens from being cached.
+              schema:
+                type: string
+                example: no-store
+            Pragma:
+              description: Legacy cache prevention for token responses.
+              schema:
+                type: string
+                example: no-cache
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetTokenResponseDto'
+        '400':
+          description: Invalid input, or invalid/expired OTP.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '429':
+          description: More than 5 attempts in 10 minutes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Forgot password — verify the OTP
+      tags:
+        - Auth
+  /auth/forgot-password/reset:
+    post:
+      description: Step 3 of 3. Sets the new password and signs the account out on every device. The reset token works once. Then log in with POST /auth/login.
+      operationId: Auth_resetPassword
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordDto'
+            examples:
+              default:
+                summary: Reset
+                value:
+                  resetToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  newPassword: your-new-password
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponseDto'
+        '400':
+          description: Password shorter than 8 characters or unexpected field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Reset token is invalid, expired, or already used.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Forgot password — set the new password
+      tags:
+        - Auth
   /auth/logout:
     post:
       description: Revokes the refresh token, ending the session. The current access token remains valid until its normal 15-minute expiry.
@@ -293,6 +437,11 @@ paths:
                 value:
                   phone: '+212612345678'
                   channel: sms
+              whatsapp:
+                summary: Send by WhatsApp
+                value:
+                  phone: '+212612345678'
+                  channel: whatsapp
       responses:
         '200':
           description: OTP sent to the new phone number.
@@ -17637,6 +17786,10 @@ components:
           minLength: 8
           format: password
           writeOnly: true
+        rememberMe:
+          type: boolean
+          description: '"Remember me". When true the refresh token lasts 30 days instead of 7, and keeps that lifetime on every refresh.'
+          default: false
       required:
         - phone
         - password
@@ -17649,7 +17802,7 @@ components:
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         refreshToken:
           type: string
-          description: Token used only with POST /auth/refresh. Expires after 7 days.
+          description: Token used only with POST /auth/refresh. Expires after 7 days, or 30 days when logged in with rememberMe.
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         isProfileCompleted:
           type: boolean
@@ -17669,14 +17822,14 @@ components:
           pattern: ^\+[1-9]\d{7,14}$
         channel:
           type: string
-          description: OTP delivery channel.
+          description: OTP delivery channel (the WhatsApp / SMS toggle).
           example: sms
           enum:
             - sms
             - whatsapp
+          default: sms
       required:
         - phone
-        - channel
     MessageResponseDto:
       type: object
       properties:
@@ -17721,11 +17874,57 @@ components:
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         refreshToken:
           type: string
-          description: Token used only with POST /auth/refresh. Expires after 7 days.
+          description: Token used only with POST /auth/refresh. Expires after 7 days, or 30 days when logged in with rememberMe.
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
       required:
         - accessToken
         - refreshToken
+    ForgotPasswordRequestDto:
+      type: object
+      properties:
+        phone:
+          type: string
+          description: Phone number of the account, in E.164 format.
+          example: '+212612345678'
+          pattern: ^\+[1-9]\d{7,14}$
+        channel:
+          type: string
+          description: OTP delivery channel.
+          enum:
+            - sms
+            - whatsapp
+          default: sms
+      required:
+        - phone
+    PasswordResetTokenResponseDto:
+      type: object
+      properties:
+        resetToken:
+          type: string
+          description: Send to POST /auth/forgot-password/reset with the new password. Usable once.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        expiresAt:
+          type: string
+          format: date-time
+          example: '2026-10-15T18:10:00.000Z'
+      required:
+        - resetToken
+        - expiresAt
+    ResetPasswordDto:
+      type: object
+      properties:
+        resetToken:
+          type: string
+          description: resetToken returned by POST /auth/forgot-password/verify. Valid for 10 minutes and usable once.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        newPassword:
+          type: string
+          minLength: 8
+          format: password
+          writeOnly: true
+      required:
+        - resetToken
+        - newPassword
     StoreResponseDto:
       type: object
       properties:
@@ -17943,7 +18142,9 @@ components:
           example: Casablanca
         country:
           type: string
+          description: The app serves Morocco only for now; defaults to Morocco.
           example: Morocco
+          default: Morocco
         logoUrl:
           type: string
           description: Public HTTPS URL of the store logo.
@@ -17958,7 +18159,6 @@ components:
         - businessName
         - address
         - city
-        - country
     StoreListResponseDto:
       type: object
       properties:
@@ -17988,7 +18188,9 @@ components:
           example: Casablanca
         country:
           type: string
+          description: The app serves Morocco only for now; defaults to Morocco.
           example: Morocco
+          default: Morocco
         logoUrl:
           type: string
           description: Public HTTPS URL of the store logo.

@@ -29,8 +29,13 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh.dto';
 import { LoginDto } from './dto/login.dto';
 import {
+  ForgotPasswordRequestDto,
+  ResetPasswordDto,
+} from './dto/forgot-password.dto';
+import {
   AuthTokensResponseDto,
   MessageResponseDto,
+  PasswordResetTokenResponseDto,
   TokenPairDto,
 } from './dto/auth-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -64,15 +69,23 @@ export class AuthController {
   @ApiOperation({
     summary: 'Log in with phone number and password',
     description:
-      'Returns the same 15-minute access token and 7-day refresh token pair as OTP verification.',
+      'Merchants and staff use the same login. Returns a 15-minute access token and a refresh token that lasts 7 days, or 30 days with `rememberMe: true`.',
   })
   @ApiBody({
     type: LoginDto,
-    description: 'Logger phone number and password.',
+    description: 'Phone number and password.',
     examples: {
-      logger: {
-        summary: 'Configured logger user',
+      default: {
+        summary: 'Log in',
         value: { phone: '+212600000001', password: 'your-password' },
+      },
+      rememberMe: {
+        summary: 'Log in with "Remember me"',
+        value: {
+          phone: '+212600000001',
+          password: 'your-password',
+          rememberMe: true,
+        },
       },
     },
   })
@@ -102,7 +115,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Send OTP to phone number',
     description:
-      'Requires `Content-Type: application/json`. Requests a six-digit OTP through SMS or WhatsApp. This endpoint does not require an access token and is limited to three requests per phone/channel in ten minutes.',
+      'Requires `Content-Type: application/json`. Requests a six-digit OTP by SMS (default) or WhatsApp. This endpoint does not require an access token and is limited to three requests per phone/channel in ten minutes.',
   })
   @ApiBody({
     type: SendOtpDto,
@@ -123,15 +136,18 @@ export class AuthController {
     type: MessageResponseDto,
   })
   @ApiBadRequestResponse({
-    description: 'Invalid phone number, channel, or unexpected request field.',
+    description:
+      'Invalid phone number or channel, a landline, a country the channel cannot reach, or unexpected request field. Show `message` to the user.',
     type: ApiErrorDto,
   })
   @ApiTooManyRequestsResponse({
-    description: 'More than 3 OTP requests in 10 minutes.',
+    description:
+      'More than 3 OTP requests in 10 minutes, or the SMS provider limit for this number was reached.',
     type: ApiErrorDto,
   })
   @ApiServiceUnavailableResponse({
-    description: 'OTP provider is not configured.',
+    description:
+      'OTP provider is not configured or temporarily unavailable. Retry later.',
     type: ApiErrorDto,
   })
   sendOtp(@Body() sendOtpDto: SendOtpDto) {
@@ -213,6 +229,106 @@ export class AuthController {
     return this.authService.refreshTokens(refreshDto.refreshToken);
   }
 
+  @Post('forgot-password/request')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Forgot password — send an OTP',
+    description:
+      'Step 1 of 3. Sends an OTP by SMS (default) or WhatsApp if the number has an account. Always returns the same message, so it cannot be used to check which numbers are registered. Limited to three requests per phone in ten minutes.',
+  })
+  @ApiBody({
+    type: ForgotPasswordRequestDto,
+    examples: {
+      sms: { summary: 'By SMS', value: { phone: '+212612345678' } },
+      whatsapp: {
+        summary: 'By WhatsApp',
+        value: { phone: '+212612345678', channel: 'whatsapp' },
+      },
+    },
+  })
+  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid phone number or unexpected field.',
+    type: ApiErrorDto,
+  })
+  @ApiTooManyRequestsResponse({
+    description: 'More than 3 requests in 10 minutes.',
+    type: ApiErrorDto,
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'OTP provider is not configured.',
+    type: ApiErrorDto,
+  })
+  requestPasswordReset(@Body() dto: ForgotPasswordRequestDto) {
+    return this.authService.requestPasswordReset(dto.phone, dto.channel);
+  }
+
+  @Post('forgot-password/verify')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
+  @ApiOperation({
+    summary: 'Forgot password — verify the OTP',
+    description:
+      'Step 2 of 3. Returns a reset token valid for 10 minutes. Does not log the user in.',
+  })
+  @ApiBody({
+    type: VerifyOtpDto,
+    examples: {
+      default: {
+        summary: 'Verify',
+        value: { phone: '+212612345678', otp: '123456' },
+      },
+    },
+  })
+  @ApiOkResponse({
+    type: PasswordResetTokenResponseDto,
+    headers: tokenResponseHeaders,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid input, or invalid/expired OTP.',
+    type: ApiErrorDto,
+  })
+  @ApiTooManyRequestsResponse({
+    description: 'More than 5 attempts in 10 minutes.',
+    type: ApiErrorDto,
+  })
+  verifyPasswordReset(@Body() dto: VerifyOtpDto) {
+    return this.authService.verifyPasswordReset(dto);
+  }
+
+  @Post('forgot-password/reset')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Forgot password — set the new password',
+    description:
+      'Step 3 of 3. Sets the new password and signs the account out on every device. The reset token works once. Then log in with POST /auth/login.',
+  })
+  @ApiBody({
+    type: ResetPasswordDto,
+    examples: {
+      default: {
+        summary: 'Reset',
+        value: {
+          resetToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          newPassword: 'your-new-password',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Password shorter than 8 characters or unexpected field.',
+    type: ApiErrorDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Reset token is invalid, expired, or already used.',
+    type: ApiErrorDto,
+  })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
+  }
+
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
@@ -246,6 +362,10 @@ export class AuthController {
       sms: {
         summary: 'Send by SMS',
         value: { phone: '+212612345678', channel: 'sms' },
+      },
+      whatsapp: {
+        summary: 'Send by WhatsApp',
+        value: { phone: '+212612345678', channel: 'whatsapp' },
       },
     },
   })
