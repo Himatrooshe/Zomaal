@@ -10,7 +10,7 @@ import {
 
 export class LoginDto {
   @ApiProperty({
-    description: 'Logger phone number in international E.164 format.',
+    description: 'Phone number in international E.164 format.',
     example: '+212600000001',
     pattern: '^\\+[1-9]\\d{7,14}$',
   })
@@ -20,7 +20,7 @@ export class LoginDto {
   phone!: string;
 
   @ApiProperty({
-    description: 'Logger password configured through LOGGER_PASSWORD.',
+    description: 'Account password (minimum 8 characters).',
     example: 'your-password',
     minLength: 8,
     format: 'password',

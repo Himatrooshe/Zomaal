@@ -1,8 +1,10 @@
 import { Module, Global } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { createClient } from 'redis';
+import { REDIS_CLIENT } from './redis.constants';
+import { RateLimitService } from './rate-limit.service';
 
-export const REDIS_CLIENT = 'REDIS_CLIENT';
+export { REDIS_CLIENT };
 
 @Global()
 @Module({
@@ -81,8 +83,9 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
       },
       inject: [ConfigService],
     },
+    RateLimitService,
   ],
-  exports: [REDIS_CLIENT],
+  exports: [REDIS_CLIENT, RateLimitService],
 })
 export class RedisModule {}
 

@@ -35,6 +35,31 @@ describe('validateEnvironment warehouse image storage', () => {
   });
 });
 
+describe('validateEnvironment demo login', () => {
+  const base = {
+    DATABASE_URL: 'postgresql://postgres:password@localhost:5434/zomaal',
+    JWT_SECRET: 'a-secure-test-jwt-secret-with-32-characters',
+    SHIPPING_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 6).toString('base64'),
+    PRODUCT_IMAGE_BUCKET: 'zomaal-product-images-test',
+  };
+  const demoLogin = {
+    LOGGER_PHONE: '+212612345678',
+    LOGGER_PASSWORD: 'a-test-password',
+  };
+
+  it('refuses a demo login in production', () => {
+    expect(() =>
+      validateEnvironment({ ...base, ...demoLogin, NODE_ENV: 'production' }),
+    ).toThrow('must not be set in production');
+  });
+
+  it('allows a demo login outside production', () => {
+    expect(() =>
+      validateEnvironment({ ...base, ...demoLogin, NODE_ENV: 'development' }),
+    ).not.toThrow();
+  });
+});
+
 describe('validateEnvironment OAuth completion redirects', () => {
   const encryptionKey = Buffer.alloc(32, 4).toString('base64');
   const base = {

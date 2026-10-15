@@ -3,12 +3,18 @@ import * as bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-const phone = process.env.LOGGER_PHONE ?? '+212600000001';
-const password = process.env.LOGGER_PASSWORD ?? 'ZomaalDemo#2026';
+const phone = process.env.LOGGER_PHONE;
+const password = process.env.LOGGER_PASSWORD;
 
 async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is required');
+  }
+  if (!phone || !password) {
+    throw new Error('LOGGER_PHONE and LOGGER_PASSWORD are required');
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('The logger seed must not run in production');
   }
 
   const prisma = new PrismaClient({

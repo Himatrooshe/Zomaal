@@ -70,6 +70,11 @@ export function validateEnvironment(
   if (loggerPassword && loggerPassword.length < 8) {
     errors.push('LOGGER_PASSWORD must be at least 8 characters long');
   }
+  if ((loggerPhone || loggerPassword) && nodeEnv === 'production') {
+    errors.push(
+      'LOGGER_PHONE/LOGGER_PASSWORD (demo login) must not be set in production',
+    );
+  }
 
   const superAdminUsername = asString(config.SUPERADMIN_USERNAME);
   const superAdminPassword = asString(config.SUPERADMIN_PASSWORD);
@@ -135,7 +140,10 @@ export function validateEnvironment(
   const accountsSchedulerSecret = asString(config.ACCOUNTS_SCHEDULER_SECRET);
   if (!['true', 'false'].includes(accountsSchedulerEnabled))
     errors.push('ACCOUNTS_SCHEDULER_ENABLED must be true or false');
-  if (accountsSchedulerEnabled === 'true' && accountsSchedulerSecret.length < 32)
+  if (
+    accountsSchedulerEnabled === 'true' &&
+    accountsSchedulerSecret.length < 32
+  )
     errors.push(
       'ACCOUNTS_SCHEDULER_SECRET must be at least 32 characters when account purging is enabled',
     );
