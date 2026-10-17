@@ -2,6 +2,13 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, ShippingShipmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStockService } from './order-stock.service';
+import {
+  ORDER_LINE_STOCK_INCLUDE,
+  orderLineCosts,
+  packagingMaterialIds,
+  type OrderLineWithStock,
+} from './order-stock.util';
+import { resolvePackagingUnitCosts } from '../warehouse/packaging-cost.util';
 import { OrderEventType } from './constants/order-event-type';
 import {
   deriveTerminalOutcome,
@@ -81,6 +88,8 @@ export class EcommerceOrderFinancialService {
     let productCost = new Prisma.Decimal(0);
     let shippingCost = new Prisma.Decimal(0);
     let damageCost = new Prisma.Decimal(0);
+    let giftCost = new Prisma.Decimal(0);
+    let packagingCost = new Prisma.Decimal(0);
     let netProfit = new Prisma.Decimal(0);
 
     for (const event of events) {
@@ -89,6 +98,8 @@ export class EcommerceOrderFinancialService {
         revenue = revenue.plus(event.revenue);
         productCost = productCost.plus(event.productCost);
         shippingCost = shippingCost.plus(event.shippingCost);
+        giftCost = giftCost.plus(event.giftCost);
+        packagingCost = packagingCost.plus(event.packagingCost);
       } else if (event.type === 'REVENUE_REVERSED') {
         revenue = revenue.minus(event.revenue);
         productCost = productCost.minus(event.productCost);
@@ -105,6 +116,8 @@ export class EcommerceOrderFinancialService {
       productCost: productCost.toFixed(2),
       shippingCost: shippingCost.toFixed(2),
       damageCost: damageCost.toFixed(2),
+      giftCost: giftCost.toFixed(2),
+      packagingCost: packagingCost.toFixed(2),
       netProfit: netProfit.toFixed(2),
       events: events.map((event) => ({
         id: event.id,
@@ -113,6 +126,8 @@ export class EcommerceOrderFinancialService {
         productCost: event.productCost.toFixed(2),
         shippingCost: event.shippingCost.toFixed(2),
         damageCost: event.damageCost.toFixed(2),
+        giftCost: event.giftCost.toFixed(2),
+        packagingCost: event.packagingCost.toFixed(2),
         netProfitImpact: event.netProfitImpact.toFixed(2),
         reason: event.reason,
         createdAt: event.createdAt.toISOString(),
@@ -199,12 +214,7 @@ export class EcommerceOrderFinancialService {
           currency: true,
           totalCollected: true,
           shipping: true,
-          lines: {
-            select: {
-              quantity: true,
-              warehouseVariant: { select: { costPrice: true } },
-            },
-          },
+          lines: { include: ORDER_LINE_STOCK_INCLUDE },
         },
       });
       const event = await this.applyRevenueRecognition(order, null);
@@ -287,11 +297,7 @@ export class EcommerceOrderFinancialService {
       where: { id: dispatchId },
       include: {
         order: {
-          include: {
-            lines: {
-              include: { warehouseVariant: { select: { costPrice: true } } },
-            },
-          },
+          include: { lines: { include: ORDER_LINE_STOCK_INCLUDE } },
         },
         senditShipment: { select: { normalizedStatus: true, fee: true } },
         quickLivraisonShipment: {
@@ -390,10 +396,7 @@ export class EcommerceOrderFinancialService {
       currency: string;
       totalCollected: Prisma.Decimal;
       shipping: Prisma.Decimal;
-      lines: {
-        quantity: number;
-        warehouseVariant: { costPrice: Prisma.Decimal } | null;
-      }[];
+      lines: OrderLineWithStock[];
     },
     shipmentFee: Prisma.Decimal | null,
   ) {
@@ -409,30 +412,44 @@ export class EcommerceOrderFinancialService {
       return existing;
     }
 
-    // COGS from lines matched to a warehouse product; unmatched lines
-    // contribute 0 — profit is understated, not overstated, when the catalog
-    // link is missing.
-    const productCost = order.lines.reduce(
-      (sum, line) =>
-        line.warehouseVariant
-          ? sum.plus(line.warehouseVariant.costPrice.times(line.quantity))
-          : sum,
-      new Prisma.Decimal(0),
+    // COGS from lines matched to a warehouse product: product, gift and
+    // packaging. Unmatched lines contribute 0 — profit is understated, not
+    // overstated, when the catalog link is missing.
+    const packagingUnitCosts = await resolvePackagingUnitCosts(
+      this.prisma,
+      packagingMaterialIds(order.lines),
     );
+    const zero = new Prisma.Decimal(0);
+    const costs = order.lines
+      .map((line) => orderLineCosts(line, packagingUnitCosts))
+      .reduce(
+        (total, line) => ({
+          productCost: total.productCost.plus(line.productCost),
+          giftCost: total.giftCost.plus(line.giftCost),
+          packagingCost: total.packagingCost.plus(line.packagingCost),
+        }),
+        { productCost: zero, giftCost: zero, packagingCost: zero },
+      );
     // Prefer the actual courier fee (merchant's real cost) over the shipping
     // amount charged to the customer, when known.
     const shippingCost = shipmentFee ?? order.shipping;
     const revenue = order.totalCollected;
-    const netProfitImpact = revenue.minus(productCost).minus(shippingCost);
+    const netProfitImpact = revenue
+      .minus(costs.productCost)
+      .minus(shippingCost)
+      .minus(costs.giftCost)
+      .minus(costs.packagingCost);
 
     return this.prisma.ecommerceOrderFinancialEvent.create({
       data: {
         orderId: order.id,
         type: 'REVENUE_RECOGNIZED',
         revenue,
-        productCost,
+        productCost: costs.productCost,
         shippingCost,
-        damageCost: new Prisma.Decimal(0),
+        damageCost: zero,
+        giftCost: costs.giftCost,
+        packagingCost: costs.packagingCost,
         netProfitImpact,
         currency: order.currency,
         reason: 'Carrier marked shipment as delivered',
@@ -469,6 +486,8 @@ export class EcommerceOrderFinancialService {
       return null;
     }
 
+    // Gift and packaging were consumed at delivery and are not restocked by
+    // a return, so their cost stays; everything else is undone.
     return this.prisma.ecommerceOrderFinancialEvent.create({
       data: {
         orderId,
@@ -477,7 +496,10 @@ export class EcommerceOrderFinancialService {
         productCost: recognized.productCost,
         shippingCost: recognized.shippingCost,
         damageCost: new Prisma.Decimal(0),
-        netProfitImpact: recognized.netProfitImpact.negated(),
+        netProfitImpact: recognized.netProfitImpact
+          .plus(recognized.giftCost)
+          .plus(recognized.packagingCost)
+          .negated(),
         currency,
         reason:
           'Carrier marked shipment as cancelled/refused/returned after being delivered',

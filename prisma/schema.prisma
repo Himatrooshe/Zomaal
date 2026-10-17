@@ -1185,6 +1185,8 @@ model EcommerceOrderFinancialEvent {
   productCost     Decimal  @db.Decimal(20, 4)
   shippingCost    Decimal  @db.Decimal(20, 4)
   damageCost      Decimal  @db.Decimal(20, 4)
+  giftCost        Decimal  @default(0) @db.Decimal(20, 4)
+  packagingCost   Decimal  @default(0) @db.Decimal(20, 4)
   netProfitImpact Decimal  @db.Decimal(20, 4)
   currency        String
   reason          String

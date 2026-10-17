@@ -41,6 +41,12 @@ import {
 } from './dto/product.dto';
 import { WarehouseStoreService } from './warehouse-store.service';
 import { computeComparisonInsight } from './product-comparison.util';
+import { resolvePackagingUnitCosts } from './packaging-cost.util';
+import {
+  ORDER_LINE_STOCK_INCLUDE,
+  orderLineCosts,
+  packagingMaterialIds,
+} from '../ecommerce/order-stock.util';
 
 const PRODUCT_INCLUDE = {
   category: true,
@@ -716,7 +722,9 @@ export class ProductService {
         },
       },
       include: {
-        warehouseVariant: { select: { costPrice: true } },
+        warehouseVariant: {
+          select: ORDER_LINE_STOCK_INCLUDE.warehouseVariant.select,
+        },
         order: {
           select: {
             id: true,
@@ -773,7 +781,13 @@ export class ProductService {
     let units = 0;
     let revenue = new Prisma.Decimal(0);
     let cost = new Prisma.Decimal(0);
+    let giftCost = new Prisma.Decimal(0);
+    let packagingCost = new Prisma.Decimal(0);
     let dataUpdatedAt: Date | null = null;
+    const packagingUnitCosts = await resolvePackagingUnitCosts(
+      this.prisma,
+      packagingMaterialIds(lines),
+    );
 
     for (const line of lines) {
       const state = productOrderState(line.order);
@@ -792,18 +806,25 @@ export class ProductService {
       const lineRevenue = state.realized
         ? line.totalPrice
         : new Prisma.Decimal(0);
-      const lineCost = state.realized
-        ? line.warehouseVariant!.costPrice.times(line.quantity)
-        : new Prisma.Decimal(0);
+      const zero = new Prisma.Decimal(0);
+      const lineCosts = state.realized
+        ? orderLineCosts(line, packagingUnitCosts)
+        : { productCost: zero, giftCost: zero, packagingCost: zero };
+      const lineCost = lineCosts.productCost;
+      const lineExtraCost = lineCosts.giftCost.plus(lineCosts.packagingCost);
       revenue = revenue.plus(lineRevenue);
       cost = cost.plus(lineCost);
+      giftCost = giftCost.plus(lineCosts.giftCost);
+      packagingCost = packagingCost.plus(lineCosts.packagingCost);
 
       const point = points.get(utcDateKey(line.order.processedAt));
       if (point) {
         point.orderIds.add(line.order.id);
         point.units += line.quantity;
         point.revenue = point.revenue.plus(lineRevenue);
-        point.profit = point.profit.plus(lineRevenue.minus(lineCost));
+        point.profit = point.profit.plus(
+          lineRevenue.minus(lineCost).minus(lineExtraCost),
+        );
       }
       const city = line.order.shippingCity?.trim();
       if (city && state.realized) {
@@ -820,6 +841,8 @@ export class ProductService {
 
     const orderStates = [...orders.values()];
     const grossProfit = revenue.minus(cost);
+    const netProfit = grossProfit.minus(giftCost).minus(packagingCost);
+    const totalCost = cost.plus(giftCost).plus(packagingCost);
     const totalOrders = orders.size;
     return {
       productId,
@@ -837,11 +860,13 @@ export class ProductService {
         totalUnits: units,
         totalRevenue: revenue.toFixed(4),
         totalCost: cost.toFixed(4),
+        giftCost: giftCost.toFixed(4),
+        packagingCost: packagingCost.toFixed(4),
         grossProfit: grossProfit.toFixed(4),
-        netProfit: grossProfit.toFixed(4),
-        roi: cost.isZero()
+        netProfit: netProfit.toFixed(4),
+        roi: totalCost.isZero()
           ? null
-          : round2(grossProfit.div(cost).times(100).toNumber()),
+          : round2(netProfit.div(totalCost).times(100).toNumber()),
         deliveryRate: percentage(
           orderStates.filter((order) => order.delivered).length,
           totalOrders,
@@ -1156,8 +1181,7 @@ export class ProductService {
           platform: CompareProductPlatform.YOUCAN,
           name: product.name?.trim() || `Product ${product.id}`,
           imageUrl: product.thumbnail?.trim() || null,
-          stockLabel:
-            inventory === null ? null : `${inventory} In Stock`,
+          stockLabel: inventory === null ? null : `${inventory} In Stock`,
         };
       }),
       pagination: {
@@ -1283,6 +1307,10 @@ export class ProductService {
         : null,
       lines,
       platformUnitCost: null,
+      packagingUnitCosts: await resolvePackagingUnitCosts(
+        this.prisma,
+        packagingMaterialIds(lines),
+      ),
     });
   }
 
@@ -1320,6 +1348,10 @@ export class ProductService {
       imageUrl: meta.imageUrl,
       lines,
       platformUnitCost: meta.costPrice,
+      packagingUnitCosts: await resolvePackagingUnitCosts(
+        this.prisma,
+        packagingMaterialIds(lines),
+      ),
     });
   }
 
@@ -2150,7 +2182,9 @@ function validateUniqueRequestValues(variants: PreparedVariant[]) {
 }
 
 const comparisonLineInclude = {
-  warehouseVariant: { select: { costPrice: true } },
+  warehouseVariant: {
+    select: ORDER_LINE_STOCK_INCLUDE.warehouseVariant.select,
+  },
   order: {
     select: {
       id: true,
@@ -2182,6 +2216,7 @@ function finalizeComparisonSide(input: {
   lines: ComparisonLine[];
   /** Fallback unit cost when a line has no warehouseVariant (e.g. YouCan cost_price). */
   platformUnitCost: Prisma.Decimal | null;
+  packagingUnitCosts: Map<string, Prisma.Decimal>;
 }) {
   const orders = new Map<
     string,
@@ -2204,7 +2239,11 @@ function finalizeComparisonSide(input: {
     if (!state.realized) continue;
     revenue = revenue.plus(line.totalPrice);
     if (line.warehouseVariant) {
-      cost = cost.plus(line.warehouseVariant.costPrice.times(line.quantity));
+      const lineCosts = orderLineCosts(line, input.packagingUnitCosts);
+      cost = cost
+        .plus(lineCosts.productCost)
+        .plus(lineCosts.giftCost)
+        .plus(lineCosts.packagingCost);
       costAvailable = true;
     } else if (input.platformUnitCost) {
       cost = cost.plus(input.platformUnitCost.times(line.quantity));
@@ -2312,9 +2351,7 @@ function normalizeCompareProductKey(
   productId: string,
 ): string {
   if (platform === CompareProductPlatform.SHOPIFY) {
-    return (
-      shopifyNumericId(productId) ?? productId.trim().toLowerCase()
-    );
+    return shopifyNumericId(productId) ?? productId.trim().toLowerCase();
   }
   return productId.trim().toLowerCase();
 }

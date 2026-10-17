@@ -192,18 +192,71 @@ describe('warehouse product list stock filter', () => {
   });
 });
 
+function costedVariant(
+  costPrice: number,
+  extras: {
+    gift?: { quantity: number; costPrice: number };
+    packaging?: { materialId: string; perUnit: number };
+  } = {},
+) {
+  return {
+    id: 'variant-1',
+    costPrice: new Prisma.Decimal(costPrice),
+    inventoryItem: null,
+    product: {
+      kind: 'STANDARD',
+      bundleComponents: [],
+      gift: extras.gift
+        ? {
+            quantity: extras.gift.quantity,
+            giftVariant: {
+              costPrice: new Prisma.Decimal(extras.gift.costPrice),
+              inventoryItem: null,
+              product: { kind: 'STANDARD', bundleComponents: [] },
+            },
+          }
+        : null,
+      packagingRequirements: extras.packaging
+        ? [
+            {
+              variantId: null,
+              quantityPerUnit: extras.packaging.perUnit,
+              packagingMaterialId: extras.packaging.materialId,
+              packagingMaterial: { inventoryItem: null },
+            },
+          ]
+        : [],
+    },
+  };
+}
+
 describe('warehouse product performance', () => {
   it('returns product-level financial and delivery metrics from matched order lines', async () => {
     const prisma = {
       warehouseProduct: {
         findFirst: jest.fn().mockResolvedValue({ id: 'product-1' }),
       },
+      packagingMaterial: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { id: 'box', storeId: 'store-1', zomaalShopVariantId: 'shop-box' },
+          ]),
+      },
+      merchantPurchase: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ unitPrice: new Prisma.Decimal(5) }),
+      },
       ecommerceOrderLine: {
         findMany: jest.fn().mockResolvedValue([
           {
             quantity: 2,
             totalPrice: new Prisma.Decimal(200),
-            warehouseVariant: { costPrice: new Prisma.Decimal(60) },
+            warehouseVariant: costedVariant(60, {
+              gift: { quantity: 1, costPrice: 10 },
+              packaging: { materialId: 'box', perUnit: 1 },
+            }),
             order: {
               id: 'order-1',
               status: EcommerceOrderStatus.CLOSED,
@@ -238,8 +291,11 @@ describe('warehouse product performance', () => {
       totalUnits: 2,
       totalRevenue: '200.0000',
       totalCost: '120.0000',
+      giftCost: '20.0000',
+      packagingCost: '10.0000',
       grossProfit: '80.0000',
-      roi: 66.67,
+      netProfit: '50.0000',
+      roi: 33.33,
       deliveryRate: 100,
     });
     expect(result.performance).toEqual([
@@ -247,6 +303,7 @@ describe('warehouse product performance', () => {
         date: '2026-08-10',
         orders: 1,
         revenue: '200.0000',
+        profit: '50.0000',
       }),
     ]);
     expect(result.topCities).toEqual([
@@ -269,7 +326,7 @@ describe('warehouse product compare', () => {
         {
           quantity: 1,
           totalPrice: new Prisma.Decimal(200),
-          warehouseVariant: { costPrice: new Prisma.Decimal(50) },
+          warehouseVariant: costedVariant(50),
           order: {
             id: 'order-a1',
             status: EcommerceOrderStatus.CLOSED,
@@ -284,7 +341,7 @@ describe('warehouse product compare', () => {
         {
           quantity: 1,
           totalPrice: new Prisma.Decimal(100),
-          warehouseVariant: { costPrice: new Prisma.Decimal(50) },
+          warehouseVariant: costedVariant(50),
           order: {
             id: 'order-b1',
             status: EcommerceOrderStatus.CLOSED,
@@ -425,25 +482,25 @@ describe('warehouse product compare', () => {
         }
         return Promise.resolve(
           (args.where.warehouseVariant &&
-            ({
-              'product-a': [
-                {
-                  quantity: 1,
-                  totalPrice: new Prisma.Decimal(200),
-                  warehouseVariant: { costPrice: new Prisma.Decimal(50) },
-                  order: {
-                    id: 'order-a1',
-                    status: EcommerceOrderStatus.CLOSED,
-                    financialStatus: EcommercePaymentStatus.PAID,
-                    fulfillmentStatus: 'FULFILLED',
-                    providerUpdatedAt: new Date('2026-08-11T12:00:00.000Z'),
-                    dispatch: null,
+            (
+              {
+                'product-a': [
+                  {
+                    quantity: 1,
+                    totalPrice: new Prisma.Decimal(200),
+                    warehouseVariant: costedVariant(50),
+                    order: {
+                      id: 'order-a1',
+                      status: EcommerceOrderStatus.CLOSED,
+                      financialStatus: EcommercePaymentStatus.PAID,
+                      fulfillmentStatus: 'FULFILLED',
+                      providerUpdatedAt: new Date('2026-08-11T12:00:00.000Z'),
+                      dispatch: null,
+                    },
                   },
-                },
-              ],
-            } as Record<string, unknown[]>)[
-              args.where.warehouseVariant.productId
-            ]) ??
+                ],
+              } as Record<string, unknown[]>
+            )[args.where.warehouseVariant.productId]) ??
             [],
         );
       },

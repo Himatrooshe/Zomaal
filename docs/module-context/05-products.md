@@ -35,6 +35,13 @@ How it is wired (`OrderStockService`, `EcommerceOrderLine.stockStatus`):
 - A platform-reported delivery that happened before Zomaal first synced the order line is not deducted (the merchant's stock count already excludes it).
 - Order sync / Shopify webhooks now update order lines in place instead of deleting and recreating them, so line ids, return conditions, return-request links and stock status survive platform updates.
 
+Order profit at delivery (`EcommerceOrderFinancialEvent.giftCost` / `packagingCost`):
+- Net profit = collected − product cost − shipping − gift cost − packaging cost (− damage / loss events).
+- Gift cost = gift's purchase cost × gift quantity × units sold.
+- Packaging cost = quantity per unit × units × the unit price of the merchant's latest Zomaal Shop purchase of that material (shop catalog price if they never bought it); unknown → 0, never invented.
+- If a delivered order is later cancelled / returned, revenue, product cost and shipping are reversed; gift and packaging cost stay (they were consumed and are not restocked).
+- Product Performance: net profit = gross profit − gift − packaging; ROI = net profit ÷ (product + gift + packaging cost). Compare Products uses the same costs. Shipping (order-level) and ad spend (Q5.5) are not allocated per product.
+
 **Q5.3 — Stock sync back to the platform?**
 Should Zomaal push stock levels to Shopify/YouCan?
 Assumption: no, Zomaal is read-only toward platforms in v1.

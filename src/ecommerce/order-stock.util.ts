@@ -132,6 +132,65 @@ export function expandOrderLine(line: OrderLineWithStock): StockUnit[] {
   return units;
 }
 
+export interface OrderLineCosts {
+  productCost: Prisma.Decimal;
+  giftCost: Prisma.Decimal;
+  packagingCost: Prisma.Decimal;
+}
+
+type CostedLine = {
+  quantity: number;
+  warehouseVariant: NonNullable<OrderLineWithStock['warehouseVariant']> | null;
+};
+
+/**
+ * Cost of goods for one delivered line: product, its gift, and the packaging
+ * it consumes. Unmatched lines and materials without a known price cost 0,
+ * so profit is understated rather than invented.
+ */
+export function orderLineCosts(
+  line: CostedLine,
+  packagingUnitCosts: Map<string, Prisma.Decimal>,
+): OrderLineCosts {
+  const zero = new Prisma.Decimal(0);
+  const variant = line.warehouseVariant;
+  if (!variant || line.quantity <= 0) {
+    return { productCost: zero, giftCost: zero, packagingCost: zero };
+  }
+  const gift = variant.product.gift;
+  const packagingCost = packagingFor(
+    variant.id,
+    variant.product.packagingRequirements,
+  ).reduce(
+    (sum, requirement) =>
+      sum.plus(
+        (packagingUnitCosts.get(requirement.packagingMaterialId) ?? zero).times(
+          requirement.quantityPerUnit * line.quantity,
+        ),
+      ),
+    zero,
+  );
+  return {
+    productCost: variant.costPrice.times(line.quantity),
+    giftCost: gift
+      ? gift.giftVariant.costPrice.times(gift.quantity * line.quantity)
+      : zero,
+    packagingCost,
+  };
+}
+
+/** Packaging materials whose unit cost is needed to cost these lines. */
+export function packagingMaterialIds(lines: CostedLine[]): string[] {
+  return lines.flatMap((line) =>
+    line.warehouseVariant
+      ? packagingFor(
+          line.warehouseVariant.id,
+          line.warehouseVariant.product.packagingRequirements,
+        ).map((requirement) => requirement.packagingMaterialId)
+      : [],
+  );
+}
+
 /** Variant-specific packaging rules override product-level ones per material. */
 export function packagingFor<
   T extends { variantId: string | null; packagingMaterialId: string },

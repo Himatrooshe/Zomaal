@@ -1,9 +1,10 @@
-import { InventoryBucket, InventoryMovementType } from '@prisma/client';
+import { InventoryBucket, InventoryMovementType, Prisma } from '@prisma/client';
 import { ProductCondition } from './constants/product-condition';
 import {
   clampDelta,
   conditionEffects,
   expandOrderLine,
+  orderLineCosts,
   packagingFor,
   type OrderLineWithStock,
 } from './order-stock.util';
@@ -102,6 +103,37 @@ describe('expandOrderLine', () => {
         warehouseVariant: null,
       } as unknown as OrderLineWithStock),
     ).toEqual([]);
+  });
+});
+
+describe('orderLineCosts', () => {
+  it('prices product, gift and packaging for the ordered quantity', () => {
+    const costedLine = line(3, {
+      ...physical('item-product'),
+      gift: { quantity: 2, giftVariant: physical('item-gift') },
+      packaging: [
+        { variantId: null, materialId: 'box', itemId: 'item-box', perUnit: 1 },
+        {
+          variantId: null,
+          materialId: 'tape',
+          itemId: 'item-tape',
+          perUnit: 2,
+        },
+      ],
+    });
+    costedLine.warehouseVariant!.costPrice = new Prisma.Decimal(40);
+    costedLine.warehouseVariant!.product.gift!.giftVariant.costPrice =
+      new Prisma.Decimal(5);
+
+    const costs = orderLineCosts(
+      costedLine,
+      new Map([['box', new Prisma.Decimal('3.5')]]),
+    );
+
+    expect(costs.productCost.toFixed(2)).toBe('120.00');
+    expect(costs.giftCost.toFixed(2)).toBe('30.00');
+    // Tape has no known price, so it costs 0 rather than an invented amount.
+    expect(costs.packagingCost.toFixed(2)).toBe('10.50');
   });
 });
 

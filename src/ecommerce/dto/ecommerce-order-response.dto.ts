@@ -423,6 +423,12 @@ export class OrderFinancialEventDto {
   @ApiProperty({ example: '0.00' })
   damageCost: string;
 
+  @ApiProperty({ example: '0.00' })
+  giftCost: string;
+
+  @ApiProperty({ example: '0.00' })
+  packagingCost: string;
+
   @ApiProperty({
     example: '400.00',
     description: 'Signed contribution to profit from this event.',
@@ -467,6 +473,22 @@ export class OrderFinancialSummaryDto {
 
   @ApiProperty({ example: '0.00' })
   damageCost: string;
+
+  @ApiProperty({
+    example: '0.00',
+    description:
+      "Cost of the product's gift (the gift's purchase cost × gift quantity × units). " +
+      'Counted at delivery and kept if the order is later returned (gifts are not restocked).',
+  })
+  giftCost: string;
+
+  @ApiProperty({
+    example: '0.00',
+    description:
+      "Packaging consumed at delivery, priced at the merchant's latest Zomaal Shop purchase " +
+      'of each material (catalog price if none). Kept if the order is later returned.',
+  })
+  packagingCost: string;
 
   @ApiProperty({
     example: '400.00',

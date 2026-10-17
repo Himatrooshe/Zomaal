@@ -329,10 +329,27 @@ export class ProductPerformanceMetricsDto {
   @ApiProperty() returnedOrders: number;
   @ApiProperty() totalUnits: number;
   @ApiProperty() totalRevenue: string;
-  @ApiProperty() totalCost: string;
-  @ApiProperty() grossProfit: string;
-  @ApiProperty() netProfit: string;
-  @ApiProperty({ nullable: true }) roi: number | null;
+  @ApiProperty({ description: 'Product purchase cost of realized units.' })
+  totalCost: string;
+  @ApiProperty({ description: 'Gift purchase cost for realized units.' })
+  giftCost: string;
+  @ApiProperty({
+    description:
+      "Packaging used by realized units, priced at the merchant's latest Zomaal Shop purchase.",
+  })
+  packagingCost: string;
+  @ApiProperty({ description: 'Revenue − product cost.' })
+  grossProfit: string;
+  @ApiProperty({
+    description:
+      'Gross profit − gift − packaging. Order-level shipping and ad spend are not allocated per product.',
+  })
+  netProfit: string;
+  @ApiProperty({
+    nullable: true,
+    description: 'Net profit ÷ (product + gift + packaging cost) × 100.',
+  })
+  roi: number | null;
   @ApiProperty() deliveryRate: number;
   @ApiProperty() cancellationRate: number;
   @ApiProperty() returnRate: number;
@@ -344,7 +361,10 @@ export class ProductPerformancePointDto {
   @ApiProperty() orders: number;
   @ApiProperty() units: number;
   @ApiProperty() revenue: string;
-  @ApiProperty() profit: string;
+  @ApiProperty({
+    description: 'Net profit for the day (same rule as metrics).',
+  })
+  profit: string;
 }
 
 export class ProductTopCityDto {
