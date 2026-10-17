@@ -50,6 +50,10 @@ import {
   WarehouseProductListResponseDto,
   WarehouseProductResponseDto,
 } from './dto/product-response.dto';
+import {
+  ImportPlatformProductsDto,
+  ProductImportResponseDto,
+} from './dto/product-import.dto';
 import { ProductComparisonPdfService } from './product-comparison-pdf.service';
 import { ProductService } from './product.service';
 
@@ -192,6 +196,27 @@ export class ProductController {
     @Body() dto: CreateProductBundleDto,
   ) {
     return this.products.createBundle(user.userId, dto);
+  }
+
+  @Post('import')
+  @RequirePermission(PERMISSIONS.PRODUCTS_ADD)
+  @ApiOperation({
+    summary: 'Import products from Shopify, YouCan or Lightfunnels',
+    description:
+      'Creates Zomaal products from platform products picked via GET /warehouse/products/compare/products. Each variant keeps its platform SKU, price and (when provided) cost, and gets a Zomaal product code and barcode (a valid unused platform barcode is kept). The main image is copied when the platform exposes one. Products already imported, or with a SKU already used in Zomaal, are skipped. Past platform order lines with matching SKUs are linked; lines of already-delivered orders do not change stock. Each product is processed independently, so the response reports a status per product.',
+  })
+  @ApiBody({ type: ImportPlatformProductsDto })
+  @ApiCreatedResponse({ type: ProductImportResponseDto })
+  @ApiBadRequestResponse({
+    description:
+      'Validation failure, inactive category, or the platform is not connected.',
+    type: ApiErrorDto,
+  })
+  importFromPlatform(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ImportPlatformProductsDto,
+  ) {
+    return this.products.importFromPlatform(user.userId, dto);
   }
 
   @Get()

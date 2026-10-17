@@ -27,10 +27,12 @@ export class YouCanDataService {
   async getProductDetails(
     userId: string,
     productId: string,
+    include?: string,
   ): Promise<YouCanDataResponseDto<YouCanProductDto>> {
     const response = await this.connectionService.getJsonForUser<unknown>(
       userId,
       `/products/${productId}`,
+      include ? { include } : undefined,
     );
     const product = unwrapYouCanProduct(response);
     if (!product) {

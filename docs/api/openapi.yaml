@@ -11109,6 +11109,41 @@ paths:
       summary: Create a product bundle from existing variants
       tags:
         - Warehouse Products
+  /warehouse/products/import:
+    post:
+      description: Creates Zomaal products from platform products picked via GET /warehouse/products/compare/products. Each variant keeps its platform SKU, price and (when provided) cost, and gets a Zomaal product code and barcode (a valid unused platform barcode is kept). The main image is copied when the platform exposes one. Products already imported, or with a SKU already used in Zomaal, are skipped. Past platform order lines with matching SKUs are linked; lines of already-delivered orders do not change stock. Each product is processed independently, so the response reports a status per product.
+      operationId: Product_importFromPlatform
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportPlatformProductsDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductImportResponseDto'
+        '400':
+          description: Validation failure, inactive category, or the platform is not connected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Import products from Shopify, YouCan or Lightfunnels
+      tags:
+        - Warehouse Products
   /warehouse/products/compare/platforms:
     get:
       description: Warehouse is always available. Shopify, YouCan, and Lightfunnels are available only when the store has an ACTIVE connection. Frontend should hide unavailable platforms from the dropdown.
@@ -11441,7 +11476,7 @@ paths:
       tags:
         - Warehouse Products
     patch:
-      description: Updates name, description, category, status, and simple-product or per-variant price, cost, and low-stock thresholds. Send the latest version returned by GET/PATCH; the response increments it. Stock changes use the dedicated inventory endpoint.
+      description: Updates name, description, category, status, prices, costs, low-stock thresholds and SKUs. Also replaces the main image, adds or removes gallery images (max 4), sets variant images, sets or removes (null) the gift, replaces packaging, replaces bundle components (bundle cost is recalculated), adds variants for existing options, and removes variants that have no stock, orders, gift or bundle uses. Upload images first via the media upload endpoint. Send the latest version returned by GET/PATCH; the response increments it. Stock changes use the dedicated inventory endpoint.
       operationId: Product_update
       parameters:
         - name: id
@@ -11465,7 +11500,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WarehouseProductResponseDto'
         '400':
-          description: Invalid body, product UUID, or inactive category.
+          description: Invalid body, inactive category, invalid gift/packaging/bundle reference, or a variant that cannot be removed.
           content:
             application/json:
               schema:
@@ -11483,14 +11518,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '409':
-          description: The supplied product version is stale.
+          description: The supplied product version is stale, or a SKU, barcode or product code is already used.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
-      summary: Update warehouse product details and pricing safely
+      summary: Edit a warehouse product
       tags:
         - Warehouse Products
   /warehouse/products/{id}/performance:
@@ -24160,6 +24195,12 @@ components:
         damageCost:
           type: string
           example: '0.00'
+        giftCost:
+          type: string
+          example: '0.00'
+        packagingCost:
+          type: string
+          example: '0.00'
         netProfitImpact:
           type: string
           example: '400.00'
@@ -24177,6 +24218,8 @@ components:
         - productCost
         - shippingCost
         - damageCost
+        - giftCost
+        - packagingCost
         - netProfitImpact
         - reason
         - createdAt
@@ -24203,6 +24246,14 @@ components:
         damageCost:
           type: string
           example: '0.00'
+        giftCost:
+          type: string
+          example: '0.00'
+          description: Cost of the product's gift (the gift's purchase cost × gift quantity × units). Counted at delivery and kept if the order is later returned (gifts are not restocked).
+        packagingCost:
+          type: string
+          example: '0.00'
+          description: Packaging consumed at delivery, priced at the merchant's latest Zomaal Shop purchase of each material (catalog price if none). Kept if the order is later returned.
         netProfit:
           type: string
           example: '400.00'
@@ -24218,6 +24269,8 @@ components:
         - productCost
         - shippingCost
         - damageCost
+        - giftCost
+        - packagingCost
         - netProfit
         - events
     FinancialSyncResultDto:
@@ -26218,6 +26271,110 @@ components:
         - mainImageUploadId
         - price
         - components
+    ImportPlatformProductsDto:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+            - MANUAL
+        productIds:
+          minItems: 1
+          maxItems: 20
+          description: Platform product IDs as returned by GET /warehouse/products/compare/products for that platform.
+          type: array
+          items:
+            type: string
+        categoryId:
+          type: string
+          format: uuid
+          description: Active category to put the imported products in.
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DRAFT
+          default: ACTIVE
+        importStock:
+          type: boolean
+          default: false
+          description: Use the platform inventory quantity as opening stock (Shopify and YouCan only). Otherwise variants start at 0 and stock is entered in Zomaal.
+      required:
+        - platform
+        - productIds
+    ProductImportResultDto:
+      type: object
+      properties:
+        platformProductId:
+          type: string
+        status:
+          type: string
+          enum:
+            - IMPORTED
+            - ALREADY_IMPORTED
+            - SKU_MATCHED
+            - FAILED
+        productId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Created product, or the existing Zomaal product it was matched to.
+        name:
+          type: string
+          nullable: true
+        variantsImported:
+          type: number
+          description: Variants created by this import.
+        variantsWithoutSku:
+          type: number
+          description: Imported variants without a platform SKU; their platform orders cannot be linked automatically.
+        costMissing:
+          type: boolean
+          description: True when the platform did not provide a purchase cost; cost was set to 0 and should be edited.
+        imageImported:
+          type: boolean
+        message:
+          type: string
+          nullable: true
+      required:
+        - platformProductId
+        - status
+        - productId
+        - name
+        - variantsImported
+        - variantsWithoutSku
+        - costMissing
+        - imageImported
+        - message
+    ProductImportResponseDto:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+            - MANUAL
+        imported:
+          type: number
+        skipped:
+          type: number
+        failed:
+          type: number
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductImportResultDto'
+      required:
+        - platform
+        - imported
+        - skipped
+        - failed
+        - results
     WarehouseProductPaginationDto:
       type: object
       properties:
@@ -26487,13 +26644,23 @@ components:
           type: string
         totalCost:
           type: string
+          description: Product purchase cost of realized units.
+        giftCost:
+          type: string
+          description: Gift purchase cost for realized units.
+        packagingCost:
+          type: string
+          description: Packaging used by realized units, priced at the merchant's latest Zomaal Shop purchase.
         grossProfit:
           type: string
+          description: Revenue − product cost.
         netProfit:
           type: string
+          description: Gross profit − gift − packaging. Order-level shipping and ad spend are not allocated per product.
         roi:
           type: object
           nullable: true
+          description: Net profit ÷ (product + gift + packaging cost) × 100.
         deliveryRate:
           type: number
         cancellationRate:
@@ -26508,6 +26675,8 @@ components:
         - totalUnits
         - totalRevenue
         - totalCost
+        - giftCost
+        - packagingCost
         - grossProfit
         - netProfit
         - roi
@@ -26528,6 +26697,7 @@ components:
           type: string
         profit:
           type: string
+          description: Net profit for the day (same rule as metrics).
       required:
         - date
         - orders
@@ -26585,6 +26755,14 @@ components:
         id:
           type: string
           format: uuid
+        sku:
+          type: string
+          nullable: true
+          description: Merchant SKU, unique in the store. Send an empty string to clear it.
+        imageUploadId:
+          type: string
+          format: uuid
+          description: New VARIANT upload that replaces this variant’s image (the old file is deleted).
         price:
           type: number
           minimum: 0
@@ -26633,6 +26811,47 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UpdateWarehouseVariantDto'
+        mainImageUploadId:
+          type: string
+          format: uuid
+          description: New PRODUCT_MAIN upload that replaces the current main image (the old file is deleted).
+        galleryImageUploadIds:
+          maxItems: 4
+          description: New PRODUCT_GALLERY uploads appended to the gallery. The gallery holds at most 4 images after removals.
+          type: array
+          items:
+            type: string
+        removeMediaIds:
+          description: Attached gallery or variant image IDs (from the product response media) to delete. The main image can only be replaced.
+          type: array
+          items:
+            type: string
+        gift:
+          nullable: true
+          description: Sets or replaces the gift. Send null to remove it.
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/ProductGiftInputDto'
+        packaging:
+          description: Replaces the product-level packaging list. Send an empty array to stop tracking packaging.
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductPackagingInputDto'
+        bundleComponents:
+          description: 'Bundles only: replaces the components. The bundle cost is recalculated from them.'
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductBundleComponentInputDto'
+        addVariants:
+          description: New variants for a product that already has options. optionValues follow the existing option order; unknown values are added to the option. stockQuantity is the opening balance.
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVariantInputDto'
+        removeVariantIds:
+          description: Variants to delete. Rejected while a variant has stock, order history, or is used as a gift or bundle component — archive the product instead.
+          type: array
+          items:
+            type: string
       required:
         - version
     InventoryProductReferenceDto:
@@ -26830,6 +27049,8 @@ components:
             - ORDER_RESERVED
             - ORDER_RELEASED
             - ORDER_SHIPPED
+            - ORDER_DELIVERED
+            - RETURN_LOST
             - RETURN_GOOD
             - RETURN_DAMAGED
             - PACKAGING_RECEIVED

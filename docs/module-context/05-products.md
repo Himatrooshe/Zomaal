@@ -49,6 +49,16 @@ Edit product (`PATCH /warehouse/products/:id`, optimistic `version`):
 - Variants: add new combinations of the existing options (new option values are created; each gets a product code, barcode and opening stock). Remove only variants with no stock, no order lines and no gift / bundle uses — otherwise archive the product.
 - Orders already reserved keep working if a gift or bundle component changes: the old reserved items are released on cancel, or deducted on delivery (they physically shipped).
 
+Import from platforms (`POST /warehouse/products/import`, up to 20 products per call):
+- Pick products with `GET /warehouse/products/compare/products?platform=…`, then send their ids.
+- Each variant keeps its platform SKU and price, and gets a Zomaal product code and barcode (a valid, unused platform barcode such as an EAN is kept).
+- Cost: YouCan `cost_price` when present; Shopify and Lightfunnels do not expose cost to us, so it is 0 and the result says `costMissing: true` (edit it afterwards).
+- Stock starts at 0 unless `importStock: true` (Shopify / YouCan quantity becomes the opening balance). After import, stock is managed only in Zomaal.
+- Main image is copied from the Shopify / YouCan CDN when available; Lightfunnels gives no image URL.
+- Lightfunnels has no option names: a multi-variant product gets one "Variant" option whose values are the variant titles.
+- Skipped, not duplicated: products already imported (`ALREADY_IMPORTED`) or with any SKU already in Zomaal (`SKU_MATCHED`). Each product succeeds or fails on its own.
+- Past order lines with matching SKUs are linked (same as creating a product). Lines of orders that were already delivered are marked delivered so they never deduct stock retroactively.
+
 **Q5.3 — Stock sync back to the platform?**
 Should Zomaal push stock levels to Shopify/YouCan?
 Assumption: no, Zomaal is read-only toward platforms in v1.

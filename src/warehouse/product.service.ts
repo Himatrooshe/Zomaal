@@ -14,18 +14,35 @@ import {
   InventoryItemKind,
   MediaAssetPurpose,
   MediaAssetStatus,
+  OrderLineStockStatus,
   Prisma,
   ShippingShipmentStatus,
   WarehouseProductKind,
   WarehouseProductStatus,
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
+import { OrderEventType } from '../ecommerce/constants/order-event-type';
 import { LightfunnelsDataService } from '../lightfunnels/lightfunnels-data.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopifyDataService } from '../shopify/shopify-data.service';
 import { YouCanDataService } from '../youcan/youcan-data.service';
 import { BarcodeService } from './barcode.service';
+import {
+  ImportPlatformProductsDto,
+  ProductImportResultDto,
+  ProductImportResultStatus,
+} from './dto/product-import.dto';
 import { MediaService } from './media.service';
+import { downloadPlatformImage } from './platform-image.util';
+import {
+  fromLightfunnelsProduct,
+  fromShopifyProduct,
+  fromYouCanProduct,
+  ImportMappingError,
+  MAX_IMPORT_VARIANTS,
+  type ImportedProduct,
+  type ImportedVariant,
+} from './platform-product-import.util';
 import {
   CompareCatalogQueryDto,
   CompareProductPlatform,
@@ -1935,6 +1952,7 @@ export class ProductService {
     storeId: string,
     product: ProductWithRelations,
     variants: PreparedVariant[],
+    stockReason = 'Initial stock entered when the variant was added',
   ) {
     const location = await tx.warehouseLocation.upsert({
       where: { storeId_code: { storeId, code: 'MAIN' } },
@@ -1964,18 +1982,21 @@ export class ProductService {
       }
     }
 
-    let position = Math.max(0, ...product.variants.map((v) => v.position)) + 1;
+    let position = Math.max(-1, ...product.variants.map((v) => v.position)) + 1;
     for (const input of variants) {
       const variant = await tx.warehouseVariant.create({
         data: {
           productId: product.id,
           storeId,
-          title: input.optionValues.join(' / '),
+          title: input.optionValues.length
+            ? input.optionValues.join(' / ')
+            : 'Default',
           sku: input.sku?.trim() || null,
           productCode: input.productCode!,
           price: input.price,
           costPrice: input.costPrice,
           lowStockThreshold: input.lowStockAlertThreshold,
+          isDefault: input.optionValues.length === 0,
           position: position++,
           optionValues: {
             create: product.options.map((option, optionIndex) => ({
@@ -2013,7 +2034,7 @@ export class ProductService {
               bucket: 'ON_HAND',
               quantityDelta: input.stockQuantity,
               resultingQuantity: input.stockQuantity,
-              reason: 'Initial stock entered when the variant was added',
+              reason: stockReason,
               idempotencyKey: `opening:${variant.id}`,
             },
           },
@@ -2028,6 +2049,328 @@ export class ProductService {
           { variantId: variant.id, position: 0 },
         );
       }
+    }
+  }
+
+  /**
+   * Creates Zomaal products from platform products. A product already
+   * imported, or with any SKU already used in Zomaal, is reported instead of
+   * duplicated; each product succeeds or fails on its own.
+   */
+  async importFromPlatform(userId: string, dto: ImportPlatformProductsDto) {
+    const store = await this.stores.requireStore(userId);
+    if (dto.categoryId) {
+      await this.requireActiveCategory(store.id, dto.categoryId);
+    }
+    const connection = await this.prisma.ecommerceConnection.findFirst({
+      where: {
+        storeId: store.id,
+        platform: dto.platform,
+        status: EcommerceConnectionStatus.ACTIVE,
+      },
+      select: { id: true },
+    });
+    if (!connection) {
+      throw new BadRequestException(
+        `${dto.platform} is not connected. Connect it before importing products.`,
+      );
+    }
+
+    const results: ProductImportResultDto[] = [];
+    for (const rawId of dto.productIds) {
+      const externalId =
+        dto.platform === EcommercePlatform.SHOPIFY
+          ? (shopifyNumericId(rawId.trim()) ?? rawId.trim())
+          : rawId.trim();
+      results.push(await this.importOne(userId, store.id, dto, externalId));
+    }
+    return {
+      platform: dto.platform,
+      imported: results.filter(
+        (result) => result.status === ProductImportResultStatus.IMPORTED,
+      ).length,
+      skipped: results.filter(
+        (result) =>
+          result.status === ProductImportResultStatus.ALREADY_IMPORTED ||
+          result.status === ProductImportResultStatus.SKU_MATCHED,
+      ).length,
+      failed: results.filter(
+        (result) => result.status === ProductImportResultStatus.FAILED,
+      ).length,
+      results,
+    };
+  }
+
+  private async importOne(
+    userId: string,
+    storeId: string,
+    dto: ImportPlatformProductsDto,
+    externalId: string,
+  ): Promise<ProductImportResultDto> {
+    const base = {
+      platformProductId: externalId,
+      productId: null,
+      name: null,
+      variantsImported: 0,
+      variantsWithoutSku: 0,
+      costMissing: false,
+      imageImported: false,
+      message: null,
+    };
+    const idempotencyKey = `import:${dto.platform}:${externalId}`;
+    const alreadyImported = () =>
+      this.prisma.warehouseProduct.findUnique({
+        where: { storeId_idempotencyKey: { storeId, idempotencyKey } },
+        select: { id: true, name: true },
+      });
+    const existing = await alreadyImported();
+    if (existing) {
+      return {
+        ...base,
+        status: ProductImportResultStatus.ALREADY_IMPORTED,
+        productId: existing.id,
+        name: existing.name,
+        message: 'This platform product was already imported',
+      };
+    }
+
+    let imported: ImportedProduct;
+    try {
+      imported = await this.fetchPlatformProduct(
+        userId,
+        dto.platform,
+        externalId,
+      );
+    } catch (error) {
+      if (!(error instanceof ImportMappingError)) {
+        this.logger.warn(
+          `Import: could not load ${dto.platform} product ${externalId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+      return {
+        ...base,
+        status: ProductImportResultStatus.FAILED,
+        message:
+          error instanceof ImportMappingError
+            ? error.message
+            : `Could not load this product from ${dto.platform}`,
+      };
+    }
+
+    const skus = imported.variants.flatMap((variant) =>
+      variant.sku ? [variant.sku] : [],
+    );
+    if (skus.length) {
+      const match = await this.prisma.warehouseVariant.findFirst({
+        where: {
+          storeId,
+          OR: skus.map((sku) => ({
+            sku: { equals: sku, mode: 'insensitive' as const },
+          })),
+        },
+        select: { productId: true, product: { select: { name: true } } },
+      });
+      if (match) {
+        return {
+          ...base,
+          status: ProductImportResultStatus.SKU_MATCHED,
+          productId: match.productId,
+          name: match.product.name,
+          message:
+            'A SKU of this product already exists in Zomaal, so nothing was created. Add missing variants from Edit product.',
+        };
+      }
+    }
+
+    const variants: PreparedVariant[] = imported.variants.map((variant) => ({
+      optionValues: variant.optionValues,
+      sku: variant.sku ?? undefined,
+      price: variant.price,
+      costPrice: variant.costPrice ?? 0,
+      stockQuantity: dto.importStock ? Math.max(0, variant.stock ?? 0) : 0,
+      lowStockAlertThreshold: 5,
+    }));
+    await this.adoptPlatformBarcodes(storeId, imported.variants, variants);
+    await this.prepareBarcodes(storeId, variants);
+    await this.prepareProductCodes(storeId, variants);
+    const imageId = await this.importMainImage(storeId, imported);
+
+    try {
+      const productId = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.warehouseProduct.create({
+          data: {
+            storeId,
+            categoryId: dto.categoryId ?? null,
+            name: imported.name,
+            description: imported.description,
+            status: dto.status ?? WarehouseProductStatus.ACTIVE,
+            idempotencyKey,
+            options: {
+              create: imported.options.map((name, position) => ({
+                name,
+                position,
+              })),
+            },
+          },
+        });
+        const product = await tx.warehouseProduct.findUniqueOrThrow({
+          where: { id: created.id },
+          include: PRODUCT_INCLUDE,
+        });
+        await this.createVariants(
+          tx,
+          storeId,
+          product,
+          variants,
+          `Opening stock imported from ${dto.platform}`,
+        );
+        if (imageId) {
+          await this.attachMedia(
+            tx,
+            storeId,
+            imageId,
+            MediaAssetPurpose.PRODUCT_MAIN,
+            { productId: created.id, position: 0 },
+          );
+        }
+        return created.id;
+      });
+      await this.linkOrderLinesForProduct(storeId, productId);
+      return {
+        ...base,
+        status: ProductImportResultStatus.IMPORTED,
+        productId,
+        name: imported.name,
+        variantsImported: variants.length,
+        variantsWithoutSku: variants.filter((variant) => !variant.sku).length,
+        costMissing: imported.variants.some(
+          (variant) => variant.costPrice === null,
+        ),
+        imageImported: imageId !== null,
+      };
+    } catch (error) {
+      if (isUniqueError(error)) {
+        const raced = await alreadyImported();
+        if (raced) {
+          return {
+            ...base,
+            status: ProductImportResultStatus.ALREADY_IMPORTED,
+            productId: raced.id,
+            name: raced.name,
+            message: 'This platform product was already imported',
+          };
+        }
+        return {
+          ...base,
+          status: ProductImportResultStatus.FAILED,
+          message: 'A SKU, barcode or product code is already used in Zomaal',
+        };
+      }
+      this.logger.error(
+        `Import of ${dto.platform} product ${externalId} failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return {
+        ...base,
+        status: ProductImportResultStatus.FAILED,
+        message: 'The product could not be created',
+      };
+    }
+  }
+
+  private async fetchPlatformProduct(
+    userId: string,
+    platform: EcommercePlatform,
+    externalId: string,
+  ): Promise<ImportedProduct> {
+    if (platform === EcommercePlatform.SHOPIFY) {
+      return fromShopifyProduct(
+        await this.shopifyData.getProductDetails(userId, externalId, {
+          variantsFirst: MAX_IMPORT_VARIANTS,
+          mediaFirst: 1,
+        }),
+      );
+    }
+    if (platform === EcommercePlatform.YOUCAN) {
+      const product = await this.youCanData.getProductDetails(
+        userId,
+        externalId,
+        'variants',
+      );
+      return fromYouCanProduct(product.data);
+    }
+    const product = await this.lightfunnelsData.getProductDetails(
+      userId,
+      externalId,
+    );
+    return fromLightfunnelsProduct(product.data);
+  }
+
+  /** Keeps a platform barcode (e.g. EAN) when it is valid and not already used in the store. */
+  private async adoptPlatformBarcodes(
+    storeId: string,
+    source: ImportedVariant[],
+    variants: PreparedVariant[],
+  ) {
+    const candidates = new Map<
+      number,
+      { value: string; type: InventoryBarcodeType }
+    >();
+    for (const [index, variant] of source.entries()) {
+      if (!variant.barcode) continue;
+      try {
+        candidates.set(
+          index,
+          this.barcodes.normalizeAndValidate(variant.barcode),
+        );
+      } catch {
+        // Invalid platform barcode: a Zomaal barcode is generated instead.
+      }
+    }
+    if (!candidates.size) return;
+    const taken = new Set(
+      (
+        await this.prisma.inventoryBarcode.findMany({
+          where: {
+            storeId,
+            value: { in: [...candidates.values()].map((c) => c.value) },
+          },
+          select: { value: true },
+        })
+      ).map((barcode) => barcode.value),
+    );
+    for (const [index, barcode] of candidates) {
+      if (taken.has(barcode.value)) continue;
+      taken.add(barcode.value);
+      variants[index].barcode = barcode.value;
+      variants[index].barcodeType = barcode.type;
+    }
+  }
+
+  private async importMainImage(
+    storeId: string,
+    product: ImportedProduct,
+  ): Promise<string | null> {
+    if (!product.imageUrl) return null;
+    const file = await downloadPlatformImage(product.imageUrl);
+    if (!file) return null;
+    try {
+      const asset = await this.media.uploadForStore(
+        storeId,
+        MediaAssetPurpose.PRODUCT_MAIN,
+        file,
+      );
+      return asset.id;
+    } catch (error) {
+      this.logger.warn(
+        `Import: could not store image for product ${product.externalId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
     }
   }
 
@@ -2202,12 +2545,30 @@ export class ProductService {
     });
     for (const variant of variants) {
       if (!variant.sku) continue;
+      const unlinked = {
+        warehouseVariantId: null,
+        sku: { equals: variant.sku, mode: 'insensitive' as const },
+      };
+      // Delivered before the product existed in Zomaal: the merchant's stock
+      // count already excludes these units, so they must not be deducted again.
       await this.prisma.ecommerceOrderLine.updateMany({
         where: {
-          warehouseVariantId: null,
-          sku: { equals: variant.sku, mode: 'insensitive' },
-          order: { connection: { storeId } },
+          ...unlinked,
+          order: {
+            connection: { storeId },
+            OR: [
+              { events: { some: { type: OrderEventType.DELIVERED } } },
+              { financialEvents: { some: { type: 'REVENUE_RECOGNIZED' } } },
+            ],
+          },
         },
+        data: {
+          warehouseVariantId: variant.id,
+          stockStatus: OrderLineStockStatus.DELIVERED,
+        },
+      });
+      await this.prisma.ecommerceOrderLine.updateMany({
+        where: { ...unlinked, order: { connection: { storeId } } },
         data: { warehouseVariantId: variant.id },
       });
     }
