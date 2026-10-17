@@ -154,4 +154,79 @@ describe('EcommerceOrderFinancialService', () => {
     );
     expect(net.toFixed(2)).toBe('-30.00');
   });
+
+  it('books only the change when a return condition loss is corrected', async () => {
+    const ledger: Array<{
+      idempotencyKey: string;
+      damageCost: Prisma.Decimal;
+      netProfitImpact: Prisma.Decimal;
+    }> = [];
+    const prisma = {
+      ecommerceOrderFinancialEvent: {
+        aggregate: jest.fn(() => {
+          const sum = ledger.reduce(
+            (total, event) => total.plus(event.damageCost),
+            new Prisma.Decimal(0),
+          );
+          return Promise.resolve({
+            _sum: { damageCost: ledger.length ? sum : null },
+          });
+        }),
+        upsert: jest.fn(({ create }: { create: (typeof ledger)[number] }) => {
+          ledger.push(create);
+          return Promise.resolve(create);
+        }),
+      },
+    };
+    const service = new EcommerceOrderFinancialService(
+      prisma as unknown as PrismaService,
+      {} as OrderStockService,
+    );
+    const at = (ms: number) => new Date(ms);
+
+    await service.setLineLoss(
+      'o',
+      'l',
+      'MAD',
+      new Prisma.Decimal(80),
+      'Lost',
+      at(1),
+    );
+    await service.setLineLoss(
+      'o',
+      'l',
+      'MAD',
+      new Prisma.Decimal(80),
+      'Lost',
+      at(2),
+    );
+    await service.setLineLoss(
+      'o',
+      'l',
+      'MAD',
+      new Prisma.Decimal(15),
+      'Damaged',
+      at(3),
+    );
+    await service.setLineLoss(
+      'o',
+      'l',
+      'MAD',
+      new Prisma.Decimal(0),
+      'Good',
+      at(4),
+    );
+
+    expect(ledger.map((event) => event.damageCost.toFixed(2))).toEqual([
+      '80.00',
+      '-65.00',
+      '-15.00',
+    ]);
+    expect(ledger[0].idempotencyKey).toBe('damage-loss:l');
+    const net = ledger.reduce(
+      (sum, event) => sum.plus(event.netProfitImpact),
+      new Prisma.Decimal(0),
+    );
+    expect(net.toFixed(2)).toBe('0.00');
+  });
 });

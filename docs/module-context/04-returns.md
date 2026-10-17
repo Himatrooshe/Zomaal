@@ -21,6 +21,7 @@ Answer: An unverified returned parcel becomes Delayed 1–2 days after it came b
 **Q4.2 — Stock effect per condition**
 Assumption: Good goes back to sellable stock. Damaged, Lost, and Missing count as a loss at cost price. Is that correct?
 Answer: Yes. Good goes back to sellable stock; Damaged, Lost and Missing count as a loss at cost price.
+Implementation (`conditionLoss`, shared by the profit ledger and the Return Detected loss summary): Lost / Missing = purchase cost × quantity; Damaged = the entered damage cost, or purchase cost × quantity when none is entered; Good / Returned = 0. Lines not linked to a Zomaal product have no known cost, so only an entered damage cost counts. Correcting a condition books only the difference (e.g. Lost → Good removes the earlier loss) instead of adding a second loss.
 
 **Q4.3 — Which barcode is on the returned parcel?**
 Assumption: the courier's own label (tracking number). Do any couriers put their own internal code instead?

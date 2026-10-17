@@ -9,7 +9,7 @@ import { StoreAccessService } from '../access/store-access.service';
 import { EcommerceService } from './ecommerce.service';
 import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
 import { CustomerRiskService } from '../customers/customer-risk.service';
-import { ProductCondition } from './constants/product-condition';
+import { conditionLoss } from './condition-loss.util';
 import type {
   DetectReturnDto,
   DetectedReturnResponseDto,
@@ -59,16 +59,18 @@ const returnRequestWithLinesInclude = {
 
 type OrderLineForLoss = {
   id: string;
+  quantity: number;
   totalPrice: Prisma.Decimal;
   condition: string | null;
   damageCost: Prisma.Decimal | null;
+  warehouseVariant?: { costPrice: Prisma.Decimal } | null;
 };
 
 type OrderLineWithImage = OrderLineForLoss & {
   sku: string | null;
   name: string;
-  quantity: number;
   warehouseVariant?: {
+    costPrice: Prisma.Decimal;
     productCode: string | null;
     media: { id: string }[];
     product?: { media: { id: string }[] } | null;
@@ -599,17 +601,10 @@ export class ReturnRequestService {
       (sum, l) => sum.plus(l.totalPrice),
       new Prisma.Decimal(0),
     );
-    const itemLoss = lines.reduce((sum, l) => {
-      switch (l.condition) {
-        case ProductCondition.DAMAGED:
-          return sum.plus(l.damageCost ?? new Prisma.Decimal(0));
-        case ProductCondition.LOST:
-        case ProductCondition.MISSING:
-          return sum.plus(l.totalPrice);
-        default:
-          return sum; // GOOD/RETURNED/unset — no item loss
-      }
-    }, new Prisma.Decimal(0));
+    const itemLoss = lines.reduce(
+      (sum, l) => sum.plus(conditionLoss(l)),
+      new Prisma.Decimal(0),
+    );
 
     return {
       originalOrderValue: originalOrderValue.toFixed(2),

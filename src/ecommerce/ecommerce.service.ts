@@ -48,6 +48,7 @@ import type { ReturnsSummaryResponseDto } from './dto/returns-summary.dto';
 import { ShippingService } from '../shipping/shipping.service';
 import { OrderStockService } from './order-stock.service';
 import { ProductCondition } from './constants/product-condition';
+import { conditionLoss } from './condition-loss.util';
 import {
   deriveCurrentStatus,
   deriveTerminalOutcome,
@@ -1285,6 +1286,7 @@ export class EcommerceService {
       damageCost: Prisma.Decimal | null;
       totalPrice: Prisma.Decimal;
       warehouseVariant: {
+        costPrice: Prisma.Decimal;
         inventoryItem: { id: string } | null;
       } | null;
     },
@@ -1334,34 +1336,21 @@ export class EcommerceService {
       recordedAt,
     });
 
-    if (damageCost) {
-      await this.financialService.applyDamageLoss(
-        order.id,
-        line.id,
-        order.currency,
+    await this.financialService.setLineLoss(
+      order.id,
+      line.id,
+      order.currency,
+      conditionLoss({
+        condition: input.condition,
         damageCost,
-        conditionChanged || costChanged ? recordedAt.getTime() : undefined,
-      );
-    } else if (
-      input.condition === ProductCondition.LOST ||
-      input.condition === ProductCondition.MISSING
-    ) {
-      // Nothing physical came back — the full line value is lost, not just
-      // a damage estimate. Previously this recorded no financial event at
-      // all for LOST/MISSING (only DAMAGED did), so the ledger silently
-      // omitted these losses; the Returns screen's Loss Summary already
-      // counts full totalPrice as netLoss for these conditions (see
-      // ReturnRequestService.computeLoss), so the persisted ledger needs
-      // to agree with what that screen shows.
-      await this.financialService.applyDamageLoss(
-        order.id,
-        line.id,
-        order.currency,
-        line.totalPrice,
-        conditionChanged ? recordedAt.getTime() : undefined,
-        `Product returned ${input.condition.toLowerCase()}`,
-      );
-    }
+        quantity: line.quantity,
+        warehouseVariant: line.warehouseVariant,
+      }),
+      conditionChanged || costChanged
+        ? `Return condition corrected to ${input.condition.toLowerCase()}`
+        : `Product returned ${input.condition.toLowerCase()}`,
+      recordedAt,
+    );
 
     return {
       orderId: order.id,

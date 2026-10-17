@@ -354,22 +354,40 @@ export class EcommerceOrderFinancialService {
    * marked DAMAGED with a cost. Immutable once stored: re-recording the same
    * line with the same condition is a no-op (upsert keyed on lineId).
    */
-  async applyDamageLoss(
+  /**
+   * Brings the booked loss for one order line to `targetLoss`. Events stay
+   * immutable: only the difference from what is already booked is appended,
+   * so a correction (e.g. Lost → Good) undoes the earlier loss instead of
+   * stacking a second one, and an exact repeat writes nothing.
+   */
+  async setLineLoss(
     orderId: string,
     lineId: string,
     currency: string,
-    damageCost: Prisma.Decimal,
-    correctionSuffix?: number,
-    reason: string = 'Product returned damaged',
+    targetLoss: Prisma.Decimal,
+    reason: string,
+    recordedAt: Date,
   ) {
-    // A plain re-record (same condition, same cost) reuses the stable key —
-    // idempotent, no-op on repeat. A genuine correction (condition or cost
-    // changed) gets a timestamp-suffixed key instead, so the corrected
-    // amount lands as its own event rather than being silently dropped by
-    // the immutable upsert below.
-    const idempotencyKey = correctionSuffix
-      ? `damage-loss:${lineId}:${correctionSuffix}`
-      : `damage-loss:${lineId}`;
+    const lineKey = `damage-loss:${lineId}`;
+    const booked = await this.prisma.ecommerceOrderFinancialEvent.aggregate({
+      where: {
+        orderId,
+        type: 'DAMAGE_LOSS',
+        OR: [
+          { idempotencyKey: lineKey },
+          { idempotencyKey: { startsWith: `${lineKey}:` } },
+        ],
+      },
+      _sum: { damageCost: true },
+    });
+    const delta = targetLoss.minus(
+      booked._sum.damageCost ?? new Prisma.Decimal(0),
+    );
+    if (delta.isZero()) return null;
+
+    const idempotencyKey = booked._sum.damageCost
+      ? `${lineKey}:${recordedAt.getTime()}`
+      : lineKey;
     return this.prisma.ecommerceOrderFinancialEvent.upsert({
       where: {
         orderId_idempotencyKey: { orderId, idempotencyKey },
@@ -380,8 +398,8 @@ export class EcommerceOrderFinancialService {
         revenue: new Prisma.Decimal(0),
         productCost: new Prisma.Decimal(0),
         shippingCost: new Prisma.Decimal(0),
-        damageCost,
-        netProfitImpact: damageCost.negated(),
+        damageCost: delta,
+        netProfitImpact: delta.negated(),
         currency,
         reason,
         idempotencyKey,

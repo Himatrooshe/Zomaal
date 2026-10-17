@@ -513,15 +513,16 @@ describe('EcommerceService', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('passes a condition correction to order stock and keys the damage loss as a correction', async () => {
+  it('passes a condition correction to order stock and sets the line loss to the damage cost', async () => {
     const applyReturnCondition = jest.fn().mockResolvedValue(true);
-    const applyDamageLoss = jest.fn().mockResolvedValue({});
+    const setLineLoss = jest.fn().mockResolvedValue({});
     const line = {
       id: 'line-1',
       quantity: 1,
       condition: 'GOOD', // previously recorded as GOOD
       damageCost: null,
       warehouseVariant: {
+        costPrice: new Prisma.Decimal('90.00'),
         productCode: 'DH564BJ0',
         inventoryItem: { id: 'inventory-item-1' },
       },
@@ -545,7 +546,7 @@ describe('EcommerceService', () => {
       applyReturnCondition,
     } as unknown as OrderStockService;
     const financialService = {
-      applyDamageLoss,
+      setLineLoss,
     } as unknown as EcommerceOrderFinancialService;
     const service = new EcommerceService(
       prisma,
@@ -576,22 +577,12 @@ describe('EcommerceService', () => {
       }),
     );
     expect(result.inventoryUpdated).toBe(true);
-    expect(applyDamageLoss).toHaveBeenCalledTimes(1);
-    const damageLossArgs = applyDamageLoss.mock.calls[0] as [
-      string,
-      string,
-      string,
-      Prisma.Decimal,
-      number | undefined,
-    ];
-    expect(damageLossArgs[0]).toBe('order-1');
-    expect(damageLossArgs[1]).toBe('line-1');
-    expect(damageLossArgs[2]).toBe('MAD');
-    expect(damageLossArgs[3].toFixed(2)).toBe('60.00');
-    // Correction suffix present — the condition changed (GOOD -> DAMAGED),
-    // so this must NOT reuse the plain stable key or the corrected amount
-    // gets silently dropped by the immutable upsert.
-    expect(damageLossArgs[4]).toBeDefined();
+    expect(setLineLoss).toHaveBeenCalledTimes(1);
+    const [orderId, lineId, currency, target, reason] = setLineLoss.mock
+      .calls[0] as [string, string, string, Prisma.Decimal, string];
+    expect([orderId, lineId, currency]).toEqual(['order-1', 'line-1', 'MAD']);
+    expect(target.toFixed(2)).toBe('60.00');
+    expect(reason).toContain('corrected');
   });
 });
 

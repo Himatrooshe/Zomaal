@@ -95,6 +95,7 @@ const ORDER_LINE = {
   condition: null,
   damageCost: null,
   warehouseVariant: {
+    costPrice: new Prisma.Decimal('90.00'),
     productCode: 'DH564BJ0',
     media: [{ id: 'media-variant-1' }],
     product: { media: [] },
@@ -237,6 +238,34 @@ describe('ReturnRequestService', () => {
       expect(ecommerceService.recordProductConditionByLineId).toHaveBeenCalled();
       expect(result.status).toBe('PROCESSED');
       expect(result.lossSummary.netLoss).toBe('135.00'); // 15 delivery + 120 damage
+    });
+
+    it('counts a lost product at cost price, not selling price', async () => {
+      const { service, prisma } = build();
+      prisma.returnRequest.findFirst.mockResolvedValue({
+        id: 'rr-1',
+        orderId: ORDER.id,
+        status: ReturnRequestStatus.NEED_VERIFICATION,
+        reason: null,
+        lines: [{ orderLineId: 'line-1' }],
+        order: { id: ORDER.id },
+      });
+      prisma.returnRequest.update.mockResolvedValue({
+        id: 'rr-1',
+        status: ReturnRequestStatus.NEED_VERIFICATION,
+        reason: null,
+        lines: [
+          {
+            orderLine: { ...ORDER_LINE, condition: ProductCondition.LOST },
+          },
+        ],
+      });
+
+      const result = await service.verify('user-1', 'rr-1', {
+        lines: [{ orderLineId: 'line-1', condition: ProductCondition.LOST }],
+      });
+
+      expect(result.lossSummary.netLoss).toBe('105.00'); // 15 delivery + 90 cost
     });
   });
 });
