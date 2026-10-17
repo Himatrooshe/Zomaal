@@ -69,6 +69,7 @@ type OrderLineWithImage = OrderLineForLoss & {
   name: string;
   quantity: number;
   warehouseVariant?: {
+    productCode: string | null;
     media: { id: string }[];
     product?: { media: { id: string }[] } | null;
   } | null;
@@ -178,7 +179,7 @@ export class ReturnRequestService {
       reason: returnRequest.reason ?? null,
       products: lines.map((line) => ({
         orderLineId: line.id,
-        productCode: line.sku,
+        productCode: line.warehouseVariant?.productCode ?? null,
         name: line.name,
         quantity: line.quantity,
         totalPrice: line.totalPrice.toFixed(2),

@@ -88,13 +88,14 @@ function build() {
 
 const ORDER_LINE = {
   id: 'line-1',
-  sku: 'DH564BJ0',
+  sku: 'PLATFORM-SKU-1',
   name: 'Product line-1',
   quantity: 1,
   totalPrice: new Prisma.Decimal('300.00'),
   condition: null,
   damageCost: null,
   warehouseVariant: {
+    productCode: 'DH564BJ0',
     media: [{ id: 'media-variant-1' }],
     product: { media: [] },
   },

@@ -76,7 +76,12 @@ export class DetectedReturnLineDto {
   @ApiProperty({ format: 'uuid' })
   orderLineId: string;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description:
+      "Zomaal Product Code of the matched variant (pack code for bundles); null when the order line isn't linked to a Zomaal product.",
+  })
   productCode: string | null;
 
   @ApiProperty()
