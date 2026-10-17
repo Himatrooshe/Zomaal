@@ -22,6 +22,7 @@ import { LightfunnelsRevenueAdapter } from './lightfunnels-revenue.adapter';
 import { ShopifyRevenueAdapter } from './shopify-revenue.adapter';
 import { YouCanRevenueAdapter } from './youcan-revenue.adapter';
 import { EcommerceOrderTimelineService } from './ecommerce-order-timeline.service';
+import { refreshCodStatus } from './cod-status.util';
 import { CustomerRiskService } from '../customers/customer-risk.service';
 import { activeAccountWhere } from '../billing/subscription-status.util';
 import { replaceOrderLines } from './order-lines.util';
@@ -491,6 +492,19 @@ export class EcommerceSyncService {
             ),
           );
       }
+    }
+
+    for (let i = 0; i < orders.length; i++) {
+      const previous = previousStateMap.get(orders[i].externalOrderId);
+      if (!previous || previous.financialStatus === orders[i].financialStatus) {
+        continue;
+      }
+      const { id: orderId } = upserted[i];
+      await refreshCodStatus(this.prisma, orderId).catch((err) =>
+        this.logger.warn(
+          `COD status sync failed for order ${orderId}: ${String(err)}`,
+        ),
+      );
     }
 
     // Customer risk: totalOrders + the blacklisted-customer new-order

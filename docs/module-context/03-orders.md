@@ -36,6 +36,13 @@ Answer: Show the full breakdown of every status (not only All / Confirm / Delive
 Options: the courier settlement API, manual marking by the merchant, or automatic when Delivered.
 Assumption: automatic on Delivered, with manual override.
 Answer: Set by the courier or by Shopify (settlement / payment status), not manually.
+Implemented: `codStatus` starts as PENDING when an order with a cash amount is dispatched through a Zomaal courier
+(null otherwise). It becomes COLLECTED when the courier reports the parcel paid (QuickLivraison `situation` /
+ForceLog payment status: PAID, Payé, Réglé) or when the platform (Shopify / YouCan / Lightfunnels) marks the order
+paid after the parcel is delivered. A platform "paid" before delivery does not count. It becomes FAILED when the
+parcel is refused, returned or cancelled. Collected is final. Sendit and OzoneExpress expose no payment field, so
+for them only the platform payment status can mark it collected. Re-evaluated on every courier sync/webhook,
+platform order sync and Shopify order webhook.
 
 **Q3.5 — Can the merchant create or edit orders in the app?**
 Staff permissions list "Edit Orders, Cancel Orders, Export Orders", but Figma has no create/edit screen.

@@ -232,6 +232,8 @@ export class EcommerceOrderDto {
   @ApiPropertyOptional({
     nullable: true,
     enum: ['PENDING', 'COLLECTED', 'FAILED'],
+    description:
+      'Null when no cash is collected through a Zomaal courier. PENDING from dispatch; COLLECTED when the courier reports the parcel paid, or the platform marks the order paid after delivery; FAILED when the parcel is refused, returned or cancelled. Never set by hand.',
   })
   codStatus: string | null;
 

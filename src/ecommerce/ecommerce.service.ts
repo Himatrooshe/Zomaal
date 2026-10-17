@@ -33,6 +33,7 @@ import {
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { CreateManualOrderDto } from './dto/create-manual-order.dto';
+import { CodStatus } from './cod-status.util';
 import type {
   EcommerceConnectionListDto,
   RevenueAmountsDto,
@@ -1019,7 +1020,7 @@ export class EcommerceService {
           where: { id: order.id },
           data: {
             codAmount: codAmount,
-            codStatus: 'PENDING',
+            codStatus: codAmount > 0 ? CodStatus.PENDING : null,
           },
         }),
       ]);

@@ -175,6 +175,35 @@ describe('EcommerceOrderFinancialService', () => {
     ).toBe('-25.00');
   });
 
+  it('marks cash on delivery failed when the courier reports a refusal', async () => {
+    const { service, prisma } = setup(ShippingShipmentStatus.REFUSED);
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    Object.assign(prisma, {
+      ecommerceOrder: {
+        findUnique: jest.fn().mockResolvedValue({
+          codStatus: 'PENDING',
+          financialStatus: 'PENDING',
+          dispatch: {
+            senditShipment: {
+              normalizedStatus: ShippingShipmentStatus.REFUSED,
+            },
+            quickLivraisonShipment: null,
+            forceLogShipment: null,
+            ozoneExpressShipment: null,
+          },
+        }),
+        updateMany,
+      },
+    });
+
+    await service.syncFromDispatchId('dispatch-1');
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'order-1', codStatus: 'PENDING' },
+      data: { codStatus: 'FAILED' },
+    });
+  });
+
   it('books no shipping loss for a plain cancellation', async () => {
     const { service, events } = setup(ShippingShipmentStatus.CANCELLED);
     await service.syncFromDispatchId('dispatch-1');

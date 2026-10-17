@@ -335,7 +335,9 @@ export class QuickLivraisonShipmentService {
         const statusChanged =
           !current ||
           current.providerStatus !== delivery.providerStatus ||
-          current.providerSecondaryStatus !== delivery.providerSecondaryStatus;
+          current.providerSecondaryStatus !==
+            delivery.providerSecondaryStatus ||
+          (!!delivery.situation && current.situation !== delivery.situation);
         const effectiveDispatchId = dispatchId ?? current?.dispatchId ?? null;
         if (statusChanged && effectiveDispatchId) {
           dispatchIdsToSync.add(effectiveDispatchId);

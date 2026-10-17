@@ -12,6 +12,7 @@ import { ShopifyApiService } from './shopify-api.service';
 import { ShopifyConnectionService } from './shopify-connection.service';
 import { CustomerRiskService } from '../customers/customer-risk.service';
 import { replaceOrderLines } from '../ecommerce/order-lines.util';
+import { refreshCodStatus } from '../ecommerce/cod-status.util';
 import {
   normalizeShopifyOrder,
   type RawShopifyRevenueOrder,
@@ -310,6 +311,13 @@ export class ShopifyWebhookService {
       return null;
     });
 
+    if (risk && !risk.isNewOrder) {
+      await refreshCodStatus(this.prisma, risk.orderId).catch((err) =>
+        this.logger.warn(
+          `COD status sync failed for order ${risk.orderId}: ${String(err)}`,
+        ),
+      );
+    }
     if (!risk || !customer) {
       return;
     }

@@ -10,6 +10,7 @@ import {
 } from './order-stock.util';
 import { resolvePackagingUnitCosts } from '../warehouse/packaging-cost.util';
 import { OrderEventType } from './constants/order-event-type';
+import { refreshCodStatus } from './cod-status.util';
 import {
   deriveTerminalOutcome,
   TERMINAL_FAILURE_EVENT_TYPES,
@@ -78,6 +79,16 @@ export class EcommerceOrderFinancialService {
     } catch (error) {
       this.logger.error(
         `Order stock sync (${outcome}) failed for order ${orderId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async syncCodStatus(orderId: string) {
+    try {
+      await refreshCodStatus(this.prisma, orderId);
+    } catch (error) {
+      this.logger.error(
+        `COD status sync failed for order ${orderId}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -334,6 +345,7 @@ export class EcommerceOrderFinancialService {
     if (!shipment) {
       return { applied: false, reason: 'NO_CARRIER_STATUS_YET' as SyncReason };
     }
+    await this.syncCodStatus(dispatch.order.id);
 
     if (shipment.normalizedStatus === ShippingShipmentStatus.DELIVERED) {
       const event = await this.applyRevenueRecognition(
