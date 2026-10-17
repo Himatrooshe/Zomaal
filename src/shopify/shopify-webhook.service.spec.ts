@@ -62,6 +62,8 @@ describe('ShopifyWebhookService', () => {
       deleteMany: orderDeleteMany,
     },
     ecommerceOrderLine: {
+      findMany: jest.fn().mockResolvedValue([]),
+      update: jest.fn(),
       deleteMany: orderLineDeleteMany,
       createMany: orderLineCreateMany,
     },

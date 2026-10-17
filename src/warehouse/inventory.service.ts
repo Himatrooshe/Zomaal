@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -8,6 +7,11 @@ import { InventoryBucket, InventoryMovementType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdjustInventoryDto, SetInventoryOnHandDto } from './dto/inventory.dto';
 import { WarehouseStoreService } from './warehouse-store.service';
+import {
+  bucketField,
+  isWriteConflict,
+  validateBalance,
+} from './inventory-balance.util';
 
 @Injectable()
 export class InventoryService {
@@ -357,48 +361,5 @@ export class InventoryService {
       orderBy: { createdAt: 'desc' },
       take: Math.min(Math.max(limit, 1), 500),
     });
-  }
-}
-
-function isWriteConflict(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2034'
-  );
-}
-
-function bucketField(bucket: InventoryBucket) {
-  switch (bucket) {
-    case InventoryBucket.ON_HAND:
-      return 'onHand' as const;
-    case InventoryBucket.RESERVED:
-      return 'reserved' as const;
-    case InventoryBucket.DAMAGED:
-      return 'damaged' as const;
-    case InventoryBucket.INCOMING:
-      return 'incoming' as const;
-  }
-}
-
-function validateBalance(balance: {
-  onHand: number;
-  reserved: number;
-  damaged: number;
-  incoming: number;
-}) {
-  if (
-    balance.onHand < 0 ||
-    balance.reserved < 0 ||
-    balance.damaged < 0 ||
-    balance.incoming < 0
-  ) {
-    throw new BadRequestException(
-      'Inventory quantities cannot become negative',
-    );
-  }
-  if (balance.reserved + balance.damaged > balance.onHand) {
-    throw new BadRequestException(
-      'Reserved and damaged stock exceed on-hand stock',
-    );
   }
 }

@@ -81,6 +81,8 @@ describe('EcommerceSyncService', () => {
       },
       ecommerceOrder: { upsert, findMany: jest.fn().mockResolvedValue([]) },
       ecommerceOrderLine: {
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn(),
         deleteMany: lineDeleteMany,
         createMany: lineCreateMany,
       },

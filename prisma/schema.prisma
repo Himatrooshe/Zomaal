@@ -1090,6 +1090,9 @@ model EcommerceOrderLine {
   damageCost          Decimal?  @db.Decimal(20, 4)
   conditionNotes      String?
   conditionRecordedAt DateTime?
+  // Where this line's units are in the order-driven stock flow: reserved at
+  // courier dispatch, deducted at delivery, released on cancel/return.
+  stockStatus         OrderLineStockStatus?
 
   orderId String
   order   EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -1460,6 +1463,12 @@ enum InventoryBarcodeType {
   OTHER
 }
 
+enum OrderLineStockStatus {
+  RESERVED
+  RELEASED
+  DELIVERED
+}
+
 enum InventoryBucket {
   ON_HAND
   RESERVED
@@ -1473,6 +1482,8 @@ enum InventoryMovementType {
   ORDER_RESERVED
   ORDER_RELEASED
   ORDER_SHIPPED
+  ORDER_DELIVERED
+  RETURN_LOST
   RETURN_GOOD
   RETURN_DAMAGED
   PACKAGING_RECEIVED

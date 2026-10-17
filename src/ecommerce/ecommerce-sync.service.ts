@@ -24,6 +24,7 @@ import { YouCanRevenueAdapter } from './youcan-revenue.adapter';
 import { EcommerceOrderTimelineService } from './ecommerce-order-timeline.service';
 import { CustomerRiskService } from '../customers/customer-risk.service';
 import { activeAccountWhere } from '../billing/subscription-status.util';
+import { replaceOrderLines } from './order-lines.util';
 
 const MAX_PAGES_PER_REQUEST = 5;
 
@@ -430,16 +431,16 @@ export class EcommerceSyncService {
       }
     }
 
-    // Persist order lines — replace all lines for each order (sync is authoritative)
+    // Persist order lines — the platform is authoritative for the line items
     for (let i = 0; i < orders.length; i++) {
       const { id: orderId } = upserted[i];
       const lines = orders[i].lines;
       if (!lines || lines.length === 0) continue;
 
-      await this.prisma.ecommerceOrderLine.deleteMany({ where: { orderId } });
-      await this.prisma.ecommerceOrderLine.createMany({
-        data: lines.map((line) => ({
-          orderId,
+      await replaceOrderLines(
+        this.prisma,
+        orderId,
+        lines.map((line) => ({
           externalLineId: line.externalLineId,
           externalProductId: line.externalProductId,
           externalVariantId: line.externalVariantId,
@@ -453,8 +454,7 @@ export class EcommerceSyncService {
             ? (variantBySku.get(line.sku.toLowerCase()) ?? null)
             : null,
         })),
-        skipDuplicates: true,
-      });
+      );
     }
 
     // Detect and store status transitions for non-Shopify platforms

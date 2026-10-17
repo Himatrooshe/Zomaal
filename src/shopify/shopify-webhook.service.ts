@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ShopifyApiService } from './shopify-api.service';
 import { ShopifyConnectionService } from './shopify-connection.service';
 import { CustomerRiskService } from '../customers/customer-risk.service';
+import { replaceOrderLines } from '../ecommerce/order-lines.util';
 import {
   normalizeShopifyOrder,
   type RawShopifyRevenueOrder,
@@ -284,22 +285,16 @@ export class ShopifyWebhookService {
               variant.id,
             ]),
         );
-        await transaction.ecommerceOrderLine.deleteMany({
-          where: { orderId: saved.id },
-        });
-        if (lines.length) {
-          await transaction.ecommerceOrderLine.createMany({
-            data: lines.map((line) => ({
-              orderId: saved.id,
-              ...line,
-              warehouseVariantId: line.sku
-                ? (variantBySku.get(line.sku.toLocaleLowerCase('en-US')) ??
-                  null)
-                : null,
-            })),
-            skipDuplicates: true,
-          });
-        }
+        await replaceOrderLines(
+          transaction,
+          saved.id,
+          lines.map((line) => ({
+            ...line,
+            warehouseVariantId: line.sku
+              ? (variantBySku.get(line.sku.toLocaleLowerCase('en-US')) ?? null)
+              : null,
+          })),
+        );
 
         await this.recordProcessed(transaction, webhook, connection.id);
         return {

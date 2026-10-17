@@ -12,6 +12,7 @@ import { YouCanOrderTimelineAdapter } from './youcan-order-timeline.adapter';
 import { LightfunnelsOrderTimelineAdapter } from './lightfunnels-order-timeline.adapter';
 import type { NormalizedOrderEvent } from './interfaces/order-timeline-adapter.interface';
 import type { OrderTimelineDto } from './dto/order-timeline.dto';
+import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
 
 @Injectable()
 export class EcommerceOrderTimelineService {
@@ -22,6 +23,7 @@ export class EcommerceOrderTimelineService {
     private readonly shopifyAdapter: ShopifyOrderTimelineAdapter,
     private readonly youCanAdapter: YouCanOrderTimelineAdapter,
     private readonly lightfunnelsAdapter: LightfunnelsOrderTimelineAdapter,
+    private readonly financialService: EcommerceOrderFinancialService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -274,6 +276,16 @@ export class EcommerceOrderTimelineService {
         });
       }),
     );
+
+    // A delivery or cancellation reported by the platform drives profit and
+    // stock; failing that must not fail the timeline write.
+    try {
+      await this.financialService.syncUndispatchedOrder(orderId);
+    } catch (err) {
+      this.logger.warn(
+        `Outcome sync failed for order ${orderId}: ${String(err)}`,
+      );
+    }
   }
 
   /**

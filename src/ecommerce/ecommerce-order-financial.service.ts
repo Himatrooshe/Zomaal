@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, ShippingShipmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { OrderStockService } from './order-stock.service';
 import { OrderEventType } from './constants/order-event-type';
 import {
   deriveTerminalOutcome,
@@ -29,19 +30,38 @@ type SyncReason =
  * pattern already used elsewhere in this codebase) — corrections add a new
  * event, nothing is ever overwritten.
  *
- * NOTE on scope: this exposes the calculation engine plus one manual trigger
- * (syncFromDispatch, callable via POST .../financials/sync) and one automatic
- * trigger already owned by this codebase (damage recorded during
- * EcommerceService.recordProductCondition). It does NOT auto-fire from the
- * 4 courier sync/webhook write paths (Sendit/QuickLivraison/ForceLog/
- * OzoneExpress each persist normalizedStatus independently, and Sendit/
- * QuickLivraison webhooks currently only store payloads in memory per
- * CLAUDE.md's documented bug) — wiring those in is a separate, larger,
- * per-courier change deliberately left out of this pass.
+ * Triggers: the manual POST .../financials/sync, the four courier services
+ * (syncFromDispatchId after they persist a normalizedStatus), and damage
+ * recorded during EcommerceService.recordProductCondition. The same
+ * DELIVERED / cancelled outcome also drives order stock (OrderStockService).
  */
 @Injectable()
 export class EcommerceOrderFinancialService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(EcommerceOrderFinancialService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly orderStock: OrderStockService,
+  ) {}
+
+  /** Stock follows the same carrier outcome; a failure must not undo the ledger write. */
+  private async syncStock(
+    orderId: string,
+    outcome: 'DELIVERED' | 'CANCELLED',
+    deliveredAt?: Date,
+  ) {
+    try {
+      if (outcome === 'DELIVERED') {
+        await this.orderStock.deliverOrder(orderId, deliveredAt);
+      } else {
+        await this.orderStock.releaseOrder(orderId);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Order stock sync (${outcome}) failed for order ${orderId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
 
   async getSummary(userId: string, orderId: string) {
     const order = await this.prisma.ecommerceOrder.findFirst({
@@ -125,6 +145,20 @@ export class EcommerceOrderFinancialService {
   }
 
   /**
+   * Called whenever an order's timeline gains events. Dispatched orders are
+   * already driven by the courier services, so only undispatched orders
+   * (platform plugin or manual shipping) are evaluated here.
+   */
+  async syncUndispatchedOrder(orderId: string): Promise<void> {
+    const order = await this.prisma.ecommerceOrder.findUnique({
+      where: { id: orderId },
+      select: { dispatch: { select: { id: true } } },
+    });
+    if (!order || order.dispatch) return;
+    await this.syncFromTimelineEvents(orderId);
+  }
+
+  /**
    * Fallback revenue-recognition path for orders with no Zomaal dispatch.
    * Reads whichever OrderEventType events are already stored for this order
    * (populated by the Order Timeline feature — see
@@ -138,13 +172,8 @@ export class EcommerceOrderFinancialService {
    * null — this is a proxy, not necessarily the merchant's real cost, and
    * is documented as such on OrderFinancialSummaryDto.shippingCost.
    *
-   * Does not fire automatically on its own — call it (or poll
-   * POST .../financials/sync, which now reaches here for undispatched
-   * orders) after the order's Timeline has been refreshed. Wiring this to
-   * fire automatically whenever the Timeline discovers a new terminal
-   * status is a natural next step, deliberately left out of this pass to
-   * keep it scoped to "make the existing sync endpoint actually work for
-   * these orders" rather than also changing when it runs.
+   * Runs from POST .../financials/sync and automatically whenever the
+   * timeline stores events (syncUndispatchedOrder).
    */
   private async syncFromTimelineEvents(orderId: string) {
     const events = await this.prisma.ecommerceOrderEvent.findMany({
@@ -179,6 +208,13 @@ export class EcommerceOrderFinancialService {
         },
       });
       const event = await this.applyRevenueRecognition(order, null);
+      const deliveredAt = events
+        .filter((e) => e.type === OrderEventType.DELIVERED)
+        .reduce(
+          (latest, e) => (e.occurredAt > latest ? e.occurredAt : latest),
+          new Date(0),
+        );
+      await this.syncStock(order.id, 'DELIVERED', deliveredAt);
       return {
         applied: event !== null,
         reason: 'DELIVERED' as SyncReason,
@@ -192,6 +228,7 @@ export class EcommerceOrderFinancialService {
         select: { id: true, currency: true },
       });
       const event = await this.applyRevenueReversal(order.id, order.currency);
+      await this.syncStock(order.id, 'CANCELLED');
       return {
         applied: event !== null,
         reason: 'CANCELLED' as SyncReason,
@@ -280,6 +317,7 @@ export class EcommerceOrderFinancialService {
         dispatch.order,
         shipment.fee,
       );
+      await this.syncStock(dispatch.order.id, 'DELIVERED');
       return {
         applied: event !== null,
         reason: 'DELIVERED' as SyncReason,
@@ -291,6 +329,7 @@ export class EcommerceOrderFinancialService {
         dispatch.order.id,
         dispatch.order.currency,
       );
+      await this.syncStock(dispatch.order.id, 'CANCELLED');
       return {
         applied: event !== null,
         reason: 'CANCELLED' as SyncReason,
@@ -458,9 +497,7 @@ type CourierShipmentFields<T> = {
   ozoneExpressShipment: T | null;
 };
 
-function pickCourierShipment<T>(
-  dispatch: CourierShipmentFields<T>,
-): T | null {
+function pickCourierShipment<T>(dispatch: CourierShipmentFields<T>): T | null {
   return (
     dispatch.senditShipment ??
     dispatch.quickLivraisonShipment ??

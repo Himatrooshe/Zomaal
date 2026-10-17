@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { EcommerceService } from './ecommerce.service';
-import type { InventoryService } from '../warehouse/inventory.service';
+import type { OrderStockService } from './order-stock.service';
 import type { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
 
 describe('EcommerceService', () => {
@@ -131,6 +131,7 @@ describe('EcommerceService', () => {
         tracking_number: 'PARCEL_12345678',
       }),
     };
+    const orderStock = { reserveOrder: jest.fn().mockResolvedValue(undefined) };
     const service = new EcommerceService(
       prisma,
       shopifyFulfillment as any,
@@ -142,7 +143,7 @@ describe('EcommerceService', () => {
           .mockResolvedValue(new Prisma.Decimal('349.90')),
       } as any,
       shipping as any,
-      {} as any,
+      orderStock as any,
       {} as any,
       {} as any,
       { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
@@ -173,6 +174,7 @@ describe('EcommerceService', () => {
         providerTracking: 'PARCEL_12345678',
       }),
     });
+    expect(orderStock.reserveOrder).toHaveBeenCalledWith(order.id);
     expect(result).toEqual({
       trackingNumber: 'PARCEL_12345678',
       status: 'DISPATCHED',
@@ -511,8 +513,8 @@ describe('EcommerceService', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it("reverses the previous condition's stock movement when a return is corrected to a different condition", async () => {
-    const applyMovement = jest.fn().mockResolvedValue({});
+  it('passes a condition correction to order stock and keys the damage loss as a correction', async () => {
+    const applyReturnCondition = jest.fn().mockResolvedValue(true);
     const applyDamageLoss = jest.fn().mockResolvedValue({});
     const line = {
       id: 'line-1',
@@ -539,9 +541,9 @@ describe('EcommerceService', () => {
       ecommerceOrder: { findUnique: jest.fn().mockResolvedValue(order) },
       ecommerceOrderLine: { update: jest.fn().mockResolvedValue({}) },
     } as unknown as PrismaService;
-    const inventoryService = {
-      applyMovement,
-    } as unknown as InventoryService;
+    const orderStock = {
+      applyReturnCondition,
+    } as unknown as OrderStockService;
     const financialService = {
       applyDamageLoss,
     } as unknown as EcommerceOrderFinancialService;
@@ -552,41 +554,28 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
-      inventoryService,
+      orderStock,
       financialService,
       {} as any,
       { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
     );
 
-    await service.recordProductCondition('user-id', 'order-1', {
+    const result = await service.recordProductCondition('user-id', 'order-1', {
       productCode: 'DH564BJ0',
       condition: 'DAMAGED',
       damageCost: 60,
     });
 
-    // Reversal of the earlier GOOD movement (-qty from ON_HAND) plus the new
-    // DAMAGED movement (+qty to DAMAGED) — both must fire, not just one.
-    expect(applyMovement).toHaveBeenCalledTimes(2);
-    expect(applyMovement).toHaveBeenNthCalledWith(
-      1,
-      'store-id',
-      'inventory-item-1',
+    expect(applyReturnCondition).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: 'RETURN_GOOD',
-        bucket: 'ON_HAND',
-        quantityDelta: -1,
+        storeId: 'store-id',
+        orderId: 'order-1',
+        lineId: 'line-1',
+        condition: 'DAMAGED',
+        isCorrection: true,
       }),
     );
-    expect(applyMovement).toHaveBeenNthCalledWith(
-      2,
-      'store-id',
-      'inventory-item-1',
-      expect.objectContaining({
-        type: 'RETURN_DAMAGED',
-        bucket: 'DAMAGED',
-        quantityDelta: 1,
-      }),
-    );
+    expect(result.inventoryUpdated).toBe(true);
     expect(applyDamageLoss).toHaveBeenCalledTimes(1);
     const damageLossArgs = applyDamageLoss.mock.calls[0] as [
       string,

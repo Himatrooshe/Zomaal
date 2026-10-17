@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -45,8 +46,7 @@ import type { EcommerceHomeResponseDto } from './dto/ecommerce-home-response.dto
 import type { OrderStatusSummaryResponseDto } from './dto/order-status-summary.dto';
 import type { ReturnsSummaryResponseDto } from './dto/returns-summary.dto';
 import { ShippingService } from '../shipping/shipping.service';
-import { InventoryService } from '../warehouse/inventory.service';
-import { InventoryBucket, InventoryMovementType } from '@prisma/client';
+import { OrderStockService } from './order-stock.service';
 import { ProductCondition } from './constants/product-condition';
 import {
   deriveCurrentStatus,
@@ -214,6 +214,8 @@ interface HomeOrderMetricsRow {
 
 @Injectable()
 export class EcommerceService {
+  private readonly logger = new Logger(EcommerceService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly shopifyFulfillmentAdapter: ShopifyFulfillmentAdapter,
@@ -221,7 +223,7 @@ export class EcommerceService {
     private readonly lightfunnelsFulfillmentAdapter: LightfunnelsFulfillmentAdapter,
     private readonly currencyService: CurrencyService,
     private readonly shippingService: ShippingService,
-    private readonly inventoryService: InventoryService,
+    private readonly orderStock: OrderStockService,
     private readonly financialService: EcommerceOrderFinancialService,
     private readonly customerRisk: CustomerRiskService,
     private readonly storeAccess: StoreAccessService,
@@ -1020,6 +1022,15 @@ export class EcommerceService {
           },
         }),
       ]);
+      // The courier already accepted the parcel; a stock hiccup must not
+      // flip the dispatch to FAILED.
+      try {
+        await this.orderStock.reserveOrder(order.id);
+      } catch (error) {
+        this.logger.error(
+          `Stock reservation failed for order ${order.id}: ${safeDispatchError(error)}`,
+        );
+      }
       return {
         trackingNumber: providerTracking,
         status: dispatch.status,
@@ -1178,9 +1189,8 @@ export class EcommerceService {
   /**
    * The write side of the warehouse scan workflow: after resolveScannedCode()
    * identifies the order/products, this records what condition each product
-   * came back in and, for GOOD/RETURNED/DAMAGED, applies the matching
-   * inventory movement in the same call. LOST/MISSING create no movement —
-   * there is nothing physical to place in a bucket, only the record itself.
+   * came back in and applies the stock effect via OrderStockService, which
+   * depends on whether the unit had already been deducted at delivery.
    */
   async recordProductCondition(
     userId: string,
@@ -1314,48 +1324,15 @@ export class EcommerceService {
       },
     });
 
-    const inventoryItem = line.warehouseVariant?.inventoryItem;
-    const previousMovement = conditionChanged
-      ? movementForCondition(previousCondition)
-      : null;
-    const movement = movementForCondition(input.condition);
-    let inventoryUpdated = false;
-    if (inventoryItem) {
-      if (conditionChanged && previousMovement) {
-        // Correcting to a different condition — undo the earlier condition's
-        // stock effect first, or the unit ends up double-counted across two
-        // buckets (e.g. GOOD's +on-hand still standing after a DAMAGED
-        // correction also adds +damaged for the same physical unit).
-        await this.inventoryService.applyMovement(store.id, inventoryItem.id, {
-          type: previousMovement.type,
-          bucket: previousMovement.bucket,
-          quantityDelta: -line.quantity,
-          reason: `Correction: reversing previous condition ${previousCondition} (order ${order.orderName ?? order.id})`,
-          referenceType: 'ORDER_RETURN_CORRECTION',
-          referenceId: order.id,
-          idempotencyKey: `return-reverse:${line.id}:${previousCondition}:${recordedAt.getTime()}`,
-        });
-      }
-      if (movement) {
-        await this.inventoryService.applyMovement(store.id, inventoryItem.id, {
-          type: movement.type,
-          bucket: movement.bucket,
-          quantityDelta: line.quantity,
-          reason: `Return condition: ${input.condition} (order ${order.orderName ?? order.id})`,
-          referenceType: 'ORDER_RETURN',
-          referenceId: order.id,
-          // Re-recording the SAME condition twice reuses this stable key —
-          // idempotent, no-op on repeat. A correction (condition changed)
-          // gets a timestamp-suffixed key instead, since the stable key may
-          // already be "spent" by an earlier condition that flip-flopped
-          // back to this one.
-          idempotencyKey: conditionChanged
-            ? `return:${line.id}:${input.condition}:${recordedAt.getTime()}`
-            : `return:${line.id}:${input.condition}`,
-        });
-        inventoryUpdated = true;
-      }
-    }
+    const inventoryUpdated = await this.orderStock.applyReturnCondition({
+      storeId: store.id,
+      orderId: order.id,
+      orderLabel: order.orderName ?? order.id,
+      lineId: line.id,
+      condition: input.condition,
+      isCorrection: conditionChanged,
+      recordedAt,
+    });
 
     if (damageCost) {
       await this.financialService.applyDamageLoss(
@@ -2295,25 +2272,4 @@ function extractProviderTracking(value: unknown, depth = 0): string | null {
 function safeDispatchError(error: unknown): string {
   const message = error instanceof Error ? error.message : 'Dispatch failed';
   return message.replace(/\s+/g, ' ').trim().slice(0, 500);
-}
-
-function movementForCondition(
-  condition: ProductCondition,
-): { type: InventoryMovementType; bucket: InventoryBucket } | null {
-  switch (condition) {
-    case ProductCondition.GOOD:
-    case ProductCondition.RETURNED:
-      return {
-        type: InventoryMovementType.RETURN_GOOD,
-        bucket: InventoryBucket.ON_HAND,
-      };
-    case ProductCondition.DAMAGED:
-      return {
-        type: InventoryMovementType.RETURN_DAMAGED,
-        bucket: InventoryBucket.DAMAGED,
-      };
-    case ProductCondition.LOST:
-    case ProductCondition.MISSING:
-      return null;
-  }
 }
