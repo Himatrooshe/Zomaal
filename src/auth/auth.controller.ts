@@ -77,12 +77,12 @@ export class AuthController {
     examples: {
       default: {
         summary: 'Log in',
-        value: { phone: '+212600000001', password: 'your-password' },
+        value: { phone: '+212612345678', password: 'your-password' },
       },
       rememberMe: {
         summary: 'Log in with "Remember me"',
         value: {
-          phone: '+212600000001',
+          phone: '+212612345678',
           password: 'your-password',
           rememberMe: true,
         },
@@ -161,7 +161,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Verify OTP and log in or register',
     description:
-      'Creates the user on first successful verification. Returns a 15-minute access token and a 7-day refresh token.',
+      'Creates the user on first successful verification. Returns a 15-minute access token and a 7-day refresh token. Route with `isProfileCompleted` and `hasPassword`: no password → Set Password, no store → Create Store, else Home.',
   })
   @ApiBody({
     type: VerifyOtpDto,

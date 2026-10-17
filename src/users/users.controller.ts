@@ -28,7 +28,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
-import { MessageResponseDto } from '../auth/dto/auth-response.dto';
+import { PasswordChangedResponseDto } from '../auth/dto/auth-response.dto';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -170,7 +170,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Change Password',
     description:
-      'Sets a new password. `currentPassword` is required and verified when the account already has one; omit it to set a password for the first time (accounts created via OTP have none until now). Revokes the refresh token, signing out every other device.',
+      'Sets a new password. `currentPassword` is required and verified when the account already has one; omit it to set a password for the first time (accounts created via OTP have none until now). Signs out every other device and returns a new access/refresh token pair for this device — replace the stored tokens. The refresh token keeps the 30-day lifetime if this session used `rememberMe`.',
   })
   @ApiBody({
     type: ChangePasswordDto,
@@ -189,8 +189,8 @@ export class UsersController {
     },
   })
   @ApiOkResponse({
-    description: 'Password updated.',
-    type: MessageResponseDto,
+    description: 'Password updated. New tokens for this device.',
+    type: PasswordChangedResponseDto,
   })
   @ApiBadRequestResponse({
     description:
@@ -210,7 +210,7 @@ export class UsersController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: ChangePasswordDto,
   ) {
-    return this.usersService.changePassword(user.userId, dto);
+    return this.usersService.changePassword(user.userId, dto, user.rememberMe);
   }
 
   @Delete('me')

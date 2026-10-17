@@ -8,10 +8,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { TwilioOtpProvider } from '../providers/twilio-otp.provider';
 import { DevelopmentOtpProvider } from '../providers/development-otp.provider';
 import { LoggerUserBootstrapService } from './logger-user-bootstrap.service';
+import { AuthTokensModule } from './auth-tokens.module';
 
 @Module({
   imports: [
     PassportModule,
+    AuthTokensModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

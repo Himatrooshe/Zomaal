@@ -39,13 +39,18 @@ function build() {
     store: { update: jest.fn() },
     staffMember: { update: jest.fn() },
   };
-  const service = new UsersService(prisma as never);
-  return { service, prisma };
+  const tokens = {
+    issue: jest
+      .fn()
+      .mockResolvedValue({ accessToken: 'access', refreshToken: 'refresh' }),
+  };
+  const service = new UsersService(prisma as never, tokens as never);
+  return { service, prisma, tokens };
 }
 
 const BASE_USER = {
   id: 'user-1',
-  phone: '+212600000001',
+  phone: '+212612345678',
   isPhoneVerified: true,
   onboardingComplete: true,
   passwordHash: null,
@@ -101,6 +106,27 @@ describe('UsersService', () => {
       expect(profile.stores[0].isCurrent).toBe(true);
       expect(profile).not.toHaveProperty('passwordHash');
       expect(profile).not.toHaveProperty('hashedRefreshToken');
+    });
+
+    it('reports hasPassword without exposing the hash', async () => {
+      const { service, prisma } = build();
+      const relations = {
+        stores: [],
+        activeStore: null,
+        staffMembership: null,
+      };
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ ...BASE_USER, ...relations })
+        .mockResolvedValueOnce({
+          ...BASE_USER,
+          ...relations,
+          passwordHash: 'stored-hash',
+        });
+
+      expect((await service.getProfile('user-1')).hasPassword).toBe(false);
+      const withPassword = await service.getProfile('user-1');
+      expect(withPassword.hasPassword).toBe(true);
+      expect(withPassword).not.toHaveProperty('passwordHash');
     });
 
     it('resolves name/photoUrl/address/city from the staff record for a staff member', async () => {
@@ -337,7 +363,11 @@ describe('UsersService', () => {
         newPassword: 'NewPass123',
       });
 
-      expect(result).toEqual({ message: 'Password updated successfully' });
+      expect(result).toEqual({
+        message: 'Password updated successfully',
+        accessToken: 'access',
+        refreshToken: 'refresh',
+      });
       const call = prisma.user.update.mock.calls[0][0];
       expect(call.where).toEqual({ id: 'user-1' });
       expect(call.data.hashedRefreshToken).toBeNull();
@@ -412,6 +442,28 @@ describe('UsersService', () => {
       expect(await bcrypt.compare('NewPass123', call.data.passwordHash)).toBe(
         true,
       );
+    });
+
+    it('issues new tokens for this device, keeping "Remember me"', async () => {
+      const { service, prisma, tokens } = build();
+      prisma.user.findUnique.mockResolvedValue({
+        ...BASE_USER,
+        passwordHash: null,
+      });
+
+      await service.changePassword(
+        'user-1',
+        { newPassword: 'NewPass123' },
+        true,
+      );
+
+      expect(tokens.issue).toHaveBeenCalledWith(
+        'user-1',
+        BASE_USER.phone,
+        true,
+      );
+      const revoke = prisma.user.update.mock.invocationCallOrder[0];
+      expect(revoke).toBeLessThan(tokens.issue.mock.invocationCallOrder[0]);
     });
 
     it('throws NotFoundException when the user no longer exists', async () => {

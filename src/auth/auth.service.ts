@@ -15,14 +15,12 @@ import type { OtpProvider } from '../interfaces/otp-provider.interface';
 import { SendOtpDto, type OtpChannel } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RateLimitService } from '../redis/rate-limit.service';
+import { AuthTokensService } from './auth-tokens.service';
 import type { JwtTokenPayload } from './interfaces/jwt-payload.interface';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/forgot-password.dto';
-import { createHmac, randomUUID } from 'crypto';
-import {
-  hashRefreshToken,
-  refreshTokenMatches,
-} from './refresh-token-hash.util';
+import { createHmac } from 'crypto';
+import { refreshTokenMatches } from './refresh-token-hash.util';
 
 const BCRYPT_ROUNDS = 10;
 const PASSWORD_RESET_TTL_SECONDS = 10 * 60;
@@ -35,6 +33,7 @@ export class AuthService {
     private configService: ConfigService,
     @Inject('OtpProvider') private otpProvider: OtpProvider,
     private rateLimit: RateLimitService,
+    private tokens: AuthTokensService,
   ) {}
 
   async sendOtp(sendOtpDto: SendOtpDto) {
@@ -80,14 +79,13 @@ export class AuthService {
       });
     }
 
-    const tokens = await this.generateTokens(user.id, user.phone);
-    await this.updateRefreshToken(user.id, tokens.refreshToken);
+    const tokens = await this.tokens.issue(user.id, user.phone);
     await this.clearRateLimit(`auth:otp:verify:${phone}`);
 
     return {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+      ...tokens,
       isProfileCompleted: user.onboardingComplete,
+      hasPassword: user.passwordHash !== null,
     };
   }
 
@@ -125,8 +123,7 @@ export class AuthService {
       );
     }
 
-    const tokens = await this.generateTokens(user.id, user.phone, rememberMe);
-    await this.updateRefreshToken(user.id, tokens.refreshToken);
+    const tokens = await this.tokens.issue(user.id, user.phone, rememberMe);
     await this.clearRateLimit(`auth:login:${phone}`);
 
     if (user.staffMembership) {
@@ -141,6 +138,7 @@ export class AuthService {
     return {
       ...tokens,
       isProfileCompleted: user.onboardingComplete,
+      hasPassword: user.passwordHash !== null,
     };
   }
 
@@ -217,12 +215,12 @@ export class AuthService {
     // same "revoke and reissue" shape as every other identity-changing flow
     // here (this also invalidates the old refresh token, same one-session-
     // at-a-time model login/verify-otp already use).
-    const tokens = await this.generateTokens(userId, phone);
-    await this.updateRefreshToken(userId, tokens.refreshToken);
+    const tokens = await this.tokens.issue(userId, phone);
 
     return {
       ...tokens,
       isProfileCompleted: user.onboardingComplete,
+      hasPassword: user.passwordHash !== null,
     };
   }
 
@@ -267,14 +265,7 @@ export class AuthService {
       throw new UnauthorizedException('Access Denied');
     }
 
-    const tokens = await this.generateTokens(
-      user.id,
-      user.phone,
-      payload.rm === true,
-    );
-    await this.updateRefreshToken(user.id, tokens.refreshToken);
-
-    return tokens;
+    return this.tokens.issue(user.id, user.phone, payload.rm === true);
   }
 
   // Forgot password, step 1. The response is identical whether or not the
@@ -387,44 +378,6 @@ export class AuthService {
       .update(passwordHash ?? '')
       .digest('base64url')
       .slice(0, 22);
-  }
-
-  private async generateTokens(
-    userId: string,
-    phone: string,
-    rememberMe = false,
-  ) {
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(
-        { sub: userId, phone, type: 'access' } satisfies JwtTokenPayload,
-        {
-          secret: this.getJwtSecret(),
-          expiresIn: '15m',
-        },
-      ),
-      this.jwtService.signAsync(
-        {
-          sub: userId,
-          phone,
-          type: 'refresh',
-          ...(rememberMe && { rm: true }),
-        } satisfies JwtTokenPayload,
-        {
-          secret: this.getJwtSecret(),
-          expiresIn: rememberMe ? '30d' : '7d',
-          jwtid: randomUUID(),
-        },
-      ),
-    ]);
-
-    return { accessToken, refreshToken };
-  }
-
-  private async updateRefreshToken(userId: string, refreshToken: string) {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { hashedRefreshToken: hashRefreshToken(refreshToken) },
-    });
   }
 
   private getJwtSecret(): string {

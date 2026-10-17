@@ -38,4 +38,16 @@ export class AuthTokensResponseDto extends TokenPairDto {
     example: false,
   })
   isProfileCompleted: boolean;
+
+  @ApiProperty({
+    description:
+      'Whether the account has a password. False right after OTP sign-up — show Set Password (PATCH /users/me/password without currentPassword).',
+    example: false,
+  })
+  hasPassword: boolean;
+}
+
+export class PasswordChangedResponseDto extends TokenPairDto {
+  @ApiProperty({ example: 'Password updated successfully' })
+  message: string;
 }

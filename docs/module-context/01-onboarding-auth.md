@@ -50,8 +50,8 @@ Answer: Pending — the trial currently starts at store creation.
 | Screen | Method | Path |
 |---|---|---|
 | Phone Number | POST | `/auth/send-otp` — `{ phone, channel?: "sms" \| "whatsapp" }` (default sms) |
-| Verify OTP | POST | `/auth/verify-otp` — logs in or registers; returns tokens + `isProfileCompleted` |
-| Set Password | PATCH | `/users/me/password` — `{ newPassword }` (first time, no `currentPassword`) |
+| Verify OTP | POST | `/auth/verify-otp` — logs in or registers; returns tokens + `isProfileCompleted` + `hasPassword` |
+| Set Password | PATCH | `/users/me/password` — `{ newPassword }` (first time, no `currentPassword`); returns a new token pair for this device and signs out other devices |
 | Create Store | POST | `/stores` (+ `POST /stores/me/logo`) — `country` defaults to Morocco, currency MAD |
 | Login | POST | `/auth/login` — `{ phone, password, rememberMe? }`; refresh token 30 days with rememberMe, else 7 |
 | Forgot password — phone | POST | `/auth/forgot-password/request` — `{ phone, channel? }`; same reply whether or not the account exists |
