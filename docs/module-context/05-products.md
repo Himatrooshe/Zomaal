@@ -42,6 +42,13 @@ Order profit at delivery (`EcommerceOrderFinancialEvent.giftCost` / `packagingCo
 - If a delivered order is later cancelled / returned, revenue, product cost and shipping are reversed; gift and packaging cost stay (they were consumed and are not restocked).
 - Product Performance: net profit = gross profit − gift − packaging; ROI = net profit ÷ (product + gift + packaging cost). Compare Products uses the same costs. Shipping (order-level) and ad spend (Q5.5) are not allocated per product.
 
+Edit product (`PATCH /warehouse/products/:id`, optimistic `version`):
+- Details, prices, costs, low-stock thresholds, SKUs (empty string clears).
+- Images: replace main image, add / remove gallery images (max 4), set a variant image. Upload first via media upload; replaced or removed files are deleted from storage after the edit commits. The main image can be replaced but not removed.
+- Gift: set or replace; `null` removes it. Packaging list is replaced as a whole. Bundle components are replaced as a whole and the bundle cost is recalculated.
+- Variants: add new combinations of the existing options (new option values are created; each gets a product code, barcode and opening stock). Remove only variants with no stock, no order lines and no gift / bundle uses — otherwise archive the product.
+- Orders already reserved keep working if a gift or bundle component changes: the old reserved items are released on cancel, or deducted on delivery (they physically shipped).
+
 **Q5.3 — Stock sync back to the platform?**
 Should Zomaal push stock levels to Shopify/YouCan?
 Assumption: no, Zomaal is read-only toward platforms in v1.

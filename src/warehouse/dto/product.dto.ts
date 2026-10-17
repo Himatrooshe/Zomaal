@@ -16,6 +16,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -418,12 +419,122 @@ export class UpdateWarehouseProductDto {
   @ValidateNested({ each: true })
   @Type(() => UpdateWarehouseVariantDto)
   variants?: UpdateWarehouseVariantDto[];
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'New PRODUCT_MAIN upload that replaces the current main image (the old file is deleted).',
+  })
+  @IsOptional()
+  @IsUUID()
+  mainImageUploadId?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    maxItems: 4,
+    description:
+      'New PRODUCT_GALLERY uploads appended to the gallery. The gallery holds at most 4 images after removals.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  @IsUUID('4', { each: true })
+  galleryImageUploadIds?: string[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Attached gallery or variant image IDs (from the product response media) to delete. The main image can only be replaced.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(110)
+  @IsUUID('4', { each: true })
+  removeMediaIds?: string[];
+
+  @ApiPropertyOptional({
+    type: ProductGiftInputDto,
+    nullable: true,
+    description: 'Sets or replaces the gift. Send null to remove it.',
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @ValidateNested()
+  @Type(() => ProductGiftInputDto)
+  gift?: ProductGiftInputDto | null;
+
+  @ApiPropertyOptional({
+    type: [ProductPackagingInputDto],
+    description:
+      'Replaces the product-level packaging list. Send an empty array to stop tracking packaging.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => ProductPackagingInputDto)
+  packaging?: ProductPackagingInputDto[];
+
+  @ApiPropertyOptional({
+    type: () => [ProductBundleComponentInputDto],
+    description:
+      'Bundles only: replaces the components. The bundle cost is recalculated from them.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => ProductBundleComponentInputDto)
+  bundleComponents?: ProductBundleComponentInputDto[];
+
+  @ApiPropertyOptional({
+    type: [ProductVariantInputDto],
+    description:
+      'New variants for a product that already has options. optionValues follow the existing option order; unknown values are added to the option. stockQuantity is the opening balance.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => ProductVariantInputDto)
+  addVariants?: ProductVariantInputDto[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Variants to delete. Rejected while a variant has stock, order history, or is used as a gift or bundle component — archive the product instead.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsUUID('4', { each: true })
+  removeVariantIds?: string[];
 }
 
 export class UpdateWarehouseVariantDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   id: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Merchant SKU, unique in the store. Send an empty string to clear it.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  sku?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'New VARIANT upload that replaces this variant’s image (the old file is deleted).',
+  })
+  @IsOptional()
+  @IsUUID()
+  imageUploadId?: string;
 
   @ApiPropertyOptional({ minimum: 0 })
   @IsOptional()

@@ -124,6 +124,31 @@ export class OrderStockService {
           idempotencyKey: `order-deliver:${line.id}`,
         });
       }
+      for (const [inventoryItemId, reserved] of await this.orphanReservations(
+        line,
+      )) {
+        const unit: StockUnit = {
+          inventoryItemId,
+          quantity: reserved,
+          role: 'PRODUCT',
+        };
+        await this.move(order.storeId, unit, {
+          type: InventoryMovementType.ORDER_DELIVERED,
+          bucket: InventoryBucket.RESERVED,
+          delta: -reserved,
+          reason: `Reservation settled: order ${order.label} delivered`,
+          lineId: line.id,
+          idempotencyKey: `order-deliver-release:${line.id}`,
+        });
+        await this.move(order.storeId, unit, {
+          type: InventoryMovementType.ORDER_DELIVERED,
+          bucket: InventoryBucket.ON_HAND,
+          delta: -reserved,
+          reason: `Order ${order.label} delivered`,
+          lineId: line.id,
+          idempotencyKey: `order-deliver:${line.id}`,
+        });
+      }
       await this.setStatus(line.id, OrderLineStockStatus.DELIVERED);
     }
   }
@@ -232,7 +257,53 @@ export class OrderStockService {
         idempotencyKey: `order-release:${line.id}`,
       });
     }
+    for (const [inventoryItemId, reserved] of await this.orphanReservations(
+      line,
+    )) {
+      await this.move(
+        storeId,
+        { inventoryItemId, quantity: reserved, role: 'PRODUCT' },
+        {
+          type: InventoryMovementType.ORDER_RELEASED,
+          bucket: InventoryBucket.RESERVED,
+          delta: -reserved,
+          reason: `Released: order ${orderLabel} cancelled or returned`,
+          lineId: line.id,
+          idempotencyKey: `order-release:${line.id}`,
+        },
+      );
+    }
     await this.setStatus(line.id, OrderLineStockStatus.RELEASED);
+  }
+
+  /**
+   * Items still reserved for a line but no longer part of its product, e.g.
+   * a bundle component or gift changed after the order was dispatched.
+   */
+  private async orphanReservations(
+    line: OrderLineWithStock,
+  ): Promise<Map<string, number>> {
+    if (line.stockStatus !== OrderLineStockStatus.RESERVED) return new Map();
+    const current = new Set(
+      physicalUnits(line).map((unit) => unit.inventoryItemId),
+    );
+    const groups = await this.prisma.inventoryMovement.groupBy({
+      by: ['inventoryItemId'],
+      where: {
+        referenceType: ORDER_LINE_REFERENCE,
+        referenceId: line.id,
+        bucket: InventoryBucket.RESERVED,
+      },
+      _sum: { quantityDelta: true },
+    });
+    const orphans = new Map<string, number>();
+    for (const group of groups) {
+      const reserved = group._sum.quantityDelta ?? 0;
+      if (reserved > 0 && !current.has(group.inventoryItemId)) {
+        orphans.set(group.inventoryItemId, reserved);
+      }
+    }
+    return orphans;
   }
 
   private async loadOrder(orderId: string) {

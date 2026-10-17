@@ -23,11 +23,15 @@ import { BarcodeService } from './barcode.service';
 import { ShopifyDataService } from '../shopify/shopify-data.service';
 import { YouCanDataService } from '../youcan/youcan-data.service';
 import { LightfunnelsDataService } from '../lightfunnels/lightfunnels-data.service';
+import { MediaService } from './media.service';
 
 function makeProductService(
   prisma: PrismaService,
   stores: WarehouseStoreService,
   barcodes: BarcodeService = {} as BarcodeService,
+  media: MediaService = {
+    deleteAttachedAsset: jest.fn(),
+  } as unknown as MediaService,
 ) {
   return new ProductService(
     prisma,
@@ -45,6 +49,7 @@ function makeProductService(
       listProducts: jest.fn(),
       getProductDetails: jest.fn(),
     } as unknown as LightfunnelsDataService,
+    media,
   );
 }
 

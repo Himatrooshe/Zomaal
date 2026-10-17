@@ -25,6 +25,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ShopifyDataService } from '../shopify/shopify-data.service';
 import { YouCanDataService } from '../youcan/youcan-data.service';
 import { BarcodeService } from './barcode.service';
+import { MediaService } from './media.service';
 import {
   CompareCatalogQueryDto,
   CompareProductPlatform,
@@ -137,6 +138,7 @@ export class ProductService {
     private readonly shopifyData: ShopifyDataService,
     private readonly youCanData: YouCanDataService,
     private readonly lightfunnelsData: LightfunnelsDataService,
+    private readonly media: MediaService,
   ) {}
 
   /**
@@ -1131,7 +1133,7 @@ export class ProductService {
       first: limit,
       after,
       query: search?.trim() || undefined,
-    } as Parameters<ShopifyDataService['listProducts']>[1]);
+    });
     return {
       data: result.data.map((product) => {
         const numericId = shopifyNumericId(product.id) ?? product.id;
@@ -1167,7 +1169,7 @@ export class ProductService {
       page,
       limit,
       q: search?.trim() || undefined,
-    } as Parameters<YouCanDataService['listProducts']>[1]);
+    });
     const pagination = result.meta?.pagination;
     const total = pagination?.total ?? result.data.length;
     const totalPages =
@@ -1205,7 +1207,7 @@ export class ProductService {
       first: limit,
       after,
       query: search?.trim() || undefined,
-    } as Parameters<LightfunnelsDataService['listProducts']>[1]);
+    });
     const connection = result.data;
     return {
       data: (connection.edges ?? []).map((edge) => ({
@@ -1468,75 +1470,565 @@ export class ProductService {
         'Every updated variant must belong to this product',
       );
     }
+    const content = await this.prepareContentEdit(store.id, product, dto);
 
-    await this.prisma.$transaction(async (tx) => {
-      const result = await tx.warehouseProduct.updateMany({
-        where: { id: productId, storeId: store.id, version: dto.version },
-        data: {
-          ...(dto.name === undefined ? {} : { name: dto.name.trim() }),
-          ...(dto.description === undefined
-            ? {}
-            : { description: dto.description.trim() || null }),
-          ...(dto.categoryId === undefined
-            ? {}
-            : { categoryId: dto.categoryId }),
-          ...(dto.status === undefined
-            ? {}
-            : {
-                status: dto.status,
-                archivedAt: dto.status === 'ARCHIVED' ? new Date() : null,
-              }),
-          version: { increment: 1 },
-        },
+    const detachedMediaIds = await this.prisma
+      .$transaction(async (tx) => {
+        const result = await tx.warehouseProduct.updateMany({
+          where: { id: productId, storeId: store.id, version: dto.version },
+          data: {
+            ...(dto.name === undefined ? {} : { name: dto.name.trim() }),
+            ...(dto.description === undefined
+              ? {}
+              : { description: dto.description.trim() || null }),
+            ...(dto.categoryId === undefined
+              ? {}
+              : { categoryId: dto.categoryId }),
+            ...(dto.status === undefined
+              ? {}
+              : {
+                  status: dto.status,
+                  archivedAt: dto.status === 'ARCHIVED' ? new Date() : null,
+                }),
+            version: { increment: 1 },
+          },
+        });
+        if (result.count === 0) {
+          throw new ConflictException(
+            'Product was changed by another request; reload and retry',
+          );
+        }
+
+        const defaultVariant = product.variants[0];
+        if (
+          dto.basePrice !== undefined ||
+          dto.costPrice !== undefined ||
+          dto.lowStockAlertThreshold !== undefined
+        ) {
+          await tx.warehouseVariant.update({
+            where: { id: defaultVariant.id },
+            data: {
+              ...(dto.basePrice === undefined ? {} : { price: dto.basePrice }),
+              ...(dto.costPrice === undefined
+                ? {}
+                : { costPrice: dto.costPrice }),
+              ...(dto.lowStockAlertThreshold === undefined
+                ? {}
+                : { lowStockThreshold: dto.lowStockAlertThreshold }),
+            },
+          });
+        }
+        for (const variant of variantUpdates) {
+          await tx.warehouseVariant.update({
+            where: { id: variant.id },
+            data: {
+              ...(variant.price === undefined ? {} : { price: variant.price }),
+              ...(variant.costPrice === undefined
+                ? {}
+                : { costPrice: variant.costPrice }),
+              ...(variant.lowStockAlertThreshold === undefined
+                ? {}
+                : { lowStockThreshold: variant.lowStockAlertThreshold }),
+              ...(variant.sku === undefined
+                ? {}
+                : { sku: variant.sku.trim() || null }),
+            },
+          });
+        }
+        const changedCostVariantIds = [
+          ...(dto.costPrice !== undefined ? [defaultVariant.id] : []),
+          ...variantUpdates
+            .filter((variant) => variant.costPrice !== undefined)
+            .map((variant) => variant.id),
+        ];
+        await this.refreshBundleCosts(tx, changedCostVariantIds);
+        return this.applyContentEdit(tx, store.id, product, dto, content);
+      })
+      .catch((error: unknown) => {
+        if (isUniqueError(error)) {
+          throw new ConflictException(
+            'A SKU, barcode or product code is already used in this store',
+          );
+        }
+        throw error;
       });
-      if (result.count === 0) {
-        throw new ConflictException(
-          'Product was changed by another request; reload and retry',
+
+    for (const mediaId of detachedMediaIds) {
+      await this.media.deleteAttachedAsset(mediaId);
+    }
+    if (
+      dto.addVariants?.length ||
+      variantUpdates.some((variant) => variant.sku !== undefined)
+    ) {
+      await this.linkOrderLinesForProduct(store.id, productId);
+    }
+    return this.toResponse(await this.requireProduct(store.id, productId));
+  }
+
+  /** Validates the image / gift / packaging / bundle / variant parts of an edit. */
+  private async prepareContentEdit(
+    storeId: string,
+    product: ProductWithRelations,
+    dto: UpdateWarehouseProductDto,
+  ) {
+    const isBundle = product.kind === WarehouseProductKind.BUNDLE;
+    if (dto.bundleComponents && !isBundle) {
+      throw new BadRequestException('Only bundles have components');
+    }
+    if (isBundle && (dto.addVariants?.length || dto.removeVariantIds?.length)) {
+      throw new BadRequestException('A bundle has a single variant');
+    }
+
+    const productMediaIds = new Set([
+      ...product.media.map((media) => media.id),
+      ...product.variants.flatMap((variant) => variant.media.map((m) => m.id)),
+    ]);
+    const removeMediaIds = [...new Set(dto.removeMediaIds ?? [])];
+    for (const mediaId of removeMediaIds) {
+      const media =
+        product.media.find((m) => m.id === mediaId) ??
+        product.variants
+          .flatMap((variant) => variant.media)
+          .find((m) => m.id === mediaId);
+      if (!media || !productMediaIds.has(mediaId)) {
+        throw new BadRequestException(
+          `Image ${mediaId} does not belong to this product`,
         );
       }
+      if (media.purpose === MediaAssetPurpose.PRODUCT_MAIN) {
+        throw new BadRequestException(
+          'The main image can be replaced but not removed',
+        );
+      }
+    }
+    const galleryCount =
+      product.media.filter(
+        (m) =>
+          m.purpose === MediaAssetPurpose.PRODUCT_GALLERY &&
+          !removeMediaIds.includes(m.id),
+      ).length + (dto.galleryImageUploadIds?.length ?? 0);
+    if (galleryCount > 4) {
+      throw new BadRequestException('The gallery holds at most 4 images');
+    }
+    const uploadIds = [
+      ...(dto.mainImageUploadId ? [dto.mainImageUploadId] : []),
+      ...(dto.galleryImageUploadIds ?? []),
+      ...(dto.variants ?? []).flatMap((v) =>
+        v.imageUploadId ? [v.imageUploadId] : [],
+      ),
+      ...(dto.addVariants ?? []).flatMap((v) =>
+        v.imageUploadId ? [v.imageUploadId] : [],
+      ),
+    ];
+    if (new Set(uploadIds).size !== uploadIds.length) {
+      throw new BadRequestException(
+        'The same uploaded image cannot be attached twice',
+      );
+    }
 
-      const defaultVariant = product.variants[0];
-      if (
-        dto.basePrice !== undefined ||
-        dto.costPrice !== undefined ||
-        dto.lowStockAlertThreshold !== undefined
-      ) {
-        await tx.warehouseVariant.update({
-          where: { id: defaultVariant.id },
-          data: {
-            ...(dto.basePrice === undefined ? {} : { price: dto.basePrice }),
-            ...(dto.costPrice === undefined
-              ? {}
-              : { costPrice: dto.costPrice }),
-            ...(dto.lowStockAlertThreshold === undefined
-              ? {}
-              : { lowStockThreshold: dto.lowStockAlertThreshold }),
+    if (dto.gift) {
+      const gift = await this.prisma.warehouseVariant.findFirst({
+        where: {
+          id: dto.gift.giftVariantId,
+          storeId,
+          productId: { not: product.id },
+          product: { status: WarehouseProductStatus.ACTIVE },
+        },
+        select: { id: true },
+      });
+      if (!gift) throw new BadRequestException('Gift variant is unavailable');
+    }
+
+    if (dto.packaging?.length) {
+      const ids = dto.packaging.map((item) => item.packagingMaterialId);
+      if (new Set(ids).size !== ids.length) {
+        throw new BadRequestException(
+          'Packaging material was selected more than once',
+        );
+      }
+      const count = await this.prisma.packagingMaterial.count({
+        where: { id: { in: ids }, storeId, isActive: true },
+      });
+      if (count !== ids.length) {
+        throw new BadRequestException(
+          'One or more packaging materials are unavailable',
+        );
+      }
+    }
+
+    let bundleCost: Prisma.Decimal | null = null;
+    if (dto.bundleComponents) {
+      const ids = dto.bundleComponents.map((c) => c.variantId);
+      if (new Set(ids).size !== ids.length) {
+        throw new BadRequestException(
+          'A variant can appear only once in a product bundle',
+        );
+      }
+      const components = await this.prisma.warehouseVariant.findMany({
+        where: {
+          id: { in: ids },
+          storeId,
+          product: {
+            status: WarehouseProductStatus.ACTIVE,
+            kind: WarehouseProductKind.STANDARD,
           },
+        },
+        select: { id: true, costPrice: true },
+      });
+      if (components.length !== ids.length) {
+        throw new BadRequestException(
+          'Every bundle component must be an active standard product variant from this store',
+        );
+      }
+      const costById = new Map(components.map((c) => [c.id, c.costPrice]));
+      bundleCost = dto.bundleComponents.reduce(
+        (total, c) => total.plus(costById.get(c.variantId)!.times(c.quantity)),
+        new Prisma.Decimal(0),
+      );
+    }
+
+    const removeVariantIds = [...new Set(dto.removeVariantIds ?? [])];
+    const variantIds = new Set(product.variants.map((v) => v.id));
+    if (removeVariantIds.some((id) => !variantIds.has(id))) {
+      throw new BadRequestException(
+        'Every removed variant must belong to this product',
+      );
+    }
+    if (
+      removeVariantIds.some((id) =>
+        dto.variants?.some((variant) => variant.id === id),
+      )
+    ) {
+      throw new BadRequestException('A variant cannot be edited and removed');
+    }
+    const remainingCount =
+      product.variants.length -
+      removeVariantIds.length +
+      (dto.addVariants?.length ?? 0);
+    if (remainingCount < 1) {
+      throw new BadRequestException(
+        'A product needs at least one variant; archive it instead',
+      );
+    }
+    if (remainingCount > 100) {
+      throw new BadRequestException('A product can have at most 100 variants');
+    }
+    for (const id of removeVariantIds) {
+      const variant = product.variants.find((v) => v.id === id)!;
+      const hasStock = (variant.inventoryItem?.balances ?? []).some(
+        (b) =>
+          b.onHand > 0 || b.reserved > 0 || b.damaged > 0 || b.incoming > 0,
+      );
+      const [orderLines, giftUses, bundleUses] = await Promise.all([
+        this.prisma.ecommerceOrderLine.count({
+          where: { warehouseVariantId: id },
+        }),
+        this.prisma.productGift.count({ where: { giftVariantId: id } }),
+        this.prisma.productBundleComponent.count({
+          where: { componentVariantId: id },
+        }),
+      ]);
+      if (hasStock || orderLines || giftUses || bundleUses) {
+        throw new BadRequestException(
+          `Variant ${variant.title} has stock, order history, or is used as a gift or bundle component; set its stock to 0 or archive the product instead`,
+        );
+      }
+    }
+
+    const addVariants: PreparedVariant[] = [];
+    if (dto.addVariants?.length) {
+      if (product.options.length === 0) {
+        throw new BadRequestException(
+          'Variants can be added only to a product that has options',
+        );
+      }
+      const existingKeys = new Set(
+        product.variants
+          .filter((v) => !removeVariantIds.includes(v.id))
+          .map((v) =>
+            combinationKey(
+              product.options.map(
+                (option) =>
+                  v.optionValues.find((ov) => ov.value.optionId === option.id)
+                    ?.value.value ?? '',
+              ),
+            ),
+          ),
+      );
+      const fallbackCost = product.variants[0].costPrice.toNumber();
+      for (const input of dto.addVariants) {
+        if (input.optionValues.length !== product.options.length) {
+          throw new BadRequestException(
+            'Variant option value count does not match product options',
+          );
+        }
+        const values = input.optionValues.map((value) => value.trim());
+        if (values.some((value) => !value || value.length > 50)) {
+          throw new BadRequestException(
+            'Option values must be 1–50 characters',
+          );
+        }
+        const key = combinationKey(values);
+        if (existingKeys.has(key)) {
+          throw new BadRequestException(
+            `Variant ${values.join(' / ')} already exists`,
+          );
+        }
+        existingKeys.add(key);
+        addVariants.push({
+          ...input,
+          optionValues: values,
+          costPrice: input.costPrice ?? fallbackCost,
+          lowStockAlertThreshold: input.lowStockAlertThreshold ?? 5,
         });
       }
-      for (const variant of variantUpdates) {
-        await tx.warehouseVariant.update({
-          where: { id: variant.id },
-          data: {
-            ...(variant.price === undefined ? {} : { price: variant.price }),
-            ...(variant.costPrice === undefined
-              ? {}
-              : { costPrice: variant.costPrice }),
-            ...(variant.lowStockAlertThreshold === undefined
-              ? {}
-              : { lowStockThreshold: variant.lowStockAlertThreshold }),
-          },
+      await this.prepareBarcodes(storeId, addVariants);
+      await this.prepareProductCodes(storeId, addVariants);
+      validateUniqueRequestValues(addVariants);
+    }
+
+    return { removeMediaIds, removeVariantIds, addVariants, bundleCost };
+  }
+
+  /** Applies a prepared content edit; returns media to delete from storage. */
+  private async applyContentEdit(
+    tx: Prisma.TransactionClient,
+    storeId: string,
+    product: ProductWithRelations,
+    dto: UpdateWarehouseProductDto,
+    content: Awaited<ReturnType<ProductService['prepareContentEdit']>>,
+  ): Promise<string[]> {
+    const detached: string[] = [...content.removeMediaIds];
+    const detach = async (ids: string[]) => {
+      if (!ids.length) return;
+      await tx.mediaAsset.updateMany({
+        where: { id: { in: ids }, storeId },
+        data: { productId: null, variantId: null },
+      });
+    };
+
+    if (dto.mainImageUploadId) {
+      const current = product.media
+        .filter((m) => m.purpose === MediaAssetPurpose.PRODUCT_MAIN)
+        .map((m) => m.id);
+      detached.push(...current);
+      await detach(current);
+      await this.attachMedia(
+        tx,
+        storeId,
+        dto.mainImageUploadId,
+        MediaAssetPurpose.PRODUCT_MAIN,
+        { productId: product.id, position: 0 },
+      );
+    }
+    await detach(content.removeMediaIds);
+    if (dto.galleryImageUploadIds?.length) {
+      const lastPosition = Math.max(
+        0,
+        ...product.media
+          .filter((m) => m.purpose === MediaAssetPurpose.PRODUCT_GALLERY)
+          .map((m) => m.position),
+      );
+      for (const [index, uploadId] of dto.galleryImageUploadIds.entries()) {
+        await this.attachMedia(
+          tx,
+          storeId,
+          uploadId,
+          MediaAssetPurpose.PRODUCT_GALLERY,
+          { productId: product.id, position: lastPosition + index + 1 },
+        );
+      }
+    }
+    for (const update of dto.variants ?? []) {
+      if (!update.imageUploadId) continue;
+      const variant = product.variants.find((v) => v.id === update.id)!;
+      const current = variant.media.map((m) => m.id);
+      detached.push(...current);
+      await detach(current);
+      await this.attachMedia(
+        tx,
+        storeId,
+        update.imageUploadId,
+        MediaAssetPurpose.VARIANT,
+        { variantId: variant.id, position: 0 },
+      );
+    }
+
+    if (dto.gift === null) {
+      await tx.productGift.deleteMany({ where: { productId: product.id } });
+    } else if (dto.gift) {
+      await tx.productGift.upsert({
+        where: { productId: product.id },
+        create: {
+          productId: product.id,
+          giftVariantId: dto.gift.giftVariantId,
+          quantity: dto.gift.quantity ?? 1,
+        },
+        update: {
+          giftVariantId: dto.gift.giftVariantId,
+          quantity: dto.gift.quantity ?? 1,
+        },
+      });
+    }
+
+    if (dto.packaging) {
+      await tx.productPackagingRequirement.deleteMany({
+        where: { productId: product.id, variantId: null },
+      });
+      if (dto.packaging.length) {
+        await tx.productPackagingRequirement.createMany({
+          data: dto.packaging.map((item) => ({
+            productId: product.id,
+            packagingMaterialId: item.packagingMaterialId,
+            quantityPerUnit: item.quantityPerUnit,
+          })),
         });
       }
-      const changedCostVariantIds = [
-        ...(dto.costPrice !== undefined ? [defaultVariant.id] : []),
-        ...variantUpdates
-          .filter((variant) => variant.costPrice !== undefined)
-          .map((variant) => variant.id),
-      ];
-      await this.refreshBundleCosts(tx, changedCostVariantIds);
+    }
+
+    if (dto.bundleComponents && content.bundleCost) {
+      await tx.productBundleComponent.deleteMany({
+        where: { bundleProductId: product.id },
+      });
+      await tx.productBundleComponent.createMany({
+        data: dto.bundleComponents.map((component, position) => ({
+          bundleProductId: product.id,
+          componentVariantId: component.variantId,
+          quantity: component.quantity,
+          position,
+        })),
+      });
+      await tx.warehouseVariant.updateMany({
+        where: { productId: product.id, isDefault: true },
+        data: { costPrice: content.bundleCost },
+      });
+    }
+
+    if (content.removeVariantIds.length) {
+      const variantMedia = product.variants
+        .filter((v) => content.removeVariantIds.includes(v.id))
+        .flatMap((v) => v.media.map((m) => m.id));
+      detached.push(...variantMedia);
+      await detach(variantMedia);
+      await tx.warehouseVariant.deleteMany({
+        where: { id: { in: content.removeVariantIds }, productId: product.id },
+      });
+    }
+
+    if (content.addVariants.length) {
+      await this.createVariants(tx, storeId, product, content.addVariants);
+    }
+
+    if (content.removeVariantIds.length || content.addVariants.length) {
+      await tx.productOptionValue.deleteMany({
+        where: {
+          option: { productId: product.id },
+          variants: { none: {} },
+        },
+      });
+    }
+    return detached;
+  }
+
+  private async createVariants(
+    tx: Prisma.TransactionClient,
+    storeId: string,
+    product: ProductWithRelations,
+    variants: PreparedVariant[],
+  ) {
+    const location = await tx.warehouseLocation.upsert({
+      where: { storeId_code: { storeId, code: 'MAIN' } },
+      create: {
+        storeId,
+        name: 'Main Warehouse',
+        code: 'MAIN',
+        isDefault: true,
+      },
+      update: {},
     });
-    return this.toResponse(await this.requireProduct(store.id, productId));
+    const valueIds = new Map<string, string>();
+    for (const [optionIndex, option] of product.options.entries()) {
+      let nextPosition =
+        Math.max(-1, ...option.values.map((value) => value.position)) + 1;
+      for (const value of option.values) {
+        valueIds.set(`${option.id}:${normalizeKey(value.value)}`, value.id);
+      }
+      for (const variant of variants) {
+        const value = variant.optionValues[optionIndex];
+        const key = `${option.id}:${normalizeKey(value)}`;
+        if (valueIds.has(key)) continue;
+        const created = await tx.productOptionValue.create({
+          data: { optionId: option.id, value, position: nextPosition++ },
+        });
+        valueIds.set(key, created.id);
+      }
+    }
+
+    let position = Math.max(0, ...product.variants.map((v) => v.position)) + 1;
+    for (const input of variants) {
+      const variant = await tx.warehouseVariant.create({
+        data: {
+          productId: product.id,
+          storeId,
+          title: input.optionValues.join(' / '),
+          sku: input.sku?.trim() || null,
+          productCode: input.productCode!,
+          price: input.price,
+          costPrice: input.costPrice,
+          lowStockThreshold: input.lowStockAlertThreshold,
+          position: position++,
+          optionValues: {
+            create: product.options.map((option, optionIndex) => ({
+              valueId: valueIds.get(
+                `${option.id}:${normalizeKey(input.optionValues[optionIndex])}`,
+              )!,
+            })),
+          },
+        },
+      });
+      await tx.inventoryItem.create({
+        data: {
+          storeId,
+          kind: InventoryItemKind.PRODUCT_VARIANT,
+          variantId: variant.id,
+          barcodes: {
+            create: {
+              storeId,
+              value: input.barcode!,
+              type: input.barcodeType!,
+              isPrimary: true,
+              source:
+                input.barcodeType === InventoryBarcodeType.INTERNAL_CODE_128
+                  ? 'ZOMAAL'
+                  : 'MERCHANT',
+            },
+          },
+          balances: {
+            create: { locationId: location.id, onHand: input.stockQuantity },
+          },
+          movements: {
+            create: {
+              locationId: location.id,
+              type: 'OPENING_BALANCE',
+              bucket: 'ON_HAND',
+              quantityDelta: input.stockQuantity,
+              resultingQuantity: input.stockQuantity,
+              reason: 'Initial stock entered when the variant was added',
+              idempotencyKey: `opening:${variant.id}`,
+            },
+          },
+        },
+      });
+      if (input.imageUploadId) {
+        await this.attachMedia(
+          tx,
+          storeId,
+          input.imageUploadId,
+          MediaAssetPurpose.VARIANT,
+          { variantId: variant.id, position: 0 },
+        );
+      }
+    }
   }
 
   async archive(userId: string, productId: string) {

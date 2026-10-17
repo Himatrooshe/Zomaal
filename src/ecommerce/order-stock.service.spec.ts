@@ -136,6 +136,24 @@ function createFakePrisma(line: Record<string, unknown>) {
           .reduce((total, m) => total + m.quantityDelta, 0);
         return Promise.resolve({ _sum: { quantityDelta: sum } });
       }),
+      groupBy: jest.fn(({ where }: { where: Where }) => {
+        const sums = new Map<string, number>();
+        for (const m of movements) {
+          if (!matches(m, where)) {
+            continue;
+          }
+          sums.set(
+            m.inventoryItemId,
+            (sums.get(m.inventoryItemId) ?? 0) + m.quantityDelta,
+          );
+        }
+        return Promise.resolve(
+          [...sums].map(([inventoryItemId, quantityDelta]) => ({
+            inventoryItemId,
+            _sum: { quantityDelta },
+          })),
+        );
+      }),
     },
   };
 
@@ -264,6 +282,35 @@ describe('OrderStockService', () => {
       reserved: 0,
     });
     expect(line.stockStatus).toBe('RELEASED');
+  });
+
+  it('releases a gift reservation even after the gift was removed from the product', async () => {
+    const line = standardLine(2);
+    const { service, seed, balanceOf } = createFakePrisma(line);
+    seed('item-product', 10);
+    seed('item-gift', 5);
+
+    await service.reserveOrder('order-1');
+    (line.warehouseVariant.product as { gift: unknown }).gift = null;
+    await service.releaseOrder('order-1');
+
+    expect(balanceOf('item-gift')).toMatchObject({ onHand: 5, reserved: 0 });
+    expect(balanceOf('item-product')).toMatchObject({ reserved: 0 });
+  });
+
+  it('deducts the gift that actually shipped when the gift changed after dispatch', async () => {
+    const line = standardLine(1);
+    const { service, seed, balanceOf } = createFakePrisma(line);
+    seed('item-product', 10);
+    seed('item-gift', 5);
+    seed('item-box', 5);
+
+    await service.reserveOrder('order-1');
+    (line.warehouseVariant.product as { gift: unknown }).gift = null;
+    await service.deliverOrder('order-1');
+
+    expect(balanceOf('item-gift')).toMatchObject({ onHand: 4, reserved: 0 });
+    expect(balanceOf('item-product')).toMatchObject({ onHand: 9, reserved: 0 });
   });
 
   it('reserves only what is in stock instead of failing the order', async () => {

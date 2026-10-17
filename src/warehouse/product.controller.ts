@@ -367,13 +367,14 @@ export class ProductController {
     description: 'Store-owned warehouse product ID.',
   })
   @ApiOperation({
-    summary: 'Update warehouse product details and pricing safely',
+    summary: 'Edit a warehouse product',
     description:
-      'Updates name, description, category, status, and simple-product or per-variant price, cost, and low-stock thresholds. Send the latest version returned by GET/PATCH; the response increments it. Stock changes use the dedicated inventory endpoint.',
+      'Updates name, description, category, status, prices, costs, low-stock thresholds and SKUs. Also replaces the main image, adds or removes gallery images (max 4), sets variant images, sets or removes (null) the gift, replaces packaging, replaces bundle components (bundle cost is recalculated), adds variants for existing options, and removes variants that have no stock, orders, gift or bundle uses. Upload images first via the media upload endpoint. Send the latest version returned by GET/PATCH; the response increments it. Stock changes use the dedicated inventory endpoint.',
   })
   @ApiOkResponse({ type: WarehouseProductResponseDto })
   @ApiBadRequestResponse({
-    description: 'Invalid body, product UUID, or inactive category.',
+    description:
+      'Invalid body, inactive category, invalid gift/packaging/bundle reference, or a variant that cannot be removed.',
     type: ApiErrorDto,
   })
   @ApiNotFoundResponse({
@@ -381,7 +382,8 @@ export class ProductController {
     type: ApiErrorDto,
   })
   @ApiConflictResponse({
-    description: 'The supplied product version is stale.',
+    description:
+      'The supplied product version is stale, or a SKU, barcode or product code is already used.',
     type: ApiErrorDto,
   })
   update(
