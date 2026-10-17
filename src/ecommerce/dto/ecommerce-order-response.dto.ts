@@ -407,7 +407,14 @@ export class OrderFinancialEventDto {
   id: string;
 
   @ApiProperty({
-    enum: ['REVENUE_RECOGNIZED', 'REVENUE_REVERSED', 'DAMAGE_LOSS'],
+    enum: [
+      'REVENUE_RECOGNIZED',
+      'REVENUE_REVERSED',
+      'DAMAGE_LOSS',
+      'SHIPPING_LOSS',
+    ],
+    description:
+      'SHIPPING_LOSS — shipping paid for a parcel refused or returned before delivery.',
   })
   type: string;
 

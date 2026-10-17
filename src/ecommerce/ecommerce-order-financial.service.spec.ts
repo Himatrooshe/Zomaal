@@ -79,6 +79,11 @@ function setup(status: ShippingShipmentStatus) {
         events.set(data.idempotencyKey as string, stored);
         return Promise.resolve(stored);
       }),
+      upsert: jest.fn(({ create }: { create: StoredEvent }) => {
+        const key = create.idempotencyKey as string;
+        if (!events.has(key)) events.set(key, create);
+        return Promise.resolve(events.get(key));
+      }),
     },
     packagingMaterial: {
       findMany: jest
@@ -130,7 +135,53 @@ describe('EcommerceOrderFinancialService', () => {
     expect(orderStock.deliverOrder).toHaveBeenCalledWith('order-1', undefined);
   });
 
-  it('keeps gift and packaging cost when a delivered order is reversed', async () => {
+  it('books the courier fee as a loss when a parcel is refused before delivery', async () => {
+    const { service, events } = setup(ShippingShipmentStatus.REFUSED);
+
+    await service.syncFromDispatchId('dispatch-1');
+    await service.syncFromDispatchId('dispatch-1');
+
+    expect([...events.keys()]).toEqual(['shipping-loss']);
+    const loss = events.get('shipping-loss')!;
+    expect(loss.type).toBe('SHIPPING_LOSS');
+    expect((loss.netProfitImpact as Prisma.Decimal).toFixed(2)).toBe('-30.00');
+  });
+
+  it('books shipping as a loss when a plugin-shipped parcel is returned undelivered', async () => {
+    const { service, prisma, events } = setup(ShippingShipmentStatus.PENDING);
+    Object.assign(prisma, {
+      ecommerceOrder: {
+        findUnique: jest.fn().mockResolvedValue({ dispatch: null }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          id: 'order-1',
+          currency: 'MAD',
+          shipping: new Prisma.Decimal(25),
+        }),
+      },
+      ecommerceOrderEvent: {
+        findMany: jest.fn().mockResolvedValue([
+          { type: 'IN_TRANSIT', occurredAt: new Date('2026-10-01') },
+          { type: 'RETURNED', occurredAt: new Date('2026-10-03') },
+        ]),
+      },
+    });
+
+    await service.syncUndispatchedOrder('order-1');
+
+    expect(
+      (events.get('shipping-loss')!.netProfitImpact as Prisma.Decimal).toFixed(
+        2,
+      ),
+    ).toBe('-25.00');
+  });
+
+  it('books no shipping loss for a plain cancellation', async () => {
+    const { service, events } = setup(ShippingShipmentStatus.CANCELLED);
+    await service.syncFromDispatchId('dispatch-1');
+    expect(events.size).toBe(0);
+  });
+
+  it('keeps shipping, gift and packaging cost when a delivered order is reversed', async () => {
     const { service, prisma, events } = setup(ShippingShipmentStatus.DELIVERED);
     await service.syncFromDispatchId('dispatch-1');
 
@@ -144,15 +195,18 @@ describe('EcommerceOrderFinancialService', () => {
     await service.syncFromDispatchId('dispatch-1');
 
     const reversed = events.get('revenue-reversed')!;
-    // Undoes 300 − 120 − 30 = 150; the 30 of gift + packaging stays as a cost.
+    // Undoes revenue 300 − product 120 = 180; shipping 30 and gift +
+    // packaging 30 stay as costs.
     expect((reversed.netProfitImpact as Prisma.Decimal).toFixed(2)).toBe(
-      '-150.00',
+      '-180.00',
     );
+    expect((reversed.shippingCost as Prisma.Decimal).toFixed(2)).toBe('0.00');
+    expect(events.has('shipping-loss')).toBe(false);
     const net = [...events.values()].reduce(
       (sum, event) => sum.plus(event.netProfitImpact as Prisma.Decimal),
       new Prisma.Decimal(0),
     );
-    expect(net.toFixed(2)).toBe('-30.00');
+    expect(net.toFixed(2)).toBe('-60.00');
   });
 
   it('books only the change when a return condition loss is corrected', async () => {

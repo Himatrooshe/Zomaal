@@ -39,7 +39,8 @@ Order profit at delivery (`EcommerceOrderFinancialEvent.giftCost` / `packagingCo
 - Net profit = collected − product cost − shipping − gift cost − packaging cost (− damage / loss events).
 - Gift cost = gift's purchase cost × gift quantity × units sold.
 - Packaging cost = quantity per unit × units × the unit price of the merchant's latest Zomaal Shop purchase of that material (shop catalog price if they never bought it); unknown → 0, never invented.
-- If a delivered order is later cancelled / returned, revenue, product cost and shipping are reversed; gift and packaging cost stay (they were consumed and are not restocked).
+- If a delivered order is later cancelled / returned, revenue and product cost are reversed; shipping, gift and packaging cost stay (the courier was paid and gift / packaging were consumed).
+- A parcel refused or returned before delivery books its shipping as a loss (`SHIPPING_LOSS`): the courier fee when the parcel went through a Zomaal courier, otherwise the shipping charged on the order. A plain cancellation (e.g. before pickup) books nothing. Separate courier return fees are not exposed by the courier data we store, so they are not added.
 - Product Performance: net profit = gross profit − gift − packaging; ROI = net profit ÷ (product + gift + packaging cost). Compare Products uses the same costs. Shipping (order-level) and ad spend (Q5.5) are not allocated per product.
 
 Edit product (`PATCH /warehouse/products/:id`, optimistic `version`):

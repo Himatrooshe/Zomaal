@@ -21,8 +21,20 @@ const TERMINAL_FAILURE_STATUSES = new Set<ShippingShipmentStatus>([
   ShippingShipmentStatus.RETURNED_TO_SELLER,
 ]);
 
+// The parcel travelled and came back, so the courier still charges for it.
+// A plain cancellation may happen before pickup and costs nothing.
+const SHIPPED_FAILURE_STATUSES = new Set<ShippingShipmentStatus>([
+  ShippingShipmentStatus.REFUSED,
+  ShippingShipmentStatus.RETURNED_TO_SELLER,
+]);
+const SHIPPED_FAILURE_EVENT_TYPES = new Set<string>([
+  OrderEventType.DELIVERY_FAILED,
+  OrderEventType.RETURNED,
+]);
+
 const REVENUE_RECOGNIZED_KEY = 'revenue-recognized';
 const REVENUE_REVERSED_KEY = 'revenue-reversed';
+const SHIPPING_LOSS_KEY = 'shipping-loss';
 
 type SyncReason =
   | 'NOT_DISPATCHED'
@@ -106,6 +118,8 @@ export class EcommerceOrderFinancialService {
         shippingCost = shippingCost.minus(event.shippingCost);
       } else if (event.type === 'DAMAGE_LOSS') {
         damageCost = damageCost.plus(event.damageCost);
+      } else if (event.type === 'SHIPPING_LOSS') {
+        shippingCost = shippingCost.plus(event.shippingCost);
       }
     }
 
@@ -235,9 +249,12 @@ export class EcommerceOrderFinancialService {
     if (currentStatus && TERMINAL_FAILURE_EVENT_TYPES.has(currentStatus)) {
       const order = await this.prisma.ecommerceOrder.findUniqueOrThrow({
         where: { id: orderId },
-        select: { id: true, currency: true },
+        select: { id: true, currency: true, shipping: true },
       });
       const event = await this.applyRevenueReversal(order.id, order.currency);
+      if (SHIPPED_FAILURE_EVENT_TYPES.has(currentStatus)) {
+        await this.applyShippingLoss(order.id, order.currency, order.shipping);
+      }
       await this.syncStock(order.id, 'CANCELLED');
       return {
         applied: event !== null,
@@ -335,6 +352,13 @@ export class EcommerceOrderFinancialService {
         dispatch.order.id,
         dispatch.order.currency,
       );
+      if (SHIPPED_FAILURE_STATUSES.has(shipment.normalizedStatus)) {
+        await this.applyShippingLoss(
+          dispatch.order.id,
+          dispatch.order.currency,
+          shipment.fee ?? dispatch.order.shipping,
+        );
+      }
       await this.syncStock(dispatch.order.id, 'CANCELLED');
       return {
         applied: event !== null,
@@ -449,8 +473,21 @@ export class EcommerceOrderFinancialService {
         { productCost: zero, giftCost: zero, packagingCost: zero },
       );
     // Prefer the actual courier fee (merchant's real cost) over the shipping
-    // amount charged to the customer, when known.
-    const shippingCost = shipmentFee ?? order.shipping;
+    // amount charged to the customer, when known. Already booked as a
+    // shipping loss (courier reported a failure first) → not charged twice.
+    const shippingLoss =
+      await this.prisma.ecommerceOrderFinancialEvent.findUnique({
+        where: {
+          orderId_idempotencyKey: {
+            orderId: order.id,
+            idempotencyKey: SHIPPING_LOSS_KEY,
+          },
+        },
+        select: { id: true },
+      });
+    const shippingCost = shippingLoss
+      ? new Prisma.Decimal(0)
+      : (shipmentFee ?? order.shipping);
     const revenue = order.totalCollected;
     const netProfitImpact = revenue
       .minus(costs.productCost)
@@ -504,17 +541,18 @@ export class EcommerceOrderFinancialService {
       return null;
     }
 
-    // Gift and packaging were consumed at delivery and are not restocked by
-    // a return, so their cost stays; everything else is undone.
+    // Shipping was paid to the courier and gift / packaging were consumed,
+    // so those costs stay; revenue and product cost are undone.
     return this.prisma.ecommerceOrderFinancialEvent.create({
       data: {
         orderId,
         type: 'REVENUE_REVERSED',
         revenue: recognized.revenue,
         productCost: recognized.productCost,
-        shippingCost: recognized.shippingCost,
+        shippingCost: new Prisma.Decimal(0),
         damageCost: new Prisma.Decimal(0),
         netProfitImpact: recognized.netProfitImpact
+          .plus(recognized.shippingCost)
           .plus(recognized.giftCost)
           .plus(recognized.packagingCost)
           .negated(),
@@ -523,6 +561,50 @@ export class EcommerceOrderFinancialService {
           'Carrier marked shipment as cancelled/refused/returned after being delivered',
         idempotencyKey: REVENUE_REVERSED_KEY,
       },
+    });
+  }
+
+  /**
+   * A refused or returned parcel that was never delivered still cost its
+   * shipping. Delivered-then-returned orders already carry the shipping
+   * cost in their recognition event, which the reversal keeps.
+   */
+  private async applyShippingLoss(
+    orderId: string,
+    currency: string,
+    shippingCost: Prisma.Decimal,
+  ) {
+    if (shippingCost.lte(0)) return null;
+    const recognized =
+      await this.prisma.ecommerceOrderFinancialEvent.findUnique({
+        where: {
+          orderId_idempotencyKey: {
+            orderId,
+            idempotencyKey: REVENUE_RECOGNIZED_KEY,
+          },
+        },
+        select: { id: true },
+      });
+    if (recognized) return null;
+    const zero = new Prisma.Decimal(0);
+    return this.prisma.ecommerceOrderFinancialEvent.upsert({
+      where: {
+        orderId_idempotencyKey: { orderId, idempotencyKey: SHIPPING_LOSS_KEY },
+      },
+      create: {
+        orderId,
+        type: 'SHIPPING_LOSS',
+        revenue: zero,
+        productCost: zero,
+        shippingCost,
+        damageCost: zero,
+        netProfitImpact: shippingCost.negated(),
+        currency,
+        reason:
+          'Parcel refused or returned before delivery; shipping still paid',
+        idempotencyKey: SHIPPING_LOSS_KEY,
+      },
+      update: {}, // events are immutable once stored — never overwrite
     });
   }
 }

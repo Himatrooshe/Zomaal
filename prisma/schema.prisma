@@ -1180,7 +1180,7 @@ model ReturnRequestLine {
 model EcommerceOrderFinancialEvent {
   id              String   @id @default(uuid())
   orderId         String
-  type            String // REVENUE_RECOGNIZED | REVENUE_REVERSED | DAMAGE_LOSS
+  type            String // REVENUE_RECOGNIZED | REVENUE_REVERSED | DAMAGE_LOSS | SHIPPING_LOSS
   revenue         Decimal  @db.Decimal(20, 4)
   productCost     Decimal  @db.Decimal(20, 4)
   shippingCost    Decimal  @db.Decimal(20, 4)

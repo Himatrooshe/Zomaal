@@ -24183,6 +24183,8 @@ components:
             - REVENUE_RECOGNIZED
             - REVENUE_REVERSED
             - DAMAGE_LOSS
+            - SHIPPING_LOSS
+          description: SHIPPING_LOSS — shipping paid for a parcel refused or returned before delivery.
         revenue:
           type: string
           example: '600.00'
@@ -24781,8 +24783,9 @@ components:
           type: string
           format: uuid
         productCode:
-          type: object
+          type: string
           nullable: true
+          description: Zomaal Product Code of the matched variant (pack code for bundles); null when the order line isn't linked to a Zomaal product.
         name:
           type: string
         quantity:
