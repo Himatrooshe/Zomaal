@@ -107,7 +107,7 @@ export class CreateShopAddressDto {
   @MaxLength(120)
   fullName: string;
 
-  @ApiProperty({ example: '+212600000001' })
+  @ApiProperty({ example: '+212612345678' })
   @IsString()
   @MinLength(6)
   @MaxLength(30)

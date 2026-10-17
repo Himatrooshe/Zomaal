@@ -45,6 +45,13 @@ export class UserProfileDto {
   @ApiProperty({ example: true })
   isPhoneVerified: boolean;
 
+  @ApiProperty({
+    description:
+      'Whether the account has a password. False for OTP-only accounts that have not set one yet.',
+    example: true,
+  })
+  hasPassword: boolean;
+
   @ApiProperty({ example: false })
   onboardingComplete: boolean;
 

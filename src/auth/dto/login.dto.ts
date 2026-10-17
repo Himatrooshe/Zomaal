@@ -11,7 +11,7 @@ import {
 export class LoginDto {
   @ApiProperty({
     description: 'Phone number in international E.164 format.',
-    example: '+212600000001',
+    example: '+212612345678',
     pattern: '^\\+[1-9]\\d{7,14}$',
   })
   @IsString()

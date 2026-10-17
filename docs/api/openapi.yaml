@@ -62,12 +62,12 @@ paths:
               default:
                 summary: Log in
                 value:
-                  phone: '+212600000001'
+                  phone: '+212612345678'
                   password: your-password
               rememberMe:
                 summary: Log in with "Remember me"
                 value:
-                  phone: '+212600000001'
+                  phone: '+212612345678'
                   password: your-password
                   rememberMe: true
       responses:
@@ -161,7 +161,7 @@ paths:
         - Auth
   /auth/verify-otp:
     post:
-      description: Creates the user on first successful verification. Returns a 15-minute access token and a 7-day refresh token.
+      description: 'Creates the user on first successful verification. Returns a 15-minute access token and a 7-day refresh token. Route with `isProfileCompleted` and `hasPassword`: no password → Set Password, no store → Create Store, else Home.'
       operationId: Auth_verifyOtp
       parameters: []
       requestBody:
@@ -706,7 +706,7 @@ paths:
         - Users
   /users/me/password:
     patch:
-      description: Sets a new password. `currentPassword` is required and verified when the account already has one; omit it to set a password for the first time (accounts created via OTP have none until now). Revokes the refresh token, signing out every other device.
+      description: Sets a new password. `currentPassword` is required and verified when the account already has one; omit it to set a password for the first time (accounts created via OTP have none until now). Signs out every other device and returns a new access/refresh token pair for this device — replace the stored tokens. The refresh token keeps the 30-day lifetime if this session used `rememberMe`.
       operationId: Users_changePassword
       parameters: []
       requestBody:
@@ -727,11 +727,11 @@ paths:
                   newPassword: NewPass456
       responses:
         '200':
-          description: Password updated.
+          description: Password updated. New tokens for this device.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageResponseDto'
+                $ref: '#/components/schemas/PasswordChangedResponseDto'
         '400':
           description: Missing current password when one is required, or the new password matches the current one.
           content:
@@ -17776,12 +17776,12 @@ components:
       properties:
         phone:
           type: string
-          description: Logger phone number in international E.164 format.
-          example: '+212600000001'
+          description: Phone number in international E.164 format.
+          example: '+212612345678'
           pattern: ^\+[1-9]\d{7,14}$
         password:
           type: string
-          description: Logger password configured through LOGGER_PASSWORD.
+          description: Account password (minimum 8 characters).
           example: your-password
           minLength: 8
           format: password
@@ -17808,10 +17808,15 @@ components:
           type: boolean
           description: Whether the user has completed store onboarding.
           example: false
+        hasPassword:
+          type: boolean
+          description: Whether the account has a password. False right after OTP sign-up — show Set Password (PATCH /users/me/password without currentPassword).
+          example: false
       required:
         - accessToken
         - refreshToken
         - isProfileCompleted
+        - hasPassword
     SendOtpDto:
       type: object
       properties:
@@ -18024,6 +18029,10 @@ components:
         isPhoneVerified:
           type: boolean
           example: true
+        hasPassword:
+          type: boolean
+          description: Whether the account has a password. False for OTP-only accounts that have not set one yet.
+          example: true
         onboardingComplete:
           type: boolean
           example: false
@@ -18066,6 +18075,7 @@ components:
         - address
         - city
         - isPhoneVerified
+        - hasPassword
         - onboardingComplete
         - deletionRequestedAt
         - deletionScheduledFor
@@ -18109,6 +18119,24 @@ components:
           writeOnly: true
       required:
         - newPassword
+    PasswordChangedResponseDto:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Zomaal bearer token. Expires after 15 minutes.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          description: Token used only with POST /auth/refresh. Expires after 7 days, or 30 days when logged in with rememberMe.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        message:
+          type: string
+          example: Password updated successfully
+      required:
+        - accessToken
+        - refreshToken
+        - message
     AccountDeletionResponseDto:
       type: object
       properties:
@@ -29926,7 +29954,7 @@ components:
           example: Youssef El Amrani
         phone:
           type: string
-          example: '+212600000001'
+          example: '+212612345678'
         country:
           type: string
           example: Morocco
@@ -29960,7 +29988,7 @@ components:
           example: Youssef El Amrani
         phone:
           type: string
-          example: '+212600000001'
+          example: '+212612345678'
         country:
           type: string
           example: Morocco

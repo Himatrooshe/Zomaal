@@ -7,6 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
+import { AuthTokensService } from './auth-tokens.service';
 import { hashRefreshToken } from './refresh-token-hash.util';
 
 type PrismaStub = {
@@ -36,6 +37,11 @@ function build() {
     configService as never,
     otpProvider,
     rateLimit as never,
+    new AuthTokensService(
+      prisma as never,
+      jwtService as never,
+      configService as never,
+    ),
   );
 
   return { service, prisma, jwtService, configService, otpProvider };
@@ -59,6 +65,7 @@ function buildWithRealJwt() {
     configService as never,
     otpProvider,
     { assert: jest.fn(), clear: jest.fn() } as never,
+    new AuthTokensService(prisma as never, jwtService, configService as never),
   );
   return { service, prisma, jwtService, otpProvider };
 }
@@ -133,6 +140,84 @@ describe('AuthService.login rememberMe', () => {
     }>(rotated.refreshToken);
     expect(rotatedPayload.exp - rotatedPayload.iat).toBe(30 * 24 * 3600);
     expect(rotatedPayload.rm).toBe(true);
+  });
+});
+
+describe('AuthService remember-me access token', () => {
+  it('marks the access token so later token reissues keep the 30-day session', async () => {
+    const { service, prisma, jwtService } = buildWithRealJwt();
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      phone: SYNTHETIC_PHONE,
+      passwordHash: await bcrypt.hash('Password123', 4),
+      onboardingComplete: true,
+      staffMembership: null,
+    });
+
+    const remembered = await service.login({
+      phone: SYNTHETIC_PHONE,
+      password: 'Password123',
+      rememberMe: true,
+    });
+    const plain = await service.login({
+      phone: SYNTHETIC_PHONE,
+      password: 'Password123',
+    });
+
+    expect(jwtService.decode<{ rm?: boolean }>(remembered.accessToken).rm).toBe(
+      true,
+    );
+    expect(
+      jwtService.decode<{ rm?: boolean }>(plain.accessToken).rm,
+    ).toBeUndefined();
+  });
+});
+
+describe('AuthService.verifyOtp hasPassword', () => {
+  it('reports no password for a brand-new OTP sign-up', async () => {
+    const { service, prisma, otpProvider } = build();
+    otpProvider.verifyOtp.mockResolvedValue(true);
+    prisma.user.findUnique.mockResolvedValue(null);
+    (prisma.user as unknown as { create: jest.Mock }).create = jest
+      .fn()
+      .mockResolvedValue({
+        id: 'user-1',
+        phone: SYNTHETIC_PHONE,
+        passwordHash: null,
+        onboardingComplete: false,
+      });
+
+    const result = await service.verifyOtp({
+      phone: SYNTHETIC_PHONE,
+      otp: '123456',
+    });
+
+    expect(result).toMatchObject({
+      isProfileCompleted: false,
+      hasPassword: false,
+    });
+  });
+
+  it('reports a password for a returning user who set one but has no store yet', async () => {
+    const { service, prisma, otpProvider } = build();
+    otpProvider.verifyOtp.mockResolvedValue(true);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      phone: SYNTHETIC_PHONE,
+      passwordHash: 'stored-hash',
+      onboardingComplete: false,
+      isPhoneVerified: true,
+    });
+
+    const result = await service.verifyOtp({
+      phone: SYNTHETIC_PHONE,
+      otp: '123456',
+    });
+
+    expect(result).toMatchObject({
+      isProfileCompleted: false,
+      hasPassword: true,
+    });
   });
 });
 
@@ -337,7 +422,7 @@ describe('AuthService.requestPhoneChange', () => {
   it('rejects a phone number already used by another account', async () => {
     const { service, prisma, otpProvider } = build();
     prisma.user.findUnique
-      .mockResolvedValueOnce({ id: 'user-1', phone: '+212600000001' })
+      .mockResolvedValueOnce({ id: 'user-1', phone: '+212611111111' })
       .mockResolvedValueOnce({ id: 'user-2', phone: '+212612345678' });
 
     await expect(
@@ -352,7 +437,7 @@ describe('AuthService.requestPhoneChange', () => {
   it('sends an OTP to the new phone number', async () => {
     const { service, prisma, otpProvider } = build();
     prisma.user.findUnique
-      .mockResolvedValueOnce({ id: 'user-1', phone: '+212600000001' })
+      .mockResolvedValueOnce({ id: 'user-1', phone: '+212611111111' })
       .mockResolvedValueOnce(null);
 
     const result = await service.requestPhoneChange('user-1', {
@@ -398,7 +483,7 @@ describe('AuthService.confirmPhoneChange', () => {
     prisma.user.findUnique
       .mockResolvedValueOnce({
         id: 'user-1',
-        phone: '+212600000001',
+        phone: '+212611111111',
         onboardingComplete: true,
       })
       .mockResolvedValueOnce({ id: 'user-2', phone: '+212612345678' });
@@ -418,7 +503,7 @@ describe('AuthService.confirmPhoneChange', () => {
     prisma.user.findUnique
       .mockResolvedValueOnce({
         id: 'user-1',
-        phone: '+212600000001',
+        phone: '+212611111111',
         onboardingComplete: true,
       })
       .mockResolvedValueOnce(null);
@@ -438,6 +523,7 @@ describe('AuthService.confirmPhoneChange', () => {
       accessToken: 'signed-token',
       refreshToken: 'signed-token',
       isProfileCompleted: true,
+      hasPassword: true,
     });
   });
 });

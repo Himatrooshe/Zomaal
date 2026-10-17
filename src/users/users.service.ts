@@ -9,6 +9,7 @@ import {
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthTokensService } from '../auth/auth-tokens.service';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ACCOUNT_DELETION_GRACE_DAYS } from '../billing/plan-features';
@@ -27,7 +28,10 @@ type UserWithProfileRelations = Prisma.UserGetPayload<{
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tokens: AuthTokensService,
+  ) {}
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -116,7 +120,13 @@ export class UsersService {
     return this.getProfile(userId);
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto) {
+  // Signs out every other device and returns a new token pair so this device
+  // stays logged in (keeps its "Remember me" lifetime).
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    rememberMe = false,
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
@@ -153,8 +163,9 @@ export class UsersService {
       where: { id: userId },
       data: { passwordHash, hashedRefreshToken: null },
     });
+    const tokens = await this.tokens.issue(user.id, user.phone, rememberMe);
 
-    return { message: 'Password updated successfully' };
+    return { message: 'Password updated successfully', ...tokens };
   }
 
   /**
@@ -241,8 +252,8 @@ export class UsersService {
   }
 
   private toProfileResponse(user: UserWithProfileRelations) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       hashedRefreshToken,
       passwordHash,
       staffMembership,
@@ -260,6 +271,7 @@ export class UsersService {
 
     return {
       ...result,
+      hasPassword: passwordHash !== null,
       name: current?.ownerName ?? staffMembership?.name ?? null,
       photoUrl: current?.ownerPhotoUrl ?? staffMembership?.photoUrl ?? null,
       address: current?.address ?? staffMembership?.address ?? null,
