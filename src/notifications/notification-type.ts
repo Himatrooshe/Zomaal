@@ -13,6 +13,8 @@ export const NotificationType = {
   TRIAL_ENDING: 'TRIAL_ENDING',
   SUBSCRIPTION_ENDING: 'SUBSCRIPTION_ENDING',
   SUBSCRIPTION_EXPIRED: 'SUBSCRIPTION_EXPIRED',
+  WHATSAPP_BALANCE_LOW: 'WHATSAPP_BALANCE_LOW',
+  WHATSAPP_DISCONNECTED: 'WHATSAPP_DISCONNECTED',
 } as const;
 
 export type NotificationType =
@@ -86,6 +88,16 @@ export const NOTIFICATION_DEFINITIONS: Record<
   SUBSCRIPTION_EXPIRED: {
     severity: NotificationSeverity.CRITICAL,
     category: NotificationCategory.BILLING,
+    audiencePermission: null,
+  },
+  WHATSAPP_BALANCE_LOW: {
+    severity: NotificationSeverity.WARNING,
+    category: NotificationCategory.INTEGRATIONS,
+    audiencePermission: null,
+  },
+  WHATSAPP_DISCONNECTED: {
+    severity: NotificationSeverity.CRITICAL,
+    category: NotificationCategory.INTEGRATIONS,
     audiencePermission: null,
   },
 };

@@ -30,9 +30,9 @@ model User {
   // is the one the rest of the app currently acts on. StoreAccessService
   // resolves whichever applies; nothing else should reach for these directly.
   staffMembership            StaffMember?
-  stores                     Store[]  @relation("OwnedStores")
+  stores                     Store[]                     @relation("OwnedStores")
   activeStoreId              String?
-  activeStore                Store?   @relation("ActiveStore", fields: [activeStoreId], references: [id], onDelete: SetNull)
+  activeStore                Store?                      @relation("ActiveStore", fields: [activeStoreId], references: [id], onDelete: SetNull)
   senditConnection           SenditConnection?
   quickLivraisonConnection   QuickLivraisonConnection?
   forceLogConnection         ForceLogConnection?
@@ -873,9 +873,9 @@ model Store {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  userId String
+  userId         String
   // Cascade so deleting a User who owns stores tears them down.
-  user   User   @relation("OwnedStores", fields: [userId], references: [id], onDelete: Cascade)
+  user           User   @relation("OwnedStores", fields: [userId], references: [id], onDelete: Cascade)
   // Users who currently have this store selected in Settings.
   activeForUsers User[] @relation("ActiveStore")
 
@@ -907,6 +907,11 @@ model Store {
   shopOrders              ShopOrder[]
   purchases               MerchantPurchase[]
   notifications           Notification[]
+  whatsAppConnection      WhatsAppConnection?
+  whatsAppTemplates       WhatsAppTemplate[]
+  whatsAppStatusSettings  WhatsAppStatusSetting[]
+  whatsAppMessages        WhatsAppMessage[]
+  whatsAppBalanceEntries  WhatsAppBalanceEntry[]
 
   @@index([userId])
 }
@@ -1016,13 +1021,14 @@ model EcommerceOrder {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  connectionId    String
-  connection      EcommerceConnection            @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  dispatch        EcommerceOrderDispatch?
-  events          EcommerceOrderEvent[]
-  lines           EcommerceOrderLine[]
-  financialEvents EcommerceOrderFinancialEvent[]
-  returnRequests  ReturnRequest[]
+  connectionId     String
+  connection       EcommerceConnection            @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  dispatch         EcommerceOrderDispatch?
+  events           EcommerceOrderEvent[]
+  lines            EcommerceOrderLine[]
+  financialEvents  EcommerceOrderFinancialEvent[]
+  returnRequests   ReturnRequest[]
+  whatsAppMessages WhatsAppMessage[]
 
   // Nullable: set at sync/creation time once the customer is resolved by
   // phone. Null for orders synced before this field existed, until a
@@ -1087,7 +1093,7 @@ model EcommerceOrderLine {
   // Recorded by the warehouse scan-and-condition workflow when a shipment
   // comes back. GOOD | DAMAGED | LOST | RETURNED | MISSING. Null until scanned.
   condition           String?
-  damageCost          Decimal?  @db.Decimal(20, 4)
+  damageCost          Decimal?              @db.Decimal(20, 4)
   conditionNotes      String?
   conditionRecordedAt DateTime?
   // Where this line's units are in the order-driven stock flow: reserved at
@@ -2102,14 +2108,14 @@ enum SalaryPaymentStatus {
 // to run on a schedule to keep it truthful (same approach as ReturnRequest's
 // DELAYED).
 model StaffSalaryPayment {
-  id            String              @id @default(uuid())
-  amount        Decimal             @db.Decimal(20, 4)
-  paymentDate   DateTime
-  paidAt        DateTime?
-  paymentMethod SalaryPaymentMethod
-  status        SalaryPaymentStatus @default(PENDING)
-  notes         String?
-  receiptUrl    String?
+  id              String                @id @default(uuid())
+  amount          Decimal               @db.Decimal(20, 4)
+  paymentDate     DateTime
+  paidAt          DateTime?
+  paymentMethod   SalaryPaymentMethod
+  status          SalaryPaymentStatus   @default(PENDING)
+  notes           String?
+  receiptUrl      String?
   // Snapshot the agreement when the obligation is created; profile edits
   // must never change historical obligations or their expense handling.
   expenseHandling SalaryExpenseHandling @default(AUTOMATIC)
@@ -2121,8 +2127,8 @@ model StaffSalaryPayment {
   // Actor IDs are retained as audit snapshots, including after an account is removed.
   createdByUserId String?
   paidByUserId    String?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
 
   staffMemberId String
   staffMember   StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
@@ -2134,10 +2140,10 @@ model StaffSalaryPayment {
 
   receiptMedia MediaAsset?
 
-  @@index([staffMemberId, paymentDate])
-  @@index([status, paymentDate])
   @@unique([staffMemberId, scheduledFor])
   @@unique([staffMemberId, idempotencyKey])
+  @@index([staffMemberId, paymentDate])
+  @@index([status, paymentDate])
 }
 
 // ============================================================================
@@ -2422,4 +2428,162 @@ model RateLimitBucket {
   expiresAt DateTime
 
   @@index([expiresAt])
+}
+
+// ============================================================================
+// WhatsApp automation — the merchant connects their own WhatsApp Business
+// number (Meta Cloud API, Embedded Signup). Courier status changes queue
+// template messages to the customer; each sent message is charged from a
+// prepaid balance that Zomaal admin credits.
+// ============================================================================
+
+enum WhatsAppConnectionStatus {
+  ACTIVE
+  DISCONNECTED
+  REAUTHORIZATION_REQUIRED
+}
+
+model WhatsAppConnection {
+  id                       String                   @id @default(uuid())
+  wabaId                   String
+  phoneNumberId            String
+  displayPhoneNumber       String?
+  verifiedName             String?
+  encryptedAccessToken     String?
+  accessTokenExpiresAt     DateTime?
+  // Two-step verification PIN set when registering the number on Cloud API.
+  encryptedRegistrationPin String?
+  status                   WhatsAppConnectionStatus @default(ACTIVE)
+  // Template language for every customer of this store: en | ar | fr.
+  language                 String                   @default("fr")
+  lastError                String?
+  connectedAt              DateTime                 @default(now())
+  disconnectedAt           DateTime?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+
+  storeId String @unique
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([phoneNumberId])
+  @@index([wabaId])
+}
+
+// Zomaal's pre-approved template, provisioned into the merchant's WhatsApp
+// Business account. Meta approves each name + language separately.
+model WhatsAppTemplate {
+  id             String                 @id @default(uuid())
+  trigger        ShippingShipmentStatus
+  name           String
+  language       String
+  // PENDING | APPROVED | REJECTED | PAUSED | DISABLED | NOT_SUBMITTED
+  status         String                 @default("NOT_SUBMITTED")
+  metaTemplateId String?
+  rejectedReason String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, name, language])
+  @@index([metaTemplateId])
+}
+
+model WhatsAppStatusSetting {
+  id           String                 @id @default(uuid())
+  trigger      ShippingShipmentStatus
+  enabled      Boolean                @default(false)
+  delayMinutes Int                    @default(0)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, trigger])
+}
+
+enum WhatsAppMessageStatus {
+  SCHEDULED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  SKIPPED
+}
+
+model WhatsAppMessage {
+  id                String                 @id @default(uuid())
+  trigger           ShippingShipmentStatus
+  templateName      String
+  language          String
+  recipientPhone    String
+  // Template variables in order: customer name, order number, store name.
+  variables         Json
+  status            WhatsAppMessageStatus  @default(SCHEDULED)
+  sendAfter         DateTime
+  // Send attempts; transient Meta errors are retried a few times.
+  attempts          Int                    @default(0)
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  providerMessageId String?                @unique
+  // Why it failed or was skipped, e.g. INSUFFICIENT_BALANCE, STATUS_CHANGED.
+  errorCode         String?
+  errorMessage      String?
+  cost              Decimal?               @db.Decimal(20, 4)
+  currency          String
+  // `${orderId}:${trigger}` — one message per order per courier status.
+  idempotencyKey    String
+  rawPayload        Json?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  storeId String
+  store   Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orderId String?
+  order   EcommerceOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([storeId, idempotencyKey])
+  @@index([status, sendAfter])
+  @@index([storeId, createdAt])
+  @@index([storeId, status, createdAt])
+}
+
+enum WhatsAppBalanceEntryType {
+  TOP_UP
+  MESSAGE
+  REFUND
+  ADJUSTMENT
+}
+
+// Append-only ledger; the balance is the sum of `amount` (credits positive,
+// message charges negative).
+model WhatsAppBalanceEntry {
+  id                String                   @id @default(uuid())
+  type              WhatsAppBalanceEntryType
+  amount            Decimal                  @db.Decimal(20, 4)
+  currency          String
+  note              String?
+  idempotencyKey    String
+  recordedByAdminId String?
+  createdAt         DateTime                 @default(now())
+
+  storeId   String
+  store     Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  messageId String?
+
+  @@unique([storeId, idempotencyKey])
+  @@index([storeId, createdAt])
+}
+
+// Price Zomaal charges per sent message, per store currency.
+model WhatsAppPricing {
+  currency         String   @id
+  pricePerMessage  Decimal  @db.Decimal(20, 4)
+  updatedByAdminId String?
+  updatedAt        DateTime @updatedAt
 }

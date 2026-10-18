@@ -11,6 +11,7 @@ import {
 import { resolvePackagingUnitCosts } from '../warehouse/packaging-cost.util';
 import { OrderEventType } from './constants/order-event-type';
 import { refreshCodStatus } from './cod-status.util';
+import { WhatsAppTriggerService } from '../whatsapp/whatsapp-trigger.service';
 import {
   deriveTerminalOutcome,
   TERMINAL_FAILURE_EVENT_TYPES,
@@ -32,6 +33,15 @@ const SHIPPED_FAILURE_EVENT_TYPES = new Set<string>([
   OrderEventType.DELIVERY_FAILED,
   OrderEventType.RETURNED,
 ]);
+
+const SHIPMENT_SYNC_SELECT = {
+  normalizedStatus: true,
+  fee: true,
+  recipientPhone: true,
+  recipientName: true,
+  lastActionAt: true,
+  providerUpdatedAt: true,
+} as const;
 
 const REVENUE_RECOGNIZED_KEY = 'revenue-recognized';
 const REVENUE_REVERSED_KEY = 'revenue-reversed';
@@ -62,7 +72,34 @@ export class EcommerceOrderFinancialService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orderStock: OrderStockService,
+    private readonly whatsAppTrigger: WhatsAppTriggerService,
   ) {}
+
+  /** Customer message for the new courier status; never blocks the ledger. */
+  private async queueWhatsApp(
+    orderId: string,
+    shipment: {
+      normalizedStatus: ShippingShipmentStatus;
+      recipientPhone: string | null;
+      recipientName: string | null;
+      lastActionAt: Date | null;
+      providerUpdatedAt: Date | null;
+    },
+  ): Promise<void> {
+    try {
+      await this.whatsAppTrigger.onShipmentStatus({
+        orderId,
+        status: shipment.normalizedStatus,
+        statusChangedAt: shipment.lastActionAt ?? shipment.providerUpdatedAt,
+        recipientPhone: shipment.recipientPhone,
+        recipientName: shipment.recipientName,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `WhatsApp queue failed for order ${orderId}: ${(err as Error).message}`,
+      );
+    }
+  }
 
   /** Stock follows the same carrier outcome; a failure must not undo the ledger write. */
   private async syncStock(
@@ -327,14 +364,10 @@ export class EcommerceOrderFinancialService {
         order: {
           include: { lines: { include: ORDER_LINE_STOCK_INCLUDE } },
         },
-        senditShipment: { select: { normalizedStatus: true, fee: true } },
-        quickLivraisonShipment: {
-          select: { normalizedStatus: true, fee: true },
-        },
-        forceLogShipment: { select: { normalizedStatus: true, fee: true } },
-        ozoneExpressShipment: {
-          select: { normalizedStatus: true, fee: true },
-        },
+        senditShipment: { select: SHIPMENT_SYNC_SELECT },
+        quickLivraisonShipment: { select: SHIPMENT_SYNC_SELECT },
+        forceLogShipment: { select: SHIPMENT_SYNC_SELECT },
+        ozoneExpressShipment: { select: SHIPMENT_SYNC_SELECT },
       },
     });
     if (!dispatch) {
@@ -346,6 +379,7 @@ export class EcommerceOrderFinancialService {
       return { applied: false, reason: 'NO_CARRIER_STATUS_YET' as SyncReason };
     }
     await this.syncCodStatus(dispatch.order.id);
+    await this.queueWhatsApp(dispatch.order.id, shipment);
 
     if (shipment.normalizedStatus === ShippingShipmentStatus.DELIVERED) {
       const event = await this.applyRevenueRecognition(

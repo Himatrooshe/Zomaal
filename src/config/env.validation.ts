@@ -165,6 +165,42 @@ export function validateEnvironment(
   if (googleAdsApiVersion && !/^v\d{2,3}$/.test(googleAdsApiVersion))
     errors.push('GOOGLE_ADS_API_VERSION must look like v25');
 
+  const whatsAppEnabled = asString(config.WHATSAPP_ENABLED) || 'false';
+  if (!['true', 'false'].includes(whatsAppEnabled))
+    errors.push('WHATSAPP_ENABLED must be true or false');
+  if (whatsAppEnabled === 'true') {
+    for (const key of [
+      'META_APP_ID',
+      'META_APP_SECRET',
+      'META_WHATSAPP_CONFIG_ID',
+      'META_WHATSAPP_WEBHOOK_VERIFY_TOKEN',
+    ]) {
+      if (!asString(config[key]))
+        errors.push(`${key} is required when WHATSAPP_ENABLED=true`);
+    }
+    const whatsAppKey = asString(config.WHATSAPP_TOKEN_ENCRYPTION_KEY);
+    if (Buffer.from(whatsAppKey, 'base64').length !== 32)
+      errors.push(
+        'WHATSAPP_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key when WHATSAPP_ENABLED=true',
+      );
+  }
+  const metaGraphApiVersion = asString(config.META_GRAPH_API_VERSION);
+  if (metaGraphApiVersion && !/^v\d{2,3}\.\d$/.test(metaGraphApiVersion))
+    errors.push('META_GRAPH_API_VERSION must look like v21.0');
+
+  const whatsAppSchedulerEnabled =
+    asString(config.WHATSAPP_SCHEDULER_ENABLED) || 'false';
+  const whatsAppSchedulerSecret = asString(config.WHATSAPP_SCHEDULER_SECRET);
+  if (!['true', 'false'].includes(whatsAppSchedulerEnabled))
+    errors.push('WHATSAPP_SCHEDULER_ENABLED must be true or false');
+  if (
+    whatsAppSchedulerEnabled === 'true' &&
+    whatsAppSchedulerSecret.length < 32
+  )
+    errors.push(
+      'WHATSAPP_SCHEDULER_SECRET must be at least 32 characters when WhatsApp dispatch is enabled',
+    );
+
   const billingCheckoutUrl = asString(config.BILLING_CHECKOUT_URL);
   if (billingCheckoutUrl && !/^https:\/\/\S+$/.test(billingCheckoutUrl))
     errors.push('BILLING_CHECKOUT_URL must be an https:// URL');

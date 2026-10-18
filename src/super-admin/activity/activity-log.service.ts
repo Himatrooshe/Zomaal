@@ -14,6 +14,8 @@ export const ActivityEntity = {
   SHOP_SETTINGS: 'SHOP_SETTINGS',
   PLAN: 'PLAN',
   SUBSCRIPTION: 'SUBSCRIPTION',
+  WHATSAPP_PRICING: 'WHATSAPP_PRICING',
+  WHATSAPP_BALANCE: 'WHATSAPP_BALANCE',
 } as const;
 export type ActivityEntity =
   (typeof ActivityEntity)[keyof typeof ActivityEntity];

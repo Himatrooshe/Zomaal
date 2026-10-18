@@ -2,6 +2,7 @@ import { Prisma, ShippingShipmentStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
 import type { OrderStockService } from './order-stock.service';
+import type { WhatsAppTriggerService } from '../whatsapp/whatsapp-trigger.service';
 
 type StoredEvent = Record<string, Prisma.Decimal | string>;
 
@@ -53,6 +54,10 @@ function setup(status: ShippingShipmentStatus) {
         senditShipment: {
           normalizedStatus: status,
           fee: new Prisma.Decimal(30),
+          recipientPhone: '0600000001',
+          recipientName: 'Test Recipient',
+          lastActionAt: new Date('2026-01-01T10:00:00Z'),
+          providerUpdatedAt: null,
         },
         quickLivraisonShipment: null,
         forceLogShipment: null,
@@ -102,14 +107,45 @@ function setup(status: ShippingShipmentStatus) {
     deliverOrder: jest.fn().mockResolvedValue(undefined),
     releaseOrder: jest.fn().mockResolvedValue(undefined),
   };
+  const whatsAppTrigger = {
+    onShipmentStatus: jest.fn().mockResolvedValue('NOT_CONNECTED'),
+  };
   const service = new EcommerceOrderFinancialService(
     prisma as unknown as PrismaService,
     orderStock as unknown as OrderStockService,
+    whatsAppTrigger as unknown as WhatsAppTriggerService,
   );
-  return { service, prisma, events, orderStock };
+  return { service, prisma, events, orderStock, whatsAppTrigger };
 }
 
 describe('EcommerceOrderFinancialService', () => {
+  it('hands the courier status to the WhatsApp trigger', async () => {
+    const { service, whatsAppTrigger } = setup(
+      ShippingShipmentStatus.OUT_FOR_DELIVERY,
+    );
+
+    await service.syncFromDispatchId('dispatch-1');
+
+    expect(whatsAppTrigger.onShipmentStatus).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      status: ShippingShipmentStatus.OUT_FOR_DELIVERY,
+      statusChangedAt: new Date('2026-01-01T10:00:00Z'),
+      recipientPhone: '0600000001',
+      recipientName: 'Test Recipient',
+    });
+  });
+
+  it('keeps the ledger working when the WhatsApp trigger throws', async () => {
+    const { service, whatsAppTrigger, events } = setup(
+      ShippingShipmentStatus.DELIVERED,
+    );
+    whatsAppTrigger.onShipmentStatus.mockRejectedValue(new Error('boom'));
+
+    await service.syncFromDispatchId('dispatch-1');
+
+    expect(events.get('revenue-recognized')).toBeDefined();
+  });
+
   it('counts gift and packaging cost in net profit at delivery', async () => {
     const { service, events, orderStock } = setup(
       ShippingShipmentStatus.DELIVERED,
@@ -264,6 +300,7 @@ describe('EcommerceOrderFinancialService', () => {
     const service = new EcommerceOrderFinancialService(
       prisma as unknown as PrismaService,
       {} as OrderStockService,
+      {} as WhatsAppTriggerService,
     );
     const at = (ms: number) => new Date(ms);
 

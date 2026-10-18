@@ -24,12 +24,15 @@ import { ShopOrdersAdminService } from './shop/shop-orders-admin.service';
 import { ShopStorefrontAdminController } from './shop/shop-storefront-admin.controller';
 import { AdminBillingController } from './billing/admin-billing.controller';
 import { BillingModule } from '../billing/billing.module';
+import { WhatsAppModule } from '../whatsapp/whatsapp.module';
+import { AdminWhatsAppController } from './whatsapp/admin-whatsapp.controller';
 
 @Module({
   imports: [
     PassportModule,
     ZomaalShopModule,
     BillingModule,
+    WhatsAppModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -52,6 +55,7 @@ import { BillingModule } from '../billing/billing.module';
     PlatformController,
     ShopStorefrontAdminController,
     AdminBillingController,
+    AdminWhatsAppController,
   ],
   providers: [
     SuperAdminAuthService,

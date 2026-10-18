@@ -15281,6 +15281,8 @@ paths:
               - SHOP_SETTINGS
               - PLAN
               - SUBSCRIPTION
+              - WHATSAPP_PRICING
+              - WHATSAPP_BALANCE
       responses:
         '200':
           description: ''
@@ -16164,6 +16166,164 @@ paths:
       summary: Give a merchant extra free-trial days
       tags:
         - Admin Billing
+  /admin/whatsapp/pricing:
+    get:
+      operationId: AdminWhatsApp_listPricing
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WhatsAppPricingDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Zomaal price per WhatsApp message, per currency
+      tags:
+        - Admin WhatsApp
+  /admin/whatsapp/pricing/{currency}:
+    put:
+      description: Applies to messages sent from now on. Stores are charged in their base currency; no price for a currency means its messages fail with PRICING_NOT_SET.
+      operationId: AdminWhatsApp_setPricing
+      parameters:
+        - name: currency
+          required: true
+          in: path
+          schema:
+            example: MAD
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetWhatsAppPricingDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppPricingDto'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Set the price per message for a currency
+      tags:
+        - Admin WhatsApp
+  /admin/stores/{storeId}/whatsapp/balance:
+    get:
+      operationId: AdminWhatsApp_history
+      parameters:
+        - name: storeId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppBalanceHistoryResponseDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: A store's WhatsApp balance and ledger
+      tags:
+        - Admin WhatsApp
+    post:
+      description: Record a payment received outside the app. Amounts are in the store base currency. Retrying with the same idempotencyKey returns the original entry.
+      operationId: AdminWhatsApp_credit
+      parameters:
+        - name: storeId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminWhatsAppCreditDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminWhatsAppCreditResponseDto'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Credit (or adjust) a store’s WhatsApp balance
+      tags:
+        - Admin WhatsApp
   /shop/home:
     get:
       operationId: Shop_home
@@ -17407,6 +17567,584 @@ paths:
       summary: Stop push on this device (call on logout)
       tags:
         - Notifications
+  /whatsapp/config:
+    get:
+      description: 'Use appId + graphApiVersion for FB.init and configId for FB.login({ config_id, response_type: "code", override_default_response_type: true }). enabled=false hides the feature.'
+      operationId: WhatsApp_config
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppConfigResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Embedded Signup settings for the Connect WhatsApp button
+      tags:
+        - WhatsApp
+  /whatsapp/connection:
+    get:
+      operationId: WhatsApp_getConnection
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppConnectionResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: The store's WhatsApp number connection
+      tags:
+        - WhatsApp
+    patch:
+      operationId: WhatsApp_updateConnection
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWhatsAppConnectionDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppConnectionResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Change the language of customer messages
+      tags:
+        - WhatsApp
+    delete:
+      description: Unsubscribes the WABA, deletes the stored token and cancels scheduled messages. The balance is kept.
+      operationId: WhatsApp_disconnect
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppDisconnectResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Disconnect WhatsApp
+      tags:
+        - WhatsApp
+  /whatsapp/connect:
+    post:
+      description: Exchanges the code, checks the number belongs to the WABA, subscribes the WABA to Zomaal webhooks, registers the number for Cloud API, and submits Zomaal message templates (8 statuses × en/ar/fr) to Meta for approval. Reconnecting replaces the previous number.
+      operationId: WhatsApp_connect
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectWhatsAppDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppConnectResponseDto'
+        '400':
+          description: Phone number is not in that WABA, or invalid body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Number already connected to another store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '502':
+          description: Meta rejected the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: WhatsApp is not enabled on the server, or Meta is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Finish Embedded Signup and connect the merchant number
+      tags:
+        - WhatsApp
+  /whatsapp/status-settings:
+    get:
+      operationId: WhatsApp_listStatusSettings
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppStatusSettingsResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Which courier statuses send a message, and after what delay
+      tags:
+        - WhatsApp
+  /whatsapp/status-settings/{trigger}:
+    put:
+      operationId: WhatsApp_updateStatusSetting
+      parameters:
+        - name: trigger
+          required: true
+          in: path
+          schema:
+            enum:
+              - PICKED_UP
+              - AT_WAREHOUSE
+              - IN_TRANSIT
+              - OUT_FOR_DELIVERY
+              - POSTPONED
+              - CANCELLED
+              - REFUSED
+              - DELIVERED
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStatusSettingDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppStatusSettingDto'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Turn one status message on/off or change its delay
+      tags:
+        - WhatsApp
+  /whatsapp/templates:
+    get:
+      operationId: WhatsApp_listTemplates
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppTemplatesResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Zomaal templates with text and Meta approval status
+      tags:
+        - WhatsApp
+  /whatsapp/templates/sync:
+    post:
+      operationId: WhatsApp_syncTemplates
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateProvisionSummaryDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Not connected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Resubmit missing templates and refresh approval statuses from Meta
+      tags:
+        - WhatsApp
+  /whatsapp/dashboard:
+    get:
+      operationId: WhatsApp_dashboard
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppDashboardResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Balance, price per message and today’s counts
+      tags:
+        - WhatsApp
+  /whatsapp/balance/history:
+    get:
+      operationId: WhatsApp_balanceHistory
+      parameters:
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppBalanceHistoryResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Balance ledger: top-ups, message charges, refunds'
+      tags:
+        - WhatsApp
+  /whatsapp/messages:
+    get:
+      operationId: WhatsApp_messages
+      parameters:
+        - name: status
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - SCHEDULED
+              - SENDING
+              - SENT
+              - DELIVERED
+              - READ
+              - FAILED
+              - SKIPPED
+        - name: trigger
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - PICKED_UP
+              - AT_WAREHOUSE
+              - IN_TRANSIT
+              - OUT_FOR_DELIVERY
+              - POSTPONED
+              - CANCELLED
+              - REFUSED
+              - DELIVERED
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppMessagesResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Message log, newest first
+      tags:
+        - WhatsApp
+  /whatsapp/analytics:
+    get:
+      operationId: WhatsApp_analytics
+      parameters:
+        - name: from
+          required: false
+          in: query
+          description: ISO 8601 start (inclusive). Defaults to 30 days before `to`.
+          schema:
+            type: string
+        - name: to
+          required: false
+          in: query
+          description: ISO 8601 end (exclusive). Defaults to now.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppAnalyticsResponseDto'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Caller is not the store owner, or the plan has no WhatsApp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Sent / delivered / read / failed and cost over a range
+      tags:
+        - WhatsApp
+  /webhooks/whatsapp:
+    get:
+      description: Meta calls this when the callback URL is saved in the app dashboard; returns hub.challenge when hub.verify_token matches.
+      operationId: WhatsAppWebhook_verify
+      parameters:
+        - name: hub.mode
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: hub.verify_token
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: hub.challenge
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The hub.challenge value, as plain text.
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Meta webhook verification handshake
+      tags:
+        - WhatsApp Webhooks
+    post:
+      description: Message delivery statuses, template approval updates and account updates. X-Hub-Signature-256 is verified against the raw body with the Meta app secret.
+      operationId: WhatsAppWebhook_handle
+      parameters:
+        - name: x-hub-signature-256
+          required: true
+          in: header
+          schema:
+            type: string
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Verified and acknowledged.
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Receive WhatsApp Cloud API webhooks
+      tags:
+        - WhatsApp Webhooks
   /billing/plans:
     get:
       operationId: Billing_plans
@@ -30227,6 +30965,141 @@ components:
           maximum: 90
       required:
         - days
+    WhatsAppPricingDto:
+      type: object
+      properties:
+        currency:
+          type: string
+          example: MAD
+        pricePerMessage:
+          type: string
+          example: '0.00'
+        updatedAt:
+          type: string
+      required:
+        - currency
+        - pricePerMessage
+        - updatedAt
+    SetWhatsAppPricingDto:
+      type: object
+      properties:
+        pricePerMessage:
+          type: string
+          description: Zomaal fee per sent message, at most 2 decimals.
+          example: '0.50'
+      required:
+        - pricePerMessage
+    WhatsAppBalanceEntryDto:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum:
+            - TOP_UP
+            - MESSAGE
+            - REFUND
+            - ADJUSTMENT
+        amount:
+          type: string
+          description: 'Signed: negative for message charges.'
+          example: '0.00'
+        currency:
+          type: string
+        note:
+          type: string
+          nullable: true
+        messageId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - type
+        - amount
+        - currency
+        - note
+        - messageId
+        - createdAt
+    PageMetaDto:
+      type: object
+      properties:
+        page:
+          type: number
+        limit:
+          type: number
+        total:
+          type: number
+        totalPages:
+          type: number
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+    WhatsAppBalanceHistoryResponseDto:
+      type: object
+      properties:
+        balance:
+          type: string
+          example: '0.00'
+        currency:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/WhatsAppBalanceEntryDto'
+        meta:
+          $ref: '#/components/schemas/PageMetaDto'
+      required:
+        - balance
+        - currency
+        - data
+        - meta
+    AdminWhatsAppCreditDto:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - TOP_UP
+            - ADJUSTMENT
+          description: TOP_UP adds paid credit. ADJUSTMENT corrects the balance and may be negative.
+        amount:
+          type: string
+          description: Amount in the store's base currency, up to 2 decimals.
+          example: '100.00'
+        note:
+          type: string
+          maxLength: 500
+        idempotencyKey:
+          type: string
+          description: Client-generated key (e.g. a UUID). Retrying with the same key never credits twice.
+          example: c0a8012e-7f3b-4f43-9d1e-2b8f5e6a9c10
+      required:
+        - type
+        - amount
+        - idempotencyKey
+    AdminWhatsAppCreditResponseDto:
+      type: object
+      properties:
+        entry:
+          $ref: '#/components/schemas/WhatsAppBalanceEntryDto'
+        balance:
+          type: string
+          example: '0.00'
+        currency:
+          type: string
+        replayed:
+          type: boolean
+          description: True when this idempotencyKey was already used.
+      required:
+        - entry
+        - balance
+        - currency
+        - replayed
     AddCartItemDto:
       type: object
       properties:
@@ -30452,6 +31325,8 @@ components:
             - TRIAL_ENDING
             - SUBSCRIPTION_ENDING
             - SUBSCRIPTION_EXPIRED
+            - WHATSAPP_BALANCE_LOW
+            - WHATSAPP_DISCONNECTED
         severity:
           type: string
           enum:
@@ -30579,6 +31454,592 @@ components:
       required:
         - token
         - platform
+    WhatsAppConfigResponseDto:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        appId:
+          type: string
+          nullable: true
+          description: Meta app id for FB.init.
+        configId:
+          type: string
+          nullable: true
+          description: Embedded Signup configuration id for FB.login config_id.
+        graphApiVersion:
+          type: string
+          example: v21.0
+      required:
+        - enabled
+        - appId
+        - configId
+        - graphApiVersion
+    WhatsAppConnectionDetailDto:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISCONNECTED
+            - REAUTHORIZATION_REQUIRED
+        wabaId:
+          type: string
+        phoneNumberId:
+          type: string
+        displayPhoneNumber:
+          type: string
+          nullable: true
+        verifiedName:
+          type: string
+          nullable: true
+        language:
+          type: string
+          enum:
+            - en
+            - ar
+            - fr
+        lastError:
+          type: string
+          nullable: true
+        connectedAt:
+          type: string
+        disconnectedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - status
+        - wabaId
+        - phoneNumberId
+        - displayPhoneNumber
+        - verifiedName
+        - language
+        - lastError
+        - connectedAt
+        - disconnectedAt
+    WhatsAppConnectionResponseDto:
+      type: object
+      properties:
+        connected:
+          type: boolean
+          description: True only while the connection is ACTIVE.
+        connection:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/WhatsAppConnectionDetailDto'
+      required:
+        - connected
+        - connection
+    ConnectWhatsAppDto:
+      type: object
+      properties:
+        code:
+          type: string
+          description: One-time `code` from the Embedded Signup FB.login response (response_type=code).
+          example: your-embedded-signup-code
+        wabaId:
+          type: string
+          description: '`waba_id` from the WA_EMBEDDED_SIGNUP FINISH message event.'
+          example: '100000000000000'
+        phoneNumberId:
+          type: string
+          description: '`phone_number_id` from the WA_EMBEDDED_SIGNUP FINISH message event.'
+          example: '100000000000001'
+        language:
+          type: string
+          enum:
+            - en
+            - ar
+            - fr
+          description: Language of customer messages. Defaults to fr.
+      required:
+        - code
+        - wabaId
+        - phoneNumberId
+    TemplateProvisionSummaryDto:
+      type: object
+      properties:
+        total:
+          type: number
+        submitted:
+          type: number
+          description: Newly sent to Meta for approval.
+        failed:
+          type: number
+          description: Meta refused the submission; see templates list.
+      required:
+        - total
+        - submitted
+        - failed
+    WhatsAppConnectResponseDto:
+      type: object
+      properties:
+        connected:
+          type: boolean
+          description: True only while the connection is ACTIVE.
+        connection:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/WhatsAppConnectionDetailDto'
+        templates:
+          nullable: true
+          description: Null when Meta could not be reached; retry with POST /whatsapp/templates/sync.
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/TemplateProvisionSummaryDto'
+      required:
+        - connected
+        - connection
+        - templates
+    UpdateWhatsAppConnectionDto:
+      type: object
+      properties:
+        language:
+          type: string
+          enum:
+            - en
+            - ar
+            - fr
+      required:
+        - language
+    WhatsAppDisconnectResponseDto:
+      type: object
+      properties:
+        disconnected:
+          type: boolean
+        cancelledMessages:
+          type: number
+          description: Scheduled messages that were cancelled.
+      required:
+        - disconnected
+        - cancelledMessages
+    WhatsAppStatusSettingDto:
+      type: object
+      properties:
+        trigger:
+          type: string
+          enum:
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - CANCELLED
+            - REFUSED
+            - DELIVERED
+        enabled:
+          type: boolean
+        delayMinutes:
+          type: number
+        templateName:
+          type: string
+        templateStatus:
+          type: string
+          enum:
+            - NOT_SUBMITTED
+            - PENDING
+            - APPROVED
+            - REJECTED
+            - PAUSED
+            - DISABLED
+          description: Messages are only sent once Meta has APPROVED the template.
+        body:
+          type: string
+          description: Template text with {{1}} customer name, {{2}} order number, {{3}} store name.
+      required:
+        - trigger
+        - enabled
+        - delayMinutes
+        - templateName
+        - templateStatus
+        - body
+    WhatsAppStatusSettingsResponseDto:
+      type: object
+      properties:
+        language:
+          type: string
+          enum:
+            - en
+            - ar
+            - fr
+        variables:
+          example:
+            - customer_name
+            - order_number
+            - store_name
+          type: array
+          items:
+            type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/WhatsAppStatusSettingDto'
+      required:
+        - language
+        - variables
+        - data
+    UpdateStatusSettingDto:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Send this message automatically.
+        delayMinutes:
+          type: number
+          minimum: 0
+          maximum: 10080
+          description: Minutes to wait after the courier status changes. If the parcel moves on before then, the message is skipped.
+    WhatsAppTemplateDto:
+      type: object
+      properties:
+        trigger:
+          type: string
+          enum:
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - CANCELLED
+            - REFUSED
+            - DELIVERED
+        name:
+          type: string
+        language:
+          type: string
+          enum:
+            - en
+            - ar
+            - fr
+        body:
+          type: string
+        status:
+          type: string
+          enum:
+            - NOT_SUBMITTED
+            - PENDING
+            - APPROVED
+            - REJECTED
+            - PAUSED
+            - DISABLED
+        rejectedReason:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - trigger
+        - name
+        - language
+        - body
+        - status
+        - rejectedReason
+        - updatedAt
+    WhatsAppTemplatesResponseDto:
+      type: object
+      properties:
+        variables:
+          type: array
+          items:
+            type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/WhatsAppTemplateDto'
+      required:
+        - variables
+        - data
+    WhatsAppTodayDto:
+      type: object
+      properties:
+        sent:
+          type: number
+        delivered:
+          type: number
+        read:
+          type: number
+        failed:
+          type: number
+        cost:
+          type: string
+          example: '0.00'
+      required:
+        - sent
+        - delivered
+        - read
+        - failed
+        - cost
+    WhatsAppDashboardResponseDto:
+      type: object
+      properties:
+        connectionStatus:
+          type: string
+          enum:
+            - ACTIVE
+            - DISCONNECTED
+            - REAUTHORIZATION_REQUIRED
+          nullable: true
+        connected:
+          type: boolean
+        balance:
+          type: string
+          example: '0.00'
+        currency:
+          type: string
+        pricePerMessage:
+          type: string
+          nullable: true
+          description: Null until Zomaal sets a price for this currency.
+        messagesRemaining:
+          type: number
+          nullable: true
+        lowBalance:
+          type: boolean
+        scheduled:
+          type: number
+          description: Messages waiting for their delay.
+        today:
+          description: Since 00:00 UTC.
+          allOf:
+            - $ref: '#/components/schemas/WhatsAppTodayDto'
+      required:
+        - connectionStatus
+        - connected
+        - balance
+        - currency
+        - pricePerMessage
+        - messagesRemaining
+        - lowBalance
+        - scheduled
+        - today
+    WhatsAppMessageOrderDto:
+      type: object
+      properties:
+        id:
+          type: string
+        orderName:
+          type: string
+          nullable: true
+      required:
+        - id
+        - orderName
+    WhatsAppMessageDto:
+      type: object
+      properties:
+        id:
+          type: string
+        trigger:
+          type: string
+          enum:
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - CANCELLED
+            - REFUSED
+            - DELIVERED
+        status:
+          type: string
+          enum:
+            - SCHEDULED
+            - SENDING
+            - SENT
+            - DELIVERED
+            - READ
+            - FAILED
+            - SKIPPED
+        recipientPhone:
+          type: string
+          nullable: true
+        templateName:
+          type: string
+        language:
+          type: string
+        text:
+          type: string
+          nullable: true
+          description: Rendered message text.
+        order:
+          nullable: true
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/WhatsAppMessageOrderDto'
+        cost:
+          type: string
+          nullable: true
+        currency:
+          type: string
+        errorCode:
+          type: string
+          nullable: true
+          description: e.g. INSUFFICIENT_BALANCE, STATUS_CHANGED, NO_VALID_PHONE, TEMPLATE_NOT_APPROVED, or a Meta error code.
+        errorMessage:
+          type: string
+          nullable: true
+        sendAfter:
+          type: string
+        sentAt:
+          type: string
+          nullable: true
+        deliveredAt:
+          type: string
+          nullable: true
+        readAt:
+          type: string
+          nullable: true
+        failedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - trigger
+        - status
+        - recipientPhone
+        - templateName
+        - language
+        - text
+        - order
+        - cost
+        - currency
+        - errorCode
+        - errorMessage
+        - sendAfter
+        - sentAt
+        - deliveredAt
+        - readAt
+        - failedAt
+        - createdAt
+    WhatsAppMessagesResponseDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/WhatsAppMessageDto'
+        meta:
+          $ref: '#/components/schemas/PageMetaDto'
+      required:
+        - data
+        - meta
+    AnalyticsTotalsDto:
+      type: object
+      properties:
+        sent:
+          type: number
+        delivered:
+          type: number
+        read:
+          type: number
+        failed:
+          type: number
+        cost:
+          type: string
+          example: '0.00'
+        skipped:
+          type: number
+        deliveryRate:
+          type: number
+          nullable: true
+          description: Percent, 1 decimal.
+        readRate:
+          type: number
+          nullable: true
+          description: Percent, 1 decimal.
+      required:
+        - sent
+        - delivered
+        - read
+        - failed
+        - cost
+        - skipped
+        - deliveryRate
+        - readRate
+    AnalyticsTriggerDto:
+      type: object
+      properties:
+        trigger:
+          type: string
+          enum:
+            - PICKED_UP
+            - AT_WAREHOUSE
+            - IN_TRANSIT
+            - OUT_FOR_DELIVERY
+            - POSTPONED
+            - CANCELLED
+            - REFUSED
+            - DELIVERED
+        sent:
+          type: number
+        delivered:
+          type: number
+        failed:
+          type: number
+        skipped:
+          type: number
+      required:
+        - trigger
+        - sent
+        - delivered
+        - failed
+        - skipped
+    AnalyticsDayDto:
+      type: object
+      properties:
+        date:
+          type: string
+          example: '2026-10-18'
+        sent:
+          type: number
+        delivered:
+          type: number
+        failed:
+          type: number
+        cost:
+          type: string
+          example: '0.00'
+      required:
+        - date
+        - sent
+        - delivered
+        - failed
+        - cost
+    WhatsAppAnalyticsResponseDto:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        currency:
+          type: string
+        totals:
+          $ref: '#/components/schemas/AnalyticsTotalsDto'
+        byTrigger:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsTriggerDto'
+        daily:
+          description: UTC days.
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsDayDto'
+      required:
+        - from
+        - to
+        - currency
+        - totals
+        - byTrigger
+        - daily
     BillingInvoiceListResponseDto:
       type: object
       properties:
