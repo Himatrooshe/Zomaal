@@ -1,6 +1,6 @@
 # Orders Excel export — frontend guide
 
-Branch: `feature/orders-export` · Status: local only; not committed, merged, or deployed. The frontend can integrate against a backend running this branch.
+Released from `feature/orders-export` on `main` at commit `49a9517`. The production CI/CD run passed its deployed revision health check. The frontend can integrate against the deployed API.
 
 ## API
 

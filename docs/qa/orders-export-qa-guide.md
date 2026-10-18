@@ -1,6 +1,6 @@
 # Orders Excel export — QA guide
 
-Branch: `feature/orders-export` · Status: local only; not committed, merged, or deployed. Test against a backend running this branch.
+Released from `feature/orders-export` on `main` at commit `49a9517`. The production CI/CD run passed, including its deployed revision health check. Use a dedicated test store for authenticated production QA.
 
 ## Setup
 
@@ -39,4 +39,4 @@ Open `orders.xlsx` in Excel or LibreOffice. It must open without a repair warnin
 
 The export contains order reference and external ID, platform, order/payment/fulfillment statuses, currency, gross sales, discounts, shipping charged, refunds, net sales, total collected, COD amount/status, item count, processed/cancelled timestamps, courier, and tracking number. It deliberately excludes customer name, phone, and address.
 
-Record environment, branch, request URL, sanitized file/headers, and comparison against `GET /ecommerce/orders`. The automated tests and build pass. A PostgreSQL integration smoke test passed against a disposable, migrated database; it is also included in CI. HTTP download behavior on a deployed revision remains for post-deployment QA.
+Record environment, commit, request URL, sanitized file/headers, and comparison against `GET /ecommerce/orders`. The automated tests and build pass. A PostgreSQL integration smoke test passed against a disposable, migrated database and in CI. The deployed route is reachable and requires authentication; an authenticated production download with a test store remains for QA.
