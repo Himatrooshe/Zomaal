@@ -94,6 +94,8 @@ Reschedule → `POSTPONED` · Canceled → `CANCELLED` · Denied → `REFUSED` �
 Editable message text, product image header, per-customer language, Ameex-triggered messages.
 
 ### Go-live checklist (ops)
+Tracked as a checklist in `docs/whatsapp-go-live-todo.md`.
+
 1. Meta app with WhatsApp product, Tech Provider approval, Embedded Signup configuration.
 2. Webhook callback `https://<backend>/webhooks/whatsapp`, verify token = `META_WHATSAPP_WEBHOOK_VERIFY_TOKEN`,
    subscribe to `messages`, `message_template_status_update`, `account_update`.
