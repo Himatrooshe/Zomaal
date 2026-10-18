@@ -2,6 +2,10 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Prisma, ShopOrderCancelledBy, ShopOrderStatus } from '@prisma/client';
 import { ShopOrdersService } from './shop-orders.service';
 
+function firstArg(mock: jest.Mock): unknown {
+  return (mock.mock.calls as unknown[][])[0]?.[0];
+}
+
 function build() {
   const prisma = {
     shopOrder: {
@@ -13,7 +17,15 @@ function build() {
     shopPromoCode: { updateMany: jest.fn() },
     shopProductVariant: { updateMany: jest.fn() },
     shopProduct: { updateMany: jest.fn() },
-    merchantPurchase: { createMany: jest.fn() },
+    merchantPurchase: {
+      findMany: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
+    },
+    expenseCategory: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'cat-purchases' }),
+      create: jest.fn(),
+    },
+    expense: { create: jest.fn().mockResolvedValue({ id: 'expense-1' }) },
   };
   const $transaction = jest.fn((fn: (tx: typeof prisma) => unknown) =>
     fn(prisma),
@@ -239,21 +251,26 @@ describe('ShopOrdersService.advance', () => {
     ).data;
     expect(data.paymentStatus).toBe('PAID');
     expect(data.deliveredAt).toBeInstanceOf(Date);
-    expect(prisma.merchantPurchase.createMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        skipDuplicates: true,
-        data: [
-          expect.objectContaining({
-            storeId: 'store-1',
-            source: 'SHOP',
-            shopProductId: 'p1',
-            shopOrderItemId: 'item-1',
-            productName: 'Shirt',
-            notes: 'Zomaal Shop order ZS-7 · M · Red',
-          }),
-        ],
-      }),
-    );
+    expect(firstArg(prisma.merchantPurchase.create)).toMatchObject({
+      data: {
+        storeId: 'store-1',
+        source: 'SHOP',
+        shopProductId: 'p1',
+        shopOrderItemId: 'item-1',
+        productName: 'Shirt',
+        notes: 'Zomaal Shop order ZS-7 · M · Red',
+        expenseId: 'expense-1',
+      },
+    });
+    expect(firstArg(prisma.expense.create)).toMatchObject({
+      data: {
+        storeId: 'store-1',
+        categoryId: 'cat-purchases',
+        title: 'Purchase — Shirt',
+        amount: new Prisma.Decimal(200),
+        paymentMethod: 'CASH',
+      },
+    });
     expect(packaging.creditDeliveredPurchase).toHaveBeenCalledWith('store-1', {
       zomaalShopVariantId: 'v1',
       name: 'Large Box',
@@ -355,9 +372,7 @@ describe('ShopOrdersService.listForStore', () => {
         total: new Prisma.Decimal(100),
         trackingNumber: null,
         createdAt: new Date('2026-03-15T00:00:00.000Z'),
-        items: [
-          { quantity: 1, imageUrl: null, productName: 'Box' },
-        ],
+        items: [{ quantity: 1, imageUrl: null, productName: 'Box' }],
       },
     ]);
 

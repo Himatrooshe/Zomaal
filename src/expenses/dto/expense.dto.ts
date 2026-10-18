@@ -159,6 +159,17 @@ export class ExpenseResponseDto {
       'True for an expense linked to a confirmed salary payment. These expenses cannot be edited or deleted.',
   })
   isSalaryGenerated!: boolean;
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description: 'Source purchase, when the expense comes from Purchases.',
+  })
+  purchaseId!: string | null;
+  @ApiProperty({
+    description:
+      'True for a Purchase costs expense owned by a purchase. Edit or delete the purchase instead.',
+  })
+  isPurchaseGenerated!: boolean;
   @ApiProperty() createdAt!: string;
 }
 

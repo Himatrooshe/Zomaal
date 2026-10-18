@@ -423,35 +423,48 @@ enum MerchantPurchaseSource {
 }
 
 // The merchant's Purchases list: stock they bought. MANUAL = recorded by the
-// merchant for one of their own warehouse products (bought elsewhere); SHOP =
-// created automatically when a Zomaal Shop order is delivered.
+// merchant for one of their own warehouse products or packaging (bought
+// elsewhere); SHOP = created automatically when a Zomaal Shop order is
+// delivered. Every purchase owns one PURCHASES expense (expenseId).
 model MerchantPurchase {
-  id                 String                 @id @default(uuid())
-  storeId            String
-  source             MerchantPurchaseSource
-  warehouseProductId String?
-  shopProductId      String?
-  shopOrderItemId    String?                @unique
-  productName        String
-  unitLabel          String
-  imageUrl           String?
-  quantity           Int
-  unitPrice          Decimal                @db.Decimal(20, 4)
-  totalCost          Decimal                @db.Decimal(20, 4)
-  currency           String
-  purchaseDate       DateTime
-  notes              String?
-  createdByUserId    String?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
+  id                  String                 @id @default(uuid())
+  storeId             String
+  source              MerchantPurchaseSource
+  warehouseProductId  String?
+  // The variant whose stock a manual product purchase went to.
+  warehouseVariantId  String?
+  packagingMaterialId String?
+  // true when saving the purchase added `quantity` to stock; edits and
+  // deletes then move stock by the difference. Shop deliveries credit
+  // packaging stock separately, so they stay false.
+  stockAdded          Boolean                @default(false)
+  expenseId           String?                @unique
+  shopProductId       String?
+  shopOrderItemId     String?                @unique
+  productName         String
+  unitLabel           String
+  imageUrl            String?
+  quantity            Int
+  unitPrice           Decimal                @db.Decimal(20, 4)
+  totalCost           Decimal                @db.Decimal(20, 4)
+  currency            String
+  purchaseDate        DateTime
+  notes               String?
+  createdByUserId     String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
-  store            Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  warehouseProduct WarehouseProduct? @relation(fields: [warehouseProductId], references: [id], onDelete: SetNull)
-  shopProduct      ShopProduct?      @relation(fields: [shopProductId], references: [id], onDelete: SetNull)
-  shopOrderItem    ShopOrderItem?    @relation(fields: [shopOrderItemId], references: [id], onDelete: SetNull)
+  store             Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  warehouseProduct  WarehouseProduct?  @relation(fields: [warehouseProductId], references: [id], onDelete: SetNull)
+  warehouseVariant  WarehouseVariant?  @relation(fields: [warehouseVariantId], references: [id], onDelete: SetNull)
+  packagingMaterial PackagingMaterial? @relation(fields: [packagingMaterialId], references: [id], onDelete: SetNull)
+  expense           Expense?           @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  shopProduct       ShopProduct?       @relation(fields: [shopProductId], references: [id], onDelete: SetNull)
+  shopOrderItem     ShopOrderItem?     @relation(fields: [shopOrderItemId], references: [id], onDelete: SetNull)
 
   @@index([storeId, purchaseDate])
   @@index([storeId, source])
+  @@index([packagingMaterialId, purchaseDate])
 }
 
 model QuickLivraisonConnection {
@@ -1524,6 +1537,7 @@ enum InventoryMovementType {
   RETURN_DAMAGED
   PACKAGING_RECEIVED
   PACKAGING_CONSUMED
+  PURCHASE_RECEIVED
 }
 
 enum MediaAssetStatus {
@@ -1644,6 +1658,7 @@ model WarehouseVariant {
   packagingOverrides  ProductPackagingRequirement[]
   bundleUsages        ProductBundleComponent[]      @relation("BundleComponentVariant")
   ecommerceOrderLines EcommerceOrderLine[]
+  purchases           MerchantPurchase[]
 
   @@unique([storeId, sku])
   @@unique([storeId, productCode])
@@ -1856,6 +1871,7 @@ model PackagingMaterial {
   inventoryItem InventoryItem?
   requirements  ProductPackagingRequirement[]
   image         MediaAsset?
+  purchases     MerchantPurchase[]
 
   @@unique([storeId, zomaalShopVariantId])
   @@index([storeId, isActive])
@@ -2281,8 +2297,9 @@ model Expense {
   // never destroys the expense record itself.
   createdByUserId String?
 
-  salaryPayment StaffSalaryPayment?
-  receiptMedia  MediaAsset?
+  salaryPayment    StaffSalaryPayment?
+  merchantPurchase MerchantPurchase?
+  receiptMedia     MediaAsset?
 
   @@index([storeId, spentAt])
   @@index([storeId, categoryId])

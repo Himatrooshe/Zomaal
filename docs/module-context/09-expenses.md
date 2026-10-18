@@ -17,6 +17,11 @@ Four categories fill **automatically** from other modules:
 | Purchase costs | Purchases (tab 7) |
 | Other | Entered manually by the merchant |
 
+**Purchase costs (built):** every purchase creates its own expense automatically (see tab 7). Adding an
+expense to a "Purchase costs" category, or moving one into it, is refused with 409. Purchase expenses
+can't be edited or deleted here; change the purchase instead. Expense responses carry `purchaseId` and
+`isPurchaseGenerated` so the app can show them read-only.
+
 ## Questions
 
 **Q9.1 (blocker) — Double counting**

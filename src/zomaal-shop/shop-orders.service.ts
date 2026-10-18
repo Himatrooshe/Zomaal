@@ -17,6 +17,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PackagingService } from '../warehouse/packaging.service';
 import type { ListShopOrdersDto, ShopOrderListTab } from './dto/shop.dto';
 import { money, orderNumberLabel } from './shop-pricing.util';
+import {
+  createPurchaseExpense,
+  shopPaymentToExpense,
+} from './purchase-expense.util';
 
 export const ORDER_INCLUDE = {
   items: { orderBy: { productName: 'asc' } },
@@ -270,35 +274,57 @@ export class ShopOrdersService {
   }
 
   // Delivered goods become "From Shop" entries in the merchant's Purchases
-  // list. Idempotent: one purchase per order item (unique shopOrderItemId).
+  // list, each with its "Purchase costs" expense. Idempotent: one purchase
+  // per order item (unique shopOrderItemId).
   private async recordPurchases(tx: Tx, orderId: string, deliveredAt: Date) {
     const order = await tx.shopOrder.findUniqueOrThrow({
       where: { id: orderId },
       include: { items: true },
     });
-    await tx.merchantPurchase.createMany({
-      skipDuplicates: true,
-      data: order.items.map((item) => ({
+    const recorded = new Set(
+      (
+        await tx.merchantPurchase.findMany({
+          where: { shopOrderItemId: { in: order.items.map((i) => i.id) } },
+          select: { shopOrderItemId: true },
+        })
+      ).map((p) => p.shopOrderItemId),
+    );
+    for (const item of order.items) {
+      if (recorded.has(item.id)) continue;
+      // Purchases group by product, so the name stays the product's; the
+      // chosen option is kept on the history row's note.
+      const notes = item.variantLabel
+        ? `Zomaal Shop order ${orderNumberLabel(order.number)} · ${item.variantLabel}`
+        : `Zomaal Shop order ${orderNumberLabel(order.number)}`;
+      const expense = await createPurchaseExpense(tx, {
         storeId: order.storeId,
-        source: MerchantPurchaseSource.SHOP,
-        shopProductId: item.productId,
-        shopOrderItemId: item.id,
-        // Purchases group by product, so the name stays the product's; the
-        // chosen option is kept on the history row's note.
         productName: item.productName,
-        unitLabel: item.unitLabel,
-        imageUrl: item.imageUrl,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalCost: item.lineTotal,
-        currency: order.currency,
-        purchaseDate: deliveredAt,
-        notes: item.variantLabel
-          ? `Zomaal Shop order ${orderNumberLabel(order.number)} · ${item.variantLabel}`
-          : `Zomaal Shop order ${orderNumberLabel(order.number)}`,
+        amount: item.lineTotal,
+        paymentMethod: shopPaymentToExpense(order.paymentMethod),
+        spentAt: deliveredAt,
+        notes,
         createdByUserId: order.placedByUserId,
-      })),
-    });
+      });
+      await tx.merchantPurchase.create({
+        data: {
+          storeId: order.storeId,
+          source: MerchantPurchaseSource.SHOP,
+          shopProductId: item.productId,
+          shopOrderItemId: item.id,
+          productName: item.productName,
+          unitLabel: item.unitLabel,
+          imageUrl: item.imageUrl,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalCost: item.lineTotal,
+          currency: order.currency,
+          purchaseDate: deliveredAt,
+          notes,
+          createdByUserId: order.placedByUserId,
+          expenseId: expense.id,
+        },
+      });
+    }
   }
 
   /**

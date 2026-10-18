@@ -36,8 +36,9 @@ Packaging comes from two places (`source` on every response):
 - **Alert:** when `lowStockAlert` is on, the existing `LOW_STOCK` / `OUT_OF_STOCK` notifications cover
   packaging too (`entityType: PACKAGING_MATERIAL`, owner + staff with `products.view`). In-app and push
   only. WhatsApp will come once WhatsApp automation is live (Q6.3).
-- **Cost:** SHOP packaging uses the last Shop purchase price (else the catalog price). MANUAL packaging
-  has no price field in Figma, so it counts as 0 in order profit for now (Q6.2).
+- **Cost:** the last price paid for that packaging in Purchases (tab 7). SHOP packaging with no purchase
+  yet falls back to the Shop catalog price; MANUAL packaging never purchased counts as 0 (Q6.2).
+- **Buying more:** record it in Purchases. With "Add to stock" on, the stock goes up there.
 
 ## Questions
 

@@ -9,23 +9,51 @@ cost) · Add purchase (select product, purchase info, date) · Select product ·
 2. **From Shop**: created automatically when the merchant orders from Zomaal Shop (tab 8).
 3. Purchases feed the "Purchase Costs" category in Expenses (tab 9).
 
+## What's built
+
+| Method | Path | Permission | What it does |
+|---|---|---|---|
+| GET | `/purchases?tab=&source=&search=` | `shop.view` | Summary + one row per item (All / Manual / From Shop) |
+| GET | `/purchases/product-options?search=&type=` | `shop.purchase` + `products.view` | Select product: warehouse products (with variants) and packaging. `type`: `PRODUCT` / `PACKAGING` |
+| GET | `/purchases/groups/:key` | `shop.view` | Details: purchase history for one item |
+| POST | `/purchases` | `shop.purchase` | Add a manual purchase |
+| PATCH | `/purchases/:id` | `shop.purchase` | Edit a manual purchase |
+| DELETE | `/purchases/:id` | `shop.purchase` | Delete a manual purchase |
+
+- **What:** a product (`warehouseProductId`, plus `warehouseVariantId` when it has more than one variant)
+  or a packaging item (`packagingMaterialId`). Every row has `itemType`: `PRODUCT` / `PACKAGING`.
+- **Stock:** `addToStock` (default `true`) adds the quantity to on-hand stock (`PURCHASE_RECEIVED` in
+  the stock history). Editing the quantity moves stock by the difference; deleting takes it back out.
+  If that stock is already reserved, sold or damaged, the edit/delete is refused with 409.
+  `stockAdded` on the response says whether this purchase moved stock.
+- **Expense:** every purchase (manual and From Shop) creates one "Purchase costs" expense for
+  quantity × unit price, kept in sync on edit and removed on delete. `paymentMethod` (default `CASH`) and
+  the receipt photo (`receiptAssetId` from `POST /expenses/receipts`) live on that expense. Shop orders
+  use `BANK` for online payment and `CASH` for cash on delivery.
+- **From Shop:** created when a Shop order is delivered; read-only here. Stock comes from the Shop
+  delivery itself, so these rows have `stockAdded: false`.
+- **Product cost price is not changed** by a purchase. Packaging cost (order profit) uses the last price
+  paid in Purchases (see tab 6).
+- **Existing data:** purchases recorded before this release got their "Purchase costs" expense on
+  migration. Their stock was not changed.
+
 ## Questions
 
 **Q7.1 (blocker) — What can be purchased?**
 In "Select a Product", should the merchant see warehouse products, packaging materials, or both?
 Assumption: both.
-Answer:
+Answer: Both — warehouse products and packaging.
 
 **Q7.2 — Does a purchase increase stock automatically?**
 Assumption: yes, stock goes up when the purchase is saved (manual), or when the Shop order is delivered (From Shop).
-Answer:
+Answer: Yes by default, with an "Add to stock" switch on manual purchases for stock that was already counted.
 
 **Q7.3 — Expense recording**
 Is every purchase automatically an expense under "Purchase Costs"?
 Assumption: yes, and it cannot also be added manually in Expenses (to avoid double counting).
-Answer:
+Answer: Yes. Manual expenses in "Purchase costs" are refused, and a purchase's expense can only be changed from Purchases.
 
 **Q7.4 — Supplier info**
 Do we need supplier name, invoice number, or a receipt photo on manual purchases?
 Assumption: an optional note + receipt photo. No supplier list.
-Answer:
+Answer: Optional note + receipt photo. No supplier list.

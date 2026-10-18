@@ -49,6 +49,7 @@ import {
 const EXPENSE_INCLUDE = {
   category: true,
   salaryPayment: { select: { id: true } },
+  merchantPurchase: { select: { id: true } },
 } satisfies Prisma.ExpenseInclude;
 
 type ExpenseWithCategory = Prisma.ExpenseGetPayload<{
@@ -356,6 +357,7 @@ export class ExpensesService {
   ): Promise<ExpenseResponseDto> {
     const category = await this.requireCategory(access.storeId, dto.categoryId);
     this.rejectSalaryCategory(category.group);
+    this.rejectPurchaseCategory(category.group);
 
     const expense = await this.prisma.$transaction(async (tx) => {
       const created = await tx.expense.create({
@@ -403,6 +405,7 @@ export class ExpensesService {
   ): Promise<ExpenseResponseDto> {
     const expense = await this.requireExpense(access.storeId, expenseId);
     this.rejectIfSalaryGenerated(expense);
+    this.rejectIfPurchaseGenerated(expense);
 
     if (dto.categoryId && dto.categoryId !== expense.categoryId) {
       const category = await this.requireCategory(
@@ -410,6 +413,7 @@ export class ExpensesService {
         dto.categoryId,
       );
       this.rejectSalaryCategory(category.group);
+      this.rejectPurchaseCategory(category.group);
     }
 
     let previousReceipt: { id: string } | null = null;
@@ -459,6 +463,7 @@ export class ExpensesService {
   async remove(access: StoreAccess, expenseId: string): Promise<void> {
     const expense = await this.requireExpense(access.storeId, expenseId);
     this.rejectIfSalaryGenerated(expense);
+    this.rejectIfPurchaseGenerated(expense);
 
     // The FK is SetNull, not Cascade, so deleting the expense wouldn't clean
     // up an attached receipt on its own — do it explicitly so nothing is
@@ -475,6 +480,24 @@ export class ExpensesService {
     if (group === ExpenseGroup.SALARY) {
       throw new ConflictException(
         'Salary expenses are recorded from Staff Salary, not created directly here.',
+      );
+    }
+  }
+
+  private rejectPurchaseCategory(group: ExpenseGroup): void {
+    if (group === ExpenseGroup.PURCHASES) {
+      throw new ConflictException(
+        'Purchase costs are recorded from Purchases, not created directly here.',
+      );
+    }
+  }
+
+  private rejectIfPurchaseGenerated(expense: {
+    merchantPurchase: { id: string } | null;
+  }): void {
+    if (expense.merchantPurchase) {
+      throw new ConflictException(
+        'This expense comes from a purchase — edit or delete the purchase instead.',
       );
     }
   }
@@ -573,6 +596,8 @@ function toExpenseResponse(expense: ExpenseWithCategory): ExpenseResponseDto {
     staffMemberId: expense.staffMemberId,
     salaryPaymentId: expense.salaryPayment?.id ?? null,
     isSalaryGenerated: expense.staffMemberId !== null,
+    purchaseId: expense.merchantPurchase?.id ?? null,
+    isPurchaseGenerated: Boolean(expense.merchantPurchase),
     createdAt: expense.createdAt.toISOString(),
   };
 }

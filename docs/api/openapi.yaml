@@ -17539,7 +17539,7 @@ paths:
       tags:
         - Purchases
     post:
-      description: Records qty × unit price × date against a warehouse product. Does not create a Zomaal Shop order — use POST /shop/orders for that.
+      description: Records qty × unit price × date against one of your products (warehouseProductId [+ warehouseVariantId]) or packaging items (packagingMaterialId). Adds the quantity to stock unless addToStock=false, and records the total as a "Purchase costs" expense (with the optional receipt). Does not create a Zomaal Shop order — use POST /shop/orders for that.
       operationId: Purchases_create
       parameters: []
       requestBody:
@@ -17555,6 +17555,12 @@ paths:
             application/json:
               schema:
                 type: object
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
@@ -17567,6 +17573,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
       summary: Add Purchase (manual / personal / outside the Zomaal Shop)
@@ -17574,7 +17586,7 @@ paths:
         - Purchases
   /purchases/product-options:
     get:
-      description: Personal/outside purchases link to products the merchant already owns in Warehouse. To buy from Zomaal, use /shop instead — delivery creates From Shop rows automatically.
+      description: Each option has itemType PRODUCT or PACKAGING. Products list their variants (send warehouseVariantId when there is more than one); packaging has a unit and its last price paid as costPrice. To buy from Zomaal, use /shop instead — delivery creates From Shop rows automatically.
       operationId: Purchases_productOptions
       parameters:
         - name: search
@@ -17582,6 +17594,15 @@ paths:
           in: query
           schema:
             type: string
+        - name: type
+          required: false
+          in: query
+          description: Only products or only packaging. Both when omitted.
+          schema:
+            type: string
+            enum:
+              - PRODUCT
+              - PACKAGING
       responses:
         '200':
           description: ''
@@ -17605,7 +17626,7 @@ paths:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
-      summary: 'Add Purchase → Select Product: your warehouse products (not Zomaal Shop catalog)'
+      summary: 'Add Purchase → Select Product: your products and packaging (not the Zomaal Shop catalog)'
       tags:
         - Purchases
   /purchases/groups/{key}:
@@ -17649,6 +17670,7 @@ paths:
         - Purchases
   /purchases/{id}:
     patch:
+      description: A quantity change moves stock by the difference when the purchase added stock. Its expense follows the new total, date, notes, payment method and receipt.
       operationId: Purchases_update
       parameters:
         - name: id
@@ -17681,12 +17703,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The stock it added is already reserved, sold or damaged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
       summary: Edit a manual purchase (From Shop entries are read-only)
       tags:
         - Purchases
     delete:
+      description: Removes the stock it added and its Purchase costs expense and receipt.
       operationId: Purchases_remove
       parameters:
         - name: id
@@ -17709,6 +17738,12 @@ paths:
                 $ref: '#/components/schemas/ApiErrorDto'
         '403':
           description: Missing permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: The stock it added is already reserved, sold or damaged.
           content:
             application/json:
               schema:
@@ -28209,6 +28244,7 @@ components:
             - RETURN_DAMAGED
             - PACKAGING_RECEIVED
             - PACKAGING_CONSUMED
+            - PURCHASE_RECEIVED
           example: MANUAL_ADJUSTMENT
         bucket:
           type: string
@@ -30031,6 +30067,13 @@ components:
         isSalaryGenerated:
           type: boolean
           description: True for an expense linked to a confirmed salary payment. These expenses cannot be edited or deleted.
+        purchaseId:
+          type: string
+          nullable: true
+          description: Source purchase, when the expense comes from Purchases.
+        isPurchaseGenerated:
+          type: boolean
+          description: True for a Purchase costs expense owned by a purchase. Edit or delete the purchase instead.
         createdAt:
           type: string
       required:
@@ -30041,6 +30084,7 @@ components:
         - spentAt
         - category
         - isSalaryGenerated
+        - isPurchaseGenerated
         - createdAt
     ExpenseListResponseDto:
       type: object
@@ -32038,7 +32082,30 @@ components:
         warehouseProductId:
           type: string
           format: uuid
-          description: One of your own warehouse products (Select Product).
+          description: One of your own warehouse products (Select Product, type PRODUCT). Send this or packagingMaterialId.
+        warehouseVariantId:
+          type: string
+          format: uuid
+          description: Which variant was bought. Required when the product has more than one variant.
+        packagingMaterialId:
+          type: string
+          format: uuid
+          description: One of your packaging items (Select Product, type PACKAGING). Send this or warehouseProductId.
+        addToStock:
+          type: boolean
+          default: true
+          description: Add the quantity to stock. Turn off when the stock was already counted.
+        paymentMethod:
+          type: string
+          enum:
+            - CASH
+            - BANK
+          default: CASH
+          description: Payment method of the Purchase costs expense.
+        receiptAssetId:
+          type: string
+          format: uuid
+          description: Receipt photo uploaded with POST /expenses/receipts.
         quantity:
           type: number
           minimum: 1
@@ -32056,7 +32123,6 @@ components:
           type: string
           maxLength: 500
       required:
-        - warehouseProductId
         - quantity
         - unitPrice
         - purchaseDate
@@ -32075,6 +32141,16 @@ components:
           type: string
           maxLength: 500
           nullable: true
+        paymentMethod:
+          type: string
+          enum:
+            - CASH
+            - BANK
+        receiptAssetId:
+          type: object
+          format: uuid
+          nullable: true
+          description: New receipt from POST /expenses/receipts; null removes the current one.
     AppInfoResponseDto:
       type: object
       properties:

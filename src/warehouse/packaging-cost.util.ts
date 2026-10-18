@@ -10,9 +10,8 @@ type PackagingCostClient = Pick<
 
 /**
  * Unit cost per packaging material: what the merchant last paid for it in a
- * Zomaal Shop purchase, else the shop's current catalog price. Materials
- * with neither, including merchant-added packaging, are left out (their
- * cost counts as 0).
+ * manual purchase or a Zomaal Shop purchase, else the shop's current catalog
+ * price. Materials with none of these are left out (their cost counts as 0).
  */
 export async function resolvePackagingUnitCosts(
   db: PackagingCostClient,
@@ -30,18 +29,33 @@ export async function resolvePackagingUnitCosts(
     // The catalog key is the shop variant id, or the shop product id for
     // products without options.
     const key = material.zomaalShopVariantId;
-    if (!key) continue;
     const purchase = await db.merchantPurchase.findFirst({
       where: {
         storeId: material.storeId,
-        source: MerchantPurchaseSource.SHOP,
-        shopOrderItem: {
-          OR: [{ variantId: key }, { variantId: null, productId: key }],
-        },
+        OR: [
+          { packagingMaterialId: material.id },
+          ...(key
+            ? [
+                {
+                  source: MerchantPurchaseSource.SHOP,
+                  shopOrderItem: {
+                    OR: [
+                      { variantId: key },
+                      { variantId: null, productId: key },
+                    ],
+                  },
+                },
+              ]
+            : []),
+        ],
       },
-      orderBy: { purchaseDate: 'desc' },
+      orderBy: [{ purchaseDate: 'desc' }, { createdAt: 'desc' }],
       select: { unitPrice: true },
     });
+    if (!key) {
+      if (purchase) costs.set(material.id, purchase.unitPrice);
+      continue;
+    }
     if (purchase) {
       costs.set(material.id, purchase.unitPrice);
       continue;

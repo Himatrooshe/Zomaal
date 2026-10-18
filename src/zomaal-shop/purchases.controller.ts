@@ -11,7 +11,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -47,7 +49,10 @@ const OBJ = { schema: { type: 'object' } } as const;
  *
  * 2. Manual / Add Purchase (source=MANUAL) — merchant bought outside the
  *    app (supplier, market, etc.) and records qty + unit price + date
- *    against one of their own warehouse products (Select Product sheet).
+ *    against one of their own products or packaging items (Select Product
+ *    sheet). Adds to stock unless turned off.
+ *
+ * Every purchase owns a "Purchase costs" expense (Expenses module).
  *
  * Figma: Purchases List (All / Manual / From Shop), Purchases Details
  * history, Add Purchase, Select Product.
@@ -85,16 +90,20 @@ export class PurchasesController {
   @RequirePermission(PERMISSIONS.SHOP_PURCHASE, PERMISSIONS.PRODUCTS_VIEW)
   @ApiOperation({
     summary:
-      'Add Purchase → Select Product: your warehouse products (not Zomaal Shop catalog)',
+      'Add Purchase → Select Product: your products and packaging (not the Zomaal Shop catalog)',
     description:
-      'Personal/outside purchases link to products the merchant already owns in Warehouse. To buy from Zomaal, use /shop instead — delivery creates From Shop rows automatically.',
+      'Each option has itemType PRODUCT or PACKAGING. Products list their variants (send warehouseVariantId when there is more than one); packaging has a unit and its last price paid as costPrice. To buy from Zomaal, use /shop instead — delivery creates From Shop rows automatically.',
   })
   @ApiOkResponse({ schema: { type: 'array', items: { type: 'object' } } })
   productOptions(
     @CurrentStoreAccess() access: StoreAccess,
     @Query() query: PurchaseProductOptionsDto,
   ) {
-    return this.purchases.productOptions(access.storeId, query.search);
+    return this.purchases.productOptions(
+      access.storeId,
+      query.search,
+      query.type,
+    );
   }
 
   @Get('groups/:key')
@@ -114,9 +123,11 @@ export class PurchasesController {
   @ApiOperation({
     summary: 'Add Purchase (manual / personal / outside the Zomaal Shop)',
     description:
-      'Records qty × unit price × date against a warehouse product. Does not create a Zomaal Shop order — use POST /shop/orders for that.',
+      'Records qty × unit price × date against one of your products (warehouseProductId [+ warehouseVariantId]) or packaging items (packagingMaterialId). Adds the quantity to stock unless addToStock=false, and records the total as a "Purchase costs" expense (with the optional receipt). Does not create a Zomaal Shop order — use POST /shop/orders for that.',
   })
   @ApiCreatedResponse(OBJ)
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
   create(
     @CurrentStoreAccess() access: StoreAccess,
     @Body() dto: CreatePurchaseDto,
@@ -128,8 +139,14 @@ export class PurchasesController {
   @RequirePermission(PERMISSIONS.SHOP_PURCHASE)
   @ApiOperation({
     summary: 'Edit a manual purchase (From Shop entries are read-only)',
+    description:
+      'A quantity change moves stock by the difference when the purchase added stock. Its expense follows the new total, date, notes, payment method and receipt.',
   })
   @ApiOkResponse(OBJ)
+  @ApiConflictResponse({
+    description: 'The stock it added is already reserved, sold or damaged.',
+    type: ApiErrorDto,
+  })
   update(
     @CurrentStoreAccess() access: StoreAccess,
     @Param('id', ParseUUIDPipe) id: string,
@@ -140,8 +157,16 @@ export class PurchasesController {
 
   @Delete(':id')
   @RequirePermission(PERMISSIONS.SHOP_PURCHASE)
-  @ApiOperation({ summary: 'Delete a manual purchase' })
+  @ApiOperation({
+    summary: 'Delete a manual purchase',
+    description:
+      'Removes the stock it added and its Purchase costs expense and receipt.',
+  })
   @ApiOkResponse(OBJ)
+  @ApiConflictResponse({
+    description: 'The stock it added is already reserved, sold or damaged.',
+    type: ApiErrorDto,
+  })
   remove(
     @CurrentStoreAccess() access: StoreAccess,
     @Param('id', ParseUUIDPipe) id: string,

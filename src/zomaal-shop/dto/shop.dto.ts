@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
+  ExpensePaymentMethod,
   MerchantPurchaseSource,
   ShopOrderStatus,
   ShopPaymentMethod,
@@ -19,6 +20,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { MAX_LINE_QUANTITY } from '../cart.service';
 
@@ -272,13 +274,62 @@ export class ListPurchasesDto {
   search?: string;
 }
 
+export const PURCHASE_ITEM_TYPES = ['PRODUCT', 'PACKAGING'] as const;
+export type PurchaseItemType = (typeof PURCHASE_ITEM_TYPES)[number];
+
 export class CreatePurchaseDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     format: 'uuid',
-    description: 'One of your own warehouse products (Select Product).',
+    description:
+      'One of your own warehouse products (Select Product, type PRODUCT). Send this or packagingMaterialId.',
   })
+  @ValidateIf((o: CreatePurchaseDto) => !o.packagingMaterialId)
   @IsUUID()
-  warehouseProductId: string;
+  warehouseProductId?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Which variant was bought. Required when the product has more than one variant.',
+  })
+  @IsOptional()
+  @IsUUID()
+  warehouseVariantId?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'One of your packaging items (Select Product, type PACKAGING). Send this or warehouseProductId.',
+  })
+  @IsOptional()
+  @IsUUID()
+  packagingMaterialId?: string;
+
+  @ApiPropertyOptional({
+    default: true,
+    description:
+      'Add the quantity to stock. Turn off when the stock was already counted.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  addToStock?: boolean;
+
+  @ApiPropertyOptional({
+    enum: ExpensePaymentMethod,
+    default: ExpensePaymentMethod.CASH,
+    description: 'Payment method of the Purchase costs expense.',
+  })
+  @IsOptional()
+  @IsEnum(ExpensePaymentMethod)
+  paymentMethod?: ExpensePaymentMethod;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Receipt photo uploaded with POST /expenses/receipts.',
+  })
+  @IsOptional()
+  @IsUUID()
+  receiptAssetId?: string;
 
   @ApiProperty({ minimum: 1, example: 100 })
   @IsInt()
@@ -333,6 +384,21 @@ export class UpdatePurchaseDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  @ApiPropertyOptional({ enum: ExpensePaymentMethod })
+  @IsOptional()
+  @IsEnum(ExpensePaymentMethod)
+  paymentMethod?: ExpensePaymentMethod;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description:
+      'New receipt from POST /expenses/receipts; null removes the current one.',
+  })
+  @IsOptional()
+  @IsUUID()
+  receiptAssetId?: string | null;
 }
 
 export class PurchaseProductOptionsDto {
@@ -341,4 +407,12 @@ export class PurchaseProductOptionsDto {
   @IsString()
   @MaxLength(100)
   search?: string;
+
+  @ApiPropertyOptional({
+    enum: PURCHASE_ITEM_TYPES,
+    description: 'Only products or only packaging. Both when omitted.',
+  })
+  @IsOptional()
+  @IsIn([...PURCHASE_ITEM_TYPES])
+  type?: PurchaseItemType;
 }

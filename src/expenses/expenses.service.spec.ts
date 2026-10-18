@@ -37,7 +37,7 @@ function decimal(value: string) {
 }
 
 function build() {
-  const prisma: any = {
+  const models = {
     expenseCategory: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -64,7 +64,10 @@ function build() {
   // create()/update() run through $transaction(tx => ...) — reuse the same
   // mocked model methods as the "tx" client, the standard trick for testing
   // Prisma interactive transactions without a real DB.
-  prisma.$transaction = jest.fn((cb: (tx: unknown) => unknown) => cb(prisma));
+  const prisma = {
+    ...models,
+    $transaction: jest.fn((cb: (tx: typeof models) => unknown) => cb(models)),
+  };
 
   const media = {
     uploadForStore: jest.fn(),
@@ -227,6 +230,59 @@ describe('ExpensesService', () => {
     await expect(service.remove(ACCESS, 'exp-1')).rejects.toBeInstanceOf(
       ConflictException,
     );
+    expect(prisma.expense.delete).not.toHaveBeenCalled();
+  });
+
+  it('rejects creating or moving an expense into the PURCHASES group', async () => {
+    const { service, prisma } = build();
+    const purchases = {
+      ...CATEGORY,
+      id: 'cat-purchases',
+      group: ExpenseGroup.PURCHASES,
+    };
+    prisma.expenseCategory.findFirst.mockResolvedValue(purchases);
+
+    await expect(
+      service.create(ACCESS, {
+        title: 'Boxes',
+        amount: '10.00',
+        paymentMethod: ExpensePaymentMethod.CASH,
+        spentAt: '2026-09-01',
+        categoryId: 'cat-purchases',
+      }),
+    ).rejects.toThrow(/recorded from Purchases/);
+
+    prisma.expense.findFirst.mockResolvedValue({
+      id: 'exp-1',
+      staffMemberId: null,
+      merchantPurchase: null,
+      categoryId: 'cat-1',
+      category: CATEGORY,
+    });
+    await expect(
+      service.update(ACCESS, 'exp-1', { categoryId: 'cat-purchases' }),
+    ).rejects.toThrow(/recorded from Purchases/);
+    expect(prisma.expense.create).not.toHaveBeenCalled();
+    expect(prisma.expense.update).not.toHaveBeenCalled();
+  });
+
+  it('blocks editing or deleting an expense owned by a purchase', async () => {
+    const { service, prisma } = build();
+    prisma.expense.findFirst.mockResolvedValue({
+      id: 'exp-1',
+      staffMemberId: null,
+      merchantPurchase: { id: 'mp-1' },
+      categoryId: 'cat-purchases',
+      category: CATEGORY,
+    });
+
+    await expect(
+      service.update(ACCESS, 'exp-1', { title: 'renamed' }),
+    ).rejects.toThrow(/edit or delete the purchase/);
+    await expect(service.remove(ACCESS, 'exp-1')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(prisma.expense.update).not.toHaveBeenCalled();
     expect(prisma.expense.delete).not.toHaveBeenCalled();
   });
 

@@ -17,6 +17,7 @@ import {
   deriveSubscriptionStatus,
 } from '../billing/subscription-status.util';
 import { ENDING_SOON_DAYS } from '../billing/plan-features';
+import { packagingUnitLabel } from '../warehouse/packaging-unit.util';
 
 const STORE_BATCH = 100;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -41,18 +42,6 @@ const PLATFORM_LABEL: Record<string, string> = {
   YOUCAN: 'YouCan',
   LIGHTFUNNELS: 'Lightfunnels',
 };
-
-const PACKAGING_UNIT_LABEL: Record<string, [string, string]> = {
-  PIECES: ['piece', 'pieces'],
-  ROLLS: ['roll', 'rolls'],
-  METERS: ['meter', 'meters'],
-  SHEETS: ['sheet', 'sheets'],
-};
-
-function unitLabel(unit: string, count: number): string {
-  const [one, many] = PACKAGING_UNIT_LABEL[unit] ?? ['item', 'items'];
-  return count === 1 ? one : many;
-}
 
 interface StoreRef {
   id: string;
@@ -356,7 +345,7 @@ export class NotificationEvaluatorService {
           ...base,
           type: NotificationType.LOW_STOCK,
           title: `${row.name} is running low`,
-          message: `${row.available} ${unitLabel(row.unit, row.available)} left`,
+          message: `${row.available} ${packagingUnitLabel(row.unit, row.available)} left`,
           dedupeKey: `${NotificationType.LOW_STOCK}:PACKAGING:${row.id}`,
         });
       }

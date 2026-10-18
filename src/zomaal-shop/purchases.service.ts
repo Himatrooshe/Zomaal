@@ -1,10 +1,14 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ExpensePaymentMethod,
+  InventoryItemKind,
+  InventoryMovementType,
   MerchantPurchase,
   MerchantPurchaseSource,
   Prisma,
@@ -13,22 +17,69 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { StoreAccess } from '../access/store-access.service';
-import type { ListPurchasesDto, PurchaseListTab } from './dto/shop.dto';
+import {
+  attachReceipt,
+  receiptPreviewPath,
+} from '../common/media/attach-receipt.util';
+import { MediaService } from '../warehouse/media.service';
+import {
+  isWriteConflict,
+  moveOnHandInTx,
+} from '../warehouse/inventory-balance.util';
+import { resolvePackagingUnitCosts } from '../warehouse/packaging-cost.util';
+import { packagingUnitLabel } from '../warehouse/packaging-unit.util';
+import type {
+  CreatePurchaseDto,
+  ListPurchasesDto,
+  PurchaseItemType,
+  PurchaseListTab,
+  UpdatePurchaseDto,
+} from './dto/shop.dto';
+import { createPurchaseExpense } from './purchase-expense.util';
 import { money } from './shop-pricing.util';
+
+const PURCHASE_INCLUDE = {
+  expense: { select: { id: true, paymentMethod: true, receiptUrl: true } },
+} satisfies Prisma.MerchantPurchaseInclude;
+
+type PurchaseRow = Prisma.MerchantPurchaseGetPayload<{
+  include: typeof PURCHASE_INCLUDE;
+}>;
+
+const STOCK_IN_USE =
+  'Part of this stock is already reserved, sold or marked damaged, so this purchase can’t be reduced. Adjust the stock first.';
+
+/** Where a manual purchase's units go. */
+interface PurchaseTarget {
+  warehouseProductId: string | null;
+  warehouseVariantId: string | null;
+  packagingMaterialId: string | null;
+  productName: string;
+  unitLabel: string;
+  imageUrl: string | null;
+  inventoryItemId: string | null;
+}
 
 // A purchases-list row groups every purchase of the same product from the
 // same source. Keys are stable, URL-safe, and say where the product lives:
-//   m_<warehouseProductId>  manual purchase of the merchant's own product
-//   s_<shopProductId>       delivered Zomaal Shop product
-//   mn_/sn_<base64url name> product has since been deleted — grouped by name
+//   m_<warehouseProductId>   manual purchase of the merchant's own product
+//   p_<packagingMaterialId>  manual purchase of the merchant's packaging
+//   s_<shopProductId>        delivered Zomaal Shop product
+//   mn_/sn_<base64url name>  product has since been deleted — grouped by name
 function groupKey(
   p: Pick<
     MerchantPurchase,
-    'source' | 'warehouseProductId' | 'shopProductId' | 'productName'
+    | 'source'
+    | 'warehouseProductId'
+    | 'packagingMaterialId'
+    | 'shopProductId'
+    | 'productName'
   >,
 ) {
   if (p.source === MerchantPurchaseSource.MANUAL && p.warehouseProductId)
     return `m_${p.warehouseProductId}`;
+  if (p.source === MerchantPurchaseSource.MANUAL && p.packagingMaterialId)
+    return `p_${p.packagingMaterialId}`;
   if (p.source === MerchantPurchaseSource.SHOP && p.shopProductId)
     return `s_${p.shopProductId}`;
   const prefix = p.source === MerchantPurchaseSource.MANUAL ? 'mn_' : 'sn_';
@@ -49,6 +100,12 @@ function whereForKey(
         source: MerchantPurchaseSource.MANUAL,
         warehouseProductId: value,
       };
+    case 'p':
+      return {
+        storeId,
+        source: MerchantPurchaseSource.MANUAL,
+        packagingMaterialId: value,
+      };
     case 's':
       return {
         storeId,
@@ -56,14 +113,18 @@ function whereForKey(
         shopProductId: value,
       };
     case 'mn':
+      return {
+        storeId,
+        source: MerchantPurchaseSource.MANUAL,
+        warehouseProductId: null,
+        packagingMaterialId: null,
+        productName: Buffer.from(value, 'base64url').toString('utf8'),
+      };
     case 'sn':
       return {
         storeId,
-        source:
-          prefix === 'mn'
-            ? MerchantPurchaseSource.MANUAL
-            : MerchantPurchaseSource.SHOP,
-        [prefix === 'mn' ? 'warehouseProductId' : 'shopProductId']: null,
+        source: MerchantPurchaseSource.SHOP,
+        shopProductId: null,
         productName: Buffer.from(value, 'base64url').toString('utf8'),
       };
     default:
@@ -75,13 +136,25 @@ function sourceLabel(source: MerchantPurchaseSource): 'Manual' | 'From Shop' {
   return source === MerchantPurchaseSource.SHOP ? 'From Shop' : 'Manual';
 }
 
+/** Zomaal Shop deliveries are credited as packaging. */
+function itemType(
+  p: Pick<MerchantPurchase, 'source' | 'packagingMaterialId'>,
+): PurchaseItemType {
+  return p.packagingMaterialId || p.source === MerchantPurchaseSource.SHOP
+    ? 'PACKAGING'
+    : 'PRODUCT';
+}
+
 function quantityLabel(quantity: number, unitLabel: string) {
   return `${quantity} ${unitLabel}`.trim();
 }
 
 @Injectable()
 export class PurchasesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly media: MediaService,
+  ) {}
 
   async list(storeId: string, query: ListPurchasesDto = {}) {
     const source = this.resolveSource(query.tab, query.source);
@@ -145,6 +218,7 @@ export class PurchasesService {
           key,
           source: latest.source,
           sourceLabel: sourceLabel(latest.source),
+          itemType: itemType(latest),
           productName: latest.productName,
           imageUrl: list.find((r) => r.imageUrl)?.imageUrl ?? null,
           unitLabel: latest.unitLabel,
@@ -166,6 +240,7 @@ export class PurchasesService {
   async group(storeId: string, key: string) {
     const rows = await this.prisma.merchantPurchase.findMany({
       where: whereForKey(storeId, key),
+      include: PURCHASE_INCLUDE,
       orderBy: [{ purchaseDate: 'desc' }, { createdAt: 'desc' }],
     });
     if (!rows.length) throw new NotFoundException('Purchase group not found');
@@ -175,11 +250,13 @@ export class PurchasesService {
       key,
       source: latest.source,
       sourceLabel: sourceLabel(latest.source),
+      itemType: itemType(latest),
       productName: latest.productName,
       imageUrl: rows.find((r) => r.imageUrl)?.imageUrl ?? null,
       unitLabel: latest.unitLabel,
       quantityLabel: quantityLabel(totalQty, latest.unitLabel),
       warehouseProductId: latest.warehouseProductId,
+      packagingMaterialId: latest.packagingMaterialId,
       shopProductId: latest.shopProductId,
       totalQuantity: totalQty,
       totalCost: rows
@@ -191,152 +268,352 @@ export class PurchasesService {
     };
   }
 
-  async create(
-    access: StoreAccess,
-    dto: {
-      warehouseProductId: string;
-      quantity: number;
-      unitPrice: number;
-      purchaseDate: string;
-      notes?: string;
-    },
-  ) {
-    const product = await this.requireWarehouseProduct(
-      access.storeId,
-      dto.warehouseProductId,
-    );
+  async create(access: StoreAccess, dto: CreatePurchaseDto) {
+    const { storeId } = access;
+    if (dto.packagingMaterialId && dto.warehouseProductId) {
+      throw new BadRequestException(
+        'Choose either a product or a packaging item, not both.',
+      );
+    }
+    const target = dto.packagingMaterialId
+      ? await this.packagingTarget(storeId, dto.packagingMaterialId)
+      : await this.productTarget(
+          storeId,
+          dto.warehouseProductId!,
+          dto.warehouseVariantId,
+        );
+    const addToStock = dto.addToStock ?? true;
     const unitPrice = new Prisma.Decimal(dto.unitPrice);
-    const row = await this.prisma.merchantPurchase.create({
-      data: {
-        storeId: access.storeId,
-        source: MerchantPurchaseSource.MANUAL,
-        warehouseProductId: product.id,
-        productName: product.name,
-        unitLabel: 'piece',
-        imageUrl: product.media[0]
-          ? `/warehouse/media/${product.media[0].id}/content`
-          : null,
-        quantity: dto.quantity,
-        unitPrice,
-        totalCost: unitPrice.times(dto.quantity).toDecimalPlaces(2),
-        currency: access.baseCurrency,
-        purchaseDate: this.parseDate(dto.purchaseDate),
-        notes: dto.notes?.trim() || null,
+    const totalCost = unitPrice.times(dto.quantity).toDecimalPlaces(2);
+    const purchaseDate = this.parseDate(dto.purchaseDate);
+    const notes = dto.notes?.trim() || null;
+
+    const row = await this.serializable(async (tx) => {
+      const expense = await createPurchaseExpense(tx, {
+        storeId,
+        productName: target.productName,
+        amount: totalCost,
+        paymentMethod: dto.paymentMethod ?? ExpensePaymentMethod.CASH,
+        spentAt: purchaseDate,
+        notes,
         createdByUserId: access.userId,
-      },
+        receiptUrl: dto.receiptAssetId
+          ? receiptPreviewPath(dto.receiptAssetId)
+          : null,
+      });
+      if (dto.receiptAssetId) {
+        await attachReceipt(tx, storeId, dto.receiptAssetId, {
+          expenseId: expense.id,
+        });
+      }
+      const created = await tx.merchantPurchase.create({
+        data: {
+          storeId,
+          source: MerchantPurchaseSource.MANUAL,
+          warehouseProductId: target.warehouseProductId,
+          warehouseVariantId: target.warehouseVariantId,
+          packagingMaterialId: target.packagingMaterialId,
+          productName: target.productName,
+          unitLabel: target.unitLabel,
+          imageUrl: target.imageUrl,
+          quantity: dto.quantity,
+          unitPrice,
+          totalCost,
+          currency: access.baseCurrency,
+          purchaseDate,
+          notes,
+          createdByUserId: access.userId,
+          stockAdded: addToStock,
+          expenseId: expense.id,
+        },
+        include: PURCHASE_INCLUDE,
+      });
+      if (addToStock) {
+        await moveOnHandInTx(
+          tx,
+          storeId,
+          target.inventoryItemId ??
+            (await this.ensureInventoryItem(tx, storeId, target)),
+          {
+            type: InventoryMovementType.PURCHASE_RECEIVED,
+            quantityDelta: dto.quantity,
+            reason: 'Stock bought (manual purchase)',
+            referenceType: 'MERCHANT_PURCHASE',
+            referenceId: created.id,
+            idempotencyKey: `purchase:${created.id}`,
+          },
+        );
+      }
+      return created;
     });
-    return {
-      ...this.toResponse(row),
-      groupKey: groupKey(row),
-      sourceLabel: sourceLabel(row.source),
-    };
+    return this.toResponse(row);
   }
 
-  async update(
-    storeId: string,
-    id: string,
-    dto: {
-      quantity?: number;
-      unitPrice?: number;
-      purchaseDate?: string;
-      notes?: string | null;
-    },
-  ) {
+  async update(storeId: string, id: string, dto: UpdatePurchaseDto) {
     const row = await this.requireEditable(storeId, id);
     const quantity = dto.quantity ?? row.quantity;
     const unitPrice =
       dto.unitPrice !== undefined
         ? new Prisma.Decimal(dto.unitPrice)
         : row.unitPrice;
-    const updated = await this.prisma.merchantPurchase.update({
-      where: { id },
-      data: {
-        quantity,
-        unitPrice,
-        totalCost: unitPrice.times(quantity).toDecimalPlaces(2),
-        ...(dto.purchaseDate !== undefined
-          ? { purchaseDate: this.parseDate(dto.purchaseDate) }
-          : {}),
-        ...(dto.notes !== undefined
-          ? { notes: dto.notes?.trim() || null }
-          : {}),
-      },
+    const totalCost = unitPrice.times(quantity).toDecimalPlaces(2);
+    const purchaseDate =
+      dto.purchaseDate !== undefined
+        ? this.parseDate(dto.purchaseDate)
+        : row.purchaseDate;
+    const notes =
+      dto.notes !== undefined ? dto.notes?.trim() || null : row.notes;
+    const delta = quantity - row.quantity;
+    const inventoryItemId =
+      row.stockAdded && delta !== 0 ? await this.stockItemId(row) : null;
+    const previousReceipt =
+      dto.receiptAssetId !== undefined && row.expenseId
+        ? await this.prisma.mediaAsset.findUnique({
+            where: { expenseId: row.expenseId },
+            select: { id: true },
+          })
+        : null;
+    const replacedReceipt =
+      previousReceipt && previousReceipt.id !== dto.receiptAssetId
+        ? previousReceipt
+        : null;
+
+    const updated = await this.serializable(async (tx) => {
+      if (inventoryItemId) {
+        await this.moveStock(tx, storeId, inventoryItemId, delta, {
+          reason: 'Manual purchase quantity changed',
+          referenceId: id,
+        });
+      }
+
+      let expenseId = row.expenseId;
+      if (expenseId) {
+        if (replacedReceipt) {
+          await tx.mediaAsset.update({
+            where: { id: replacedReceipt.id },
+            data: { expenseId: null },
+          });
+        }
+        if (dto.receiptAssetId && dto.receiptAssetId !== previousReceipt?.id) {
+          await attachReceipt(tx, storeId, dto.receiptAssetId, { expenseId });
+        }
+        await tx.expense.update({
+          where: { id: expenseId },
+          data: {
+            amount: totalCost,
+            spentAt: purchaseDate,
+            notes,
+            ...(dto.paymentMethod ? { paymentMethod: dto.paymentMethod } : {}),
+            ...(dto.receiptAssetId !== undefined
+              ? {
+                  receiptUrl: dto.receiptAssetId
+                    ? receiptPreviewPath(dto.receiptAssetId)
+                    : null,
+                }
+              : {}),
+          },
+        });
+      } else {
+        const expense = await createPurchaseExpense(tx, {
+          storeId,
+          productName: row.productName,
+          amount: totalCost,
+          paymentMethod: dto.paymentMethod ?? ExpensePaymentMethod.CASH,
+          spentAt: purchaseDate,
+          notes,
+          createdByUserId: row.createdByUserId,
+          receiptUrl: dto.receiptAssetId
+            ? receiptPreviewPath(dto.receiptAssetId)
+            : null,
+        });
+        expenseId = expense.id;
+        if (dto.receiptAssetId) {
+          await attachReceipt(tx, storeId, dto.receiptAssetId, { expenseId });
+        }
+      }
+
+      return tx.merchantPurchase.update({
+        where: { id },
+        data: {
+          quantity,
+          unitPrice,
+          totalCost,
+          purchaseDate,
+          notes,
+          expenseId,
+        },
+        include: PURCHASE_INCLUDE,
+      });
     });
-    return {
-      ...this.toResponse(updated),
-      groupKey: groupKey(updated),
-      sourceLabel: sourceLabel(updated.source),
-    };
+
+    if (replacedReceipt) {
+      await this.media
+        .deleteAttachedAsset(replacedReceipt.id)
+        .catch(() => undefined);
+    }
+    return this.toResponse(updated);
   }
 
   async remove(storeId: string, id: string) {
-    await this.requireEditable(storeId, id);
-    await this.prisma.merchantPurchase.delete({ where: { id } });
+    const row = await this.requireEditable(storeId, id);
+    const inventoryItemId = row.stockAdded ? await this.stockItemId(row) : null;
+    const receipt = row.expenseId
+      ? await this.prisma.mediaAsset.findUnique({
+          where: { expenseId: row.expenseId },
+          select: { id: true },
+        })
+      : null;
+
+    await this.serializable(async (tx) => {
+      if (inventoryItemId) {
+        await this.moveStock(tx, storeId, inventoryItemId, -row.quantity, {
+          reason: 'Manual purchase deleted',
+          referenceId: id,
+        });
+      }
+      await tx.merchantPurchase.delete({ where: { id } });
+      if (row.expenseId) {
+        await tx.expense.delete({ where: { id: row.expenseId } });
+      }
+    });
+
+    if (receipt) {
+      await this.media.deleteAttachedAsset(receipt.id).catch(() => undefined);
+    }
     return { message: 'Purchase deleted' };
   }
 
   // "Select Product" sheet: the merchant's own active, non-bundle products
-  // with available stock (on hand − reserved − damaged) and default price.
-  async productOptions(storeId: string, search?: string) {
-    const products = await this.prisma.warehouseProduct.findMany({
-      where: {
-        storeId,
-        kind: WarehouseProductKind.STANDARD,
-        status: { not: WarehouseProductStatus.ARCHIVED },
-        ...(search
-          ? { name: { contains: search.trim(), mode: 'insensitive' } }
-          : {}),
-      },
-      orderBy: { name: 'asc' },
-      take: 50,
-      select: {
-        id: true,
-        name: true,
-        media: { orderBy: { position: 'asc' }, take: 1, select: { id: true } },
-        variants: {
-          orderBy: [{ isDefault: 'desc' }, { position: 'asc' }],
-          select: {
-            price: true,
-            costPrice: true,
-            inventoryItem: {
-              select: {
-                balances: {
-                  select: { onHand: true, reserved: true, damaged: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+  // (with their variants) and active packaging, each with available stock
+  // (on hand − reserved − damaged) and a suggested unit purchase price.
+  async productOptions(
+    storeId: string,
+    search?: string,
+    type?: PurchaseItemType,
+  ) {
+    const nameFilter = search
+      ? { contains: search.trim(), mode: 'insensitive' as const }
+      : undefined;
     const store = await this.prisma.store.findUniqueOrThrow({
       where: { id: storeId },
       select: { baseCurrency: true },
     });
-    return products.map((p) => {
-      const stock = p.variants.reduce(
-        (sum, v) =>
-          sum +
-          (v.inventoryItem?.balances ?? []).reduce(
-            (s, b) => s + b.onHand - b.reserved - b.damaged,
-            0,
-          ),
-        0,
-      );
-      const first = p.variants[0];
-      return {
-        id: p.id,
-        name: p.name,
-        imageUrl: p.media[0]
-          ? `/warehouse/media/${p.media[0].id}/content`
+
+    const products =
+      type === 'PACKAGING'
+        ? []
+        : await this.prisma.warehouseProduct.findMany({
+            where: {
+              storeId,
+              kind: WarehouseProductKind.STANDARD,
+              status: { not: WarehouseProductStatus.ARCHIVED },
+              ...(nameFilter ? { name: nameFilter } : {}),
+            },
+            orderBy: { name: 'asc' },
+            take: 50,
+            select: {
+              id: true,
+              name: true,
+              media: {
+                orderBy: { position: 'asc' },
+                take: 1,
+                select: { id: true },
+              },
+              variants: {
+                orderBy: [{ isDefault: 'desc' }, { position: 'asc' }],
+                select: {
+                  id: true,
+                  title: true,
+                  price: true,
+                  costPrice: true,
+                  inventoryItem: {
+                    select: {
+                      balances: {
+                        select: { onHand: true, reserved: true, damaged: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+    const packaging =
+      type === 'PRODUCT'
+        ? []
+        : await this.prisma.packagingMaterial.findMany({
+            where: {
+              storeId,
+              isActive: true,
+              ...(nameFilter ? { name: nameFilter } : {}),
+            },
+            orderBy: { name: 'asc' },
+            take: 50,
+            select: {
+              id: true,
+              name: true,
+              unit: true,
+              imageObjectName: true,
+              inventoryItem: {
+                select: {
+                  balances: {
+                    select: { onHand: true, reserved: true, damaged: true },
+                  },
+                },
+              },
+            },
+          });
+    const packagingCosts = await resolvePackagingUnitCosts(
+      this.prisma,
+      packaging.map((p) => p.id),
+    );
+
+    const available = (
+      balances: { onHand: number; reserved: number; damaged: number }[] = [],
+    ) => balances.reduce((s, b) => s + b.onHand - b.reserved - b.damaged, 0);
+
+    return [
+      ...products.map((p) => {
+        const variants = p.variants.map((v) => ({
+          id: v.id,
+          title: v.title,
+          price: money(v.price),
+          costPrice: money(v.costPrice),
+          stock: available(v.inventoryItem?.balances),
+        }));
+        const first = p.variants[0];
+        return {
+          itemType: 'PRODUCT' as const,
+          id: p.id,
+          name: p.name,
+          imageUrl: p.media[0]
+            ? `/warehouse/media/${p.media[0].id}/content`
+            : null,
+          unit: null,
+          price: money(first?.price),
+          // Suggested unit purchase price for the Add Purchase form.
+          costPrice: money(first?.costPrice),
+          currency: store.baseCurrency,
+          stock: variants.reduce((sum, v) => sum + v.stock, 0),
+          variants,
+        };
+      }),
+      ...packaging.map((m) => ({
+        itemType: 'PACKAGING' as const,
+        id: m.id,
+        name: m.name,
+        imageUrl: m.imageObjectName
+          ? `/warehouse/packaging/${m.id}/image`
           : null,
-        price: money(first?.price),
-        // Suggested unit purchase price for the Add Purchase form.
-        costPrice: money(first?.costPrice),
+        unit: m.unit,
+        price: null,
+        // Last price paid for it, if any.
+        costPrice: money(packagingCosts.get(m.id)),
         currency: store.baseCurrency,
-        stock,
-      };
-    });
+        stock: available(m.inventoryItem?.balances),
+        variants: [],
+      })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   private resolveSource(
@@ -351,14 +628,26 @@ export class PurchasesService {
     return source;
   }
 
-  private async requireWarehouseProduct(storeId: string, id: string) {
+  private async productTarget(
+    storeId: string,
+    productId: string,
+    variantId?: string,
+  ): Promise<PurchaseTarget> {
     const product = await this.prisma.warehouseProduct.findFirst({
-      where: { id, storeId, status: { not: WarehouseProductStatus.ARCHIVED } },
+      where: {
+        id: productId,
+        storeId,
+        status: { not: WarehouseProductStatus.ARCHIVED },
+      },
       select: {
         id: true,
         name: true,
         kind: true,
         media: { orderBy: { position: 'asc' }, take: 1, select: { id: true } },
+        variants: {
+          orderBy: [{ isDefault: 'desc' }, { position: 'asc' }],
+          select: { id: true, inventoryItem: { select: { id: true } } },
+        },
       },
     });
     if (!product) throw new NotFoundException('Product not found');
@@ -367,7 +656,140 @@ export class PurchasesService {
         'Bundles are made from other products — record purchases for the products inside it.',
       );
     }
-    return product;
+    const variant = variantId
+      ? product.variants.find((v) => v.id === variantId)
+      : product.variants.length === 1
+        ? product.variants[0]
+        : undefined;
+    if (!variant) {
+      throw new BadRequestException(
+        variantId
+          ? 'This variant does not belong to the product.'
+          : 'This product has several variants — choose which one you bought (warehouseVariantId).',
+      );
+    }
+    return {
+      warehouseProductId: product.id,
+      warehouseVariantId: variant.id,
+      packagingMaterialId: null,
+      productName: product.name,
+      unitLabel: 'piece',
+      imageUrl: product.media[0]
+        ? `/warehouse/media/${product.media[0].id}/content`
+        : null,
+      inventoryItemId: variant.inventoryItem?.id ?? null,
+    };
+  }
+
+  private async packagingTarget(
+    storeId: string,
+    packagingMaterialId: string,
+  ): Promise<PurchaseTarget> {
+    const material = await this.prisma.packagingMaterial.findFirst({
+      where: { id: packagingMaterialId, storeId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        imageObjectName: true,
+        inventoryItem: { select: { id: true } },
+      },
+    });
+    if (!material) throw new NotFoundException('Packaging not found');
+    return {
+      warehouseProductId: null,
+      warehouseVariantId: null,
+      packagingMaterialId: material.id,
+      productName: material.name,
+      unitLabel: packagingUnitLabel(material.unit, 1),
+      imageUrl: material.imageObjectName
+        ? `/warehouse/packaging/${material.id}/image`
+        : null,
+      inventoryItemId: material.inventoryItem?.id ?? null,
+    };
+  }
+
+  private async ensureInventoryItem(
+    tx: Prisma.TransactionClient,
+    storeId: string,
+    target: PurchaseTarget,
+  ): Promise<string> {
+    const item = target.packagingMaterialId
+      ? await tx.inventoryItem.upsert({
+          where: { packagingMaterialId: target.packagingMaterialId },
+          create: {
+            storeId,
+            kind: InventoryItemKind.PACKAGING_MATERIAL,
+            packagingMaterialId: target.packagingMaterialId,
+          },
+          update: {},
+          select: { id: true },
+        })
+      : await tx.inventoryItem.upsert({
+          where: { variantId: target.warehouseVariantId! },
+          create: {
+            storeId,
+            kind: InventoryItemKind.PRODUCT_VARIANT,
+            variantId: target.warehouseVariantId,
+          },
+          update: {},
+          select: { id: true },
+        });
+    return item.id;
+  }
+
+  /** The inventory item a purchase added stock to; null once it is gone. */
+  private async stockItemId(row: MerchantPurchase): Promise<string | null> {
+    if (!row.packagingMaterialId && !row.warehouseVariantId) return null;
+    const item = await this.prisma.inventoryItem.findFirst({
+      where: row.packagingMaterialId
+        ? { packagingMaterialId: row.packagingMaterialId }
+        : { variantId: row.warehouseVariantId },
+      select: { id: true },
+    });
+    return item?.id ?? null;
+  }
+
+  private async moveStock(
+    tx: Prisma.TransactionClient,
+    storeId: string,
+    inventoryItemId: string,
+    quantityDelta: number,
+    ref: { reason: string; referenceId: string },
+  ) {
+    try {
+      await moveOnHandInTx(tx, storeId, inventoryItemId, {
+        type: InventoryMovementType.PURCHASE_RECEIVED,
+        quantityDelta,
+        reason: ref.reason,
+        referenceType: 'MERCHANT_PURCHASE',
+        referenceId: ref.referenceId,
+      });
+    } catch (error) {
+      if (error instanceof BadRequestException && quantityDelta < 0) {
+        throw new ConflictException(STOCK_IN_USE);
+      }
+      throw error;
+    }
+  }
+
+  private async serializable<T>(
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(fn, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        });
+      } catch (error) {
+        if (!isWriteConflict(error)) throw error;
+        if (attempt === 3) {
+          throw new ConflictException(
+            'Stock changed at the same time; please try again.',
+          );
+        }
+      }
+    }
   }
 
   private async requireEditable(storeId: string, id: string) {
@@ -394,7 +816,7 @@ export class PurchasesService {
   }
 
   /** Figma Purchases History row. */
-  private toHistoryRow(r: MerchantPurchase) {
+  private toHistoryRow(r: PurchaseRow) {
     const unit = money(r.unitPrice);
     return {
       id: r.id,
@@ -411,17 +833,27 @@ export class PurchasesService {
       totalCost: money(r.totalCost),
       currency: r.currency,
       notes: r.notes,
+      warehouseVariantId: r.warehouseVariantId,
+      stockAdded: r.stockAdded,
+      expenseId: r.expenseId,
+      paymentMethod: r.expense?.paymentMethod ?? null,
+      receiptUrl: r.expense?.receiptUrl ?? null,
       editable: r.source === MerchantPurchaseSource.MANUAL,
       createdAt: r.createdAt.toISOString(),
     };
   }
 
-  toResponse(r: MerchantPurchase) {
+  private toResponse(r: PurchaseRow) {
     const unit = money(r.unitPrice);
     return {
       id: r.id,
       source: r.source,
       sourceLabel: sourceLabel(r.source),
+      itemType: itemType(r),
+      groupKey: groupKey(r),
+      warehouseProductId: r.warehouseProductId,
+      warehouseVariantId: r.warehouseVariantId,
+      packagingMaterialId: r.packagingMaterialId,
       productName: r.productName,
       unitLabel: r.unitLabel,
       imageUrl: r.imageUrl,
@@ -433,6 +865,10 @@ export class PurchasesService {
       currency: r.currency,
       purchaseDate: r.purchaseDate.toISOString(),
       notes: r.notes,
+      stockAdded: r.stockAdded,
+      expenseId: r.expenseId,
+      paymentMethod: r.expense?.paymentMethod ?? null,
+      receiptUrl: r.expense?.receiptUrl ?? null,
       editable: r.source === MerchantPurchaseSource.MANUAL,
       createdAt: r.createdAt.toISOString(),
     };
