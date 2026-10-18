@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ShopProductStatus } from '@prisma/client';
 
-export class MessageResponseDto {
+export class ShopMessageResponseDto {
   @ApiProperty({ example: 'Category deleted' })
   message: string;
 }

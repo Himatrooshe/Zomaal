@@ -109,6 +109,21 @@ paths:
       summary: Log in with phone number and password
       tags:
         - Auth
+  /auth/countries:
+    get:
+      description: Public. Every country with its flag and dial code, plus whether an OTP can be sent there by SMS and by WhatsApp. Join `dialCode` and the local number into E.164 (e.g. +212612345678) for `phone` in send-otp, verify-otp and login. Hide or disable a channel when its flag is false.
+      operationId: Auth_countries
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpCountriesResponseDto'
+      summary: Countries for the phone number picker
+      tags:
+        - Auth
   /auth/send-otp:
     post:
       description: 'Requires `Content-Type: application/json`. Requests a six-digit OTP by SMS (default) or WhatsApp. This endpoint does not require an access token and is limited to three requests per phone/channel in ten minutes.'
@@ -14469,7 +14484,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageResponseDto'
+                $ref: '#/components/schemas/SuperAdminMessageResponseDto'
         '401':
           description: ''
           content:
@@ -14519,7 +14534,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageResponseDto'
+                $ref: '#/components/schemas/SuperAdminMessageResponseDto'
         '401':
           description: Not signed in, or current password is incorrect.
           content:
@@ -14630,7 +14645,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageResponseDto'
+                $ref: '#/components/schemas/ShopMessageResponseDto'
         '401':
           description: ''
           content:
@@ -14840,7 +14855,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageResponseDto'
+                $ref: '#/components/schemas/ShopMessageResponseDto'
         '401':
           description: ''
           content:
@@ -15180,7 +15195,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MessageResponseDto'
+                $ref: '#/components/schemas/MerchantMessageResponseDto'
         '401':
           description: ''
           content:
@@ -17852,6 +17867,53 @@ components:
         - refreshToken
         - isProfileCompleted
         - hasPassword
+    OtpCountryDto:
+      type: object
+      properties:
+        code:
+          type: string
+          description: ISO 3166-1 alpha-2 code.
+          example: MA
+        name:
+          type: string
+          description: English country name.
+          example: Morocco
+        dialCode:
+          type: string
+          description: International dialling code, prefixed with +.
+          example: '+212'
+        flag:
+          type: string
+          description: Flag emoji.
+          example: 🇲🇦
+        sms:
+          type: boolean
+          description: Whether an OTP can be sent by SMS to numbers from this country. When false, hide or disable the SMS option.
+        whatsapp:
+          type: boolean
+          description: Whether an OTP can be sent by WhatsApp to numbers from this country.
+      required:
+        - code
+        - name
+        - dialCode
+        - flag
+        - sms
+        - whatsapp
+    OtpCountriesResponseDto:
+      type: object
+      properties:
+        defaultCountry:
+          type: string
+          description: Country to preselect in the phone picker.
+          example: MA
+        countries:
+          description: All countries, sorted by name.
+          type: array
+          items:
+            $ref: '#/components/schemas/OtpCountryDto'
+      required:
+        - defaultCountry
+        - countries
     SendOtpDto:
       type: object
       properties:
@@ -17875,7 +17937,7 @@ components:
       properties:
         message:
           type: string
-          example: Merchant account deleted
+          example: OTP sent successfully
       required:
         - message
     VerifyOtpDto:
@@ -29150,6 +29212,14 @@ components:
       required:
         - accessToken
         - refreshToken
+    SuperAdminMessageResponseDto:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Password updated successfully
+      required:
+        - message
     SuperAdminChangePasswordDto:
       type: object
       properties:
@@ -29223,6 +29293,14 @@ components:
         isActive:
           type: boolean
           description: Inactive categories are hidden from Add Product and cannot be assigned to new or activated products.
+    ShopMessageResponseDto:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Category deleted
+      required:
+        - message
     ShopProductCategoryRefDto:
       type: object
       properties:
@@ -29558,6 +29636,14 @@ components:
         isActive:
           type: boolean
           description: Suspends the merchant when false. Not yet enforced as an access gate elsewhere in the app — informational/operational for now.
+    MerchantMessageResponseDto:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Merchant account deleted
+      required:
+        - message
     AdvanceShopOrderDto:
       type: object
       properties:

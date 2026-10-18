@@ -47,6 +47,49 @@ export class AuthTokensResponseDto extends TokenPairDto {
   hasPassword: boolean;
 }
 
+export class OtpCountryDto {
+  @ApiProperty({ description: 'ISO 3166-1 alpha-2 code.', example: 'MA' })
+  code: string;
+
+  @ApiProperty({ description: 'English country name.', example: 'Morocco' })
+  name: string;
+
+  @ApiProperty({
+    description: 'International dialling code, prefixed with +.',
+    example: '+212',
+  })
+  dialCode: string;
+
+  @ApiProperty({ description: 'Flag emoji.', example: '🇲🇦' })
+  flag: string;
+
+  @ApiProperty({
+    description:
+      'Whether an OTP can be sent by SMS to numbers from this country. When false, hide or disable the SMS option.',
+  })
+  sms: boolean;
+
+  @ApiProperty({
+    description:
+      'Whether an OTP can be sent by WhatsApp to numbers from this country.',
+  })
+  whatsapp: boolean;
+}
+
+export class OtpCountriesResponseDto {
+  @ApiProperty({
+    description: 'Country to preselect in the phone picker.',
+    example: 'MA',
+  })
+  defaultCountry: string;
+
+  @ApiProperty({
+    type: [OtpCountryDto],
+    description: 'All countries, sorted by name.',
+  })
+  countries: OtpCountryDto[];
+}
+
 export class PasswordChangedResponseDto extends TokenPairDto {
   @ApiProperty({ example: 'Password updated successfully' })
   message: string;

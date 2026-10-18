@@ -22,7 +22,7 @@ import { SuperAdminAuthService } from './super-admin-auth.service';
 import { SuperAdminLoginDto } from './dto/super-admin-login.dto';
 import { SuperAdminRefreshTokenDto } from './dto/super-admin-refresh.dto';
 import {
-  MessageResponseDto,
+  SuperAdminMessageResponseDto,
   SuperAdminAuthResponseDto,
   SuperAdminTokenPairDto,
 } from './dto/super-admin-response.dto';
@@ -93,7 +93,7 @@ export class SuperAdminAuthController {
   @UseGuards(SuperAdminJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Revoke the current refresh token' })
-  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiOkResponse({ type: SuperAdminMessageResponseDto })
   @ApiUnauthorizedResponse({ type: ApiErrorDto })
   logout(@CurrentSuperAdmin() admin: SuperAdminJwtPayload) {
     return this.superAdminAuthService.logout(admin.adminId);

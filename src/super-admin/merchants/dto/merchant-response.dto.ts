@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class MessageResponseDto {
+export class MerchantMessageResponseDto {
   @ApiProperty({ example: 'Merchant account deleted' })
   message: string;
 }

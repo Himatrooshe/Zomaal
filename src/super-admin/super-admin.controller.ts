@@ -10,7 +10,7 @@ import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { SuperAdminAuthService } from './super-admin-auth.service';
 import { SuperAdminChangePasswordDto } from './dto/super-admin-change-password.dto';
 import {
-  MessageResponseDto,
+  SuperAdminMessageResponseDto,
   SuperAdminSummaryDto,
 } from './dto/super-admin-response.dto';
 import { SuperAdminJwtAuthGuard } from './guards/super-admin-jwt-auth.guard';
@@ -34,7 +34,7 @@ export class SuperAdminController {
 
   @Patch('me/password')
   @ApiOperation({ summary: 'Change the super admin password' })
-  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiOkResponse({ type: SuperAdminMessageResponseDto })
   @ApiUnauthorizedResponse({
     description: 'Not signed in, or current password is incorrect.',
     type: ApiErrorDto,

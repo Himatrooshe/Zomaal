@@ -226,6 +226,7 @@ jobs:
             LIGHTFUNNELS_ENABLED=true
             LIGHTFUNNELS_REDIRECT_URI=https://zomaal-backend-563898960389.us-central1.run.app/auth/lightfunnels/callback
             LIGHTFUNNELS_SCOPES=orders\,funnels\,products\,customers
+            OTP_SMS_DISABLED_COUNTRIES=MA
           env_vars_update_strategy: merge
           secrets: |-
             YOUCAN_CLIENT_ID=zomaal-youcan-client-id:latest

@@ -52,7 +52,7 @@ import {
 } from './dto/product.dto';
 import { ListShopProductsQueryDto } from './dto/list-products-query.dto';
 import {
-  MessageResponseDto,
+  ShopMessageResponseDto,
   ShopCategoryResponseDto,
   ShopImportResultDto,
   ShopProductResponseDto,
@@ -99,7 +99,7 @@ export class ShopController {
     summary: 'Delete a shop category',
     description: 'Refused (409) while the category still has products.',
   })
-  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiOkResponse({ type: ShopMessageResponseDto })
   deleteCategory(
     @CurrentSuperAdmin() admin: SuperAdminJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -192,7 +192,7 @@ export class ShopController {
 
   @Delete('products/:id')
   @ApiOperation({ summary: 'Delete a shop product' })
-  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiOkResponse({ type: ShopMessageResponseDto })
   deleteProduct(
     @CurrentSuperAdmin() admin: SuperAdminJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,

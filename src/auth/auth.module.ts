@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { OtpCountriesService } from './otp-countries.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TwilioOtpProvider } from '../providers/twilio-otp.provider';
 import { DevelopmentOtpProvider } from '../providers/development-otp.provider';
@@ -26,6 +27,7 @@ import { AuthTokensModule } from './auth-tokens.module';
   controllers: [AuthController],
   providers: [
     AuthService,
+    OtpCountriesService,
     JwtStrategy,
     TwilioOtpProvider,
     DevelopmentOtpProvider,

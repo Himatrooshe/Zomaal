@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { AuthTokensService } from './auth-tokens.service';
+import { OtpCountriesService } from './otp-countries.service';
 import { hashRefreshToken } from './refresh-token-hash.util';
 
 type PrismaStub = {
@@ -42,6 +43,7 @@ function build() {
       jwtService as never,
       configService as never,
     ),
+    new OtpCountriesService(configService as never),
   );
 
   return { service, prisma, jwtService, configService, otpProvider };
@@ -66,6 +68,7 @@ function buildWithRealJwt() {
     otpProvider,
     { assert: jest.fn(), clear: jest.fn() } as never,
     new AuthTokensService(prisma as never, jwtService, configService as never),
+    new OtpCountriesService(configService as never),
   );
   return { service, prisma, jwtService, otpProvider };
 }

@@ -16,6 +16,7 @@ import { SendOtpDto, type OtpChannel } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RateLimitService } from '../redis/rate-limit.service';
 import { AuthTokensService } from './auth-tokens.service';
+import { OtpCountriesService } from './otp-countries.service';
 import type { JwtTokenPayload } from './interfaces/jwt-payload.interface';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/forgot-password.dto';
@@ -34,10 +35,12 @@ export class AuthService {
     @Inject('OtpProvider') private otpProvider: OtpProvider,
     private rateLimit: RateLimitService,
     private tokens: AuthTokensService,
+    private otpCountries: OtpCountriesService,
   ) {}
 
   async sendOtp(sendOtpDto: SendOtpDto) {
     const { phone, channel = 'sms' } = sendOtpDto;
+    this.otpCountries.assertChannelAvailable(phone, channel);
 
     await this.assertRateLimit(
       `auth:otp:send:${channel}:${phone}`,

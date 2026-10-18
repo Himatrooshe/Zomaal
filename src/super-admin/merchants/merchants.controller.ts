@@ -26,7 +26,7 @@ import { UpdateMerchantDto } from './dto/update-merchant.dto';
 import { ListMerchantsQueryDto } from './dto/list-merchants-query.dto';
 import {
   MerchantResponseDto,
-  MessageResponseDto,
+  MerchantMessageResponseDto,
 } from './dto/merchant-response.dto';
 
 @ApiTags('Admin Merchants')
@@ -84,7 +84,7 @@ export class MerchantsController {
     description:
       'Cascades to everything the merchant owns (store, products, customers, orders, connections). There is no undo. Recorded in the activity log.',
   })
-  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiOkResponse({ type: MerchantMessageResponseDto })
   remove(
     @CurrentSuperAdmin() admin: SuperAdminJwtPayload,
     @Param('userId', ParseUUIDPipe) userId: string,

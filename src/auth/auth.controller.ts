@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Header,
   HttpCode,
   HttpStatus,
@@ -35,9 +36,11 @@ import {
 import {
   AuthTokensResponseDto,
   MessageResponseDto,
+  OtpCountriesResponseDto,
   PasswordResetTokenResponseDto,
   TokenPairDto,
 } from './dto/auth-response.dto';
+import { OtpCountriesService } from './otp-countries.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
@@ -60,7 +63,10 @@ const tokenResponseHeaders = {
 @AllowWhenLocked()
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly otpCountries: OtpCountriesService,
+  ) {}
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -108,6 +114,18 @@ export class AuthController {
   })
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Get('countries')
+  @Header('Cache-Control', 'public, max-age=3600')
+  @ApiOperation({
+    summary: 'Countries for the phone number picker',
+    description:
+      'Public. Every country with its flag and dial code, plus whether an OTP can be sent there by SMS and by WhatsApp. Join `dialCode` and the local number into E.164 (e.g. +212612345678) for `phone` in send-otp, verify-otp and login. Hide or disable a channel when its flag is false.',
+  })
+  @ApiOkResponse({ type: OtpCountriesResponseDto })
+  countries() {
+    return this.otpCountries.list();
   }
 
   @Post('send-otp')
