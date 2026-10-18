@@ -12827,6 +12827,249 @@ paths:
       summary: Complete Google Ads OAuth authorization
       tags:
         - Ads — Google OAuth
+  /ads/meta/auth/start:
+    post:
+      description: Returns a short-lived Facebook sign-in URL. Open it in the merchant's browser. After consent Facebook calls GET /auth/meta-ads/callback, which stores one connection per active ad account the user can access.
+      operationId: MetaAds_begin
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaAdsAuthStartResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The current user has not created a Zomaal store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '503':
+          description: Meta Ads is not enabled or configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Start connecting Meta ad accounts (Facebook / Instagram)
+      tags:
+        - Ads — Meta
+  /ads/meta/campaigns/{connectionId}:
+    get:
+      description: refresh=true re-fetches the live list from Meta first; otherwise returns the last-known list.
+      operationId: MetaAds_listCampaigns
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+        - name: refresh
+          required: false
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaCampaignListResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Meta denied access (message from Meta).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Reconnect Meta Ads before using this feature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: List campaigns for "Select Campaigns"
+      tags:
+        - Ads — Meta
+  /ads/meta/campaigns/{connectionId}/selection:
+    post:
+      description: Only tracked campaigns are synced and shown on the dashboard.
+      operationId: MetaAds_saveSelection
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveMetaCampaignSelectionDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaCampaignListResponseDto'
+        '400':
+          description: Invalid payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Save which campaigns to track ("Save Campaigns")
+      tags:
+        - Ads — Meta
+  /ads/meta/campaigns/{connectionId}/{externalCampaignId}/status:
+    post:
+      description: PAUSED stops the ads immediately on Facebook / Instagram. ACTIVE resumes them.
+      operationId: MetaAds_setStatus
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+        - name: externalCampaignId
+          required: true
+          in: path
+          description: Meta campaign id (digits).
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetMetaCampaignStatusDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaCampaignDto'
+        '400':
+          description: Invalid status or campaign id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: The merchant did not allow managing ads, or Meta denied the change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Connection or campaign not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Reconnect Meta Ads before using this feature.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Pause or resume a campaign on Meta
+      tags:
+        - Ads — Meta
+  /auth/meta-ads/callback:
+    get:
+      description: Public browser callback invoked by Facebook. Consumes the single-use state, exchanges the code for a long-lived token, and stores one AdsConnection per active ad account. Do not add a Zomaal bearer token.
+      operationId: MetaAdsOAuth_callback
+      parameters:
+        - name: error
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: state
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: code
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connection result when no frontend success redirect is configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaAdsAuthCompleteResponseDto'
+        '302':
+          description: Redirects to META_ADS_AUTH_SUCCESS_REDIRECT_URL with meta_ads=connected (or the failure URL with meta_ads=failed).
+        '400':
+          description: Missing parameter, ads access not granted, or no active ad account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Authorization was rejected, or OAuth state is invalid, expired, or reused.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      summary: Complete Meta Ads (Facebook Login) authorization
+      tags:
+        - Ads — Meta OAuth
   /roles:
     get:
       description: Owner-only. Role management can never be delegated to a staff member.
@@ -28764,10 +29007,22 @@ components:
           type: string
         status:
           type: string
-          description: Raw platform status, e.g. TikTok's ENABLE/DISABLE
+          description: 'Raw platform status: TikTok ENABLE/DISABLE, Google ENABLED/PAUSED, Meta ACTIVE/PAUSED.'
         active:
           type: boolean
           description: Whether the campaign is in a running/enabled state.
+        connectionId:
+          type: string
+          format: uuid
+          description: Ad account connection the campaign belongs to (use it for pause/resume).
+        accountName:
+          type: object
+          nullable: true
+          description: Ad account name — show it when the platform has several accounts.
+        currency:
+          type: string
+          example: MAD
+          description: The ad account's currency for this campaign's money.
         metrics:
           $ref: '#/components/schemas/AdsCampaignMetricsDto'
       required:
@@ -28775,6 +29030,8 @@ components:
         - name
         - status
         - active
+        - connectionId
+        - currency
         - metrics
     AdsCampaignListResponseDto:
       type: object
@@ -28792,6 +29049,7 @@ components:
         currency:
           type: string
           example: MAD
+          description: First account's currency. With several accounts, use each campaign's currency.
         period:
           type: object
           example:
@@ -29048,6 +29306,102 @@ components:
       properties:
         connections:
           description: One connection per Google Ads advertiser account the user can access.
+          type: array
+          items:
+            $ref: '#/components/schemas/AdsConnectionDto'
+      required:
+        - connections
+    MetaAdsAuthStartResponseDto:
+      type: object
+      properties:
+        authorizationUrl:
+          type: string
+          description: Single-use Facebook sign-in URL ("Continue with Facebook"). Open it in the browser — do not request it server-to-server.
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - authorizationUrl
+        - expiresAt
+    MetaCampaignDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        externalCampaignId:
+          type: string
+          description: Meta campaign id (digits).
+        name:
+          type: string
+        status:
+          type: string
+          description: 'Meta campaign status: ACTIVE or PAUSED.'
+        objective:
+          type: object
+          nullable: true
+          description: Campaign objective, e.g. OUTCOME_SALES, OUTCOME_LEADS, OUTCOME_TRAFFIC, OUTCOME_ENGAGEMENT.
+        budget:
+          type: object
+          nullable: true
+          description: Daily budget (else lifetime budget), 2 decimals. null when the budget is set per ad set.
+        currency:
+          type: object
+          nullable: true
+        startDate:
+          type: object
+          nullable: true
+          format: date-time
+        endDate:
+          type: object
+          nullable: true
+          format: date-time
+        tracked:
+          type: boolean
+          description: Selected on "Select Campaigns" — only tracked campaigns are synced.
+      required:
+        - id
+        - externalCampaignId
+        - name
+        - status
+        - tracked
+    MetaCampaignListResponseDto:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetaCampaignDto'
+      required:
+        - data
+    SaveMetaCampaignSelectionDto:
+      type: object
+      properties:
+        externalCampaignIds:
+          description: externalCampaignId values to track. Every other campaign on this connection is un-tracked.
+          example:
+            - '120210000000000000'
+          type: array
+          items:
+            type: string
+      required:
+        - externalCampaignIds
+    SetMetaCampaignStatusDto:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - PAUSED
+            - ACTIVE
+          description: PAUSED stops the ads immediately. ACTIVE resumes them.
+      required:
+        - status
+    MetaAdsAuthCompleteResponseDto:
+      type: object
+      properties:
+        connections:
+          description: One connection per active Meta ad account the Facebook user can access.
           type: array
           items:
             $ref: '#/components/schemas/AdsConnectionDto'

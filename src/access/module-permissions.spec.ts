@@ -2,6 +2,8 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 import { AdsController } from '../ads/ads.controller';
 import { TikTokAdsController } from '../ads/tiktok/tiktok-ads.controller';
+import { GoogleAdsController } from '../ads/google/google-ads.controller';
+import { MetaAdsController } from '../ads/meta/meta-ads.controller';
 import { DuplicateOrdersController } from '../customers/duplicate-orders.controller';
 import { EcommerceController } from '../ecommerce/ecommerce.controller';
 import { ReturnRequestController } from '../ecommerce/return-request.controller';
@@ -55,6 +57,8 @@ const GATED: [ControllerClass, string][] = [
   [MediaController, 'products'],
   [AdsController, 'ads'],
   [TikTokAdsController, 'ads'],
+  [GoogleAdsController, 'ads'],
+  [MetaAdsController, 'ads'],
   [DuplicateOrdersController, 'customers'],
 ];
 
@@ -108,6 +112,9 @@ describe('module permission gating', () => {
     ]);
     expect(required(AdsController, 'getCampaigns')).toEqual([
       PERMISSIONS.ADS_VIEW,
+    ]);
+    expect(required(MetaAdsController, 'setStatus')).toEqual([
+      PERMISSIONS.ADS_MANAGE,
     ]);
     expect(required(ShippingDashboardController, 'getHome')).toEqual([
       PERMISSIONS.ORDERS_VIEW,

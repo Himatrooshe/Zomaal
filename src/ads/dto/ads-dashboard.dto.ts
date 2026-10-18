@@ -24,23 +24,57 @@ export class AdsCampaignMetricsDto {
   @ApiProperty({ example: '820.0000' }) spent!: string;
   @ApiProperty({ example: 88 }) clicks!: number;
   @ApiProperty({ example: 5 }) results!: number;
-  @ApiPropertyOptional({ example: '5.0000', nullable: true }) costPerResult!: string | null;
-  @ApiPropertyOptional({ example: '5.0000', nullable: true }) cpm!: string | null;
-  @ApiPropertyOptional({ example: '5.0000', nullable: true }) ctr!: string | null;
-  @ApiPropertyOptional({ example: '1.2000', nullable: true }) frequency!: string | null;
-  @ApiPropertyOptional({ example: '820.0000', nullable: true }) budget!: string | null;
+  @ApiPropertyOptional({ example: '5.0000', nullable: true }) costPerResult!:
+    | string
+    | null;
+  @ApiPropertyOptional({ example: '5.0000', nullable: true }) cpm!:
+    | string
+    | null;
+  @ApiPropertyOptional({ example: '5.0000', nullable: true }) ctr!:
+    | string
+    | null;
+  @ApiPropertyOptional({ example: '1.2000', nullable: true }) frequency!:
+    | string
+    | null;
+  @ApiPropertyOptional({ example: '820.0000', nullable: true }) budget!:
+    | string
+    | null;
   @ApiPropertyOptional({ example: 1000, nullable: true }) reach!: number | null;
   @ApiProperty({ example: 1200 }) impressions!: number;
-  @ApiPropertyOptional({ example: '60.0000', nullable: true }) conversionRate!: string | null;
+  @ApiPropertyOptional({ example: '60.0000', nullable: true }) conversionRate!:
+    | string
+    | null;
 }
 
 export class AdsCampaignCardDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() name!: string;
-  @ApiProperty({ description: "Raw platform status, e.g. TikTok's ENABLE/DISABLE" })
+  @ApiProperty({
+    description:
+      'Raw platform status: TikTok ENABLE/DISABLE, Google ENABLED/PAUSED, Meta ACTIVE/PAUSED.',
+  })
   status!: string;
-  @ApiProperty({ description: 'Whether the campaign is in a running/enabled state.' })
+  @ApiProperty({
+    description: 'Whether the campaign is in a running/enabled state.',
+  })
   active!: boolean;
+  @ApiProperty({
+    format: 'uuid',
+    description:
+      'Ad account connection the campaign belongs to (use it for pause/resume).',
+  })
+  connectionId!: string;
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Ad account name — show it when the platform has several accounts.',
+  })
+  accountName!: string | null;
+  @ApiProperty({
+    example: 'MAD',
+    description: "The ad account's currency for this campaign's money.",
+  })
+  currency!: string;
   @ApiProperty({ type: AdsCampaignMetricsDto })
   metrics!: AdsCampaignMetricsDto;
 }
@@ -48,13 +82,23 @@ export class AdsCampaignCardDto {
 export class AdsCampaignListResponseDto {
   @ApiProperty({ enum: AdsPlatform }) platform!: AdsPlatform;
   @ApiProperty({
-    description: 'False when there is no ACTIVE connection for this platform yet.',
+    description:
+      'False when there is no ACTIVE connection for this platform yet.',
   })
   available!: boolean;
-  @ApiProperty({ example: 'MAD' }) currency!: string;
+  @ApiProperty({
+    example: 'MAD',
+    description:
+      "First account's currency. With several accounts, use each campaign's currency.",
+  })
+  currency!: string;
   @ApiProperty({
     type: Object,
-    example: { days: 1, from: '2026-08-30T00:00:00.000Z', to: '2026-08-30T23:59:59.999Z' },
+    example: {
+      days: 1,
+      from: '2026-08-30T00:00:00.000Z',
+      to: '2026-08-30T23:59:59.999Z',
+    },
   })
   period!: { days: number; from: string; to: string };
   @ApiProperty({ type: [AdsCampaignCardDto] })
@@ -94,12 +138,17 @@ export class AdsPlatformBreakdownDto {
   @ApiProperty({ enum: AdsPlatform }) platform!: AdsPlatform;
   @ApiProperty({ example: 25 }) value!: number;
   @ApiProperty({ example: 25 }) sharePercentage!: number;
-  @ApiProperty({ description: 'False when there is no ACTIVE connection for this platform.' })
+  @ApiProperty({
+    description: 'False when there is no ACTIVE connection for this platform.',
+  })
   available!: boolean;
 }
 
 export class AdsStatisticsResponseDto {
-  @ApiProperty({ enum: ['week', 'month', 'quarter'] }) period!: 'week' | 'month' | 'quarter';
+  @ApiProperty({ enum: ['week', 'month', 'quarter'] }) period!:
+    | 'week'
+    | 'month'
+    | 'quarter';
   @ApiProperty({ enum: METRIC_KEYS }) metric!: AdsMetricKey;
   @ApiProperty({ example: 100 }) total!: number;
   @ApiProperty({ type: [AdsPlatformBreakdownDto] })

@@ -16,6 +16,10 @@ import {
   GoogleAdsSyncService,
   type ScheduledGoogleAdsSyncResponse,
 } from './google/google-ads-sync.service';
+import {
+  MetaAdsSyncService,
+  type ScheduledMetaAdsSyncResponse,
+} from './meta/meta-ads-sync.service';
 
 @ApiExcludeController()
 @UseGuards(AdsSchedulerGuard)
@@ -24,6 +28,7 @@ export class AdsSchedulerController {
   constructor(
     private readonly tiktokSync: TikTokAdsSyncService,
     private readonly googleSync: GoogleAdsSyncService,
+    private readonly metaSync: MetaAdsSyncService,
   ) {}
 
   @Post('tiktok/sync')
@@ -38,5 +43,12 @@ export class AdsSchedulerController {
   @Header('Cache-Control', 'no-store')
   synchronizeGoogle(): Promise<ScheduledGoogleAdsSyncResponse> {
     return this.googleSync.syncAllActiveConnections();
+  }
+
+  @Post('meta/sync')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  synchronizeMeta(): Promise<ScheduledMetaAdsSyncResponse> {
+    return this.metaSync.syncAllActiveConnections();
   }
 }

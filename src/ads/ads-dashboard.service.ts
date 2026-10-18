@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AdsConnectionStatus, AdsPlatform, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreAccessService } from '../access/store-access.service';
@@ -40,10 +40,18 @@ export class AdsDashboardService {
   ): Promise<AdsCampaignListResponseDto> {
     const store = await this.requireStore(userId);
     const to = new Date();
-    const from = startOfUtcDay(new Date(to.getTime() - (days - 1) * 86_400_000));
+    const from = startOfUtcDay(
+      new Date(to.getTime() - (days - 1) * 86_400_000),
+    );
 
-    const connection = await this.prisma.adsConnection.findFirst({
-      where: { storeId: store.id, platform, status: AdsConnectionStatus.ACTIVE },
+    // Google and Meta store one connection per ad account; show them all.
+    const connections = await this.prisma.adsConnection.findMany({
+      where: {
+        storeId: store.id,
+        platform,
+        status: AdsConnectionStatus.ACTIVE,
+      },
+      orderBy: { installedAt: 'asc' },
       include: {
         campaigns: {
           where: { tracked: true },
@@ -54,7 +62,7 @@ export class AdsDashboardService {
       },
     });
 
-    if (!connection) {
+    if (connections.length === 0) {
       return {
         platform,
         available: false,
@@ -65,42 +73,62 @@ export class AdsDashboardService {
       };
     }
 
-    const campaigns = connection.campaigns.map((campaign) => {
-      const agg = aggregateSnapshots(campaign.metrics, days === 1);
-      return {
-        id: campaign.id,
-        name: campaign.name,
-        status: campaign.status,
-        active: /ENABLE/i.test(campaign.status),
-        metrics: {
-          spent: agg.spend.toFixed(4),
-          clicks: agg.clicks,
-          results: agg.results,
-          costPerResult: agg.results ? agg.spend.dividedBy(agg.results).toFixed(4) : null,
-          cpm: agg.impressions
-            ? agg.spend.dividedBy(agg.impressions).times(1000).toFixed(4)
-            : null,
-          ctr: agg.impressions
-            ? new Prisma.Decimal(agg.clicks).dividedBy(agg.impressions).times(100).toFixed(4)
-            : null,
-          frequency: agg.frequency?.toFixed(4) ?? null,
-          budget: campaign.budget?.toFixed(4) ?? null,
-          reach: agg.reach,
-          impressions: agg.impressions,
-          conversionRate: agg.clicks
-            ? new Prisma.Decimal(agg.results).dividedBy(agg.clicks).times(100).toFixed(4)
-            : null,
-        },
-      };
-    });
+    const campaigns = connections
+      .flatMap((connection) =>
+        connection.campaigns.map((campaign) => ({ connection, campaign })),
+      )
+      .map(({ connection, campaign }) => {
+        const agg = aggregateSnapshots(campaign.metrics, days === 1);
+        return {
+          id: campaign.id,
+          name: campaign.name,
+          status: campaign.status,
+          active: isRunningStatus(campaign.status),
+          connectionId: connection.id,
+          accountName: connection.displayName,
+          currency:
+            campaign.currency ?? connection.currency ?? store.baseCurrency,
+          metrics: {
+            spent: agg.spend.toFixed(4),
+            clicks: agg.clicks,
+            results: agg.results,
+            costPerResult: agg.results
+              ? agg.spend.dividedBy(agg.results).toFixed(4)
+              : null,
+            cpm: agg.impressions
+              ? agg.spend.dividedBy(agg.impressions).times(1000).toFixed(4)
+              : null,
+            ctr: agg.impressions
+              ? new Prisma.Decimal(agg.clicks)
+                  .dividedBy(agg.impressions)
+                  .times(100)
+                  .toFixed(4)
+              : null,
+            frequency: agg.frequency?.toFixed(4) ?? null,
+            budget: campaign.budget?.toFixed(4) ?? null,
+            reach: agg.reach,
+            impressions: agg.impressions,
+            conversionRate: agg.clicks
+              ? new Prisma.Decimal(agg.results)
+                  .dividedBy(agg.clicks)
+                  .times(100)
+                  .toFixed(4)
+              : null,
+          },
+        };
+      });
 
+    const lastSynced = connections
+      .map((c) => c.lastSyncedAt)
+      .filter((d): d is Date => d !== null)
+      .sort((a, b) => b.getTime() - a.getTime())[0];
     return {
       platform,
       available: true,
-      currency: connection.currency ?? store.baseCurrency,
+      currency: connections[0].currency ?? store.baseCurrency,
       period: { days, from: from.toISOString(), to: to.toISOString() },
       campaigns,
-      dataUpdatedAt: connection.lastSyncedAt?.toISOString() ?? null,
+      dataUpdatedAt: lastSynced?.toISOString() ?? null,
     };
   }
 
@@ -112,7 +140,9 @@ export class AdsDashboardService {
     const store = await this.requireStore(userId);
     const days = PERIOD_DAYS[period];
     const to = new Date();
-    const from = startOfUtcDay(new Date(to.getTime() - (days - 1) * 86_400_000));
+    const from = startOfUtcDay(
+      new Date(to.getTime() - (days - 1) * 86_400_000),
+    );
 
     const connections = await this.prisma.adsConnection.findMany({
       where: { storeId: store.id, status: AdsConnectionStatus.ACTIVE },
@@ -134,15 +164,24 @@ export class AdsDashboardService {
       const snapshots = snapshotsByPlatform.get(connection.platform) ?? [];
       snapshots.push(...connection.campaigns.flatMap((c) => c.metrics));
       snapshotsByPlatform.set(connection.platform, snapshots);
-      if (connection.lastSyncedAt && (!latestSync || connection.lastSyncedAt > latestSync)) {
+      if (
+        connection.lastSyncedAt &&
+        (!latestSync || connection.lastSyncedAt > latestSync)
+      ) {
         latestSync = connection.lastSyncedAt;
       }
     }
     for (const [platform, snapshots] of snapshotsByPlatform) {
-      byPlatform.set(platform, metricValue(metric, aggregateSnapshots(snapshots, false)));
+      byPlatform.set(
+        platform,
+        metricValue(metric, aggregateSnapshots(snapshots, false)),
+      );
     }
 
-    const total = [...byPlatform.values()].reduce((sum, value) => sum + value, 0);
+    const total = [...byPlatform.values()].reduce(
+      (sum, value) => sum + value,
+      0,
+    );
     const connectedPlatforms = new Set(connections.map((c) => c.platform));
 
     return {
@@ -194,7 +233,10 @@ interface Aggregate {
 // multi-day range we report them as null rather than a misleading sum;
 // singleDay=true (period is "Today") uses the one snapshot's own values,
 // which are accurate as reported by the platform for that day.
-function aggregateSnapshots(snapshots: SnapshotLike[], singleDay: boolean): Aggregate {
+function aggregateSnapshots(
+  snapshots: SnapshotLike[],
+  singleDay: boolean,
+): Aggregate {
   let spend = new Prisma.Decimal(0);
   let clicks = 0;
   let impressions = 0;
@@ -224,7 +266,9 @@ function metricValue(metric: AdsMetricKey, agg: Aggregate): number {
     case 'costPerResult':
       return agg.results ? agg.spend.dividedBy(agg.results).toNumber() : 0;
     case 'cpm':
-      return agg.impressions ? agg.spend.dividedBy(agg.impressions).times(1000).toNumber() : 0;
+      return agg.impressions
+        ? agg.spend.dividedBy(agg.impressions).times(1000).toNumber()
+        : 0;
     case 'ctr':
       return agg.impressions ? (agg.clicks / agg.impressions) * 100 : 0;
     case 'frequency':
@@ -240,8 +284,15 @@ function metricValue(metric: AdsMetricKey, agg: Aggregate): number {
   }
 }
 
+/** TikTok ENABLE, Google ENABLED, Meta ACTIVE. */
+function isRunningStatus(status: string): boolean {
+  return /ENABLE/i.test(status) || /^ACTIVE$/i.test(status);
+}
+
 function startOfUtcDay(value: Date): Date {
-  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+  return new Date(
+    Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
+  );
 }
 
 function round2(value: number): number {

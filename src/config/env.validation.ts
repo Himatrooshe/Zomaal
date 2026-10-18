@@ -165,6 +165,30 @@ export function validateEnvironment(
   if (googleAdsApiVersion && !/^v\d{2,3}$/.test(googleAdsApiVersion))
     errors.push('GOOGLE_ADS_API_VERSION must look like v25');
 
+  const metaAdsEnabled = asString(config.META_ADS_ENABLED) || 'false';
+  if (!['true', 'false'].includes(metaAdsEnabled))
+    errors.push('META_ADS_ENABLED must be true or false');
+  if (metaAdsEnabled === 'true') {
+    if (!asString(config.META_ADS_APP_ID) && !asString(config.META_APP_ID))
+      errors.push(
+        'META_ADS_APP_ID (or META_APP_ID) is required when META_ADS_ENABLED=true',
+      );
+    if (
+      !asString(config.META_ADS_APP_SECRET) &&
+      !asString(config.META_APP_SECRET)
+    )
+      errors.push(
+        'META_ADS_APP_SECRET (or META_APP_SECRET) is required when META_ADS_ENABLED=true',
+      );
+    if (!asString(config.META_ADS_REDIRECT_URI))
+      errors.push(
+        'META_ADS_REDIRECT_URI is required when META_ADS_ENABLED=true',
+      );
+  }
+  const metaAdsApiVersion = asString(config.META_ADS_API_VERSION);
+  if (metaAdsApiVersion && !/^v\d{2,3}\.\d$/.test(metaAdsApiVersion))
+    errors.push('META_ADS_API_VERSION must look like v25.0');
+
   const whatsAppEnabled = asString(config.WHATSAPP_ENABLED) || 'false';
   if (!['true', 'false'].includes(whatsAppEnabled))
     errors.push('WHATSAPP_ENABLED must be true or false');
@@ -568,6 +592,7 @@ export function validateEnvironment(
     ACCOUNTS_SCHEDULER_SECRET: accountsSchedulerSecret,
     BILLING_CHECKOUT_URL: billingCheckoutUrl,
     GOOGLE_ADS_ENABLED: googleAdsEnabled,
+    META_ADS_ENABLED: metaAdsEnabled,
     PUSH_NOTIFICATIONS_ENABLED: pushNotificationsEnabled,
     FCM_PROJECT_ID: fcmProjectId,
     PORT: port,

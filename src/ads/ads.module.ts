@@ -17,13 +17,19 @@ import { GoogleAdsApiService } from './google/google-ads-api.service';
 import { GoogleAdsAuthService } from './google/google-ads-auth.service';
 import { GoogleAdsCampaignService } from './google/google-ads-campaign.service';
 import { GoogleAdsSyncService } from './google/google-ads-sync.service';
+import { MetaAdsController } from './meta/meta-ads.controller';
+import { MetaAdsOAuthController } from './meta/meta-ads-oauth.controller';
+import { MetaAdsApiService } from './meta/meta-ads-api.service';
+import { MetaAdsAuthService } from './meta/meta-ads-auth.service';
+import { MetaAdsCampaignService } from './meta/meta-ads-campaign.service';
+import { MetaAdsSyncService } from './meta/meta-ads-sync.service';
 
-// Each ad platform (TikTok, Google; Meta/Snapchat later) has its own
+// Each ad platform (TikTok, Google, Meta; Snapchat later) has its own
 // *AdsApiService/*AdsAuthService/etc. under src/ads/<platform>/, writing into
 // the same AdsConnection/AdsCampaign/AdsMetricSnapshot tables —
 // AdsController, AdsDashboardService and AdsConnectionService are generic.
 //
-// Pause/resume is wired for Google (POST /ads/google/campaigns/.../status).
+// Pause/resume is wired for Google and Meta (POST /ads/<platform>/campaigns/.../status).
 // TikTokAdsApiService.setCampaignStatus() exists but is not exposed yet.
 @Module({
   controllers: [
@@ -32,6 +38,8 @@ import { GoogleAdsSyncService } from './google/google-ads-sync.service';
     TikTokAdsOAuthController,
     GoogleAdsController,
     GoogleAdsOAuthController,
+    MetaAdsController,
+    MetaAdsOAuthController,
     AdsSchedulerController,
   ],
   providers: [
@@ -47,6 +55,10 @@ import { GoogleAdsSyncService } from './google/google-ads-sync.service';
     GoogleAdsAuthService,
     GoogleAdsCampaignService,
     GoogleAdsSyncService,
+    MetaAdsApiService,
+    MetaAdsAuthService,
+    MetaAdsCampaignService,
+    MetaAdsSyncService,
   ],
   exports: [AdsConnectionService, AdsDashboardService],
 })

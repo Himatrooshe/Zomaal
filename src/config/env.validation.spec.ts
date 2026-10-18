@@ -372,3 +372,40 @@ describe('salary scheduler configuration', () => {
     ).toThrow('STAFF_SALARY_SCHEDULER_ENABLED');
   });
 });
+
+describe('validateEnvironment Meta Ads', () => {
+  const base = {
+    DATABASE_URL: 'postgresql://postgres:password@localhost:5434/zomaal',
+    JWT_SECRET: 'a-secure-test-jwt-secret-with-32-characters',
+    SHIPPING_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 6).toString('base64'),
+    PRODUCT_IMAGE_BUCKET: 'zomaal-product-images-test',
+  };
+  const enabled = {
+    META_ADS_ENABLED: 'true',
+    META_ADS_REDIRECT_URI: 'https://api.example.test/auth/meta-ads/callback',
+  };
+
+  it('needs app credentials and a redirect URI when enabled', () => {
+    expect(() =>
+      validateEnvironment({ ...base, META_ADS_ENABLED: 'true' }),
+    ).toThrow(
+      /META_ADS_APP_ID \(or META_APP_ID\).*META_ADS_APP_SECRET \(or META_APP_SECRET\).*META_ADS_REDIRECT_URI/,
+    );
+  });
+
+  it('accepts the shared WhatsApp Meta app credentials', () => {
+    const result = validateEnvironment({
+      ...base,
+      ...enabled,
+      META_APP_ID: 'shared-app-id',
+      META_APP_SECRET: 'shared-app-secret',
+    });
+    expect(result.META_ADS_ENABLED).toBe('true');
+  });
+
+  it('rejects a malformed API version', () => {
+    expect(() =>
+      validateEnvironment({ ...base, META_ADS_API_VERSION: 'v25' }),
+    ).toThrow('META_ADS_API_VERSION must look like v25.0');
+  });
+});
