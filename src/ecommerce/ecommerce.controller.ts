@@ -107,7 +107,7 @@ export class EcommerceController {
   @ApiOperation({
     summary: 'Get the consolidated e-commerce home-screen payload',
     description:
-      'Returns revenue, actionable order states, cached product/customer totals, warehouse totals, shipping state, connection health, and recent orders in one request. The default period is the current calendar month in the requested timezone.',
+      'Returns delivered revenue, net profit (order profit − ad spend − salary and other expenses), lost orders (cancelled or returned), actionable order states, cached product/customer totals, warehouse totals, shipping state, connection health, and recent orders in one request. The default period is the current calendar month in the requested timezone.',
   })
   @ApiOkResponse({
     type: EcommerceHomeResponseDto,
@@ -237,7 +237,7 @@ export class EcommerceController {
   @ApiOperation({
     summary: 'Get combined revenue totals',
     description:
-      'Dynamically combines synchronized Shopify, YouCan, and Lightfunnels accounts by platform and currency. Different currencies are never added together. Date boundaries are inclusive and evaluated in the requested timezone.',
+      'Dynamically combines synchronized Shopify, YouCan, and Lightfunnels accounts by platform and currency. Only delivered orders count (returned after delivery drops out again); the period filters by order date. Different currencies are never added together. Date boundaries are inclusive and evaluated in the requested timezone.',
   })
   @ApiOkResponse({
     description: 'Revenue totals and data freshness watermark.',
@@ -263,7 +263,7 @@ export class EcommerceController {
   @ApiOperation({
     summary: 'Get daily combined revenue',
     description:
-      'Returns daily totals across synchronized Shopify, YouCan, and Lightfunnels accounts, grouped by currency. Defaults to the latest 30 calendar days and accepts at most 366 days per request.',
+      'Returns daily totals of delivered orders across synchronized Shopify, YouCan, and Lightfunnels accounts, grouped by order date and currency. Defaults to the latest 30 calendar days and accepts at most 366 days per request.',
   })
   @ApiOkResponse({
     description: 'Daily revenue totals. Dates with no orders are omitted.',

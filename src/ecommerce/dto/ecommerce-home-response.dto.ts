@@ -75,12 +75,36 @@ export class EcommerceHomeShippingMetricsDto {
 
 export class EcommerceHomeProfitDto {
   @ApiProperty({
-    example: '8442.00',
+    example: '0.0000',
     description:
-      "Sum of every order's netProfitImpact from the financial-event ledger for orders " +
-      'processed in the period, converted to the store base currency.',
+      'Net profit (Q2.2): orderProfit − adSpend − operatingExpenses, in the store base currency.',
   })
   value!: string;
+
+  @ApiProperty({
+    example: '0.0000',
+    description:
+      "Sum of every order's netProfitImpact from the financial-event ledger for orders " +
+      'processed in the period: delivered revenue minus product, gift, packaging and ' +
+      'shipping cost, damage and shipping losses.',
+  })
+  orderProfit!: string;
+
+  @ApiProperty({
+    example: '0.0000',
+    description:
+      'Ad spend of tracked campaigns in the period (same as ads.spend). Spend without an ' +
+      'exchange rate is listed in ads.unconverted and not subtracted.',
+  })
+  adSpend!: string;
+
+  @ApiProperty({
+    example: '0.0000',
+    description:
+      'Recorded salary and other expenses in the period. Purchases and shipping are left ' +
+      'out because product cost and shipping are already in orderProfit.',
+  })
+  operatingExpenses!: string;
 
   @ApiProperty({
     type: [String],
@@ -137,7 +161,7 @@ export class EcommerceHomeLostOrdersDto {
     example: 78,
     description:
       'Count of orders in the period that were cancelled, or whose dispatched courier ' +
-      'shipment was refused or cancelled.',
+      'shipment was cancelled, refused or returned (any return stage).',
   })
   orders!: number;
 

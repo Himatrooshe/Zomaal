@@ -7412,7 +7412,7 @@ paths:
         - Shopify Webhooks
   /ecommerce/home:
     get:
-      description: Returns revenue, actionable order states, cached product/customer totals, warehouse totals, shipping state, connection health, and recent orders in one request. The default period is the current calendar month in the requested timezone.
+      description: Returns delivered revenue, net profit (order profit − ad spend − salary and other expenses), lost orders (cancelled or returned), actionable order states, cached product/customer totals, warehouse totals, shipping state, connection health, and recent orders in one request. The default period is the current calendar month in the requested timezone.
       operationId: Ecommerce_getHome
       parameters:
         - name: from
@@ -7684,7 +7684,7 @@ paths:
         - E-commerce Revenue
   /ecommerce/revenue/summary:
     get:
-      description: Dynamically combines synchronized Shopify, YouCan, and Lightfunnels accounts by platform and currency. Different currencies are never added together. Date boundaries are inclusive and evaluated in the requested timezone.
+      description: Dynamically combines synchronized Shopify, YouCan, and Lightfunnels accounts by platform and currency. Only delivered orders count (returned after delivery drops out again); the period filters by order date. Different currencies are never added together. Date boundaries are inclusive and evaluated in the requested timezone.
       operationId: Ecommerce_getSummary
       parameters:
         - name: from
@@ -7762,7 +7762,7 @@ paths:
         - E-commerce Revenue
   /ecommerce/revenue/timeseries:
     get:
-      description: Returns daily totals across synchronized Shopify, YouCan, and Lightfunnels accounts, grouped by currency. Defaults to the latest 30 calendar days and accepts at most 366 days per request.
+      description: Returns daily totals of delivered orders across synchronized Shopify, YouCan, and Lightfunnels accounts, grouped by order date and currency. Defaults to the latest 30 calendar days and accepts at most 366 days per request.
       operationId: Ecommerce_getTimeseries
       parameters:
         - name: from
@@ -24882,8 +24882,20 @@ components:
       properties:
         value:
           type: string
-          example: '8442.00'
-          description: Sum of every order's netProfitImpact from the financial-event ledger for orders processed in the period, converted to the store base currency.
+          example: '0.0000'
+          description: 'Net profit (Q2.2): orderProfit − adSpend − operatingExpenses, in the store base currency.'
+        orderProfit:
+          type: string
+          example: '0.0000'
+          description: 'Sum of every order''s netProfitImpact from the financial-event ledger for orders processed in the period: delivered revenue minus product, gift, packaging and shipping cost, damage and shipping losses.'
+        adSpend:
+          type: string
+          example: '0.0000'
+          description: Ad spend of tracked campaigns in the period (same as ads.spend). Spend without an exchange rate is listed in ads.unconverted and not subtracted.
+        operatingExpenses:
+          type: string
+          example: '0.0000'
+          description: Recorded salary and other expenses in the period. Purchases and shipping are left out because product cost and shipping are already in orderProfit.
         unconvertedCurrencies:
           example: []
           description: Order currencies left out of value because no exchange rate to the store currency was available.
@@ -24892,6 +24904,9 @@ components:
             type: string
       required:
         - value
+        - orderProfit
+        - adSpend
+        - operatingExpenses
         - unconvertedCurrencies
     EcommerceHomeLostOrdersDto:
       type: object
@@ -24899,7 +24914,7 @@ components:
         orders:
           type: number
           example: 78
-          description: Count of orders in the period that were cancelled, or whose dispatched courier shipment was refused or cancelled.
+          description: Count of orders in the period that were cancelled, or whose dispatched courier shipment was cancelled, refused or returned (any return stage).
         value:
           type: string
           example: '4842.00'

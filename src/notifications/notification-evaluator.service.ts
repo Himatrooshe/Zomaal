@@ -27,7 +27,8 @@ export const SALES_DROP_THRESHOLD = 0.3;
 // Below this many orders last week a 30% swing is noise, not a signal.
 export const SALES_DROP_MIN_PREVIOUS_ORDERS = 5;
 
-// Same payment statuses the revenue summary counts as sales.
+// Sales drop compares orders placed, not delivered revenue, so the alert is
+// not delayed by courier delivery times.
 const INCLUDED_PAYMENT_STATUSES = Prisma.sql`
   (
     'PARTIALLY_PAID'::"EcommercePaymentStatus",

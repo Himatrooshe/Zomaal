@@ -718,6 +718,140 @@ describe('EcommerceService', () => {
     expect(target.toFixed(2)).toBe('60.00');
     expect(reason).toContain('corrected');
   });
+
+  it('counts only delivered, not-reversed orders as revenue', async () => {
+    const queryRaw = jest.fn().mockResolvedValue([]);
+    const service = new EcommerceService(
+      {
+        ecommerceConnection: { findMany: jest.fn().mockResolvedValue([]) },
+        $queryRaw: queryRaw,
+      } as unknown as PrismaService,
+      {} as any,
+      {} as any,
+      {} as any,
+      { convertOrNull: jest.fn() } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+      } as never,
+      {} as any,
+    );
+
+    await service.getRevenueSummary('user-id', {});
+    await service.getRevenueTimeseries('user-id', {});
+
+    for (const [query] of queryRaw.mock.calls as [Prisma.Sql][]) {
+      expect(query.sql).toContain(`'REVENUE_RECOGNIZED'`);
+      expect(query.sql).toContain(`'REVENUE_REVERSED'`);
+      expect(query.sql).not.toContain('financialStatus');
+    }
+  });
+
+  it('builds Home profit from order profit minus ad spend and operating expenses, and lost orders from cancelled + returned', async () => {
+    const queryRaw = jest.fn().mockImplementation((query: Prisma.Sql) => {
+      if (query.sql.includes('"lostCount"')) {
+        return Promise.resolve([
+          {
+            currency: 'MAD',
+            confirmedCount: 10,
+            confirmedValue: new Prisma.Decimal(1000),
+            deliveredCount: 5,
+            deliveredValue: new Prisma.Decimal(500),
+            inDeliveryCount: 1,
+            inDeliveryValue: new Prisma.Decimal(100),
+            refusedCount: 1,
+            refusedValue: new Prisma.Decimal(100),
+            cancelledCount: 2,
+            cancelledValue: new Prisma.Decimal(200),
+            lostCount: 4,
+            lostValue: new Prisma.Decimal(400),
+            latestUpdatedAt: null,
+          },
+        ]);
+      }
+      if (query.sql.includes('"netProfit"')) {
+        return Promise.resolve([
+          { currency: 'MAD', netProfit: new Prisma.Decimal(900) },
+        ]);
+      }
+      if (query.sql.includes('"operating"')) {
+        return Promise.resolve([
+          {
+            total: new Prisma.Decimal(500),
+            operating: new Prisma.Decimal(300),
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    const prisma = {
+      ecommerceConnection: { findMany: jest.fn().mockResolvedValue([]) },
+      warehouseProduct: { count: jest.fn().mockResolvedValue(0) },
+      senditConnection: { findUnique: jest.fn().mockResolvedValue(null) },
+      quickLivraisonConnection: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      forceLogConnection: { findUnique: jest.fn().mockResolvedValue(null) },
+      ozoneExpressConnection: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      $queryRaw: queryRaw,
+    } as unknown as PrismaService;
+    const service = new EcommerceService(
+      prisma,
+      {} as any,
+      {} as any,
+      {} as any,
+      {
+        convertOrNull: jest
+          .fn()
+          .mockImplementation((amount: Prisma.Decimal) =>
+            Promise.resolve(amount),
+          ),
+      } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+      } as never,
+      {
+        getTotals: jest.fn().mockResolvedValue({
+          currency: 'MAD',
+          spend: new Prisma.Decimal(150),
+          results: 0,
+          costPerResult: null,
+          byPlatform: [],
+          accounts: [],
+          unconverted: [],
+          dataUpdatedAt: null,
+        }),
+      } as any,
+    );
+    jest.spyOn(service, 'listOrders').mockResolvedValue({ data: [] } as never);
+
+    const result = await service.getHome('user-id', {
+      from: '2026-01-01',
+      to: '2026-01-31',
+    });
+
+    expect(result.profit).toMatchObject({
+      orderProfit: '900.0000',
+      adSpend: '150.0000',
+      operatingExpenses: '300.0000',
+      value: '450.0000', // 900 − 150 − 300; purchases/shipping (200) excluded
+    });
+    expect(result.expenses.total).toBe('650.00'); // all recorded + ad spend
+    expect(result.lostOrders).toEqual({ orders: 4, value: '400.0000' });
+  });
 });
 
 function aggregateRow(

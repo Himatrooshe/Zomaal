@@ -58,12 +58,19 @@ import {
 } from './order-status.util';
 import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
 
-const INCLUDED_PAYMENT_STATUSES = Prisma.sql`
-  (
-    'PARTIALLY_PAID'::"EcommercePaymentStatus",
-    'PAID'::"EcommercePaymentStatus",
-    'PARTIALLY_REFUNDED'::"EcommercePaymentStatus",
-    'REFUNDED'::"EcommercePaymentStatus"
+// Q2.1: an order counts as revenue once delivered. The financial ledger
+// records delivery from the courier (or the platform timeline for plugin
+// shipping) and reverses it when the parcel comes back.
+const DELIVERED_ORDER_FILTER = Prisma.sql`
+  EXISTS (
+    SELECT 1 FROM "EcommerceOrderFinancialEvent" recognized
+    WHERE recognized."orderId" = orders."id"
+      AND recognized."type" = 'REVENUE_RECOGNIZED'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM "EcommerceOrderFinancialEvent" reversed
+    WHERE reversed."orderId" = orders."id"
+      AND reversed."type" = 'REVENUE_REVERSED'
   )
 `;
 const MAX_TIMESERIES_DAYS = 366;
@@ -90,6 +97,19 @@ const RETURN_IN_PROGRESS_STATUSES = Prisma.sql`(
   'RETURN_IN_TRANSIT'::"ShippingShipmentStatus",
   'RETURNED_TO_WAREHOUSE'::"ShippingShipmentStatus",
   'RETURN_INSPECTION'::"ShippingShipmentStatus"
+)`;
+
+// Q2.3: lost orders are cancelled orders plus parcels the courier reports as
+// cancelled, refused or returned at any stage of the return.
+const LOST_SHIPMENT_STATUSES = Prisma.sql`(
+  'CANCELLED'::"ShippingShipmentStatus",
+  'REFUSED'::"ShippingShipmentStatus",
+  'RETURN_PENDING'::"ShippingShipmentStatus",
+  'RETURN_IN_TRANSIT'::"ShippingShipmentStatus",
+  'RETURNED_TO_WAREHOUSE'::"ShippingShipmentStatus",
+  'RETURN_INSPECTION'::"ShippingShipmentStatus",
+  'RETURNED_TO_STOCK'::"ShippingShipmentStatus",
+  'RETURNED_TO_SELLER'::"ShippingShipmentStatus"
 )`;
 
 // One dispatch has at most one linked shipment across these four courier
@@ -125,6 +145,8 @@ interface OrderStatusBucketRow {
   refusedValue: Prisma.Decimal;
   cancelledCount: number | bigint;
   cancelledValue: Prisma.Decimal;
+  lostCount: number | bigint;
+  lostValue: Prisma.Decimal;
   latestUpdatedAt: Date | null;
 }
 
@@ -139,6 +161,7 @@ interface OrderStatusBuckets {
   inDelivery: OrderStatusBucket;
   refused: OrderStatusBucket;
   cancelled: OrderStatusBucket;
+  lost: OrderStatusBucket;
   dataUpdatedAt: string | null;
 }
 
@@ -148,6 +171,7 @@ const ORDER_STATUS_BUCKET_KEYS = [
   'inDelivery',
   'refused',
   'cancelled',
+  'lost',
 ] as const;
 
 interface ReturnsBucketRow {
@@ -354,15 +378,26 @@ export class EcommerceService {
           GROUP BY events."currency"
         `),
       this.adsSpend.getTotals(store, range),
-      this.prisma.$queryRaw<{ total: Prisma.Decimal }[]>(Prisma.sql`
-          SELECT COALESCE(SUM(expense."amount"), 0) AS "total"
+      // Purchases and shipping stay out of profit: the order ledger already
+      // carries product cost and shipping, so subtracting them again would
+      // count them twice.
+      this.prisma.$queryRaw<
+        { total: Prisma.Decimal; operating: Prisma.Decimal }[]
+      >(Prisma.sql`
+          SELECT
+            COALESCE(SUM(expense."amount"), 0) AS "total",
+            COALESCE(SUM(expense."amount") FILTER (
+              WHERE category."group" IN ('SALARY'::"ExpenseGroup", 'OTHER'::"ExpenseGroup")
+            ), 0) AS "operating"
           FROM "Expense" expense
+          INNER JOIN "ExpenseCategory" category
+            ON category."id" = expense."categoryId"
           WHERE expense."storeId" = ${store.id}
             ${buildSpentAtFilter(range)}
         `),
     ]);
 
-    let profitValue = new Prisma.Decimal(0);
+    let orderProfit = new Prisma.Decimal(0);
     const unconvertedProfitCurrencies: string[] = [];
     for (const row of profitRows) {
       const converted = await this.toBaseOrSkip(
@@ -371,18 +406,20 @@ export class EcommerceService {
         store.baseCurrency,
         'Home profit',
       );
-      if (converted) profitValue = profitValue.plus(converted);
+      if (converted) orderProfit = orderProfit.plus(converted);
       else unconvertedProfitCurrencies.push(row.currency);
     }
-    const expensesTotal = new Prisma.Decimal(
+    const recordedExpenses = new Prisma.Decimal(
       recordedExpenseRows[0]?.total ?? 0,
-    ).plus(adSpend.spend);
+    );
+    const operatingExpenses = new Prisma.Decimal(
+      recordedExpenseRows[0]?.operating ?? 0,
+    );
+    const expensesTotal = recordedExpenses.plus(adSpend.spend);
+    const netProfit = orderProfit.minus(adSpend.spend).minus(operatingExpenses);
     const lostOrders = {
-      orders:
-        orderStatusBuckets.refused.count + orderStatusBuckets.cancelled.count,
-      value: orderStatusBuckets.refused.value
-        .plus(orderStatusBuckets.cancelled.value)
-        .toFixed(4),
+      orders: orderStatusBuckets.lost.count,
+      value: orderStatusBuckets.lost.value.toFixed(4),
     };
 
     const row = orderRows[0] ?? emptyHomeOrderMetrics();
@@ -435,7 +472,10 @@ export class EcommerceService {
         failed: Number(row.dispatchFailed),
       },
       profit: {
-        value: profitValue.toFixed(4),
+        value: netProfit.toFixed(4),
+        orderProfit: orderProfit.toFixed(4),
+        adSpend: adSpend.spend.toFixed(4),
+        operatingExpenses: operatingExpenses.toFixed(4),
         unconvertedCurrencies: unconvertedProfitCurrencies.sort(),
       },
       lostOrders,
@@ -1608,7 +1648,7 @@ export class EcommerceService {
         ON connection."id" = orders."connectionId"
       WHERE connection."storeId" = ${store.id}
         AND connection."includeInRevenue" = true
-        AND orders."financialStatus" IN ${INCLUDED_PAYMENT_STATUSES}
+        AND ${DELIVERED_ORDER_FILTER}
         ${dateFilter}
       GROUP BY connection."platform", orders."currency"
       ORDER BY connection."platform", orders."currency"
@@ -1651,7 +1691,7 @@ export class EcommerceService {
         ON connection."id" = orders."connectionId"
       WHERE connection."storeId" = ${store.id}
         AND connection."includeInRevenue" = true
-        AND orders."financialStatus" IN ${INCLUDED_PAYMENT_STATUSES}
+        AND ${DELIVERED_ORDER_FILTER}
         ${dateFilter}
       GROUP BY "date", orders."currency"
       ORDER BY "date", orders."currency"
@@ -1713,10 +1753,9 @@ export class EcommerceService {
    * Buckets orders in the period by their fulfillment/courier outcome.
    * Shared by GET /ecommerce/orders/status-summary and the Profit/Lost-Orders
    * rollups on GET /ecommerce/home so the two screens never disagree.
-   * "confirmed" reuses the same paid/partially-paid/refunded definition as
-   * revenue/summary; the other buckets read the dispatched courier
-   * shipment's normalizedStatus (order.status = CANCELLED also counts toward
-   * "cancelled" for orders never dispatched at all).
+   * "confirmed" is every order not cancelled; the other buckets read the
+   * dispatched courier shipment's normalizedStatus (order.status = CANCELLED
+   * also counts toward "cancelled" and "lost" for orders never dispatched).
    */
   private async getOrderStatusBuckets(
     store: { id: string; baseCurrency: string },
@@ -1759,6 +1798,14 @@ export class EcommerceService {
           WHERE orders."status" = 'CANCELLED'
             OR ss."normalizedStatus" = 'CANCELLED'::"ShippingShipmentStatus"
         ), 0) AS "cancelledValue",
+        COUNT(*) FILTER (
+          WHERE orders."status" = 'CANCELLED'
+            OR ss."normalizedStatus" IN ${LOST_SHIPMENT_STATUSES}
+        )::int AS "lostCount",
+        COALESCE(SUM(orders."netSales") FILTER (
+          WHERE orders."status" = 'CANCELLED'
+            OR ss."normalizedStatus" IN ${LOST_SHIPMENT_STATUSES}
+        ), 0) AS "lostValue",
         MAX(orders."updatedAt") AS "latestUpdatedAt"
       FROM "EcommerceOrder" orders
       INNER JOIN "EcommerceConnection" connection
@@ -1775,6 +1822,7 @@ export class EcommerceService {
       inDelivery: { count: 0, value: new Prisma.Decimal(0) },
       refused: { count: 0, value: new Prisma.Decimal(0) },
       cancelled: { count: 0, value: new Prisma.Decimal(0) },
+      lost: { count: 0, value: new Prisma.Decimal(0) },
       dataUpdatedAt: null,
     };
     let latestUpdatedAt: Date | null = null;
