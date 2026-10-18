@@ -4,6 +4,7 @@ import {
   RevenueSummaryDto,
 } from './ecommerce-response.dto';
 import { EcommerceOrderDto } from './ecommerce-order-response.dto';
+import { UnconvertedAmountDto } from '../../ads/dto/ad-spend.dto';
 
 export class EcommerceHomeOrderMetricsDto {
   @ApiProperty({ example: 420 })
@@ -80,6 +81,55 @@ export class EcommerceHomeProfitDto {
       'processed in the period, converted to the store base currency.',
   })
   value!: string;
+
+  @ApiProperty({
+    type: [String],
+    example: [],
+    description:
+      'Order currencies left out of value because no exchange rate to the store currency was available.',
+  })
+  unconvertedCurrencies!: string[];
+}
+
+export class EcommerceHomeAdsDto {
+  @ApiProperty({
+    example: '0.00',
+    description:
+      'Spend of tracked ad campaigns in the period, in the store base currency.',
+  })
+  spend!: string;
+
+  @ApiProperty({
+    example: 0,
+    description: 'Platform-reported results (purchases, leads, …).',
+  })
+  results!: number;
+
+  @ApiProperty({ type: String, nullable: true, example: null })
+  costPerResult!: string | null;
+
+  @ApiProperty({ type: [UnconvertedAmountDto] })
+  unconverted!: UnconvertedAmountDto[];
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  dataUpdatedAt!: string | null;
+}
+
+export class EcommerceHomeExpensesDto {
+  @ApiProperty({
+    example: '0.00',
+    description:
+      'Recorded expenses (spentAt in the period) plus ad spend, in the store base currency.',
+  })
+  total!: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: null,
+    description: 'total ÷ orders in the period; null when there are none.',
+  })
+  avgPerOrder!: string | null;
 }
 
 export class EcommerceHomeLostOrdersDto {
@@ -93,7 +143,8 @@ export class EcommerceHomeLostOrdersDto {
 
   @ApiProperty({
     example: '4842.00',
-    description: 'Sum of netSales for the lost orders above, in the store base currency.',
+    description:
+      'Sum of netSales for the lost orders above, in the store base currency.',
   })
   value!: string;
 }
@@ -119,6 +170,12 @@ export class EcommerceHomeResponseDto {
 
   @ApiProperty({ type: EcommerceHomeLostOrdersDto })
   lostOrders!: EcommerceHomeLostOrdersDto;
+
+  @ApiProperty({ type: EcommerceHomeAdsDto })
+  ads!: EcommerceHomeAdsDto;
+
+  @ApiProperty({ type: EcommerceHomeExpensesDto })
+  expenses!: EcommerceHomeExpensesDto;
 
   @ApiProperty({ type: [EcommerceConnectionDto] })
   connections!: EcommerceConnectionDto[];

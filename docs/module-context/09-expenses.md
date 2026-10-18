@@ -22,6 +22,15 @@ expense to a "Purchase costs" category, or moving one into it, is refused with 4
 can't be edited or deleted here; change the purchase instead. Expense responses carry `purchaseId` and
 `isPurchaseGenerated` so the app can show them read-only.
 
+**Ad spend (built):** calculated live from synced ad metrics, never stored as expense records. Platforms revise
+recent days, and a copy would drift from the real numbers.
+- What counts: only tracked (selected) campaigns. A disconnected account keeps its past spend.
+- Where it shows: the ADS group in `GET /expenses/summary` and the monthly `GET /expenses/trend`.
+- Breakdown: `GET /expenses/ad-spend?dateFrom&dateTo` lists spend by platform and by ad account (the "Ad spend" category screen).
+- Currency: each account's spend is converted to the store currency with the live rate. If no rate is available, that spend is left out of the totals and listed under `unconvertedAdSpend` / `unconverted`. It is never guessed.
+- Dates: ad spend is daily, so date-times in the filters are widened to whole days.
+- `GET /expenses?group=ADS` returns no rows, because there are no ADS expense records.
+
 ## Questions
 
 **Q9.1 (blocker) — Double counting**

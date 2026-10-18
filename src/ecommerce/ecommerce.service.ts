@@ -13,6 +13,8 @@ import { ShopifyFulfillmentAdapter } from './shopify-fulfillment.adapter';
 import { YouCanFulfillmentAdapter } from './youcan-fulfillment.adapter';
 import { LightfunnelsFulfillmentAdapter } from './lightfunnels-fulfillment.adapter';
 import { CurrencyService } from '../currency/currency.service';
+import { AdsSpendService } from '../ads/ads-spend.service';
+import { toUnconvertedDto } from '../ads/dto/ad-spend.dto';
 import { CustomerRiskService } from '../customers/customer-risk.service';
 import { EcommerceOrderQueryDto } from './dto/ecommerce-order-query.dto';
 import {
@@ -229,6 +231,7 @@ export class EcommerceService {
     private readonly financialService: EcommerceOrderFinancialService,
     private readonly customerRisk: CustomerRiskService,
     private readonly storeAccess: StoreAccessService,
+    private readonly adsSpend: AdsSpendService,
   ) {}
 
   async listConnections(userId: string): Promise<EcommerceConnectionListDto> {
@@ -284,6 +287,8 @@ export class EcommerceService {
       shippingConnections,
       orderStatusBuckets,
       profitRows,
+      adSpend,
+      recordedExpenseRows,
     ] = await Promise.all([
       this.getRevenueSummary(userId, homeQuery),
       this.prisma.$queryRaw<HomeOrderMetricsRow[]>(Prisma.sql`
@@ -348,20 +353,30 @@ export class EcommerceService {
             ${dateFilter}
           GROUP BY events."currency"
         `),
+      this.adsSpend.getTotals(store, range),
+      this.prisma.$queryRaw<{ total: Prisma.Decimal }[]>(Prisma.sql`
+          SELECT COALESCE(SUM(expense."amount"), 0) AS "total"
+          FROM "Expense" expense
+          WHERE expense."storeId" = ${store.id}
+            ${buildSpentAtFilter(range)}
+        `),
     ]);
 
     let profitValue = new Prisma.Decimal(0);
+    const unconvertedProfitCurrencies: string[] = [];
     for (const row of profitRows) {
-      profitValue = profitValue.plus(
-        row.currency === store.baseCurrency
-          ? new Prisma.Decimal(row.netProfit)
-          : await this.currencyService.convertAmount(
-              row.netProfit,
-              row.currency,
-              store.baseCurrency,
-            ),
+      const converted = await this.toBaseOrSkip(
+        row.netProfit,
+        row.currency,
+        store.baseCurrency,
+        'Home profit',
       );
+      if (converted) profitValue = profitValue.plus(converted);
+      else unconvertedProfitCurrencies.push(row.currency);
     }
+    const expensesTotal = new Prisma.Decimal(
+      recordedExpenseRows[0]?.total ?? 0,
+    ).plus(adSpend.spend);
     const lostOrders = {
       orders:
         orderStatusBuckets.refused.count + orderStatusBuckets.cancelled.count,
@@ -419,8 +434,25 @@ export class EcommerceService {
         dispatched: Number(row.dispatched),
         failed: Number(row.dispatchFailed),
       },
-      profit: { value: profitValue.toFixed(4) },
+      profit: {
+        value: profitValue.toFixed(4),
+        unconvertedCurrencies: unconvertedProfitCurrencies.sort(),
+      },
       lostOrders,
+      ads: {
+        spend: adSpend.spend.toFixed(2),
+        results: adSpend.results,
+        costPerResult: adSpend.costPerResult?.toFixed(2) ?? null,
+        unconverted: toUnconvertedDto(adSpend.unconverted),
+        dataUpdatedAt: adSpend.dataUpdatedAt?.toISOString() ?? null,
+      },
+      expenses: {
+        total: expensesTotal.toFixed(2),
+        avgPerOrder:
+          Number(row.inPeriod) > 0
+            ? expensesTotal.dividedBy(Number(row.inPeriod)).toFixed(2)
+            : null,
+      },
       connections: connectionsResult.data,
       recentOrders: recentOrders.data,
     };
@@ -1582,19 +1614,7 @@ export class EcommerceService {
       ORDER BY connection."platform", orders."currency"
     `);
 
-    // Convert all amounts to the store's base currency
-    for (const row of rows) {
-      if (row.currency !== store.baseCurrency) {
-        for (const key of amountKeys) {
-          row[key] = await this.currencyService.convertAmount(
-            row[key],
-            row.currency,
-            store.baseCurrency,
-          );
-        }
-        row.currency = store.baseCurrency;
-      }
-    }
+    await this.convertRowsToBase(rows, store.baseCurrency);
 
     const byPlatform = rows.map(toPlatformTotal);
     const totalsByCurrency = combineByCurrency(rows);
@@ -1637,19 +1657,7 @@ export class EcommerceService {
       ORDER BY "date", orders."currency"
     `);
 
-    // Convert all amounts to the store's base currency
-    for (const row of rows) {
-      if (row.currency !== store.baseCurrency) {
-        for (const key of amountKeys) {
-          row[key] = await this.currencyService.convertAmount(
-            row[key],
-            row.currency,
-            store.baseCurrency,
-          );
-        }
-        row.currency = store.baseCurrency;
-      }
-    }
+    await this.convertRowsToBase(rows, store.baseCurrency);
 
     return {
       period: range,
@@ -1776,16 +1784,13 @@ export class EcommerceService {
         const countField = `${key}Count` as keyof OrderStatusBucketRow;
         const valueField = `${key}Value` as keyof OrderStatusBucketRow;
         buckets[key].count += Number(row[countField]);
-        const rawValue = row[valueField] as Prisma.Decimal;
-        const converted =
-          row.currency === store.baseCurrency
-            ? new Prisma.Decimal(rawValue)
-            : await this.currencyService.convertAmount(
-                rawValue,
-                row.currency,
-                store.baseCurrency,
-              );
-        buckets[key].value = buckets[key].value.plus(converted);
+        const converted = await this.toBaseOrSkip(
+          row[valueField] as Prisma.Decimal,
+          row.currency,
+          store.baseCurrency,
+          'Order status buckets',
+        );
+        if (converted) buckets[key].value = buckets[key].value.plus(converted);
       }
       if (
         row.latestUpdatedAt &&
@@ -1865,16 +1870,13 @@ export class EcommerceService {
         const itemsField = `${key}Items` as keyof ReturnsBucketRow;
         const valueField = `${key}Value` as keyof ReturnsBucketRow;
         buckets[key].items += Number(row[itemsField]);
-        const rawValue = row[valueField] as Prisma.Decimal;
-        const converted =
-          row.currency === store.baseCurrency
-            ? new Prisma.Decimal(rawValue)
-            : await this.currencyService.convertAmount(
-                rawValue,
-                row.currency,
-                store.baseCurrency,
-              );
-        buckets[key].value = buckets[key].value.plus(converted);
+        const converted = await this.toBaseOrSkip(
+          row[valueField] as Prisma.Decimal,
+          row.currency,
+          store.baseCurrency,
+          'Returns buckets',
+        );
+        if (converted) buckets[key].value = buckets[key].value.plus(converted);
       }
       if (
         row.latestUpdatedAt &&
@@ -1886,6 +1888,52 @@ export class EcommerceService {
 
     buckets.dataUpdatedAt = latestUpdatedAt?.toISOString() ?? null;
     return buckets;
+  }
+
+  /** Rows with no available rate keep their own currency rather than a guess. */
+  private async convertRowsToBase(
+    rows: AggregateRow[],
+    baseCurrency: string,
+  ): Promise<void> {
+    for (const row of rows) {
+      if (row.currency === baseCurrency) continue;
+      const converted: Partial<
+        Record<(typeof amountKeys)[number], Prisma.Decimal>
+      > = {};
+      for (const key of amountKeys) {
+        const value = await this.currencyService.convertOrNull(
+          row[key],
+          row.currency,
+          baseCurrency,
+        );
+        if (!value) break;
+        converted[key] = value;
+      }
+      if (Object.keys(converted).length !== amountKeys.length) continue;
+      Object.assign(row, converted);
+      row.currency = baseCurrency;
+    }
+  }
+
+  /** Converts to the base currency, or returns null and logs when no rate exists. */
+  private async toBaseOrSkip(
+    value: Prisma.Decimal,
+    currency: string,
+    baseCurrency: string,
+    context: string,
+  ): Promise<Prisma.Decimal | null> {
+    if (currency === baseCurrency) return new Prisma.Decimal(value);
+    const converted = await this.currencyService.convertOrNull(
+      value,
+      currency,
+      baseCurrency,
+    );
+    if (!converted) {
+      this.logger.warn(
+        `${context}: left out ${currency} amounts, no exchange rate to ${baseCurrency}`,
+      );
+    }
+    return converted;
   }
 
   private async requireStore(
@@ -1999,6 +2047,20 @@ function buildDateFilter(range: {
     : Prisma.empty;
   const to = range.to
     ? Prisma.sql`AND orders."processedAt" < ((${range.to}::date + INTERVAL '1 day') AT TIME ZONE ${range.timezone})`
+    : Prisma.empty;
+  return Prisma.sql`${from} ${to}`;
+}
+
+function buildSpentAtFilter(range: {
+  from: string | null;
+  to: string | null;
+  timezone: string;
+}): Prisma.Sql {
+  const from = range.from
+    ? Prisma.sql`AND expense."spentAt" >= (${range.from}::date AT TIME ZONE ${range.timezone})`
+    : Prisma.empty;
+  const to = range.to
+    ? Prisma.sql`AND expense."spentAt" < ((${range.to}::date + INTERVAL '1 day') AT TIME ZONE ${range.timezone})`
     : Prisma.empty;
   return Prisma.sql`${from} ${to}`;
 }

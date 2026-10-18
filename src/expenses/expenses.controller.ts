@@ -64,6 +64,7 @@ import {
   ExpenseSummaryResponseDto,
   UpdateExpenseDto,
 } from './dto/expense.dto';
+import { AdSpendResponseDto } from '../ads/dto/ad-spend.dto';
 
 @ApiTags('Expenses')
 @ApiBearerAuth()
@@ -233,9 +234,32 @@ export class ExpensesController {
     return this.expenses.summary(access.storeId, query);
   }
 
+  @Get('ad-spend')
+  @RequirePermission(PERMISSIONS.EXPENSES_VIEW)
+  @ApiOperation({
+    summary: 'Ad spend by platform and ad account ("Ad spend" category)',
+    description:
+      'Calculated live from synced metrics of tracked campaigns and converted to the store currency. Dates are inclusive calendar days; date-times are widened to whole days. Spend with no available exchange rate is listed under `unconverted` instead of being guessed.',
+  })
+  @ApiOkResponse({ type: AdSpendResponseDto })
+  @ApiBadRequestResponse({
+    description: 'dateFrom is after dateTo.',
+    type: ApiErrorDto,
+  })
+  adSpend(
+    @CurrentStoreAccess() access: StoreAccess,
+    @Query() query: ExpenseSummaryQueryDto,
+  ): Promise<AdSpendResponseDto> {
+    return this.expenses.adSpend(access.storeId, query);
+  }
+
   @Get('trend')
   @RequirePermission(PERMISSIONS.EXPENSES_VIEW)
-  @ApiOperation({ summary: 'Monthly totals (Expenses line chart)' })
+  @ApiOperation({
+    summary: 'Monthly totals (Expenses line chart)',
+    description:
+      'Includes ad spend from tracked campaigns. Spend with no available exchange rate is left out (see /expenses/summary for the unconverted amounts).',
+  })
   @ApiOkResponse({ type: MonthlyTrendResponseDto })
   trend(
     @CurrentStoreAccess() access: StoreAccess,

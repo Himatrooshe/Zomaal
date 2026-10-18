@@ -423,14 +423,13 @@ export class NotificationEvaluatorService {
     let previous = new Prisma.Decimal(0);
     let previousOrders = 0;
     for (const row of rows) {
-      const amount =
-        row.currency === store.baseCurrency
-          ? new Prisma.Decimal(row.netSales)
-          : await this.currency.convertAmount(
-              row.netSales,
-              row.currency,
-              store.baseCurrency,
-            );
+      // A currency with no rate is skipped in both windows alike.
+      const amount = await this.currency.convertOrNull(
+        row.netSales,
+        row.currency,
+        store.baseCurrency,
+      );
+      if (!amount) continue;
       if (row.window === 'current') {
         current = current.plus(amount);
       } else {

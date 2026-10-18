@@ -262,7 +262,7 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {
-        convertAmount: jest
+        convertOrNull: jest
           .fn()
           .mockImplementation(async (amount, from, to) => {
             if (from === 'MAD') return amount;
@@ -320,6 +320,46 @@ describe('EcommerceService', () => {
     expect(result.dataFreshAsOf).toBe('2026-07-19T10:00:00.000Z');
   });
 
+  it('keeps revenue in its own currency when no exchange rate is available', async () => {
+    const prisma = {
+      ecommerceConnection: { findMany: jest.fn().mockResolvedValue([]) },
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([
+          aggregateRow('SHOPIFY', 'MAD', '100.0000'),
+          aggregateRow('YOUCAN', 'XYZ', '40.0000'),
+        ]),
+    } as unknown as PrismaService;
+    const service = new EcommerceService(
+      prisma,
+      {} as any,
+      {} as any,
+      {} as any,
+      { convertOrNull: jest.fn().mockResolvedValue(null) } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+      } as never,
+      {} as any,
+    );
+
+    const result = await service.getRevenueSummary('user-id', {});
+
+    expect(
+      result.totalsByCurrency.map((t) => [t.currency, t.totalCollected]),
+    ).toEqual(
+      expect.arrayContaining([
+        ['MAD', '100.0000'],
+        ['XYZ', '40.0000'],
+      ]),
+    );
+  });
+
   it('rejects invalid calendar dates before querying revenue', async () => {
     const queryRaw = jest.fn();
     const prisma = {
@@ -334,7 +374,7 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {
-        convertAmount: jest
+        convertOrNull: jest
           .fn()
           .mockImplementation(async (amount, from, to) => amount),
       } as any,

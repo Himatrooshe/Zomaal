@@ -18,6 +18,13 @@ Home only reads data; nothing is entered here. The cards pull from other modules
 | Total expenses / Avg cost per order | Expenses (tab 9) |
 | Profit / Lost orders (Lost profit) | Calculated |
 
+**Built on `GET /ecommerce/home`:**
+- `ads`: spend of tracked campaigns in the period (store currency), platform-reported results, cost per result, and any `unconverted` spend.
+- `expenses`: `total` (recorded expenses in the period + ad spend) and `avgPerOrder` (total ÷ orders in the period, null with no orders).
+- `profit.value` is unchanged (order ledger only) until Q2.2 is answered. `profit.unconvertedCurrencies` lists order currencies left out because no exchange rate was available.
+
+Currency conversion never guesses. When no real rate is available (the last good rates are kept for 7 days), amounts are left out and listed as unconverted. Revenue totals keep them in their own currency, and dispatch refuses with 503 rather than send a wrong cash-on-delivery amount.
+
 ## Questions
 
 **Q2.1 (blocker) — When does an order count as revenue?**

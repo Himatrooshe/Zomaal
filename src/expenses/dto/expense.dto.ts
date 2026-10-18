@@ -17,6 +17,7 @@ import {
 } from 'class-validator';
 import { ExpenseCategoryResponseDto } from './expense-category.dto';
 import { IsPositiveAmount } from '../../common/validators/is-positive-amount.validator';
+import { UnconvertedAmountDto } from '../../ads/dto/ad-spend.dto';
 
 export class CreateExpenseDto {
   @ApiProperty({ example: 'Bubble wrap restock', maxLength: 120 })
@@ -199,7 +200,23 @@ export class ExpenseSummaryQueryDto {
 }
 
 export class ExpenseSummaryResponseDto {
-  @ApiProperty() totalAmount!: string;
-  @ApiProperty({ type: [ExpenseGroupTotalDto] })
+  @ApiProperty({
+    description:
+      'Recorded expenses plus ad spend from tracked campaigns, in the store currency.',
+  })
+  totalAmount!: string;
+
+  @ApiProperty({
+    type: [ExpenseGroupTotalDto],
+    description:
+      'ADS is calculated live from synced ad metrics; there are no ADS expense records.',
+  })
   byGroup!: ExpenseGroupTotalDto[];
+
+  @ApiProperty({
+    type: [UnconvertedAmountDto],
+    description:
+      'Ad spend left out of the totals because no exchange rate to the store currency was available.',
+  })
+  unconvertedAdSpend!: UnconvertedAmountDto[];
 }

@@ -17,8 +17,11 @@ function build() {
     reconcile: jest.fn().mockResolvedValue({ raised: 0, resolved: 0 }),
   };
   const currency = {
-    convertAmount: jest.fn(async (amount: Prisma.Decimal | string) =>
-      new Prisma.Decimal(amount).times(10),
+    convertOrNull: jest.fn(
+      async (amount: Prisma.Decimal | string, from: string, to: string) =>
+        from === to
+          ? new Prisma.Decimal(amount)
+          : new Prisma.Decimal(amount).times(10),
     ),
   };
   const service = new NotificationEvaluatorService(
@@ -269,7 +272,7 @@ describe('NotificationEvaluatorService', () => {
 
       const alerts = await service.salesDropAlerts(STORE, NOW);
 
-      expect(currency.convertAmount).toHaveBeenCalledWith(
+      expect(currency.convertOrNull).toHaveBeenCalledWith(
         expect.anything(),
         'USD',
         'MAD',

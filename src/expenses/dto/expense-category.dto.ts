@@ -1,6 +1,12 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { ExpenseGroup } from '@prisma/client';
-import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateExpenseCategoryDto {
   @ApiProperty({ example: 'Packaging Supplies', maxLength: 80 })
@@ -31,7 +37,9 @@ export class CreateExpenseCategoryDto {
   color?: string;
 }
 
-export class UpdateExpenseCategoryDto extends PartialType(CreateExpenseCategoryDto) {}
+export class UpdateExpenseCategoryDto extends PartialType(
+  CreateExpenseCategoryDto,
+) {}
 
 export class ExpenseCategoryResponseDto {
   @ApiProperty() id!: string;

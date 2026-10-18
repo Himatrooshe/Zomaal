@@ -1,4 +1,9 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  Inject,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import type { RedisClientType } from 'redis';
@@ -23,32 +28,28 @@ export class CurrencyService {
   private readonly API_URL = 'https://open.er-api.com/v6/latest/USD';
   private readonly CACHE_KEY = 'zomaal:exchange_rates:USD';
   private readonly CACHE_TTL_SECONDS = 43200; // 12 hours
+  // Real rates from the last successful fetch, used while the provider is down.
+  private readonly LAST_GOOD_KEY = 'zomaal:exchange_rates:USD:last-good';
+  private readonly LAST_GOOD_TTL_SECONDS = 7 * 24 * 3600;
   private memoryCache: Record<string, number> | null = null;
   private memoryCacheExpiresAt = 0;
+  private lastGood: Record<string, number> | null = null;
 
   constructor(@Inject(REDIS_CLIENT) private readonly redis: RedisClientType) {}
 
   /**
-   * Fetches latest exchange rates relative to USD.
-   * Rates are cached in Redis for 12 hours to avoid rate limits.
+   * Latest exchange rates relative to USD, cached in Redis for 12 hours.
+   * Returns null when no real rates are available — never invented ones.
    */
-  async getExchangeRates(): Promise<Record<string, number>> {
+  async getExchangeRates(): Promise<Record<string, number> | null> {
     if (this.memoryCache && Date.now() < this.memoryCacheExpiresAt) {
       return this.memoryCache;
     }
 
-    if (this.redis.isReady) {
-      const cached = await this.redis.get(this.CACHE_KEY);
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          this.memoryCache = parsed;
-          this.memoryCacheExpiresAt = Date.now() + 60000;
-          return parsed;
-        } catch (e) {
-          this.logger.error('Failed to parse cached exchange rates', e);
-        }
-      }
+    const cached = await this.readCache(this.CACHE_KEY);
+    if (cached) {
+      this.remember(cached);
+      return cached;
     }
 
     try {
@@ -65,66 +66,92 @@ export class CurrencyService {
         throw new Error('Invalid response format from exchange rate API');
       }
 
-      // Save to redis
       if (this.redis.isReady) {
-        await this.redis.set(this.CACHE_KEY, JSON.stringify(data.rates), {
+        const value = JSON.stringify(data.rates);
+        await this.redis.set(this.CACHE_KEY, value, {
           EX: this.CACHE_TTL_SECONDS,
         });
+        await this.redis.set(this.LAST_GOOD_KEY, value, {
+          EX: this.LAST_GOOD_TTL_SECONDS,
+        });
       }
-
-      this.memoryCache = data.rates;
-      this.memoryCacheExpiresAt = Date.now() + 60000;
-
+      this.lastGood = data.rates;
+      this.remember(data.rates);
       return data.rates;
     } catch (error) {
       this.logger.error('Error fetching exchange rates', error);
-      // Return a safe fallback if fetch fails so the dashboard doesn't crash completely.
-      return {
-        USD: 1,
-        MAD: 10,
-        AED: 3.67,
-        EUR: 0.9,
-      };
+      const lastGood =
+        (await this.readCache(this.LAST_GOOD_KEY)) ?? this.lastGood;
+      if (lastGood) {
+        this.logger.warn('Using the last successfully fetched exchange rates');
+        this.remember(lastGood);
+        return lastGood;
+      }
+      return null;
     }
   }
 
   /**
-   * Converts an amount from one currency to another using the latest exchange rates.
-   * Uses Prisma.Decimal to prevent floating point inaccuracies.
+   * Converts using real rates only. Returns null when either currency has no
+   * known rate, so callers can report the amount as unconverted.
    */
+  async convertOrNull(
+    amount: Prisma.Decimal | number | string,
+    fromCurrency: string,
+    toCurrency: string,
+  ): Promise<Prisma.Decimal | null> {
+    const decimalAmount = new Prisma.Decimal(amount);
+    const from = fromCurrency.toUpperCase();
+    const to = toCurrency.toUpperCase();
+    if (from === to) return decimalAmount;
+
+    const rates = await this.getExchangeRates();
+    const rateFrom = rates?.[from];
+    const rateTo = rates?.[to];
+    if (!rateFrom || !rateTo) {
+      this.logger.warn(`No exchange rate available for ${from} → ${to}`);
+      return null;
+    }
+
+    // Rates are relative to USD, so 1 `from` = rateTo / rateFrom `to`.
+    return decimalAmount.times(
+      new Prisma.Decimal(rateTo).dividedBy(new Prisma.Decimal(rateFrom)),
+    );
+  }
+
+  /** Like convertOrNull, but throws 503 when no real rate is available. */
   async convertAmount(
     amount: Prisma.Decimal | number | string,
     fromCurrency: string,
     toCurrency: string,
   ): Promise<Prisma.Decimal> {
-    const decimalAmount = new Prisma.Decimal(amount);
-    fromCurrency = fromCurrency.toUpperCase();
-    toCurrency = toCurrency.toUpperCase();
-
-    if (fromCurrency === toCurrency) {
-      return decimalAmount;
-    }
-
-    const rates = await this.getExchangeRates();
-
-    const rateFrom = rates[fromCurrency];
-    const rateTo = rates[toCurrency];
-
-    if (!rateFrom || !rateTo) {
-      this.logger.warn(
-        `Missing exchange rate for ${fromCurrency} or ${toCurrency}. Defaulting to 1:1`,
-      );
-      return decimalAmount;
-    }
-
-    // Since rates are relative to USD:
-    // 1 USD = rateFrom 'fromCurrency'
-    // 1 USD = rateTo 'toCurrency'
-    // Therefore, 1 'fromCurrency' = rateTo / rateFrom 'toCurrency'
-    const conversionRate = new Prisma.Decimal(rateTo).dividedBy(
-      new Prisma.Decimal(rateFrom),
+    const converted = await this.convertOrNull(
+      amount,
+      fromCurrency,
+      toCurrency,
     );
+    if (!converted) {
+      throw new ServiceUnavailableException(
+        `Exchange rate ${fromCurrency.toUpperCase()} → ${toCurrency.toUpperCase()} is unavailable. Try again later.`,
+      );
+    }
+    return converted;
+  }
 
-    return decimalAmount.times(conversionRate);
+  private remember(rates: Record<string, number>): void {
+    this.memoryCache = rates;
+    this.memoryCacheExpiresAt = Date.now() + 60000;
+  }
+
+  private async readCache(key: string): Promise<Record<string, number> | null> {
+    if (!this.redis.isReady) return null;
+    const cached = await this.redis.get(key);
+    if (!cached) return null;
+    try {
+      return JSON.parse(cached) as Record<string, number>;
+    } catch (e) {
+      this.logger.error('Failed to parse cached exchange rates', e);
+      return null;
+    }
   }
 }

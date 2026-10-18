@@ -13,7 +13,7 @@ filter · Pause campaign popup ("This will stop your ads immediately").
 
 Built today: TikTok, Google Ads, Meta Ads (Facebook / Instagram).
 
-Not built yet: synced ad spend does not feed Home or Expenses for any platform (the ADS expense group is manual only).
+Ad spend from tracked campaigns feeds Expenses (ADS group, trend, `GET /expenses/ad-spend`) and Home (`ads` and `expenses` cards), converted to the store currency. See tabs 2 and 9.
 
 Scheduled sync (production):
 - Cloud Scheduler jobs `zomaal-ads-{tiktok,google,meta}-sync` call `/internal/ads/*/sync` every 6 hours, at minutes 0, 10 and 20 (UTC).

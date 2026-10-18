@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { CurrencyModule } from '../currency/currency.module';
 import { AdsController } from './ads.controller';
+import { AdsSpendService } from './ads-spend.service';
 import { AdsConnectionService } from './ads-connection.service';
 import { AdsDashboardService } from './ads-dashboard.service';
 import { AdsTokenEncryptionService } from './ads-token-encryption.service';
@@ -32,6 +34,7 @@ import { MetaAdsSyncService } from './meta/meta-ads-sync.service';
 // Pause/resume is wired for Google and Meta (POST /ads/<platform>/campaigns/.../status).
 // TikTokAdsApiService.setCampaignStatus() exists but is not exposed yet.
 @Module({
+  imports: [CurrencyModule],
   controllers: [
     AdsController,
     TikTokAdsController,
@@ -59,7 +62,8 @@ import { MetaAdsSyncService } from './meta/meta-ads-sync.service';
     MetaAdsAuthService,
     MetaAdsCampaignService,
     MetaAdsSyncService,
+    AdsSpendService,
   ],
-  exports: [AdsConnectionService, AdsDashboardService],
+  exports: [AdsConnectionService, AdsDashboardService, AdsSpendService],
 })
 export class AdsModule {}

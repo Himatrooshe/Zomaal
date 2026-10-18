@@ -3,6 +3,7 @@ import { ShopifyModule } from '../shopify/shopify.module';
 import { YouCanModule } from '../youcan/youcan.module';
 import { LightfunnelsModule } from '../lightfunnels/lightfunnels.module';
 import { CurrencyModule } from '../currency/currency.module';
+import { AdsModule } from '../ads/ads.module';
 import { EcommerceController } from './ecommerce.controller';
 import { EcommerceSyncService } from './ecommerce-sync.service';
 import { EcommerceService } from './ecommerce.service';
@@ -32,6 +33,7 @@ import { CustomersModule } from '../customers/customers.module';
     YouCanModule,
     LightfunnelsModule,
     CurrencyModule,
+    AdsModule,
     ShippingModule,
     WarehouseModule,
     EcommerceFinancialModule,

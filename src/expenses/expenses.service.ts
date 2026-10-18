@@ -45,6 +45,12 @@ import {
   ExpenseSummaryResponseDto,
   UpdateExpenseDto,
 } from './dto/expense.dto';
+import { AdsSpendService } from '../ads/ads-spend.service';
+import {
+  AdSpendResponseDto,
+  toAdSpendResponse,
+  toUnconvertedDto,
+} from '../ads/dto/ad-spend.dto';
 
 const EXPENSE_INCLUDE = {
   category: true,
@@ -61,6 +67,7 @@ export class ExpensesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly media: MediaService,
+    private readonly adsSpend: AdsSpendService,
   ) {}
 
   // ---- Receipts (shared by Expenses and Staff Salary Payments) ----------
@@ -292,10 +299,15 @@ export class ExpensesService {
         : {}),
     };
 
-    const expenses = await this.prisma.expense.findMany({
-      where,
-      select: { amount: true, category: { select: { group: true } } },
-    });
+    const [expenses, adSpend] = await Promise.all([
+      this.prisma.expense.findMany({
+        where,
+        select: { amount: true, category: { select: { group: true } } },
+      }),
+      this.requireStore(storeId).then((store) =>
+        this.adsSpend.getTotals(store, toAdSpendRange(query)),
+      ),
+    ]);
 
     const totals = new Map<ExpenseGroup, Prisma.Decimal>();
     let totalAmount = new Prisma.Decimal(0);
@@ -307,6 +319,13 @@ export class ExpensesService {
       );
       totalAmount = totalAmount.plus(expense.amount);
     }
+    totals.set(
+      ExpenseGroup.ADS,
+      (totals.get(ExpenseGroup.ADS) ?? new Prisma.Decimal(0)).plus(
+        adSpend.spend,
+      ),
+    );
+    totalAmount = totalAmount.plus(adSpend.spend);
 
     return {
       totalAmount: totalAmount.toFixed(2),
@@ -314,7 +333,20 @@ export class ExpensesService {
         group,
         total: (totals.get(group) ?? new Prisma.Decimal(0)).toFixed(2),
       })),
+      unconvertedAdSpend: toUnconvertedDto(adSpend.unconverted),
     };
+  }
+
+  /** Ad spend breakdown by platform and account (the "Ad spend" category). */
+  async adSpend(
+    storeId: string,
+    query: ExpenseSummaryQueryDto,
+  ): Promise<AdSpendResponseDto> {
+    assertDateRange(query.dateFrom, query.dateTo);
+    const store = await this.requireStore(storeId);
+    return toAdSpendResponse(
+      await this.adsSpend.getTotals(store, toAdSpendRange(query)),
+    );
   }
 
   /** Monthly totals for the Expenses trend/line chart. */
@@ -326,12 +358,17 @@ export class ExpensesService {
     const keys = lastNMonthKeys(months);
     const since = monthsAgoStart(months);
 
-    const expenses = await this.prisma.expense.findMany({
-      where: { storeId, spentAt: { gte: since } },
-      select: { amount: true, spentAt: true },
-    });
+    const [expenses, adSpend] = await Promise.all([
+      this.prisma.expense.findMany({
+        where: { storeId, spentAt: { gte: since } },
+        select: { amount: true, spentAt: true },
+      }),
+      this.requireStore(storeId).then((store) =>
+        this.adsSpend.getMonthly(store, since),
+      ),
+    ]);
 
-    const totals = new Map<string, Prisma.Decimal>();
+    const totals = new Map<string, Prisma.Decimal>(adSpend.byMonth);
     for (const expense of expenses) {
       const key = monthKey(expense.spentAt);
       totals.set(
@@ -512,6 +549,15 @@ export class ExpensesService {
     }
   }
 
+  private async requireStore(
+    storeId: string,
+  ): Promise<{ id: string; baseCurrency: string }> {
+    return this.prisma.store.findUniqueOrThrow({
+      where: { id: storeId },
+      select: { id: true, baseCurrency: true },
+    });
+  }
+
   private async requireCategory(storeId: string, categoryId: string) {
     const category = await this.prisma.expenseCategory.findFirst({
       where: { id: categoryId, storeId },
@@ -546,6 +592,14 @@ function isSystemManagedGroup(group: ExpenseGroup): boolean {
       ExpenseGroup.SALARY,
     ] as ExpenseGroup[]
   ).includes(group);
+}
+
+// Ad spend is stored per day, so date-times are widened to whole days.
+function toAdSpendRange(query: { dateFrom?: string; dateTo?: string }) {
+  return {
+    from: query.dateFrom ? query.dateFrom.slice(0, 10) : null,
+    to: query.dateTo ? query.dateTo.slice(0, 10) : null,
+  };
 }
 
 function endOfDateFilter(value: string): Date {

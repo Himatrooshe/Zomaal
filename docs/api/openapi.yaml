@@ -14268,8 +14268,56 @@ paths:
       summary: Totals by group (Expenses Breakdown screen)
       tags:
         - Expenses
+  /expenses/ad-spend:
+    get:
+      description: Calculated live from synced metrics of tracked campaigns and converted to the store currency. Dates are inclusive calendar days; date-times are widened to whole days. Spend with no available exchange rate is listed under `unconverted` instead of being guessed.
+      operationId: Expenses_adSpend
+      parameters:
+        - name: dateFrom
+          required: false
+          in: query
+          description: ISO date, inclusive.
+          schema:
+            type: string
+        - name: dateTo
+          required: false
+          in: query
+          description: ISO date, inclusive.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdSpendResponseDto'
+        '400':
+          description: dateFrom is after dateTo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Ad spend by platform and ad account ("Ad spend" category)
+      tags:
+        - Expenses
   /expenses/trend:
     get:
+      description: Includes ad spend from tracked campaigns. Spend with no available exchange rate is left out (see /expenses/summary for the unconverted amounts).
       operationId: Expenses_trend
       parameters:
         - name: months
@@ -24836,8 +24884,15 @@ components:
           type: string
           example: '8442.00'
           description: Sum of every order's netProfitImpact from the financial-event ledger for orders processed in the period, converted to the store base currency.
+        unconvertedCurrencies:
+          example: []
+          description: Order currencies left out of value because no exchange rate to the store currency was available.
+          type: array
+          items:
+            type: string
       required:
         - value
+        - unconvertedCurrencies
     EcommerceHomeLostOrdersDto:
       type: object
       properties:
@@ -24852,6 +24907,63 @@ components:
       required:
         - orders
         - value
+    UnconvertedAmountDto:
+      type: object
+      properties:
+        currency:
+          type: string
+          example: USD
+        amount:
+          type: string
+          example: '0.00'
+          description: Spend in this currency that is left out of the totals because no exchange rate to the store currency was available.
+      required:
+        - currency
+        - amount
+    EcommerceHomeAdsDto:
+      type: object
+      properties:
+        spend:
+          type: string
+          example: '0.00'
+          description: Spend of tracked ad campaigns in the period, in the store base currency.
+        results:
+          type: number
+          example: 0
+          description: Platform-reported results (purchases, leads, …).
+        costPerResult:
+          type: string
+          nullable: true
+          example: null
+        unconverted:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnconvertedAmountDto'
+        dataUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - spend
+        - results
+        - costPerResult
+        - unconverted
+        - dataUpdatedAt
+    EcommerceHomeExpensesDto:
+      type: object
+      properties:
+        total:
+          type: string
+          example: '0.00'
+          description: Recorded expenses (spentAt in the period) plus ad spend, in the store base currency.
+        avgPerOrder:
+          type: string
+          nullable: true
+          example: null
+          description: total ÷ orders in the period; null when there are none.
+      required:
+        - total
+        - avgPerOrder
     EcommerceConnectionDto:
       type: object
       properties:
@@ -25098,6 +25210,10 @@ components:
           $ref: '#/components/schemas/EcommerceHomeProfitDto'
         lostOrders:
           $ref: '#/components/schemas/EcommerceHomeLostOrdersDto'
+        ads:
+          $ref: '#/components/schemas/EcommerceHomeAdsDto'
+        expenses:
+          $ref: '#/components/schemas/EcommerceHomeExpensesDto'
         connections:
           type: array
           items:
@@ -25114,6 +25230,8 @@ components:
         - shipping
         - profit
         - lostOrders
+        - ads
+        - expenses
         - connections
         - recentOrders
     EcommerceConnectionListDto:
@@ -30380,13 +30498,121 @@ components:
       properties:
         totalAmount:
           type: string
+          description: Recorded expenses plus ad spend from tracked campaigns, in the store currency.
         byGroup:
+          description: ADS is calculated live from synced ad metrics; there are no ADS expense records.
           type: array
           items:
             $ref: '#/components/schemas/ExpenseGroupTotalDto'
+        unconvertedAdSpend:
+          description: Ad spend left out of the totals because no exchange rate to the store currency was available.
+          type: array
+          items:
+            $ref: '#/components/schemas/UnconvertedAmountDto'
       required:
         - totalAmount
         - byGroup
+        - unconvertedAdSpend
+    AdSpendPlatformDto:
+      type: object
+      properties:
+        platform:
+          type: string
+          example: META
+          enum:
+            - TIKTOK
+            - GOOGLE
+            - META
+        spend:
+          type: string
+          example: '0.00'
+          description: Store currency.
+        results:
+          type: number
+          example: 0
+      required:
+        - platform
+        - spend
+        - results
+    AdSpendAccountDto:
+      type: object
+      properties:
+        connectionId:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          example: META
+        accountName:
+          type: string
+          nullable: true
+        accountCurrency:
+          type: string
+          example: USD
+        spendInAccountCurrency:
+          type: string
+          example: '0.00'
+        spend:
+          type: string
+          nullable: true
+          example: '0.00'
+          description: Store currency. null when no exchange rate is available.
+        results:
+          type: number
+          example: 0
+      required:
+        - connectionId
+        - platform
+        - accountName
+        - accountCurrency
+        - spendInAccountCurrency
+        - spend
+        - results
+    AdSpendResponseDto:
+      type: object
+      properties:
+        currency:
+          type: string
+          example: MAD
+          description: Store base currency.
+        spend:
+          type: string
+          example: '0.00'
+          description: Spend of tracked campaigns in the period, converted to the store currency.
+        results:
+          type: number
+          example: 0
+          description: Platform-reported results (purchases, leads, …).
+        costPerResult:
+          type: string
+          nullable: true
+          example: null
+        byPlatform:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdSpendPlatformDto'
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdSpendAccountDto'
+        unconverted:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnconvertedAmountDto'
+        dataUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Latest ads sync among the accounts above.
+      required:
+        - currency
+        - spend
+        - results
+        - costPerResult
+        - byPlatform
+        - accounts
+        - unconverted
+        - dataUpdatedAt
     ExpenseResponseDto:
       type: object
       properties:

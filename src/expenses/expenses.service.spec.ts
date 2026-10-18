@@ -56,6 +56,11 @@ function build() {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    store: {
+      findUniqueOrThrow: jest
+        .fn()
+        .mockResolvedValue({ id: 'store-1', baseCurrency: 'MAD' }),
+    },
     mediaAsset: {
       findUnique: jest.fn().mockResolvedValue(null),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -75,8 +80,28 @@ function build() {
     deleteAttachedAsset: jest.fn().mockResolvedValue(undefined),
   };
 
-  const service = new ExpensesService(prisma as never, media as never);
-  return { service, prisma, media };
+  const adsSpend = {
+    getTotals: jest.fn().mockResolvedValue({
+      currency: 'MAD',
+      spend: new Prisma.Decimal(0),
+      results: 0,
+      costPerResult: null,
+      byPlatform: [],
+      accounts: [],
+      unconverted: [],
+      dataUpdatedAt: null,
+    }),
+    getMonthly: jest
+      .fn()
+      .mockResolvedValue({ byMonth: new Map(), unconverted: [] }),
+  };
+
+  const service = new ExpensesService(
+    prisma as never,
+    media as never,
+    adsSpend as never,
+  );
+  return { service, prisma, media, adsSpend };
 }
 
 const ACCESS = {
@@ -526,6 +551,131 @@ describe('ExpensesService', () => {
     expect(prisma.expense.delete).toHaveBeenCalledWith({
       where: { id: 'exp-1' },
     });
+  });
+
+  it('summary adds live ad spend to the ADS group and the total', async () => {
+    const { service, prisma, adsSpend } = build();
+    prisma.expense.findMany.mockResolvedValue([
+      {
+        amount: new Prisma.Decimal('25'),
+        category: { group: ExpenseGroup.OTHER },
+      },
+    ]);
+    adsSpend.getTotals.mockResolvedValue({
+      currency: 'MAD',
+      spend: new Prisma.Decimal('120.5'),
+      results: 3,
+      costPerResult: new Prisma.Decimal('40.1667'),
+      byPlatform: [],
+      accounts: [],
+      unconverted: [{ currency: 'XYZ', amount: new Prisma.Decimal('7') }],
+      dataUpdatedAt: null,
+    });
+
+    const result = await service.summary('store-1', {
+      dateFrom: '2026-10-01',
+      dateTo: '2026-10-18T23:00:00.000Z',
+    });
+
+    expect(adsSpend.getTotals).toHaveBeenCalledWith(
+      { id: 'store-1', baseCurrency: 'MAD' },
+      { from: '2026-10-01', to: '2026-10-18' },
+    );
+    expect(result.totalAmount).toBe('145.50');
+    expect(result.byGroup).toEqual(
+      expect.arrayContaining([
+        { group: ExpenseGroup.ADS, total: '120.50' },
+        { group: ExpenseGroup.OTHER, total: '25.00' },
+      ]),
+    );
+    expect(result.unconvertedAdSpend).toEqual([
+      { currency: 'XYZ', amount: '7.00' },
+    ]);
+  });
+
+  it('trend adds ad spend to its month', async () => {
+    const { service, prisma, adsSpend } = build();
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-15T00:00:00.000Z'));
+    prisma.expense.findMany.mockResolvedValue([
+      {
+        amount: new Prisma.Decimal('100'),
+        spentAt: new Date('2026-08-05T00:00:00.000Z'),
+      },
+    ]);
+    adsSpend.getMonthly.mockResolvedValue({
+      byMonth: new Map([
+        ['2026-08', new Prisma.Decimal('40')],
+        ['2026-09', new Prisma.Decimal('10')],
+      ]),
+      unconverted: [],
+    });
+
+    const result = await service.trend('store-1', { months: 2 });
+
+    expect(result.points).toEqual([
+      { month: '2026-08', total: '140.00' },
+      { month: '2026-09', total: '10.00' },
+    ]);
+    jest.useRealTimers();
+  });
+
+  it('adSpend returns the platform and account breakdown', async () => {
+    const { service, adsSpend } = build();
+    adsSpend.getTotals.mockResolvedValue({
+      currency: 'MAD',
+      spend: new Prisma.Decimal('100'),
+      results: 4,
+      costPerResult: new Prisma.Decimal('25'),
+      byPlatform: [
+        { platform: 'META', spend: new Prisma.Decimal('100'), results: 4 },
+      ],
+      accounts: [
+        {
+          connectionId: 'conn-1',
+          platform: 'META',
+          accountName: 'Account A',
+          accountCurrency: 'USD',
+          spendInAccountCurrency: new Prisma.Decimal('10'),
+          spend: new Prisma.Decimal('100'),
+          results: 4,
+        },
+      ],
+      unconverted: [],
+      dataUpdatedAt: new Date('2026-10-18T06:20:00.000Z'),
+    });
+
+    const result = await service.adSpend('store-1', {});
+
+    expect(result).toEqual({
+      currency: 'MAD',
+      spend: '100.00',
+      results: 4,
+      costPerResult: '25.00',
+      byPlatform: [{ platform: 'META', spend: '100.00', results: 4 }],
+      accounts: [
+        {
+          connectionId: 'conn-1',
+          platform: 'META',
+          accountName: 'Account A',
+          accountCurrency: 'USD',
+          spendInAccountCurrency: '10.00',
+          spend: '100.00',
+          results: 4,
+        },
+      ],
+      unconverted: [],
+      dataUpdatedAt: '2026-10-18T06:20:00.000Z',
+    });
+  });
+
+  it('adSpend rejects dateFrom after dateTo', async () => {
+    const { service } = build();
+    await expect(
+      service.adSpend('store-1', {
+        dateFrom: '2026-10-10',
+        dateTo: '2026-10-01',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('trend: fills every month in range, including ones with zero activity', async () => {
