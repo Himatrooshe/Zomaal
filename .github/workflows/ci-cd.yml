@@ -227,6 +227,7 @@ jobs:
             LIGHTFUNNELS_REDIRECT_URI=https://zomaal-backend-563898960389.us-central1.run.app/auth/lightfunnels/callback
             LIGHTFUNNELS_SCOPES=orders\,funnels\,products\,customers
             OTP_SMS_DISABLED_COUNTRIES=MA
+            ADS_SYNC_SCHEDULER_ENABLED=true
           env_vars_update_strategy: merge
           secrets: |-
             YOUCAN_CLIENT_ID=zomaal-youcan-client-id:latest
@@ -239,6 +240,7 @@ jobs:
             TWILIO_AUTH_TOKEN=zomaal-twilio-auth-token:latest
             TWILIO_SERVICE_SID=zomaal-twilio-service-sid:latest
             SUPER_ADMIN_JWT_SECRET=zomaal-super-admin-jwt-secret:latest
+            ADS_SYNC_SCHEDULER_SECRET=zomaal-ads-sync-scheduler-secret:latest
           secrets_update_strategy: merge
 
       - name: Smoke-test the deployed revision

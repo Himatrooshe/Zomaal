@@ -409,3 +409,32 @@ describe('validateEnvironment Meta Ads', () => {
     ).toThrow('META_ADS_API_VERSION must look like v25.0');
   });
 });
+
+describe('validateEnvironment ads sync scheduler', () => {
+  const base = {
+    DATABASE_URL: 'postgresql://postgres:password@localhost:5434/zomaal',
+    JWT_SECRET: 'a-secure-test-jwt-secret-with-32-characters',
+    SHIPPING_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 6).toString('base64'),
+    PRODUCT_IMAGE_BUCKET: 'zomaal-product-images-test',
+  };
+
+  it('needs a 32-character secret when enabled', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        ADS_SYNC_SCHEDULER_ENABLED: 'true',
+        ADS_SYNC_SCHEDULER_SECRET: 'short',
+      }),
+    ).toThrow('ADS_SYNC_SCHEDULER_SECRET must be at least 32 characters');
+  });
+
+  it('rejects a non-boolean flag', () => {
+    expect(() =>
+      validateEnvironment({ ...base, ADS_SYNC_SCHEDULER_ENABLED: 'yes' }),
+    ).toThrow('ADS_SYNC_SCHEDULER_ENABLED must be true or false');
+  });
+
+  it('defaults to disabled', () => {
+    expect(validateEnvironment(base).ADS_SYNC_SCHEDULER_ENABLED).toBe('false');
+  });
+});

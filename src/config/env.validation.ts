@@ -283,6 +283,21 @@ export function validateEnvironment(
     );
   }
 
+  const adsSyncSchedulerEnabled =
+    asString(config.ADS_SYNC_SCHEDULER_ENABLED) || 'false';
+  const adsSyncSchedulerSecret = asString(config.ADS_SYNC_SCHEDULER_SECRET);
+  if (!['true', 'false'].includes(adsSyncSchedulerEnabled)) {
+    errors.push('ADS_SYNC_SCHEDULER_ENABLED must be true or false');
+  }
+  if (
+    adsSyncSchedulerEnabled === 'true' &&
+    adsSyncSchedulerSecret.length < 32
+  ) {
+    errors.push(
+      'ADS_SYNC_SCHEDULER_SECRET must be at least 32 characters when scheduled ads synchronization is enabled',
+    );
+  }
+
   const quickLivraisonSyncSchedulerEnabled =
     config.QUICKLIVRAISON_SYNC_SCHEDULER_ENABLED === 'true';
   const quickLivraisonSyncSchedulerSecret = asString(
@@ -603,6 +618,8 @@ export function validateEnvironment(
     ECOMMERCE_SYNC_CONCURRENCY: ecommerceSyncConcurrency,
     ECOMMERCE_SYNC_MAX_CONNECTIONS: ecommerceSyncMaxConnections,
     ECOMMERCE_SYNC_MIN_INTERVAL_MINUTES: ecommerceSyncMinIntervalMinutes,
+    ADS_SYNC_SCHEDULER_ENABLED: adsSyncSchedulerEnabled,
+    ADS_SYNC_SCHEDULER_SECRET: adsSyncSchedulerSecret,
     QUICKLIVRAISON_SYNC_SCHEDULER_ENABLED: quickLivraisonSyncSchedulerEnabled,
     QUICKLIVRAISON_SYNC_SCHEDULER_SECRET: quickLivraisonSyncSchedulerSecret,
     QUICKLIVRAISON_SYNC_CONCURRENCY: quickLivraisonSyncConcurrency,

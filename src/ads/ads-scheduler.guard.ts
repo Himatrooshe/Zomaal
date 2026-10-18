@@ -20,16 +20,29 @@ export class AdsSchedulerGuard implements CanActivate {
   constructor(private readonly configService: ConfigService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const enabled = this.configService.get<boolean>('ADS_SYNC_SCHEDULER_ENABLED', false);
-    const expectedSecret = this.configService.get<string>('ADS_SYNC_SCHEDULER_SECRET', '');
+    const enabled =
+      String(
+        this.configService.get<string | boolean>(
+          'ADS_SYNC_SCHEDULER_ENABLED',
+          'false',
+        ),
+      ) === 'true';
+    const expectedSecret = this.configService.get<string>(
+      'ADS_SYNC_SCHEDULER_SECRET',
+      '',
+    );
 
     if (!enabled || !expectedSecret) {
-      throw new ServiceUnavailableException('Scheduled ads synchronization is not enabled');
+      throw new ServiceUnavailableException(
+        'Scheduled ads synchronization is not enabled',
+      );
     }
 
     const request = context.switchToHttp().getRequest<SchedulerRequest>();
     const headerValue = request.headers['x-zomaal-scheduler-secret'];
-    const providedSecret = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+    const providedSecret = Array.isArray(headerValue)
+      ? headerValue[0]
+      : headerValue;
 
     if (
       !providedSecret ||

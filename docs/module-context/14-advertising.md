@@ -13,7 +13,13 @@ filter · Pause campaign popup ("This will stop your ads immediately").
 
 Built today: TikTok, Google Ads, Meta Ads (Facebook / Instagram).
 
-Not built yet: synced ad spend does not feed Home or Expenses for any platform (the ADS expense group is manual only), and no Cloud Scheduler jobs call the `/internal/ads/*/sync` endpoints yet.
+Not built yet: synced ad spend does not feed Home or Expenses for any platform (the ADS expense group is manual only).
+
+Scheduled sync (production):
+- Cloud Scheduler jobs `zomaal-ads-{tiktok,google,meta}-sync` call `/internal/ads/*/sync` every 6 hours, at minutes 0, 10 and 20 (UTC).
+- They send the `x-zomaal-scheduler-secret` header, using Secret Manager `zomaal-ads-sync-scheduler-secret`.
+- Setup and secret rotation: `scripts/setup-ads-scheduler.sh`.
+- Cloud Run's request timeout is 60 s. Once many connections exist, raise it or split the sync.
 
 Shared endpoints work for every platform:
 - `/ads/connections` lists them all.
@@ -80,7 +86,7 @@ Endpoints (all need `Authorization`, ADS plan feature, a store):
 - Going live:
   1. Create the Meta app and add Facebook Login (or Login for Business) with the redirect URI.
   2. Pass App Review for **Advanced Access** to `ads_read` and `ads_management`. This needs business verification.
-  3. Set the secrets and `META_ADS_ENABLED=true`, then add a Cloud Scheduler job for `/internal/ads/meta/sync`.
+  3. Set the secrets and `META_ADS_ENABLED=true`. The sync job already runs.
   4. Until App Review is approved, only app admins, developers and testers can connect.
 - Not supported in v1: budget editing, ad set / ad level views, system-user (business) tokens.
 
