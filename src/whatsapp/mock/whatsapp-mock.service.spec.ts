@@ -65,6 +65,13 @@ function call<T = unknown>(
   }) as Promise<T>;
 }
 
+async function validationMessages(promise: Promise<unknown>) {
+  const error: unknown = await promise.catch((e: unknown) => e);
+  expect(error).toBeInstanceOf(BadRequestException);
+  return ((error as BadRequestException).getResponse() as { message: unknown })
+    .message;
+}
+
 const connectBody = {
   code: 'any-code',
   wabaId: '100000000000000',
@@ -126,6 +133,7 @@ describe('WhatsAppMockService (temporary preview data)', () => {
     });
     const after = await call<Page<TemplateRow>>(service, 'listTemplates');
     const statuses = after.data.map((t) => t.status);
+    expect(statuses.every((s) => typeof s === 'string')).toBe(true);
     expect(statuses).toContain('APPROVED');
     expect(statuses).toContain('PENDING');
     expect(statuses).toContain('REJECTED');
@@ -167,6 +175,41 @@ describe('WhatsAppMockService (temporary preview data)', () => {
     await expect(call(service, 'disconnect')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('rejects unknown fields like the global ValidationPipe', async () => {
+    const service = build({ WHATSAPP_MOCK_DATA: 'true' });
+    const error = await validationMessages(
+      call(service, 'updateStatusSetting', {
+        params: { trigger: 'DELIVERED' },
+        body: { enabled: true, unknownField: 'x' },
+      }),
+    );
+    expect(error).toEqual(['property unknownField should not exist']);
+  });
+
+  it('returns every validation error for an empty connect body', async () => {
+    const service = build({ WHATSAPP_MOCK_DATA: 'true' });
+    const error = await validationMessages(
+      call(service, 'connect', { body: {} }),
+    );
+    expect(error).toEqual(
+      expect.arrayContaining([
+        'code should not be empty',
+        'wabaId must be a numeric Meta id',
+        'phoneNumberId must be a numeric Meta id',
+      ]),
+    );
+  });
+
+  it('validates query strings with the real DTOs', async () => {
+    const service = build({ WHATSAPP_MOCK_DATA: 'true' });
+    await expect(
+      call(service, 'messages', { query: { limit: '500' } }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      call(service, 'analytics', { query: { from: 'yesterday' } }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('remembers status settings per store in memory', async () => {

@@ -16,6 +16,7 @@ import type { NextFunction, Request, Response } from 'express';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import hbs = require('hbs');
 import { AppModule } from './app.module';
+import { GLOBAL_VALIDATION_PIPE_OPTIONS } from './common/validation-pipe.options';
 import { createOpenApiConfig } from './openapi.config';
 
 type ExpressInstance = {
@@ -83,14 +84,7 @@ async function bootstrap() {
     ],
   });
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      forbidUnknownValues: true,
-      transform: true,
-    }),
-  );
+  app.useGlobalPipes(new ValidationPipe(GLOBAL_VALIDATION_PIPE_OPTIONS));
 
   // On by default (including production). Set SWAGGER_ENABLED=false to disable.
   const swaggerEnabled =

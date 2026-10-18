@@ -14,9 +14,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtTokenPayload) {
+  validate(payload: JwtTokenPayload & { username?: unknown; scope?: unknown }) {
     if (payload.type !== 'access') {
       throw new UnauthorizedException('Invalid token type');
+    }
+    // Super admin tokens may share JWT_SECRET; they carry `username`/`scope`
+    // and no `phone`, and must never act as a merchant.
+    if (
+      payload.username !== undefined ||
+      payload.scope !== undefined ||
+      typeof payload.phone !== 'string'
+    ) {
+      throw new UnauthorizedException('Invalid token');
     }
 
     return {

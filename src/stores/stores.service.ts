@@ -40,27 +40,27 @@ export class StoresService {
     await this.subscriptions.assertCanCreateStore(userId);
 
     const { baseCurrency, country = DEFAULT_COUNTRY, ...rest } = createStoreDto;
-    const store = await this.prisma.store.create({
-      data: {
-        ...rest,
-        country,
-        ...(baseCurrency !== undefined && {
-          baseCurrency: baseCurrency.toUpperCase(),
-        }),
-        userId,
-        roles: { create: defaultRoleSeeds() },
-        expenseCategories: { create: defaultExpenseCategorySeeds() },
-      },
-    });
-
     // First store completes onboarding; every new store becomes the active one
     // so the Create Store / Add New Store flow lands on the store just made.
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        onboardingComplete: true,
-        activeStoreId: store.id,
-      },
+    // One transaction: a store must never exist with onboarding still false.
+    const store = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.store.create({
+        data: {
+          ...rest,
+          country,
+          ...(baseCurrency !== undefined && {
+            baseCurrency: baseCurrency.toUpperCase(),
+          }),
+          userId,
+          roles: { create: defaultRoleSeeds() },
+          expenseCategories: { create: defaultExpenseCategorySeeds() },
+        },
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { onboardingComplete: true, activeStoreId: created.id },
+      });
+      return created;
     });
     await this.subscriptions.startTrialIfMissing(userId);
 

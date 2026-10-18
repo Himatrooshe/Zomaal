@@ -10,8 +10,8 @@
  *   `MOCK_MESSAGES` list, so every screen shows the same consistent numbers.
  *
  * Real behaviour that is kept on purpose: JWT + plan guards, the owner-only
- * 403, the store's real base currency and name, and the same validation
- * errors as the real endpoints.
+ * 403, the store's real base currency and name, and request validation with
+ * the real DTOs and global pipe options.
  *
  * Remove together with the rest of `src/whatsapp/mock/` when Meta is live.
  */
@@ -22,6 +22,8 @@ import {
   Logger,
   NotFoundException,
   OnModuleInit,
+  ValidationPipe,
+  type Type,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -31,12 +33,20 @@ import {
   WhatsAppMessageStatus,
 } from '@prisma/client';
 import { StoreAccessService } from '../../access/store-access.service';
+import { GLOBAL_VALIDATION_PIPE_OPTIONS } from '../../common/validation-pipe.options';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  ConnectWhatsAppDto,
+  PageQueryDto,
+  UpdateStatusSettingDto,
+  UpdateWhatsAppConnectionDto,
+  WhatsAppAnalyticsQueryDto,
+  WhatsAppMessagesQueryDto,
+} from '../dto/whatsapp.dto';
 import { requireWhatsAppOwner } from '../whatsapp-access.util';
 import { TEMPLATE_VARIABLES } from '../whatsapp-settings.service';
 import {
   CUSTOMER_NAME_FALLBACK,
-  MAX_DELAY_MINUTES,
   WHATSAPP_LANGUAGES,
   WHATSAPP_TEMPLATES,
   WHATSAPP_TRIGGERS,
@@ -66,8 +76,6 @@ const MINUTE_MS = 60_000;
 const DAY_MS = 86_400_000;
 const MAX_RANGE_DAYS = 366;
 const DEFAULT_LOW_BALANCE_MESSAGES = 20;
-const NUMERIC_META_ID = /^\d{5,30}$/;
-
 /** The minimal request the interceptor hands over. */
 export interface MockRequest {
   user?: { userId: string };
@@ -134,25 +142,40 @@ export class WhatsAppMockService implements OnModuleInit {
     config: () => Promise.resolve(this.config()),
     getConnection: async (req) =>
       this.serializeConnection(await this.store(req)),
-    connect: async (req) => this.connect(await this.store(req), req.body),
-    updateConnection: async (req) =>
-      this.updateLanguage(await this.store(req), req.body),
+    connect: async (req) => {
+      const dto = await validateBody(ConnectWhatsAppDto, req.body);
+      return this.connect(await this.store(req), dto);
+    },
+    updateConnection: async (req) => {
+      const dto = await validateBody(UpdateWhatsAppConnectionDto, req.body);
+      return this.updateLanguage(await this.store(req), dto);
+    },
     disconnect: async (req) => this.disconnect(await this.store(req)),
     listStatusSettings: async (req) =>
       this.listStatusSettings(await this.store(req)),
-    updateStatusSetting: async (req) =>
-      this.updateStatusSetting(
+    updateStatusSetting: async (req) => {
+      const dto = await validateBody(UpdateStatusSettingDto, req.body);
+      return this.updateStatusSetting(
         await this.store(req),
         req.params.trigger,
-        req.body,
-      ),
+        dto,
+      );
+    },
     listTemplates: async (req) => this.listTemplates(await this.store(req)),
     syncTemplates: async (req) => this.syncTemplates(await this.store(req)),
     dashboard: async (req) => this.dashboard(await this.store(req)),
-    balanceHistory: async (req) =>
-      this.balanceHistory(await this.store(req), req.query),
-    messages: async (req) => this.messages(await this.store(req), req.query),
-    analytics: async (req) => this.analytics(await this.store(req), req.query),
+    balanceHistory: async (req) => {
+      const query = await validateQuery(PageQueryDto, req.query);
+      return this.balanceHistory(await this.store(req), query);
+    },
+    messages: async (req) => {
+      const query = await validateQuery(WhatsAppMessagesQueryDto, req.query);
+      return this.messages(await this.store(req), query);
+    },
+    analytics: async (req) => {
+      const query = await validateQuery(WhatsAppAnalyticsQueryDto, req.query);
+      return this.analytics(await this.store(req), query);
+    },
   };
 
   // ---------- connection ----------
@@ -168,28 +191,8 @@ export class WhatsAppMockService implements OnModuleInit {
     };
   }
 
-  private connect(store: MockStore, body: unknown) {
-    const input = asRecord(body);
-    if (typeof input.code !== 'string' || !input.code.trim()) {
-      throw new BadRequestException(['code should not be empty']);
-    }
-    if (
-      typeof input.wabaId !== 'string' ||
-      !NUMERIC_META_ID.test(input.wabaId)
-    ) {
-      throw new BadRequestException(['wabaId must be a numeric Meta id']);
-    }
-    if (
-      typeof input.phoneNumberId !== 'string' ||
-      !NUMERIC_META_ID.test(input.phoneNumberId)
-    ) {
-      throw new BadRequestException([
-        'phoneNumberId must be a numeric Meta id',
-      ]);
-    }
-    if (input.language !== undefined) {
-      store.state.language = parseLanguage(input.language);
-    }
+  private connect(store: MockStore, dto: ConnectWhatsAppDto) {
+    if (dto.language) store.state.language = dto.language;
     store.state.connection = {
       status: WhatsAppConnectionStatus.ACTIVE,
       connectedAt: new Date(),
@@ -202,9 +205,9 @@ export class WhatsAppMockService implements OnModuleInit {
     };
   }
 
-  private updateLanguage(store: MockStore, body: unknown) {
+  private updateLanguage(store: MockStore, dto: UpdateWhatsAppConnectionDto) {
     this.requireConnection(store);
-    store.state.language = parseLanguage(asRecord(body).language);
+    store.state.language = dto.language;
     return this.serializeConnection(store);
   }
 
@@ -272,26 +275,11 @@ export class WhatsAppMockService implements OnModuleInit {
   private updateStatusSetting(
     store: MockStore,
     trigger: string | undefined,
-    body: unknown,
+    dto: UpdateStatusSettingDto,
   ) {
     if (!isWhatsAppTrigger(trigger)) {
       throw new BadRequestException(
         `trigger must be one of ${WHATSAPP_TRIGGERS.join(', ')}`,
-      );
-    }
-    const input = asRecord(body);
-    if (input.enabled !== undefined && typeof input.enabled !== 'boolean') {
-      throw new BadRequestException(['enabled must be a boolean value']);
-    }
-    if (
-      input.delayMinutes !== undefined &&
-      (typeof input.delayMinutes !== 'number' ||
-        !Number.isInteger(input.delayMinutes) ||
-        input.delayMinutes < 0 ||
-        input.delayMinutes > MAX_DELAY_MINUTES)
-    ) {
-      throw new BadRequestException(
-        `delayMinutes must be a whole number between 0 and ${MAX_DELAY_MINUTES}`,
       );
     }
     const current = store.state.settings.get(trigger) ?? {
@@ -299,8 +287,8 @@ export class WhatsAppMockService implements OnModuleInit {
       delayMinutes: 0,
     };
     store.state.settings.set(trigger, {
-      enabled: input.enabled ?? current.enabled,
-      delayMinutes: input.delayMinutes ?? current.delayMinutes,
+      enabled: dto.enabled ?? current.enabled,
+      delayMinutes: dto.delayMinutes ?? current.delayMinutes,
     });
     return this.listStatusSettings(store).data.find(
       (s) => s.trigger === trigger,
@@ -397,8 +385,8 @@ export class WhatsAppMockService implements OnModuleInit {
     };
   }
 
-  private balanceHistory(store: MockStore, query: Record<string, unknown>) {
-    const { page, limit } = parsePage(query);
+  private balanceHistory(store: MockStore, query: PageQueryDto) {
+    const { page = 1, limit = 20 } = query;
     const { balance, entries } = this.ledger(store, new Date());
     const total = entries.length;
     return {
@@ -409,23 +397,8 @@ export class WhatsAppMockService implements OnModuleInit {
     };
   }
 
-  private messages(store: MockStore, query: Record<string, unknown>) {
-    const { page, limit } = parsePage(query);
-    const status = optionalString(query.status);
-    const trigger = optionalString(query.trigger);
-    if (
-      status &&
-      !(Object.values(WhatsAppMessageStatus) as string[]).includes(status)
-    ) {
-      throw new BadRequestException([
-        `status must be one of the following values: ${Object.values(WhatsAppMessageStatus).join(', ')}`,
-      ]);
-    }
-    if (trigger && !isWhatsAppTrigger(trigger)) {
-      throw new BadRequestException(
-        `trigger must be one of ${WHATSAPP_TRIGGERS.join(', ')}`,
-      );
-    }
+  private messages(store: MockStore, query: WhatsAppMessagesQueryDto) {
+    const { page = 1, limit = 20, status, trigger } = query;
     const rows = this.buildMessages(store, new Date()).filter(
       (m) =>
         (!status || m.status === status) && (!trigger || m.trigger === trigger),
@@ -442,12 +415,10 @@ export class WhatsAppMockService implements OnModuleInit {
     };
   }
 
-  private analytics(store: MockStore, query: Record<string, unknown>) {
-    const to = optionalString(query.to);
-    const from = optionalString(query.from);
-    const end = to ? parseDate(to, 'to') : new Date();
-    const start = from
-      ? parseDate(from, 'from')
+  private analytics(store: MockStore, query: WhatsAppAnalyticsQueryDto) {
+    const end = query.to ? new Date(query.to) : new Date();
+    const start = query.from
+      ? new Date(query.from)
       : new Date(end.getTime() - 30 * DAY_MS);
     if (start >= end) throw new BadRequestException('from must be before to');
     if (end.getTime() - start.getTime() > MAX_RANGE_DAYS * DAY_MS) {
@@ -708,44 +679,23 @@ function countStatuses(rows: MockMessageRow[]) {
   };
 }
 
-function parseLanguage(value: unknown): WhatsAppLanguage {
-  if (
-    typeof value !== 'string' ||
-    !(WHATSAPP_LANGUAGES as readonly string[]).includes(value)
-  ) {
-    throw new BadRequestException([
-      `language must be one of the following values: ${WHATSAPP_LANGUAGES.join(', ')}`,
-    ]);
-  }
-  return value as WhatsAppLanguage;
+/**
+ * The interceptor answers before route pipes run, so mocked requests are
+ * validated here with the real DTOs and the global pipe options — same
+ * errors (all of them, unknown fields rejected) as the real endpoints.
+ */
+const validationPipe = new ValidationPipe(GLOBAL_VALIDATION_PIPE_OPTIONS);
+
+function validateBody<T>(dto: Type<T>, body: unknown): Promise<T> {
+  return validationPipe.transform(body, {
+    type: 'body',
+    metatype: dto,
+  }) as Promise<T>;
 }
 
-function parsePage(query: Record<string, unknown>) {
-  const page = query.page === undefined ? 1 : Number(query.page);
-  const limit = query.limit === undefined ? 20 : Number(query.limit);
-  if (!Number.isInteger(page) || page < 1) {
-    throw new BadRequestException(['page must not be less than 1']);
-  }
-  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-    throw new BadRequestException(['limit must be between 1 and 100']);
-  }
-  return { page, limit };
-}
-
-function parseDate(value: string, field: string): Date {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw new BadRequestException(`${field} must be an ISO 8601 date`);
-  }
-  return date;
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
+function validateQuery<T>(dto: Type<T>, query: unknown): Promise<T> {
+  return validationPipe.transform(query, {
+    type: 'query',
+    metatype: dto,
+  }) as Promise<T>;
 }

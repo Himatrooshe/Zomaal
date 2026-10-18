@@ -11,7 +11,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RateLimitService } from '../redis/rate-limit.service';
 import { SuperAdminLoginDto } from './dto/super-admin-login.dto';
 import { SuperAdminChangePasswordDto } from './dto/super-admin-change-password.dto';
-import type { SuperAdminJwtTokenPayload } from './interfaces/super-admin-jwt-payload.interface';
+import {
+  SUPER_ADMIN_TOKEN_SCOPE,
+  type SuperAdminJwtTokenPayload,
+} from './interfaces/super-admin-jwt-payload.interface';
 import {
   ActivityEntity,
   ActivityLogService,
@@ -89,7 +92,10 @@ export class SuperAdminAuthService {
       throw new UnauthorizedException('Access Denied');
     }
 
-    if (payload.type !== 'refresh') {
+    if (
+      payload.type !== 'refresh' ||
+      payload.scope !== SUPER_ADMIN_TOKEN_SCOPE
+    ) {
       throw new UnauthorizedException('Access Denied');
     }
 
@@ -172,6 +178,7 @@ export class SuperAdminAuthService {
           sub: adminId,
           username,
           type: 'access',
+          scope: SUPER_ADMIN_TOKEN_SCOPE,
         } satisfies SuperAdminJwtTokenPayload,
         { secret: this.getJwtSecret(), expiresIn: '15m' },
       ),
@@ -180,6 +187,7 @@ export class SuperAdminAuthService {
           sub: adminId,
           username,
           type: 'refresh',
+          scope: SUPER_ADMIN_TOKEN_SCOPE,
         } satisfies SuperAdminJwtTokenPayload,
         { secret: this.getJwtSecret(), expiresIn: '7d', jwtid: randomUUID() },
       ),
