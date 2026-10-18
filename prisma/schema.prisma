@@ -1536,6 +1536,7 @@ enum MediaAssetPurpose {
   PRODUCT_GALLERY
   VARIANT
   RECEIPT
+  PACKAGING
 }
 
 model ProductCategory {
@@ -1801,10 +1802,13 @@ model MediaAsset {
   // per expense/payment. SetNull (not Cascade): deleting the expense/payment
   // shouldn't error just because a receipt is still attached; the media row
   // is cleaned up explicitly by the service instead (see ExpensesService).
-  expenseId       String?             @unique
-  expense         Expense?            @relation(fields: [expenseId], references: [id], onDelete: SetNull)
-  salaryPaymentId String?             @unique
-  salaryPayment   StaffSalaryPayment? @relation(fields: [salaryPaymentId], references: [id], onDelete: SetNull)
+  expenseId           String?             @unique
+  expense             Expense?            @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  salaryPaymentId     String?             @unique
+  salaryPayment       StaffSalaryPayment? @relation(fields: [salaryPaymentId], references: [id], onDelete: SetNull)
+  // PACKAGING purpose only: photo of a merchant-created packaging material.
+  packagingMaterialId String?             @unique
+  packagingMaterial   PackagingMaterial?  @relation(fields: [packagingMaterialId], references: [id], onDelete: SetNull)
 
   @@index([storeId, status, expiresAt])
   @@index([productId, position])
@@ -1824,21 +1828,34 @@ model ProductGift {
   @@index([giftVariantId])
 }
 
+enum PackagingUnit {
+  PIECES
+  ROLLS
+  METERS
+  SHEETS
+}
+
 model PackagingMaterial {
-  id                  String   @id @default(uuid())
-  zomaalShopVariantId String
+  id                  String        @id @default(uuid())
+  // Set when the material comes from a delivered Zomaal Shop purchase; null
+  // for packaging the merchant added themselves.
+  zomaalShopVariantId String?
   name                String
   sku                 String?
   imageObjectName     String?
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  unit                PackagingUnit @default(PIECES)
+  minimumLevel        Int           @default(0)
+  lowStockAlert       Boolean       @default(true)
+  isActive            Boolean       @default(true)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
   storeId String
   store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   inventoryItem InventoryItem?
   requirements  ProductPackagingRequirement[]
+  image         MediaAsset?
 
   @@unique([storeId, zomaalShopVariantId])
   @@index([storeId, isActive])

@@ -11,6 +11,34 @@ Packaging list · Add packaging item (photo, unit: pieces / rolls / meters / she
 3. When an order is **delivered**, packaging stock goes down automatically.
 4. When stock reaches the minimum, an alert is sent (WhatsApp).
 
+## What's built
+
+Packaging comes from two places (`source` on every response):
+- **SHOP:** credited automatically when a Zomaal Shop order is delivered. Name, SKU and photo follow the
+  shop catalog and can't be edited.
+- **MANUAL:** added by the merchant ("Add packaging item"), for packaging bought anywhere else.
+
+| Method | Path | Permission | What it does |
+|---|---|---|---|
+| GET | `/warehouse/packaging?search=&stockStatus=&source=` | `products.view` | List (also the Add Product selector). `stockStatus`: `IN_STOCK` / `LOW_STOCK` / `OUT_OF_STOCK` |
+| POST | `/warehouse/packaging` | `products.add` | Add: name, sku, unit, openingStock, minimumLevel, lowStockAlert, imageUploadId |
+| GET | `/warehouse/packaging/:id` | `products.view` | Details: stock, min level, products that use it |
+| PATCH | `/warehouse/packaging/:id` | `products.edit` | Edit. unit / minimumLevel / lowStockAlert on any packaging; name / sku / photo on MANUAL only |
+| DELETE | `/warehouse/packaging/:id` | `products.delete` | Archive. 409 while a product still uses it |
+| PUT | `/warehouse/inventory/items/:inventoryItemId/stock` | `products.edit` | Update stock (existing endpoint) |
+| GET | `/warehouse/inventory/items/:inventoryItemId/movements` | `products.view` | Stock history (existing endpoint) |
+
+- **Photo:** `POST /warehouse/media` with `purpose=PACKAGING`, then pass the id as `imageUploadId`.
+- **Units:** `PIECES`, `ROLLS`, `METERS`, `SHEETS`. Stock is whole numbers in that unit.
+- **Stock status:** `OUT_OF_STOCK` when available ≤ 0, `LOW_STOCK` when available ≤ `minimumLevel`.
+- **Used on delivery:** unchanged. Product packaging × units sold is deducted when the order is delivered
+  (`PACKAGING_CONSUMED` in the history). So today it's per unit, not "1 per order" (see Q6.1).
+- **Alert:** when `lowStockAlert` is on, the existing `LOW_STOCK` / `OUT_OF_STOCK` notifications cover
+  packaging too (`entityType: PACKAGING_MATERIAL`, owner + staff with `products.view`). In-app and push
+  only. WhatsApp will come once WhatsApp automation is live (Q6.3).
+- **Cost:** SHOP packaging uses the last Shop purchase price (else the catalog price). MANUAL packaging
+  has no price field in Figma, so it counts as 0 in order profit for now (Q6.2).
+
 ## Questions
 
 **Q6.1 — Per order or per unit?**

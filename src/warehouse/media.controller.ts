@@ -68,9 +68,9 @@ export class MediaController {
       properties: {
         purpose: {
           type: 'string',
-          enum: ['PRODUCT_MAIN', 'PRODUCT_GALLERY', 'VARIANT'],
+          enum: ['PRODUCT_MAIN', 'PRODUCT_GALLERY', 'VARIANT', 'PACKAGING'],
           description:
-            'Must match the later attachment field: mainImageUploadId, galleryImageUploadIds, or variant.imageUploadId.',
+            'Must match the later attachment field: mainImageUploadId, galleryImageUploadIds, variant.imageUploadId, or the packaging imageUploadId.',
         },
         image: {
           type: 'string',

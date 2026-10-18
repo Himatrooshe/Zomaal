@@ -30,8 +30,10 @@ The system generates notifications from other modules (stock, payments, sales). 
   alert is resolved when the merchant cancels or keeps the group.
 - Read state is per user. Push goes through FCM when `PUSH_NOTIFICATIONS_ENABLED=true`.
 
-**Not built yet:** packaging low stock (packaging materials have no minimum-level field yet),
-overdue customer payments (Q16.2), trial/subscription
+`LOW_STOCK` / `OUT_OF_STOCK` also cover packaging with "Auto Reorder Alert" on, at or below its minimum
+level (`entityType: PACKAGING_MATERIAL`).
+
+**Not built yet:** overdue customer payments (Q16.2), trial/subscription
 ending and WhatsApp balance low (those modules don't exist yet), Sendit sync failures (no stored sync error).
 
 ## Questions

@@ -10735,7 +10735,8 @@ paths:
                     - PRODUCT_MAIN
                     - PRODUCT_GALLERY
                     - VARIANT
-                  description: 'Must match the later attachment field: mainImageUploadId, galleryImageUploadIds, or variant.imageUploadId.'
+                    - PACKAGING
+                  description: 'Must match the later attachment field: mainImageUploadId, galleryImageUploadIds, variant.imageUploadId, or the packaging imageUploadId.'
                 image:
                   type: string
                   format: binary
@@ -11914,9 +11915,34 @@ paths:
         - Warehouse Inventory
   /warehouse/packaging:
     get:
-      description: Populates the Add Product packaging selector. Only active materials credited from delivered Zomaal Shop purchases are returned. available is on-hand minus reserved and damaged. There is intentionally no merchant-facing endpoint for creating ownership.
+      description: Packaging list screen and the Add Product packaging selector. Returns active materials, both bought from Zomaal Shop (source SHOP) and added by the merchant (source MANUAL), sorted by name. available is on-hand minus reserved and damaged.
       operationId: Packaging_list
-      parameters: []
+      parameters:
+        - name: search
+          required: false
+          in: query
+          description: Matches name or SKU.
+          schema:
+            maxLength: 100
+            type: string
+        - name: stockStatus
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - IN_STOCK
+              - LOW_STOCK
+              - OUT_OF_STOCK
+        - name: source
+          required: false
+          in: query
+          description: SHOP = bought from Zomaal Shop, MANUAL = added by the merchant.
+          schema:
+            type: string
+            enum:
+              - SHOP
+              - MANUAL
       responses:
         '200':
           description: ''
@@ -11926,6 +11952,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/OwnedPackagingMaterialResponseDto'
+        '400':
+          description: Invalid filter value.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Bearer token is missing, invalid, or expired.
           content:
@@ -11941,6 +11973,176 @@ paths:
       security:
         - bearer: []
       summary: List packaging owned by the current merchant
+      tags:
+        - Warehouse Packaging
+    post:
+      description: For packaging bought outside Zomaal Shop. openingStock is recorded as an OPENING_BALANCE movement. Upload the photo first with POST /warehouse/media (purpose PACKAGING) and pass its id as imageUploadId.
+      operationId: Packaging_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePackagingDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackagingMaterialDetailResponseDto'
+        '400':
+          description: Invalid body, or the image upload is missing, expired or not purpose PACKAGING.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Add a packaging item
+      tags:
+        - Warehouse Packaging
+  /warehouse/packaging/{id}:
+    get:
+      description: Stock, minimum level and the products that use it. For stock history call GET /warehouse/inventory/items/{inventoryItemId}/movements; for Update stock call PUT /warehouse/inventory/items/{inventoryItemId}/stock.
+      operationId: Packaging_get
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Packaging material ID.
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackagingMaterialDetailResponseDto'
+        '400':
+          description: ID is not a UUID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Packaging not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Packaging details
+      tags:
+        - Warehouse Packaging
+    patch:
+      description: Send only the fields to change. unit, minimumLevel and lowStockAlert can be changed on any packaging; name, sku and the photo only on merchant-added packaging (source MANUAL). Stock is changed through the inventory endpoints.
+      operationId: Packaging_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Packaging material ID.
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePackagingDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackagingMaterialDetailResponseDto'
+        '400':
+          description: Invalid body, image upload unusable, or a catalog field sent for Zomaal Shop packaging.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Packaging not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Edit a packaging item
+      tags:
+        - Warehouse Packaging
+    delete:
+      description: Hides it from the list and the product selector. Stock history is kept. Not allowed while a product still uses it.
+      operationId: Packaging_archive
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Packaging material ID.
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArchivePackagingResponseDto'
+        '400':
+          description: ID is not a UUID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Bearer token is missing, invalid, or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Packaging not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Still used by one or more products.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Archive a packaging item
       tags:
         - Warehouse Packaging
   /warehouse/packaging/{id}/image:
@@ -28128,30 +28330,65 @@ components:
         id:
           type: string
           format: uuid
+        source:
+          type: string
+          enum:
+            - SHOP
+            - MANUAL
+          description: SHOP = credited from a delivered Zomaal Shop purchase (name, SKU and photo come from the shop catalog). MANUAL = added by the merchant.
         zomaalShopVariantId:
           type: string
-          description: Variant identifier from the Zomaal packaging shop catalog.
+          nullable: true
+          description: Variant identifier from the Zomaal packaging shop catalog. Null for merchant-added packaging.
           example: shop-box-large-brown
         name:
           type: string
           example: Large corrugated box
         sku:
-          type: object
+          type: string
           nullable: true
           example: BOX-LARGE-BROWN
+        unit:
+          type: string
+          enum:
+            - PIECES
+            - ROLLS
+            - METERS
+            - SHEETS
         imageUrl:
-          type: object
+          type: string
           nullable: true
-          description: Authenticated relative image URL. Null when the shop catalog item has no image.
+          description: Authenticated relative image URL. Null when there is no photo.
           example: /warehouse/packaging/2d5e2688-0818-429a-bb03-8351130c60ea/image
         inventoryItemId:
-          type: object
+          type: string
           nullable: true
           format: uuid
+          description: Use with /warehouse/inventory/items/:id for Update stock (PUT …/stock) and stock history (GET …/movements).
+        onHand:
+          type: number
+          description: Physical stock across locations.
+          example: 25
         available:
           type: number
           description: On-hand minus reserved and damaged quantities across locations.
           example: 20
+        minimumLevel:
+          type: number
+          example: 10
+        lowStockAlert:
+          type: boolean
+          description: Auto Reorder Alert on/off.
+        stockStatus:
+          type: string
+          enum:
+            - IN_STOCK
+            - LOW_STOCK
+            - OUT_OF_STOCK
+          description: OUT_OF_STOCK when available ≤ 0, LOW_STOCK when available ≤ minimumLevel.
+        usedInProducts:
+          type: number
+          description: Products that use this packaging.
         createdAt:
           type: string
           format: date-time
@@ -28160,14 +28397,227 @@ components:
           format: date-time
       required:
         - id
+        - source
         - zomaalShopVariantId
         - name
         - sku
+        - unit
         - imageUrl
         - inventoryItemId
+        - onHand
         - available
+        - minimumLevel
+        - lowStockAlert
+        - stockStatus
+        - usedInProducts
         - createdAt
         - updatedAt
+    CreatePackagingDto:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Medium box
+        sku:
+          type: string
+          maxLength: 100
+          example: BOX-M
+        unit:
+          type: string
+          enum:
+            - PIECES
+            - ROLLS
+            - METERS
+            - SHEETS
+          default: PIECES
+        openingStock:
+          type: number
+          minimum: 0
+          maximum: 1000000
+          default: 0
+          description: Stock on hand when the item is added, in `unit`.
+        minimumLevel:
+          type: number
+          minimum: 0
+          maximum: 1000000
+          default: 0
+          description: Low-stock alert fires when available stock is at or below this.
+        lowStockAlert:
+          type: boolean
+          default: true
+          description: '"Auto Reorder Alert": notify when stock reaches the minimum level.'
+        imageUploadId:
+          type: string
+          format: uuid
+          description: Upload id from POST /warehouse/media with purpose PACKAGING.
+      required:
+        - name
+    PackagingProductUsageDto:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        variantId:
+          type: string
+          nullable: true
+          format: uuid
+          description: Set when only one variant uses it; null = every variant.
+        variantTitle:
+          type: string
+          nullable: true
+        quantityPerUnit:
+          type: number
+          description: Units of packaging used per unit of product sold.
+          example: 1
+      required:
+        - productId
+        - productName
+        - variantId
+        - variantTitle
+        - quantityPerUnit
+    PackagingMaterialDetailResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        source:
+          type: string
+          enum:
+            - SHOP
+            - MANUAL
+          description: SHOP = credited from a delivered Zomaal Shop purchase (name, SKU and photo come from the shop catalog). MANUAL = added by the merchant.
+        zomaalShopVariantId:
+          type: string
+          nullable: true
+          description: Variant identifier from the Zomaal packaging shop catalog. Null for merchant-added packaging.
+          example: shop-box-large-brown
+        name:
+          type: string
+          example: Large corrugated box
+        sku:
+          type: string
+          nullable: true
+          example: BOX-LARGE-BROWN
+        unit:
+          type: string
+          enum:
+            - PIECES
+            - ROLLS
+            - METERS
+            - SHEETS
+        imageUrl:
+          type: string
+          nullable: true
+          description: Authenticated relative image URL. Null when there is no photo.
+          example: /warehouse/packaging/2d5e2688-0818-429a-bb03-8351130c60ea/image
+        inventoryItemId:
+          type: string
+          nullable: true
+          format: uuid
+          description: Use with /warehouse/inventory/items/:id for Update stock (PUT …/stock) and stock history (GET …/movements).
+        onHand:
+          type: number
+          description: Physical stock across locations.
+          example: 25
+        available:
+          type: number
+          description: On-hand minus reserved and damaged quantities across locations.
+          example: 20
+        minimumLevel:
+          type: number
+          example: 10
+        lowStockAlert:
+          type: boolean
+          description: Auto Reorder Alert on/off.
+        stockStatus:
+          type: string
+          enum:
+            - IN_STOCK
+            - LOW_STOCK
+            - OUT_OF_STOCK
+          description: OUT_OF_STOCK when available ≤ 0, LOW_STOCK when available ≤ minimumLevel.
+        usedInProducts:
+          type: number
+          description: Products that use this packaging.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        reserved:
+          type: number
+        damaged:
+          type: number
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/PackagingProductUsageDto'
+      required:
+        - id
+        - source
+        - zomaalShopVariantId
+        - name
+        - sku
+        - unit
+        - imageUrl
+        - inventoryItemId
+        - onHand
+        - available
+        - minimumLevel
+        - lowStockAlert
+        - stockStatus
+        - usedInProducts
+        - createdAt
+        - updatedAt
+        - reserved
+        - damaged
+        - products
+    UpdatePackagingDto:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Merchant-added packaging only.
+        sku:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Merchant-added packaging only. null clears it.
+        unit:
+          type: string
+          enum:
+            - PIECES
+            - ROLLS
+            - METERS
+            - SHEETS
+        minimumLevel:
+          type: number
+          minimum: 0
+          maximum: 1000000
+        lowStockAlert:
+          type: boolean
+        imageUploadId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Merchant-added packaging only. New upload id (purpose PACKAGING) replaces the photo; null removes it.
+    ArchivePackagingResponseDto:
+      type: object
+      properties:
+        archived:
+          type: boolean
+          example: true
+      required:
+        - archived
     AdsConnectionDto:
       type: object
       properties:

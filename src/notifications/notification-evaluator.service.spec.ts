@@ -50,7 +50,7 @@ describe('NotificationEvaluatorService', () => {
   describe('stockAlerts', () => {
     it('splits low and out-of-stock variants with per-variant dedupe keys', async () => {
       const { service, prisma } = build();
-      prisma.$queryRaw.mockResolvedValue([
+      prisma.$queryRaw.mockResolvedValueOnce([
         {
           variantId: 'v-1',
           variantTitle: 'Default',
@@ -102,7 +102,7 @@ describe('NotificationEvaluatorService', () => {
 
     it('uses singular wording for one item', async () => {
       const { service, prisma } = build();
-      prisma.$queryRaw.mockResolvedValue([
+      prisma.$queryRaw.mockResolvedValueOnce([
         {
           variantId: 'v-1',
           variantTitle: 'Default',
@@ -117,6 +117,58 @@ describe('NotificationEvaluatorService', () => {
       const { low } = await service.stockAlerts('store-1');
 
       expect(low[0].message).toBe('1 item left');
+    });
+    it('alerts on packaging at or below its minimum level', async () => {
+      const { service, prisma } = build();
+      prisma.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([
+        {
+          id: 'pk-1',
+          name: 'Medium box',
+          unit: 'PIECES',
+          minimumLevel: 10,
+          available: 4,
+        },
+        {
+          id: 'pk-2',
+          name: 'Tape',
+          unit: 'ROLLS',
+          minimumLevel: 2,
+          available: 1,
+        },
+        {
+          id: 'pk-3',
+          name: 'Bubble wrap',
+          unit: 'METERS',
+          minimumLevel: 0,
+          available: 0,
+        },
+      ]);
+
+      const { low, out } = await service.stockAlerts('store-1');
+
+      expect(low).toEqual([
+        expect.objectContaining({
+          type: 'LOW_STOCK',
+          title: 'Medium box is running low',
+          message: '4 pieces left',
+          entityType: 'PACKAGING_MATERIAL',
+          entityId: 'pk-1',
+          dedupeKey: 'LOW_STOCK:PACKAGING:pk-1',
+          metadata: { available: 4, minimumLevel: 10, unit: 'PIECES' },
+        }),
+        expect.objectContaining({ message: '1 roll left' }),
+      ]);
+      expect(out).toEqual([
+        expect.objectContaining({
+          type: 'OUT_OF_STOCK',
+          title: 'Bubble wrap is out of stock',
+          dedupeKey: 'OUT_OF_STOCK:PACKAGING:pk-3',
+        }),
+      ]);
+      const calls = prisma.$queryRaw.mock.calls as [Prisma.Sql][];
+      const packagingSql = calls[1][0].sql;
+      expect(packagingSql).toContain('"lowStockAlert" = true');
+      expect(packagingSql).toContain('"isActive" = true');
     });
   });
 

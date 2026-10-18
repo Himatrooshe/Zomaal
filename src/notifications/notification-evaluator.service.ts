@@ -42,6 +42,18 @@ const PLATFORM_LABEL: Record<string, string> = {
   LIGHTFUNNELS: 'Lightfunnels',
 };
 
+const PACKAGING_UNIT_LABEL: Record<string, [string, string]> = {
+  PIECES: ['piece', 'pieces'],
+  ROLLS: ['roll', 'rolls'],
+  METERS: ['meter', 'meters'],
+  SHEETS: ['sheet', 'sheets'],
+};
+
+function unitLabel(unit: string, count: number): string {
+  const [one, many] = PACKAGING_UNIT_LABEL[unit] ?? ['item', 'items'];
+  return count === 1 ? one : many;
+}
+
 interface StoreRef {
   id: string;
   userId: string;
@@ -278,6 +290,74 @@ export class NotificationEvaluatorService {
           title: `${name} is running low`,
           message: `${row.available} ${row.available === 1 ? 'item' : 'items'} left`,
           dedupeKey: `${NotificationType.LOW_STOCK}:${row.variantId}`,
+        });
+      }
+    }
+
+    const packaging = await this.packagingStockAlerts(storeId);
+    return {
+      low: [...low, ...packaging.low],
+      out: [...out, ...packaging.out],
+    };
+  }
+
+  /** Packaging with "Auto Reorder Alert" on, at or below its minimum level. */
+  async packagingStockAlerts(
+    storeId: string,
+  ): Promise<{ low: RaiseNotificationInput[]; out: RaiseNotificationInput[] }> {
+    const rows = await this.prisma.$queryRaw<
+      {
+        id: string;
+        name: string;
+        unit: string;
+        minimumLevel: number;
+        available: number;
+      }[]
+    >(Prisma.sql`
+      SELECT
+        m."id",
+        m."name",
+        m."unit"::text AS "unit",
+        m."minimumLevel",
+        COALESCE(SUM(b."onHand" - b."reserved" - b."damaged"), 0)::int AS "available"
+      FROM "PackagingMaterial" m
+      INNER JOIN "InventoryItem" ii ON ii."packagingMaterialId" = m."id"
+      LEFT JOIN "InventoryBalance" b ON b."inventoryItemId" = ii."id"
+      WHERE m."storeId" = ${storeId}
+        AND m."isActive" = true
+        AND m."lowStockAlert" = true
+      GROUP BY m."id"
+      HAVING COALESCE(SUM(b."onHand" - b."reserved" - b."damaged"), 0) <= m."minimumLevel"
+    `);
+
+    const low: RaiseNotificationInput[] = [];
+    const out: RaiseNotificationInput[] = [];
+    for (const row of rows) {
+      const base = {
+        storeId,
+        entityType: 'PACKAGING_MATERIAL',
+        entityId: row.id,
+        metadata: {
+          available: row.available,
+          minimumLevel: row.minimumLevel,
+          unit: row.unit,
+        },
+      };
+      if (row.available <= 0) {
+        out.push({
+          ...base,
+          type: NotificationType.OUT_OF_STOCK,
+          title: `${row.name} is out of stock`,
+          message: 'No packaging left. Restock before your next deliveries.',
+          dedupeKey: `${NotificationType.OUT_OF_STOCK}:PACKAGING:${row.id}`,
+        });
+      } else {
+        low.push({
+          ...base,
+          type: NotificationType.LOW_STOCK,
+          title: `${row.name} is running low`,
+          message: `${row.available} ${unitLabel(row.unit, row.available)} left`,
+          dedupeKey: `${NotificationType.LOW_STOCK}:PACKAGING:${row.id}`,
         });
       }
     }
