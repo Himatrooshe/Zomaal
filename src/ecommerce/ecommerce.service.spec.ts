@@ -789,17 +789,19 @@ describe('EcommerceService', () => {
       }
       return Promise.resolve([]);
     });
+    const senditConnection = jest.fn().mockResolvedValue(null);
+    const quickLivraisonConnection = jest.fn().mockResolvedValue(null);
+    const forceLogConnection = jest.fn().mockResolvedValue(null);
+    const ozoneExpressConnection = jest.fn().mockResolvedValue(null);
+    const ameexConnection = jest.fn().mockResolvedValue(null);
     const prisma = {
       ecommerceConnection: { findMany: jest.fn().mockResolvedValue([]) },
       warehouseProduct: { count: jest.fn().mockResolvedValue(0) },
-      senditConnection: { findUnique: jest.fn().mockResolvedValue(null) },
-      quickLivraisonConnection: {
-        findUnique: jest.fn().mockResolvedValue(null),
-      },
-      forceLogConnection: { findUnique: jest.fn().mockResolvedValue(null) },
-      ozoneExpressConnection: {
-        findUnique: jest.fn().mockResolvedValue(null),
-      },
+      senditConnection: { findUnique: senditConnection },
+      quickLivraisonConnection: { findUnique: quickLivraisonConnection },
+      forceLogConnection: { findUnique: forceLogConnection },
+      ozoneExpressConnection: { findUnique: ozoneExpressConnection },
+      ameexConnection: { findUnique: ameexConnection },
       $queryRaw: queryRaw,
     } as unknown as PrismaService;
     const service = new EcommerceService(
@@ -851,6 +853,18 @@ describe('EcommerceService', () => {
     });
     expect(result.expenses.total).toBe('650.00'); // all recorded + ad spend
     expect(result.lostOrders).toEqual({ orders: 4, value: '400.0000' });
+    expect(result.shipping.connectedProviders).toBe(0);
+
+    quickLivraisonConnection.mockResolvedValue({ userId: 'user-id' });
+    forceLogConnection.mockResolvedValue({ userId: 'user-id' });
+    ozoneExpressConnection.mockResolvedValue({ userId: 'user-id' });
+    ameexConnection.mockResolvedValue({ userId: 'user-id' });
+
+    const homeWithFourConnectedCouriers = await service.getHome('user-id', {
+      from: '2026-01-01',
+      to: '2026-01-31',
+    });
+    expect(homeWithFourConnectedCouriers.shipping.connectedProviders).toBe(4);
   });
 });
 

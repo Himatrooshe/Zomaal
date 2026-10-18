@@ -364,6 +364,7 @@ export class EcommerceService {
         this.prisma.quickLivraisonConnection.findUnique({ where: { userId } }),
         this.prisma.forceLogConnection.findUnique({ where: { userId } }),
         this.prisma.ozoneExpressConnection.findUnique({ where: { userId } }),
+        this.prisma.ameexConnection.findUnique({ where: { userId } }),
       ]),
       this.getOrderStatusBuckets(store, range),
       this.prisma.$queryRaw<ProfitRow[]>(Prisma.sql`
