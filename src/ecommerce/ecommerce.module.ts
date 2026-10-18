@@ -7,6 +7,7 @@ import { AdsModule } from '../ads/ads.module';
 import { EcommerceController } from './ecommerce.controller';
 import { EcommerceSyncService } from './ecommerce-sync.service';
 import { EcommerceService } from './ecommerce.service';
+import { EcommerceOrderExportService } from './ecommerce-order-export.service';
 import { LightfunnelsRevenueAdapter } from './lightfunnels-revenue.adapter';
 import { ShopifyRevenueAdapter } from './shopify-revenue.adapter';
 import { YouCanRevenueAdapter } from './youcan-revenue.adapter';
@@ -46,6 +47,7 @@ import { CustomersModule } from '../customers/customers.module';
   ],
   providers: [
     EcommerceService,
+    EcommerceOrderExportService,
     ReturnRequestService,
     EcommerceSyncService,
     EcommerceMetricsService,

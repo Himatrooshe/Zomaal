@@ -152,6 +152,11 @@ jobs:
           STAFF_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
         run: npm run test:e2e -- --runInBand staff-salary.postgres
 
+      - name: Verify Orders Excel export in PostgreSQL
+        env:
+          ORDER_EXPORT_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run test:e2e -- --runInBand orders-export.postgres
+
       - name: Build
         run: npm run build
 

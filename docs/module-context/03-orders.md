@@ -58,3 +58,13 @@ Answer: Ad spend is counted only as total spend; it is not assigned per order. P
 **Q3.7 — Export Orders format?**
 CSV or Excel? Which columns?
 Answer: Excel.
+Implemented: `GET /ecommerce/orders/export` downloads a real `.xlsx` workbook for the active store.
+It requires `orders.export`, accepts the same filters and defaults as `GET /ecommerce/orders`
+(`platform`, `search`, `financialStatus`, `fulfillmentStatus`, `includeCancelled`,
+`includeRefunded`, `includeDispatched`, `includeInRevenue`), and exports all matching rows,
+not the current list page. The workbook includes order reference/ID, platform, order/payment/
+fulfillment statuses, currency, gross sales, discounts, shipping charged, refunds, net sales,
+total collected, COD amount/status, item count, processed/cancelled timestamps, courier,
+and tracking number. Customer contact details are excluded. An empty result downloads a
+header-only workbook. More than 10,000 matching rows returns 413 so exports never truncate
+silently; narrow the filters and retry. The endpoint is read only and has no schema migration.

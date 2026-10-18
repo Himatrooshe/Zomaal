@@ -10,6 +10,7 @@ import {
   Post,
   Query,
   Res,
+  StreamableFile,
   UseGuards,
   applyDecorators,
 } from '@nestjs/common';
@@ -23,10 +24,12 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiPayloadTooLargeResponse,
   ApiProduces,
   ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -44,6 +47,11 @@ import {
 } from './dto/ecommerce-response.dto';
 import { RevenueRangeQueryDto } from './dto/revenue-query.dto';
 import { EcommerceOrderQueryDto } from './dto/ecommerce-order-query.dto';
+import { EcommerceOrderExportQueryDto } from './dto/ecommerce-order-export-query.dto';
+import {
+  EcommerceOrderExportService,
+  ORDERS_XLSX_MIME,
+} from './ecommerce-order-export.service';
 import {
   EcommerceOrderDto,
   EcommerceOrderListDto,
@@ -86,6 +94,10 @@ const PRIVATE_NO_STORE_HEADERS = {
   },
 };
 
+const JSON_ERROR_CONTENT = {
+  'application/json': { schema: { $ref: getSchemaPath(ApiErrorDto) } },
+};
+
 @ApiTags('E-commerce Revenue')
 @ApiProduces('application/json')
 @ApiBearerAuth()
@@ -99,6 +111,7 @@ export class EcommerceController {
     private readonly timelineService: EcommerceOrderTimelineService,
     private readonly labels: BarcodeLabelService,
     private readonly financialService: EcommerceOrderFinancialService,
+    private readonly orderExport: EcommerceOrderExportService,
   ) {}
 
   @Get('home')
@@ -389,6 +402,48 @@ export class EcommerceController {
     return this.ecommerceService.listOrders(user.userId, query);
   }
 
+  @Get('orders/export')
+  @RequirePermission(PERMISSIONS.ORDERS_EXPORT)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Download filtered orders as Excel',
+    description:
+      'Exports every matching order using the same filters and defaults as GET /ecommerce/orders, without pagination. Maximum 10,000 rows; narrow filters if exceeded. Contains order and dispatch data but no customer contact information.',
+  })
+  @ApiOkResponse({
+    description:
+      'Excel .xlsx workbook, including a header row when no orders match.',
+    content: {
+      [ORDERS_XLSX_MIME]: { schema: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid filters.',
+    content: JSON_ERROR_CONTENT,
+  })
+  @ApiUnauthorizedResponse({ content: JSON_ERROR_CONTENT })
+  @ApiForbiddenResponse({ content: JSON_ERROR_CONTENT })
+  @ApiNotFoundResponse({
+    description: 'The caller has no store.',
+    content: JSON_ERROR_CONTENT,
+  })
+  @ApiPayloadTooLargeResponse({
+    description: 'More than 10,000 orders match the filters.',
+    content: JSON_ERROR_CONTENT,
+  })
+  exportOrders(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: EcommerceOrderExportQueryDto,
+  ): Promise<StreamableFile> {
+    return this.orderExport.exportXlsx(user.userId, query).then(
+      (buffer) =>
+        new StreamableFile(buffer, {
+          type: ORDERS_XLSX_MIME,
+          disposition: `attachment; filename="zomaal-orders-${new Date().toISOString().slice(0, 10)}.xlsx"`,
+        }),
+    );
+  }
+
   @Get('scan')
   @RequirePermission(PERMISSIONS.ORDERS_VIEW)
   @Header('Cache-Control', 'private, no-store')
@@ -495,9 +550,9 @@ export class EcommerceController {
     summary: "Re-check the order's shipping status and apply financial events",
     description:
       "If the order was dispatched via one of Zomaal's own couriers " +
-      '(Sendit/QuickLivraison/ForceLog/OzoneExpress), reads that shipment\'s live status ' +
+      "(Sendit/QuickLivraison/ForceLog/OzoneExpress), reads that shipment's live status " +
       'and, if DELIVERED or a terminal failure (CANCELLED/REFUSED/RETURNED_TO_SELLER), ' +
-      "applies the matching revenue event. Otherwise — fulfilled via a 3rd-party " +
+      'applies the matching revenue event. Otherwise — fulfilled via a 3rd-party ' +
       'shipping plugin on the platform (any carrier) — falls back to the ' +
       "order's Timeline currentStatus (GET .../timeline) for the same DELIVERED/terminal-" +
       'failure check; call GET .../timeline?refresh=true first to make sure it reflects ' +

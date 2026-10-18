@@ -17,6 +17,7 @@ import { AdsSpendService } from '../ads/ads-spend.service';
 import { toUnconvertedDto } from '../ads/dto/ad-spend.dto';
 import { CustomerRiskService } from '../customers/customer-risk.service';
 import { EcommerceOrderQueryDto } from './dto/ecommerce-order-query.dto';
+import { orderWhere } from './order-filter.util';
 import {
   EcommerceDispatchDto,
   EcommerceDispatchResponseDto,
@@ -503,48 +504,7 @@ export class EcommerceService {
     query: EcommerceOrderQueryDto,
   ): Promise<EcommerceOrderListDto> {
     const store = await this.requireStore(userId);
-    const connectionFilter: Prisma.EcommerceConnectionWhereInput = {
-      storeId: store.id,
-    };
-
-    if (query.platform) {
-      connectionFilter.platform = query.platform;
-    }
-
-    if (query.includeInRevenue !== undefined) {
-      connectionFilter.includeInRevenue = query.includeInRevenue;
-    }
-
-    const where: Prisma.EcommerceOrderWhereInput = {
-      connection: connectionFilter,
-    };
-
-    if (query.financialStatus) {
-      where.financialStatus = query.financialStatus;
-    }
-
-    if (query.fulfillmentStatus) {
-      where.fulfillmentStatus = query.fulfillmentStatus;
-    }
-
-    if (query.search) {
-      where.OR = [
-        { externalOrderId: query.search },
-        { orderName: { contains: query.search, mode: 'insensitive' } },
-      ];
-    }
-
-    if (!query.includeCancelled) {
-      where.status = { not: 'CANCELLED' };
-    }
-
-    if (!query.includeRefunded && !query.financialStatus) {
-      where.financialStatus = { notIn: ['REFUNDED', 'PARTIALLY_REFUNDED'] };
-    }
-
-    if (!query.includeDispatched) {
-      where.dispatch = { is: null };
-    }
+    const where = orderWhere(store.id, query);
 
     const page = query.page || 1;
     const limit = query.limit || 20;

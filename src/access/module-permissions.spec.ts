@@ -92,6 +92,9 @@ describe('module permission gating', () => {
     expect(required(EcommerceController, 'listOrders')).toEqual([
       PERMISSIONS.ORDERS_VIEW,
     ]);
+    expect(required(EcommerceController, 'exportOrders')).toEqual([
+      PERMISSIONS.ORDERS_EXPORT,
+    ]);
     expect(required(EcommerceController, 'dispatchOrder')).toEqual([
       PERMISSIONS.ORDERS_EDIT,
     ]);

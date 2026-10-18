@@ -8173,6 +8173,118 @@ paths:
       summary: List synchronized e-commerce orders
       tags:
         - E-commerce Revenue
+  /ecommerce/orders/export:
+    get:
+      description: Exports every matching order using the same filters and defaults as GET /ecommerce/orders, without pagination. Maximum 10,000 rows; narrow filters if exceeded. Contains order and dispatch data but no customer contact information.
+      operationId: Ecommerce_exportOrders
+      parameters:
+        - name: platform
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - SHOPIFY
+              - YOUCAN
+              - LIGHTFUNNELS
+              - MANUAL
+        - name: search
+          required: false
+          in: query
+          description: Search by order ID or name
+          schema:
+            type: string
+        - name: financialStatus
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - AUTHORIZED
+              - PARTIALLY_PAID
+              - PAID
+              - PARTIALLY_REFUNDED
+              - REFUNDED
+              - VOIDED
+              - EXPIRED
+              - UNKNOWN
+        - name: fulfillmentStatus
+          required: false
+          in: query
+          description: Fulfillment status (e.g., unfulfilled)
+          schema:
+            type: string
+        - name: includeCancelled
+          required: false
+          in: query
+          description: Include cancelled orders
+          schema:
+            default: false
+            type: boolean
+        - name: includeRefunded
+          required: false
+          in: query
+          description: Include refunded orders
+          schema:
+            default: false
+            type: boolean
+        - name: includeDispatched
+          required: false
+          in: query
+          description: Include orders already dispatched
+          schema:
+            default: false
+            type: boolean
+        - name: includeInRevenue
+          required: false
+          in: query
+          description: Filter by connection revenue inclusion
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Excel .xlsx workbook, including a header row when no orders match.
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Invalid filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+          description: ''
+        '404':
+          description: The caller has no store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '413':
+          description: More than 10,000 orders match the filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Download filtered orders as Excel
+      tags:
+        - E-commerce Revenue
   /ecommerce/scan:
     get:
       description: Accepts either a Zomaal-generated shipment QR (JSON payload) or a raw courier tracking number read off the carrier's own barcode — both resolve to the same order. Camera decoding happens on the scanning device; this endpoint only ever receives the already-decoded text. `status` is always read live from the database, never from the scanned payload, since status changes after the code was printed.
