@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { YouCanConnectionService } from './youcan-connection.service';
+import { unwrapYouCanOrder } from './youcan-order-response.util';
 import { YouCanDataPageQueryDto } from './dto/youcan-data-query.dto';
 import {
   YouCanPaginatedResponseDto,
@@ -57,12 +58,18 @@ export class YouCanDataService {
     userId: string,
     orderId: string,
   ): Promise<YouCanDataResponseDto<YouCanOrderDto>> {
-    const response = await this.connectionService.getJsonForUser<{
-      order: YouCanOrderDto;
-    }>(userId, `/orders/${orderId}`, {
-      include: 'payment,shipping,discount,refunds,variants',
-    });
-    return { data: response.order };
+    const response = await this.connectionService.getJsonForUser<unknown>(
+      userId,
+      `/orders/${orderId}`,
+      {
+        include: 'payment,shipping,discount,refunds,variants',
+      },
+    );
+    const order = unwrapYouCanOrder<YouCanOrderDto>(response);
+    if (!order) {
+      throw new NotFoundException(`YouCan order ${orderId} not found`);
+    }
+    return { data: order };
   }
 
   async listCustomers(

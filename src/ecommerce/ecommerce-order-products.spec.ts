@@ -63,22 +63,20 @@ describe('e-commerce order product adapters', () => {
   it('maps YouCan order variants with quantities and prices', async () => {
     const connection = {
       getJsonForUser: jest.fn().mockResolvedValue({
-        data: {
-          id: 'youcan-order-id',
-          ref: '#100',
-          currency: 'mad',
-          variants: [
-            {
-              id: 'line-1',
-              product_id: 'product-1',
-              product_variant_id: 'variant-1',
-              product_name: 'Sneakers',
-              sku: 'SHOE-1',
-              quantity: '2',
-              price: '75.25',
-            },
-          ],
-        },
+        id: 'youcan-order-id',
+        ref: '#100',
+        currency: 'mad',
+        variants: [
+          {
+            id: 'line-1',
+            product_id: 'product-1',
+            product_variant_id: 'variant-1',
+            product_name: 'Sneakers',
+            sku: 'SHOE-1',
+            quantity: '2',
+            price: '75.25',
+          },
+        ],
       }),
       getStoreCurrency: jest.fn().mockResolvedValue('MAD'),
     };
@@ -98,6 +96,47 @@ describe('e-commerce order product adapters', () => {
         quantity: 2,
         unitPrice: '75.2500',
         totalPrice: '150.5000',
+      }),
+    );
+  });
+
+  it('builds a fulfillment preview from YouCan’s bare order detail response', async () => {
+    const connection = {
+      getJsonForUser: jest.fn().mockResolvedValue({
+        id: 'youcan-order-id',
+        ref: '#100',
+        currency: 'MAD',
+        total: '150.50',
+        shipping_address: {
+          first_name: 'Test',
+          city: 'Casablanca',
+        },
+        variants: [
+          {
+            product_name: 'Sneakers',
+            product_variant_id: 'variant-1',
+            quantity: 2,
+          },
+        ],
+      }),
+      getStoreCurrency: jest.fn().mockResolvedValue('MAD'),
+    };
+    const adapter = new YouCanFulfillmentAdapter(
+      connection as unknown as YouCanConnectionService,
+    );
+
+    const preview = await adapter.fetchFulfillmentPreview(
+      'user-id',
+      'youcan-order-id',
+    );
+
+    expect(preview).toEqual(
+      expect.objectContaining({
+        externalOrderId: 'youcan-order-id',
+        orderReference: '#100',
+        city: 'Casablanca',
+        codAmount: '150.50',
+        lineItems: [{ title: 'Sneakers', sku: 'variant-1', quantity: 2 }],
       }),
     );
   });

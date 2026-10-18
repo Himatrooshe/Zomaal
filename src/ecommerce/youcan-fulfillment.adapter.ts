@@ -6,6 +6,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { YouCanConnectionService } from '../youcan/youcan-connection.service';
+import { unwrapYouCanOrder } from '../youcan/youcan-order-response.util';
 import type {
   EcommerceFulfillmentAdapter,
   EcommerceFulfillmentPreview,
@@ -66,20 +67,23 @@ export class YouCanFulfillmentAdapter implements EcommerceFulfillmentAdapter {
     userId: string,
     externalOrderId: string,
   ): Promise<EcommerceFulfillmentPreview> {
-    const [order, storeCurrency] = await Promise.all([
-      this.youCanConnectionService.getJsonForUser<{
-        data?: RawYouCanFulfillmentOrder;
-      }>(userId, `/orders/${externalOrderId}`, {
-        include: 'customer,shipping,variants',
-      }),
+    const [response, storeCurrency] = await Promise.all([
+      this.youCanConnectionService.getJsonForUser<unknown>(
+        userId,
+        `/orders/${externalOrderId}`,
+        {
+          include: 'customer,shipping,variants',
+        },
+      ),
       this.youCanConnectionService.getStoreCurrency(userId),
     ]);
+    const order = unwrapYouCanOrder<RawYouCanFulfillmentOrder>(response);
 
-    if (!order.data || !order.data.id) {
+    if (!order) {
       throw new BadGatewayException('YouCan order not found');
     }
 
-    const data = order.data;
+    const data = order;
     const variants = Array.isArray(data.variants) ? data.variants : [];
     const shippingAddress = data.shipping_address;
     const customer = data.customer;
@@ -129,19 +133,21 @@ export class YouCanFulfillmentAdapter implements EcommerceFulfillmentAdapter {
     userId: string,
     externalOrderId: string,
   ): Promise<EcommerceOrderProducts> {
-    const [order, storeCurrency] = await Promise.all([
-      this.youCanConnectionService.getJsonForUser<{
-        data?: RawYouCanFulfillmentOrder;
-      }>(userId, `/orders/${externalOrderId}`, {
-        include: 'variants',
-      }),
+    const [response, storeCurrency] = await Promise.all([
+      this.youCanConnectionService.getJsonForUser<unknown>(
+        userId,
+        `/orders/${externalOrderId}`,
+        {
+          include: 'variants',
+        },
+      ),
       this.youCanConnectionService.getStoreCurrency(userId),
     ]);
-    if (!order.data?.id) {
+    const data = unwrapYouCanOrder<RawYouCanFulfillmentOrder>(response);
+    if (!data) {
       throw new BadGatewayException('YouCan order not found');
     }
 
-    const data = order.data;
     const currency = (data.currency || storeCurrency).toUpperCase();
     const variants = Array.isArray(data.variants) ? data.variants : [];
     return {

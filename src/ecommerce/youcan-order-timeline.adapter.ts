@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { YouCanConnectionService } from '../youcan/youcan-connection.service';
+import { unwrapYouCanOrder } from '../youcan/youcan-order-response.util';
 import { OrderEventType } from './constants/order-event-type';
 import type {
   NormalizedOrderEvent,
@@ -55,15 +56,17 @@ export class YouCanOrderTimelineAdapter implements OrderTimelineAdapter {
     userId: string,
     externalOrderId: string,
   ): Promise<NormalizedOrderEvent[]> {
-    const response = await this.youCanConnectionService.getJsonForUser<{
-      data?: RawYouCanOrder;
-    }>(userId, `/orders/${externalOrderId}`, {});
+    const response = await this.youCanConnectionService.getJsonForUser<unknown>(
+      userId,
+      `/orders/${externalOrderId}`,
+      { include: 'payment,shipping' },
+    );
+    const data = unwrapYouCanOrder<RawYouCanOrder>(response);
 
-    if (!response.data?.id) {
+    if (!data) {
       return [];
     }
 
-    const data   = response.data;
     const now    = data.updated_at ? new Date(data.updated_at) : new Date();
     const events: NormalizedOrderEvent[] = [];
 
