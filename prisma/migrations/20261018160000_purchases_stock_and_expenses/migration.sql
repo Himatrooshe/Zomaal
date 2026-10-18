@@ -33,7 +33,7 @@ WHERE NOT EXISTS (
 )
 ON CONFLICT ("storeId", "name") DO NOTHING;
 
-CREATE TEMP TABLE "_purchase_expense_backfill" AS
+WITH "backfill" AS MATERIALIZED (
 SELECT
   mp."id" AS "purchaseId",
   gen_random_uuid()::text AS "expenseId",
@@ -53,16 +53,17 @@ SELECT
 FROM "MerchantPurchase" mp
 LEFT JOIN "ShopOrderItem" soi ON soi."id" = mp."shopOrderItemId"
 LEFT JOIN "ShopOrder" so ON so."id" = soi."orderId"
-WHERE mp."expenseId" IS NULL;
-
+WHERE mp."expenseId" IS NULL
+),
+"inserted" AS (
 INSERT INTO "Expense" ("id", "title", "amount", "paymentMethod", "spentAt", "notes", "createdAt", "updatedAt", "storeId", "categoryId", "createdByUserId")
 SELECT "expenseId", "title", "amount", "paymentMethod", "spentAt", "notes", now(), now(), "storeId", "categoryId", "createdByUserId"
-FROM "_purchase_expense_backfill"
-WHERE "categoryId" IS NOT NULL;
-
+FROM "backfill"
+WHERE "categoryId" IS NOT NULL
+RETURNING "id"
+)
 UPDATE "MerchantPurchase" mp
-SET "expenseId" = b."expenseId"
-FROM "_purchase_expense_backfill" b
-WHERE mp."id" = b."purchaseId" AND b."categoryId" IS NOT NULL;
-
-DROP TABLE "_purchase_expense_backfill";
+SET "expenseId" = i."id"
+FROM "inserted" i
+JOIN "backfill" b ON b."expenseId" = i."id"
+WHERE mp."id" = b."purchaseId";
