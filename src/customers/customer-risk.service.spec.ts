@@ -32,6 +32,10 @@ function build() {
     },
   };
   const notifications = { raise: jest.fn().mockResolvedValue({ id: 'n-1' }) };
+  const duplicates = {
+    checkNewOrder: jest.fn().mockResolvedValue(undefined),
+    isCancelledDuplicate: jest.fn().mockResolvedValue(false),
+  };
   const service = new CustomerRiskService(
     prisma as never,
     {
@@ -41,8 +45,9 @@ function build() {
       touchLastActive: jest.fn(),
     } as never,
     notifications as never,
+    duplicates as never,
   );
-  return { service, prisma, notifications };
+  return { service, prisma, notifications, duplicates };
 }
 
 describe('CustomerRiskService', () => {
@@ -412,6 +417,39 @@ describe('CustomerRiskService', () => {
       ).resolves.toBeUndefined();
     });
 
+    it('runs duplicate detection for the new order', async () => {
+      const { service, duplicates } = build();
+
+      await service.recordNewOrder({
+        storeId: 'store-1',
+        customerId: 'customer-1',
+        isBlacklisted: false,
+        orderId: 'order-1',
+        occurredAt: new Date('2026-04-16T00:00:00.000Z'),
+      });
+
+      expect(duplicates.checkNewOrder).toHaveBeenCalledWith({
+        storeId: 'store-1',
+        customerId: 'customer-1',
+        orderId: 'order-1',
+      });
+    });
+
+    it('does not fail order ingestion when duplicate detection fails', async () => {
+      const { service, duplicates } = build();
+      duplicates.checkNewOrder.mockRejectedValue(new Error('db down'));
+
+      await expect(
+        service.recordNewOrder({
+          storeId: 'store-1',
+          customerId: 'customer-1',
+          isBlacklisted: false,
+          orderId: 'order-1',
+          occurredAt: new Date('2026-04-16T00:00:00.000Z'),
+        }),
+      ).resolves.toBeUndefined();
+    });
+
     it('raises no notification for a non-blacklisted customer', async () => {
       const { service, notifications } = build();
 
@@ -453,6 +491,37 @@ describe('CustomerRiskService', () => {
     });
   });
 
+  describe('recordCancellation', () => {
+    it('counts a platform cancellation against the customer', async () => {
+      const { service, prisma } = build();
+      prisma.customer.update.mockResolvedValue({
+        id: 'customer-1',
+        isBlacklisted: false,
+        returnsCount: 0,
+        cancellationsCount: 1,
+        refusalsCount: 0,
+        noAnswerCount: 0,
+      });
+
+      await service.recordCancellation('store-1', 'customer-1', 'order-1');
+
+      expect(prisma.customer.update).toHaveBeenCalledWith({
+        where: { id: 'customer-1' },
+        data: { cancellationsCount: { increment: 1 } },
+      });
+    });
+
+    it('skips orders the merchant cancelled as duplicates', async () => {
+      const { service, prisma, duplicates } = build();
+      duplicates.isCancelledDuplicate.mockResolvedValue(true);
+
+      await expect(
+        service.recordCancellation('store-1', 'customer-1', 'order-1'),
+      ).resolves.toBeNull();
+      expect(prisma.customer.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('recordShipmentOutcome', () => {
     it('no-ops when the user has no store', async () => {
       const { prisma } = build();
@@ -467,6 +536,7 @@ describe('CustomerRiskService', () => {
           touchLastActive: jest.fn(),
         } as never,
         { raise: jest.fn() } as never,
+        { checkNewOrder: jest.fn() } as never,
       );
 
       await serviceWithStore.recordShipmentOutcome({
@@ -490,6 +560,7 @@ describe('CustomerRiskService', () => {
           touchLastActive: jest.fn(),
         } as never,
         { raise: jest.fn() } as never,
+        { checkNewOrder: jest.fn() } as never,
       );
       prisma.customer.upsert.mockResolvedValue({
         id: 'customer-1',

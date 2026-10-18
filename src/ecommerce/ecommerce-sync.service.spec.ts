@@ -109,6 +109,7 @@ describe('EcommerceSyncService', () => {
       upsertCustomer: jest.fn().mockResolvedValue(null),
       recordNewOrder: jest.fn(),
       incrementRiskCounter: jest.fn(),
+      recordCancellation: jest.fn(),
       getSettings: jest.fn(),
     };
     const service = new EcommerceSyncService(

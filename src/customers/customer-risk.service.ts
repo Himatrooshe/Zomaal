@@ -12,6 +12,7 @@ import {
 import { OrderEventType } from '../ecommerce/constants/order-event-type';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/notification-type';
+import { DuplicateOrdersService } from './duplicate-orders.service';
 
 export type RiskCategory =
   | 'RETURNS'
@@ -50,6 +51,7 @@ export class CustomerRiskService {
     private readonly prisma: PrismaService,
     private readonly storeAccess: StoreAccessService,
     private readonly notifications: NotificationsService,
+    private readonly duplicates: DuplicateOrdersService,
   ) {}
 
   /**
@@ -113,6 +115,15 @@ export class CustomerRiskService {
       where: { id: params.customerId },
       data: { totalOrders: { increment: 1 } },
     });
+
+    // Never fail order ingestion because duplicate detection failed.
+    await this.duplicates
+      .checkNewOrder({
+        storeId: params.storeId,
+        customerId: params.customerId,
+        orderId: params.orderId,
+      })
+      .catch(() => undefined);
 
     if (!params.isBlacklisted) {
       return;
@@ -207,6 +218,20 @@ export class CustomerRiskService {
       },
     });
     return { isBlacklisted: true };
+  }
+
+  /**
+   * An order moved to CANCELLED on its platform. A duplicate the merchant
+   * cancelled from the Duplicate Orders screen is the merchant's cleanup,
+   * not the customer's behaviour, so it doesn't count against them.
+   */
+  async recordCancellation(
+    storeId: string,
+    customerId: string,
+    orderId: string,
+  ): Promise<{ isBlacklisted: boolean } | null> {
+    if (await this.duplicates.isCancelledDuplicate(orderId)) return null;
+    return this.incrementRiskCounter(storeId, customerId, 'CANCELLATIONS');
   }
 
   /**

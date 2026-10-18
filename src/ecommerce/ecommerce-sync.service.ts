@@ -539,7 +539,7 @@ export class EcommerceSyncService {
         incoming.status === EcommerceOrderStatus.CANCELLED
       ) {
         await this.customerRisk
-          .incrementRiskCounter(storeId, customer.id, 'CANCELLATIONS')
+          .recordCancellation(storeId, customer.id, orderId)
           .catch((err) =>
             this.logger.warn(
               `Cancellation risk tracking failed for order ${orderId}: ${String(err)}`,

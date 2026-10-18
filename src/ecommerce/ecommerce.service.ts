@@ -6,7 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { DuplicateOrderDecision, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreAccessService } from '../access/store-access.service';
 import { ShopifyFulfillmentAdapter } from './shopify-fulfillment.adapter';
@@ -926,11 +926,21 @@ export class EcommerceService {
     const store = await this.requireStore(userId);
     const order = await this.prisma.ecommerceOrder.findUnique({
       where: { id: orderId, connection: { storeId: store.id } },
-      include: { connection: true, dispatch: true },
+      include: {
+        connection: true,
+        dispatch: true,
+        duplicateReview: { select: { decision: true } },
+      },
     });
 
     if (!order) {
       throw new NotFoundException('Order not found');
+    }
+
+    if (order.duplicateReview?.decision === DuplicateOrderDecision.CANCELLED) {
+      throw new ConflictException(
+        'This order was cancelled as a duplicate and cannot be shipped',
+      );
     }
 
     if (order.dispatch) {

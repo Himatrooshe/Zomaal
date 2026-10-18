@@ -14116,6 +14116,154 @@ paths:
       summary: Delete an expense
       tags:
         - Expenses
+  /customers/duplicate-orders:
+    get:
+      description: Orders from the same customer phone that share a product within 24 hours of the group's main (oldest) order. Cancelled and already-reviewed orders are left out.
+      operationId: DuplicateOrders_list
+      parameters:
+        - name: days
+          required: false
+          in: query
+          description: Show groups with a duplicate placed in the last N days.
+          schema:
+            minimum: 1
+            maximum: 90
+            default: 30
+            type: number
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuplicateOrdersResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing the permission named on the route.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Duplicate Orders screen — groups by same phone
+      tags:
+        - Customers
+  /customers/duplicate-orders/cancel:
+    post:
+      description: Manual orders are cancelled. Shopify / YouCan / Lightfunnels orders are cancelled in Zomaal only (courier dispatch is blocked) — platformCancelRequired tells the app to ask the merchant to cancel them on the platform too. Cancelled duplicates never count as customer cancellations.
+      operationId: DuplicateOrders_cancel
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelDuplicateOrdersDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelDuplicateOrdersResponseDto'
+        '400':
+          description: An order is not in a duplicate group, or every order of a group was selected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing the permission named on the route.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Order not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: An order was already sent to a courier, or was reviewed meanwhile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Cancel selected duplicates
+      tags:
+        - Customers
+  /customers/duplicate-orders/{groupId}/keep:
+    post:
+      description: Marks the group’s duplicates as real separate orders so they are not flagged again.
+      operationId: DuplicateOrders_keep
+      parameters:
+        - name: groupId
+          required: true
+          in: path
+          description: Main order id.
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeepDuplicateGroupResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: Missing the permission named on the route.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: No current duplicate group with this main order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Not duplicates — keep every order in the group
+      tags:
+        - Customers
   /customers:
     get:
       operationId: Customers_list
@@ -29531,6 +29679,215 @@ components:
           type: string
           format: uuid
           description: ID returned by POST /expenses/receipts. Attaches that upload to this expense and takes precedence over receiptUrl.
+    DuplicateOrderCustomerDto:
+      type: object
+      properties:
+        id:
+          type: string
+        phone:
+          type: string
+          description: E.164 phone — the grouping key.
+        name:
+          type: string
+          nullable: true
+        isBlacklisted:
+          type: boolean
+      required:
+        - id
+        - phone
+        - name
+        - isBlacklisted
+    DuplicateOrderProductDto:
+      type: object
+      properties:
+        name:
+          type: string
+        quantity:
+          type: number
+      required:
+        - name
+        - quantity
+    DuplicateOrderDto:
+      type: object
+      properties:
+        id:
+          type: string
+        orderName:
+          type: string
+          nullable: true
+        platform:
+          type: string
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+            - MANUAL
+        status:
+          type: string
+          enum:
+            - OPEN
+            - CLOSED
+            - CANCELLED
+            - UNKNOWN
+        placedAt:
+          type: string
+          description: When the customer placed the order.
+        totalCollected:
+          type: string
+          example: '0.00'
+        currency:
+          type: string
+        itemCount:
+          type: number
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/DuplicateOrderProductDto'
+        dispatchStatus:
+          type: string
+          nullable: true
+          description: Courier dispatch status (PENDING / DISPATCHED / FAILED).
+        canCancel:
+          type: boolean
+          description: False once the order was handed to a courier.
+      required:
+        - id
+        - orderName
+        - platform
+        - status
+        - placedAt
+        - totalCollected
+        - currency
+        - itemCount
+        - products
+        - dispatchStatus
+        - canCancel
+    DuplicateOrderGroupDto:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Group id = the main order id.
+        reason:
+          type: string
+          enum:
+            - SAME_PHONE_SAME_PRODUCT
+          description: Same customer phone and a shared product within the window.
+        customer:
+          $ref: '#/components/schemas/DuplicateOrderCustomerDto'
+        mainOrder:
+          description: Oldest order.
+          allOf:
+            - $ref: '#/components/schemas/DuplicateOrderDto'
+        duplicates:
+          description: Oldest first.
+          type: array
+          items:
+            $ref: '#/components/schemas/DuplicateOrderDto'
+        lastPlacedAt:
+          type: string
+          description: When the newest duplicate was placed.
+      required:
+        - id
+        - reason
+        - customer
+        - mainOrder
+        - duplicates
+        - lastPlacedAt
+    DuplicateOrdersMetaDto:
+      type: object
+      properties:
+        page:
+          type: number
+        limit:
+          type: number
+        total:
+          type: number
+        totalPages:
+          type: number
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+    DuplicateOrdersResponseDto:
+      type: object
+      properties:
+        windowHours:
+          type: number
+          example: 24
+        from:
+          type: string
+        totalGroups:
+          type: number
+        totalDuplicates:
+          type: number
+          description: Duplicates across all groups (mains excluded).
+        data:
+          description: Newest first.
+          type: array
+          items:
+            $ref: '#/components/schemas/DuplicateOrderGroupDto'
+        meta:
+          $ref: '#/components/schemas/DuplicateOrdersMetaDto'
+      required:
+        - windowHours
+        - from
+        - totalGroups
+        - totalDuplicates
+        - data
+        - meta
+    CancelDuplicateOrdersDto:
+      type: object
+      properties:
+        orderIds:
+          description: Orders selected on the Duplicate Orders screen. Each must be in a current group, and at least one order of every group must stay.
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - orderIds
+    CancelledDuplicateOrderDto:
+      type: object
+      properties:
+        orderId:
+          type: string
+        orderName:
+          type: string
+          nullable: true
+        platform:
+          type: string
+          enum:
+            - SHOPIFY
+            - YOUCAN
+            - LIGHTFUNNELS
+            - MANUAL
+        platformCancelRequired:
+          type: boolean
+          description: 'True for Shopify / YouCan / Lightfunnels orders: Zomaal blocked dispatch, but the merchant must also cancel the order on the platform.'
+      required:
+        - orderId
+        - orderName
+        - platform
+        - platformCancelRequired
+    CancelDuplicateOrdersResponseDto:
+      type: object
+      properties:
+        cancelled:
+          type: array
+          items:
+            $ref: '#/components/schemas/CancelledDuplicateOrderDto'
+      required:
+        - cancelled
+    KeepDuplicateGroupResponseDto:
+      type: object
+      properties:
+        kept:
+          type: number
+          description: Duplicates marked as real separate orders.
+      required:
+        - kept
     CustomerSummaryDto:
       type: object
       properties:
@@ -31318,6 +31675,7 @@ components:
             - OUT_OF_STOCK
             - SALARY_OVERDUE
             - BLACKLISTED_CUSTOMER_ORDER
+            - DUPLICATE_ORDERS
             - SALES_DROP
             - PLATFORM_DISCONNECTED
             - PLATFORM_SYNC_FAILED

@@ -21,15 +21,17 @@ The system generates notifications from other modules (stock, payments, sales). 
 | `PLATFORM_DISCONNECTED` | Critical | Shopify / YouCan / Lightfunnels connection not ACTIVE | Owner only |
 | `PLATFORM_SYNC_FAILED` | Warning | Active platform connection has a stored sync error | Owner only |
 | `COURIER_SYNC_FAILED` | Warning | QuickLivraison / ForceLog / OzoneExpress / Ameex has a stored sync error | Owner only |
+| `DUPLICATE_ORDERS` | Warning | New order joins a duplicate group (same phone + same product within 24h) | Owner + staff with `customers.view` |
 
 - State-based alerts (stock, salary, sales, connections) are evaluated by `POST /internal/notifications/run`
   (Cloud Scheduler, shared-secret header). An alert fires once when its condition starts and is marked
   resolved when it clears, so it can fire again next time.
-- The blacklisted-order alert fires immediately at order ingestion.
+- The blacklisted-order and duplicate-orders alerts fire immediately at order ingestion. The duplicate
+  alert is resolved when the merchant cancels or keeps the group.
 - Read state is per user. Push goes through FCM when `PUSH_NOTIFICATIONS_ENABLED=true`.
 
-**Not built yet:** packaging low stock (packaging materials have no minimum-level field yet), duplicate
-orders (no duplicate detection exists yet), overdue customer payments (Q16.2), trial/subscription
+**Not built yet:** packaging low stock (packaging materials have no minimum-level field yet),
+overdue customer payments (Q16.2), trial/subscription
 ending and WhatsApp balance low (those modules don't exist yet), Sendit sync failures (no stored sync error).
 
 ## Questions

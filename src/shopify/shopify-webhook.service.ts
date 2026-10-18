@@ -337,7 +337,7 @@ export class ShopifyWebhookService {
         );
     } else if (risk.justCancelled) {
       await this.customerRisk
-        .incrementRiskCounter(connection.storeId, customer.id, 'CANCELLATIONS')
+        .recordCancellation(connection.storeId, customer.id, risk.orderId)
         .catch((err) =>
           this.logger.warn(
             `Cancellation risk tracking failed for order ${risk.orderId}: ${String(err)}`,

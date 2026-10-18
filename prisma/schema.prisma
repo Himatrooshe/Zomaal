@@ -901,6 +901,7 @@ model Store {
   expenses                Expense[]
   customers               Customer[]
   blacklistSettings       BlacklistSettings?
+  duplicateOrderReviews   DuplicateOrderReview[]
   shopFavorites           ShopFavorite[]
   shopCartItems           ShopCartItem[]
   shopAddresses           ShopAddress[]
@@ -1029,6 +1030,7 @@ model EcommerceOrder {
   financialEvents  EcommerceOrderFinancialEvent[]
   returnRequests   ReturnRequest[]
   whatsAppMessages WhatsAppMessage[]
+  duplicateReview  DuplicateOrderReview?
 
   // Nullable: set at sync/creation time once the customer is resolved by
   // phone. Null for orders synced before this field existed, until a
@@ -1293,6 +1295,32 @@ model BlacklistSettings {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Duplicate orders (Risk Center). Groups are computed at read time from
+// orders (same customer phone + a shared product within the detection
+// window), so only the merchant's decision is stored: one row per order
+// that was reviewed out of a group.
+enum DuplicateOrderDecision {
+  KEPT // merchant confirmed it is a real separate order — never flagged again
+  CANCELLED // cancelled as a duplicate in Zomaal; courier dispatch is blocked
+}
+
+model DuplicateOrderReview {
+  id              String                 @id @default(uuid())
+  decision        DuplicateOrderDecision
+  // The group's main order when the decision was made (audit only).
+  mainOrderId     String?
+  decidedByUserId String
+  createdAt       DateTime               @default(now())
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  orderId String         @unique
+  order   EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, decision])
 }
 
 enum ShopifyConnectionStatus {

@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import { EcommerceService } from './ecommerce.service';
@@ -56,7 +56,14 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
-      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
+      {
+        require: jest.fn(),
+        requireOwner: jest.fn(),
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+        touchLastActive: jest.fn(),
+      } as never,
     );
 
     await expect(
@@ -146,7 +153,14 @@ describe('EcommerceService', () => {
       orderStock as any,
       {} as any,
       {} as any,
-      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
+      {
+        require: jest.fn(),
+        requireOwner: jest.fn(),
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+        touchLastActive: jest.fn(),
+      } as never,
     );
 
     const result = await service.dispatchOrder('user-id', order.id, {
@@ -181,6 +195,44 @@ describe('EcommerceService', () => {
       provider: 'QUICKLIVRAISON',
       merchantTracking: 'ORD-12345678',
     });
+  });
+
+  it('refuses to dispatch an order cancelled as a duplicate', async () => {
+    const prisma = {
+      ecommerceOrder: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: '12345678-1234-1234-1234-123456789012',
+          connection: { platform: 'SHOPIFY' },
+          dispatch: null,
+          duplicateReview: { decision: 'CANCELLED' },
+        }),
+      },
+      ecommerceOrderDispatch: { create: jest.fn() },
+    } as any;
+    const service = new EcommerceService(
+      prisma,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+      } as never,
+    );
+
+    await expect(
+      service.dispatchOrder('user-id', '12345678-1234-1234-1234-123456789012', {
+        provider: 'QUICKLIVRAISON' as any,
+        options: {},
+      }),
+    ).rejects.toThrow(ConflictException);
+    expect(prisma.ecommerceOrderDispatch.create).not.toHaveBeenCalled();
   });
 
   it('converts all platform revenue to the store base currency', async () => {
@@ -223,7 +275,14 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
-      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
+      {
+        require: jest.fn(),
+        requireOwner: jest.fn(),
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+        touchLastActive: jest.fn(),
+      } as never,
     );
 
     const result = await service.getRevenueSummary('user-id', {
@@ -283,7 +342,14 @@ describe('EcommerceService', () => {
       {} as any,
       {} as any,
       {} as any,
-      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
+      {
+        require: jest.fn(),
+        requireOwner: jest.fn(),
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+        touchLastActive: jest.fn(),
+      } as never,
     );
 
     await expect(
@@ -374,7 +440,14 @@ describe('EcommerceService', () => {
         upsertCustomer: jest.fn().mockResolvedValue(null),
         recordNewOrder: jest.fn(),
       } as any,
-      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
+      {
+        require: jest.fn(),
+        requireOwner: jest.fn(),
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+        touchLastActive: jest.fn(),
+      } as never,
     );
 
     const result = await service.createManualOrder('user-id', {
@@ -422,7 +495,14 @@ describe('EcommerceService', () => {
         upsertCustomer: jest.fn().mockResolvedValue(null),
         recordNewOrder: jest.fn(),
       } as any,
-      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
+      {
+        require: jest.fn(),
+        requireOwner: jest.fn(),
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+        touchLastActive: jest.fn(),
+      } as never,
     );
 
     await expect(
@@ -493,7 +573,14 @@ describe('EcommerceService', () => {
         upsertCustomer: jest.fn().mockResolvedValue(null),
         recordNewOrder: jest.fn(),
       } as any,
-      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
+      {
+        require: jest.fn(),
+        requireOwner: jest.fn(),
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+        touchLastActive: jest.fn(),
+      } as never,
     );
 
     const result = await service.createManualOrder('user-id', {
@@ -558,7 +645,14 @@ describe('EcommerceService', () => {
       orderStock,
       financialService,
       {} as any,
-      { require: jest.fn(), requireOwner: jest.fn(), requireStore: jest.fn().mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }), touchLastActive: jest.fn() } as never,
+      {
+        require: jest.fn(),
+        requireOwner: jest.fn(),
+        requireStore: jest
+          .fn()
+          .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
+        touchLastActive: jest.fn(),
+      } as never,
     );
 
     const result = await service.recordProductCondition('user-id', 'order-1', {

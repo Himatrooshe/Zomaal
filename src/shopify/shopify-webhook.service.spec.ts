@@ -114,6 +114,7 @@ describe('ShopifyWebhookService', () => {
     upsertCustomer: jest.fn().mockResolvedValue(null),
     recordNewOrder: jest.fn(),
     incrementRiskCounter: jest.fn(),
+    recordCancellation: jest.fn(),
   } as unknown as CustomerRiskService;
   const service = new ShopifyWebhookService(
     prisma,

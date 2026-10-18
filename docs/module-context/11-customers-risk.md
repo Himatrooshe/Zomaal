@@ -13,6 +13,40 @@ refusals / no-answer, combined limit, warn on new order) · Remove from blacklis
 3. When a limit is reached, the customer is blacklisted. New orders from them trigger a warning.
 4. Duplicate orders are detected and grouped. The merchant cancels the extras.
 
+## Duplicate orders (built, using the Q11.5 / Q11.6 assumptions)
+
+**Rule.** Two orders are duplicates when they have the same customer (same store + phone, E.164), share
+at least one product, and were placed within 24 hours of the group's oldest order. The oldest order is
+**Main**. Cancelled orders and orders the merchant already decided on are left out. Product match, in
+order: warehouse variant, platform product/variant ID, SKU (case-insensitive), normalized line name.
+Orders without a phone (e.g. Shopify without protected customer data, Q11.4) cannot be grouped.
+
+Groups are computed when read, so there is no stored "group" table. Merchant decisions are stored per
+order in `DuplicateOrderReview` (`KEPT` | `CANCELLED`).
+
+| Method | Path | Permission | What it does |
+|---|---|---|---|
+| GET | `/customers/duplicate-orders?days=30&page=1&limit=20` | `customers.view` | Groups placed in the last `days` (1–90), newest first. Each order has `canCancel` and `dispatchStatus`. |
+| POST | `/customers/duplicate-orders/cancel` | `orders.cancel` | Body `{ "orderIds": [uuid] }`. Cancels the selected orders. |
+| POST | `/customers/duplicate-orders/:groupId/keep` | `orders.edit` | "Not duplicates": keeps every order in the group (`groupId` = main order ID). The group disappears. |
+
+**Cancel rules.**
+- Every selected order must be in a current group, and at least one order per group must stay.
+- An order already dispatched through a Zomaal courier (dispatch not `FAILED`) cannot be cancelled → `409`.
+- Manual orders: status becomes `CANCELLED`.
+- Platform orders: our Shopify scopes are read-only and YouCan/Lightfunnels write access isn't wired, so
+  the order is cancelled **in Zomaal only**. The response returns `platformCancelRequired: true` so the
+  app can tell the merchant to cancel it on the platform too. Zomaal blocks courier dispatch for it.
+- A `DUPLICATE_ORDER_CANCELLED` timeline event is added to each cancelled order.
+- A cancelled duplicate does not count as a customer cancellation for blacklist risk.
+
+**Alert.** A new order that creates or joins a group raises `DUPLICATE_ORDERS` (see module 16), once
+per group. Cancel or keep resolves it.
+
+**To change when the client answers:** the 24h window is `DUPLICATE_WINDOW_HOURS` in
+`src/customers/duplicate-orders.util.ts`. Real platform cancel needs write scopes
+(`write_orders` on Shopify) and a cancel call in `DuplicateOrdersService.cancel`.
+
 ## Questions
 
 **Q11.1 (blocker) — What does blacklisting actually do?**

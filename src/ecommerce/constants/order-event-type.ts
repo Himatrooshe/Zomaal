@@ -27,6 +27,8 @@ export const OrderEventType = {
   RETURNED:               'RETURNED',
   // Customer risk — SYSTEM-sourced, emitted by CustomerRiskService
   CUSTOMER_BLACKLISTED_WARNING: 'CUSTOMER_BLACKLISTED_WARNING',
+  // Cancelled from the Duplicate Orders screen (platform orders: Zomaal-side only)
+  DUPLICATE_ORDER_CANCELLED: 'DUPLICATE_ORDER_CANCELLED',
   // Catch-all
   OTHER:                  'OTHER',
 } as const;

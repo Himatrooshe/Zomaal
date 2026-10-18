@@ -6,6 +6,7 @@ export const NotificationType = {
   OUT_OF_STOCK: 'OUT_OF_STOCK',
   SALARY_OVERDUE: 'SALARY_OVERDUE',
   BLACKLISTED_CUSTOMER_ORDER: 'BLACKLISTED_CUSTOMER_ORDER',
+  DUPLICATE_ORDERS: 'DUPLICATE_ORDERS',
   SALES_DROP: 'SALES_DROP',
   PLATFORM_DISCONNECTED: 'PLATFORM_DISCONNECTED',
   PLATFORM_SYNC_FAILED: 'PLATFORM_SYNC_FAILED',
@@ -52,6 +53,11 @@ export const NOTIFICATION_DEFINITIONS: Record<
   },
   BLACKLISTED_CUSTOMER_ORDER: {
     severity: NotificationSeverity.CRITICAL,
+    category: NotificationCategory.CUSTOMERS,
+    audiencePermission: PERMISSIONS.CUSTOMERS_VIEW,
+  },
+  DUPLICATE_ORDERS: {
+    severity: NotificationSeverity.WARNING,
     category: NotificationCategory.CUSTOMERS,
     audiencePermission: PERMISSIONS.CUSTOMERS_VIEW,
   },

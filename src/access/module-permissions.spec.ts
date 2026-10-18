@@ -2,6 +2,7 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 import { AdsController } from '../ads/ads.controller';
 import { TikTokAdsController } from '../ads/tiktok/tiktok-ads.controller';
+import { DuplicateOrdersController } from '../customers/duplicate-orders.controller';
 import { EcommerceController } from '../ecommerce/ecommerce.controller';
 import { ReturnRequestController } from '../ecommerce/return-request.controller';
 import { ShippingDashboardController } from '../shipping/shipping-dashboard.controller';
@@ -28,12 +29,18 @@ function handlerNames(controller: ControllerClass): string[] {
   );
 }
 
-function required(controller: ControllerClass, handler: string): Permission[] | undefined {
+function required(
+  controller: ControllerClass,
+  handler: string,
+): Permission[] | undefined {
   const method = controller.prototype[handler];
   if (typeof method !== 'function') {
     throw new Error(`${controller.name}.${handler} is not a route handler`);
   }
-  return reflector.get<Permission[]>(REQUIRED_PERMISSIONS, method as () => unknown);
+  return reflector.get<Permission[]>(
+    REQUIRED_PERMISSIONS,
+    method as () => unknown,
+  );
 }
 
 const GATED: [ControllerClass, string][] = [
@@ -48,6 +55,7 @@ const GATED: [ControllerClass, string][] = [
   [MediaController, 'products'],
   [AdsController, 'ads'],
   [TikTokAdsController, 'ads'],
+  [DuplicateOrdersController, 'customers'],
 ];
 
 // Owner-only store connection admin: connecting/syncing a platform is not a
@@ -58,27 +66,60 @@ const UNGATED_BY_DESIGN: Record<string, string[]> = {
 
 describe('module permission gating', () => {
   it.each(GATED)('%p runs PermissionGuard', (controller) => {
-    const guards = Reflect.getMetadata(GUARDS_METADATA, controller) as unknown[];
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      controller,
+    ) as unknown[];
     expect(guards).toContain(PermissionGuard);
   });
 
-  it.each(GATED)('%p gates every route with a module permission (%s)', (controller) => {
-    const exempt = UNGATED_BY_DESIGN[controller.name] ?? [];
-    const ungated = handlerNames(controller).filter(
-      (h) => !exempt.includes(h) && !(required(controller, h)?.length),
-    );
-    expect(ungated).toEqual([]);
-  });
+  it.each(GATED)(
+    '%p gates every route with a module permission (%s)',
+    (controller) => {
+      const exempt = UNGATED_BY_DESIGN[controller.name] ?? [];
+      const ungated = handlerNames(controller).filter(
+        (h) => !exempt.includes(h) && !required(controller, h)?.length,
+      );
+      expect(ungated).toEqual([]);
+    },
+  );
 
   it('maps representative routes to the expected permission keys', () => {
-    expect(required(EcommerceController, 'listOrders')).toEqual([PERMISSIONS.ORDERS_VIEW]);
-    expect(required(EcommerceController, 'dispatchOrder')).toEqual([PERMISSIONS.ORDERS_EDIT]);
-    expect(required(EcommerceController, 'getHome')).toEqual([PERMISSIONS.ANALYTICS_VIEW]);
-    expect(required(ReturnRequestController, 'detect')).toEqual([PERMISSIONS.RETURNS_SCAN]);
-    expect(required(ReturnRequestController, 'verify')).toEqual([PERMISSIONS.RETURNS_PROCESS]);
-    expect(required(ProductController, 'create')).toEqual([PERMISSIONS.PRODUCTS_ADD]);
-    expect(required(CategoryController, 'archive')).toEqual([PERMISSIONS.PRODUCTS_DELETE]);
-    expect(required(AdsController, 'getCampaigns')).toEqual([PERMISSIONS.ADS_VIEW]);
-    expect(required(ShippingDashboardController, 'getHome')).toEqual([PERMISSIONS.ORDERS_VIEW]);
+    expect(required(EcommerceController, 'listOrders')).toEqual([
+      PERMISSIONS.ORDERS_VIEW,
+    ]);
+    expect(required(EcommerceController, 'dispatchOrder')).toEqual([
+      PERMISSIONS.ORDERS_EDIT,
+    ]);
+    expect(required(EcommerceController, 'getHome')).toEqual([
+      PERMISSIONS.ANALYTICS_VIEW,
+    ]);
+    expect(required(ReturnRequestController, 'detect')).toEqual([
+      PERMISSIONS.RETURNS_SCAN,
+    ]);
+    expect(required(ReturnRequestController, 'verify')).toEqual([
+      PERMISSIONS.RETURNS_PROCESS,
+    ]);
+    expect(required(ProductController, 'create')).toEqual([
+      PERMISSIONS.PRODUCTS_ADD,
+    ]);
+    expect(required(CategoryController, 'archive')).toEqual([
+      PERMISSIONS.PRODUCTS_DELETE,
+    ]);
+    expect(required(AdsController, 'getCampaigns')).toEqual([
+      PERMISSIONS.ADS_VIEW,
+    ]);
+    expect(required(ShippingDashboardController, 'getHome')).toEqual([
+      PERMISSIONS.ORDERS_VIEW,
+    ]);
+    expect(required(DuplicateOrdersController, 'list')).toEqual([
+      PERMISSIONS.CUSTOMERS_VIEW,
+    ]);
+    expect(required(DuplicateOrdersController, 'cancel')).toEqual([
+      PERMISSIONS.ORDERS_CANCEL,
+    ]);
+    expect(required(DuplicateOrdersController, 'keep')).toEqual([
+      PERMISSIONS.ORDERS_EDIT,
+    ]);
   });
 });
