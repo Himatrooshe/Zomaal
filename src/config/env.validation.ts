@@ -184,6 +184,14 @@ export function validateEnvironment(
         'WHATSAPP_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key when WHATSAPP_ENABLED=true',
       );
   }
+  // TEMPORARY frontend preview mode — remove with src/whatsapp/mock/.
+  const whatsAppMockData = asString(config.WHATSAPP_MOCK_DATA) || 'false';
+  if (!['true', 'false'].includes(whatsAppMockData))
+    errors.push('WHATSAPP_MOCK_DATA must be true or false');
+  if (whatsAppMockData === 'true' && whatsAppEnabled === 'true')
+    errors.push(
+      'WHATSAPP_MOCK_DATA and WHATSAPP_ENABLED cannot both be true — turn mock data off when real WhatsApp is enabled',
+    );
   const metaGraphApiVersion = asString(config.META_GRAPH_API_VERSION);
   if (metaGraphApiVersion && !/^v\d{2,3}\.\d$/.test(metaGraphApiVersion))
     errors.push('META_GRAPH_API_VERSION must look like v21.0');

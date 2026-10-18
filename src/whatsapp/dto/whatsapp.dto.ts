@@ -221,6 +221,12 @@ export class WhatsAppConfigResponseDto {
   })
   configId!: string | null;
   @ApiProperty({ example: 'v21.0' }) graphApiVersion!: string;
+  // TEMPORARY — remove with src/whatsapp/mock/ once Meta access is live.
+  @ApiPropertyOptional({
+    description:
+      'TEMPORARY. Present (true) only while the server runs with WHATSAPP_MOCK_DATA=true: every /whatsapp/* response is static preview data (also flagged by the X-Zomaal-Mock-Data header). Skip the Meta popup and call POST /whatsapp/connect with any code and any numeric wabaId / phoneNumberId.',
+  })
+  mock?: boolean;
 }
 
 export class WhatsAppConnectionDetailDto {

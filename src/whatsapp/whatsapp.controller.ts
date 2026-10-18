@@ -12,6 +12,7 @@ import {
   Put,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBadGatewayResponse,
@@ -56,11 +57,14 @@ import {
 import { WHATSAPP_TRIGGERS } from './whatsapp.constants';
 import { WhatsAppConnectionService } from './whatsapp-connection.service';
 import { WhatsAppInsightsService } from './whatsapp-insights.service';
+import { WhatsAppMockInterceptor } from './mock/whatsapp-mock.interceptor';
 import { WhatsAppSettingsService } from './whatsapp-settings.service';
 
 @ApiTags('WhatsApp')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
+// TEMPORARY: serves static preview data when WHATSAPP_MOCK_DATA=true — remove with src/whatsapp/mock/.
+@UseInterceptors(WhatsAppMockInterceptor)
 @ApiUnauthorizedResponse({
   description: 'Missing or invalid Zomaal access token.',
   type: ApiErrorDto,

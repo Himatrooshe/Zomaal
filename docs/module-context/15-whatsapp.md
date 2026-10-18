@@ -101,3 +101,26 @@ Editable message text, product image header, per-customer language, Ameex-trigge
    `META_WHATSAPP_WEBHOOK_VERIFY_TOKEN`; then `WHATSAPP_ENABLED=true`, `WHATSAPP_SCHEDULER_ENABLED=true`.
 4. Cloud Scheduler job: every minute, `POST /internal/whatsapp/dispatch` with the scheduler secret header.
 5. Super admin sets the price per message for each store currency.
+
+### TEMPORARY: mock data for the frontend (`WHATSAPP_MOCK_DATA`)
+Until Zomaal's Meta app exists, the frontend can build every WhatsApp screen against static preview data.
+
+- Turn on with `WHATSAPP_MOCK_DATA=true` (needs `WHATSAPP_ENABLED=false`; env validation refuses both on).
+- `WhatsAppMockInterceptor` on `WhatsAppController` answers all merchant `/whatsapp/*` endpoints from
+  `src/whatsapp/mock/`. JWT, plan/subscription guards and the owner-only 403 stay real; the store's real
+  currency and name are used. Nothing is written to the DB and Meta is never called.
+- Every mocked response carries `X-Zomaal-Mock-Data: true`; `GET /whatsapp/config` returns `mock: true`
+  (frontend skips the Meta popup and calls `POST /whatsapp/connect` with any code and numeric ids).
+- Connection, language and status settings are kept in memory per store (reset on restart, not shared
+  between Cloud Run instances). Messages, balance history and analytics come from the fixed list in
+  `whatsapp-mock.fixtures.ts`, with times relative to now.
+- Webhooks, the dispatch scheduler and the admin pricing/balance endpoints are not mocked.
+
+**Removing the mock (when Meta access is live):**
+1. Delete `src/whatsapp/mock/`.
+2. Remove the `WhatsAppMockService` / `WhatsAppMockInterceptor` providers in `whatsapp.module.ts` and the
+   `@UseInterceptors(WhatsAppMockInterceptor)` line + import in `whatsapp.controller.ts`.
+3. Remove the optional `mock` property from `WhatsAppConfigResponseDto`, the `WHATSAPP_MOCK_DATA` check in
+   `src/config/env.validation.ts`, and the line in `.env.example`; unset it on Cloud Run.
+4. Regenerate `docs/api/openapi.yaml`. `rg -i "whatsapp_mock|WhatsAppMock|TEMPORARY" src` should find nothing
+   WhatsApp-related.

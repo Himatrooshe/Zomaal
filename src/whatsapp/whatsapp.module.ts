@@ -6,6 +6,8 @@ import { WhatsAppConnectionService } from './whatsapp-connection.service';
 import { WhatsAppController } from './whatsapp.controller';
 import { WhatsAppDispatchService } from './whatsapp-dispatch.service';
 import { WhatsAppInsightsService } from './whatsapp-insights.service';
+import { WhatsAppMockInterceptor } from './mock/whatsapp-mock.interceptor';
+import { WhatsAppMockService } from './mock/whatsapp-mock.service';
 import { WhatsAppSchedulerController } from './whatsapp-scheduler.controller';
 import { WhatsAppSchedulerGuard } from './whatsapp-scheduler.guard';
 import { WhatsAppSettingsService } from './whatsapp-settings.service';
@@ -30,6 +32,9 @@ import { WhatsAppWebhookService } from './whatsapp-webhook.service';
     WhatsAppDispatchService,
     WhatsAppWebhookService,
     WhatsAppSchedulerGuard,
+    // TEMPORARY frontend preview data (WHATSAPP_MOCK_DATA) — remove with src/whatsapp/mock/.
+    WhatsAppMockService,
+    WhatsAppMockInterceptor,
   ],
   exports: [WhatsAppBalanceService],
 })
