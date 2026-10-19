@@ -452,6 +452,21 @@ export class QuickLivraisonShipmentService {
     rawBody?: Buffer,
   ) {
     this.verifyWebhookSignature(headers, rawBody);
+    const envelope = record(payload);
+    // The provider dashboard sends connectivity probes as non-status events.
+    // Verify their signature, then acknowledge without touching business data.
+    // Keep malformed status_changed payloads subject to normal validation.
+    if (
+      envelope &&
+      typeof envelope.event === 'string' &&
+      envelope.event.trim() &&
+      envelope.event !== 'status_changed'
+    ) {
+      return {
+        success: true,
+        message: 'Non-status QuickLivraison event acknowledged',
+      };
+    }
     const event = parseStatusWebhook(payload);
     const shipment = await this.prisma.quickLivraisonShipment.findFirst({
       where: { providerCode: event.providerCode },

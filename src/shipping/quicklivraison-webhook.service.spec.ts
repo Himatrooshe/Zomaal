@@ -137,4 +137,34 @@ describe('QuickLivraisonShipmentService webhook', () => {
     });
     expect(updateMany).not.toHaveBeenCalled();
   });
+  it('acknowledges signed provider probes without looking up or changing shipments', async () => {
+    const payload = {
+      event: 'test',
+      timestamp: '2026-05-22T15:00:00+01:00',
+      message: 'Webhook connection test',
+    };
+    const raw = Buffer.from(JSON.stringify(payload));
+    const signature =
+      'sha256=' +
+      createHmac('sha256', 'webhook-secret').update(raw).digest('hex');
+    await expect(
+      service.processStatusWebhook(
+        { 'x-webhook-signature': signature },
+        payload,
+        raw,
+      ),
+    ).resolves.toEqual({
+      success: true,
+      message: 'Non-status QuickLivraison event acknowledged',
+    });
+    expect(findFirst).not.toHaveBeenCalled();
+    expect(updateMany).not.toHaveBeenCalled();
+    await expect(
+      service.processStatusWebhook(
+        { 'x-webhook-signature': 'sha256=forged' },
+        payload,
+        raw,
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
 });
