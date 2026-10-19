@@ -234,6 +234,8 @@ export class WarehouseProductBundleComponentDto {
 }
 
 export class WarehouseProductResponseDto {
+  @ApiProperty({ type: [String] })
+  supplierNames: string[];
   @ApiProperty({ format: 'uuid' })
   id: string;
 

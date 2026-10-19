@@ -56,4 +56,15 @@ Answer: Yes. Manual expenses in "Purchase costs" are refused, and a purchase's e
 **Q7.4 — Supplier info**
 Do we need supplier name, invoice number, or a receipt photo on manual purchases?
 Assumption: an optional note + receipt photo. No supplier list.
-Answer: Optional note + receipt photo. No supplier list.
+Answer (original client Google Doc Q7.4): From the product, select the supplier name; the invoice number will be recorded.
+
+Implementation: products and packaging accept `supplierNames` (up to 50 unique trimmed names, 1–120 characters each). `GET /purchases/product-options` returns that list. Create/edit a manual purchase with optional `supplierName` from that item's list and `invoiceNumber` (1–100 characters). Historical snapshots remain unchanged when item suppliers are edited. Omit these fields on update to preserve them; null and blank values are rejected. Legacy and Shop-created rows keep null values. This corrects the former local answer that incorrectly said no supplier list was needed.
+
+## Purchases audit fixes — 20 October 2026
+
+- Edit/delete reads and quantity deltas run inside each serializable transaction attempt, including receipt lookups. PostgreSQL regressions force overlapping reads and verify stock/purchase/expense consistency.
+- Validate unit price and computed total against Decimal(20,4) before writes. Non-clearable optional PATCH values reject null; only notes and receiptAssetId support null clearing.
+- List groups include currency in their opaque key (`<legacy-key>~MAD`). Always pass the returned key to details; do not construct keys in the frontend. Legacy keys still work; mixed history has null totalCost/currency plus totalCostByCurrency.
+- The forward media migration supports private receipt and packaging assets, retains one owner per asset, and permits temporary detachment during replacement or ON DELETE SET NULL cleanup.
+- Supplier fields are optional for compatibility; no supplier/invoice data is fabricated or backfilled for old purchases. A selected supplier must be configured on that exact item.
+- Rollout requires `20261020010000_purchases_audit_fields_and_media_constraints` before the new application version. Local verification is distinct from production signoff.

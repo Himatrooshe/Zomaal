@@ -61,3 +61,7 @@ Answer:
 When the merchant buys boxes from Zomaal Shop, should packaging stock increase automatically on delivery?
 Assumption: yes, if the shop item is linked to a packaging material.
 Answer:
+
+## Supplier names for Purchases
+
+Packaging create/edit and read responses support `supplierNames`, matching warehouse products: at most 50 unique trimmed names, 1–120 characters each. Empty array clears the list; null is rejected. Purchase product-options returns the list and a recorded purchase retains its supplier/invoice snapshot independently of later catalog edits.

@@ -110,6 +110,7 @@ export class PackagingService {
         data: {
           storeId: store.id,
           name: dto.name,
+          supplierNames: dto.supplierNames,
           sku: dto.sku || null,
           unit: dto.unit ?? PackagingUnit.PIECES,
           minimumLevel: dto.minimumLevel ?? 0,
@@ -186,6 +187,7 @@ export class PackagingService {
         where: { id },
         data: {
           name: dto.name,
+          supplierNames: dto.supplierNames,
           sku: dto.sku === undefined ? undefined : dto.sku || null,
           unit: dto.unit,
           minimumLevel: dto.minimumLevel,
@@ -433,6 +435,7 @@ function toListItem(material: MaterialRow): OwnedPackagingMaterialResponseDto {
     source,
     zomaalShopVariantId: material.zomaalShopVariantId,
     name: material.name,
+    supplierNames: material.supplierNames ?? [],
     sku: material.sku,
     unit: material.unit,
     imageUrl: material.imageObjectName

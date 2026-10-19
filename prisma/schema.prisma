@@ -427,6 +427,9 @@ enum MerchantPurchaseSource {
 // elsewhere); SHOP = created automatically when a Zomaal Shop order is
 // delivered. Every purchase owns one PURCHASES expense (expenseId).
 model MerchantPurchase {
+  // Historical supplier/invoice snapshots; old purchases remain nullable.
+  supplierName        String?
+  invoiceNumber       String?
   id                  String                 @id @default(uuid())
   storeId             String
   source              MerchantPurchaseSource
@@ -1580,6 +1583,7 @@ model ProductCategory {
 }
 
 model WarehouseProduct {
+  supplierNames          String[]               @default([])
   id                     String                 @id @default(uuid())
   name                   String
   description            String?
@@ -1854,6 +1858,7 @@ enum PackagingUnit {
 }
 
 model PackagingMaterial {
+  supplierNames       String[]      @default([])
   id                  String        @id @default(uuid())
   // Set when the material comes from a delivered Zomaal Shop purchase; null
   // for packaging the merchant added themselves.

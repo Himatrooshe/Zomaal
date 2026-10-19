@@ -173,7 +173,7 @@ describe('PurchasesService.list grouping', () => {
       ]),
     );
     const shirtGroup = result.items.find(
-      (i: { key: string }) => i.key === 's_p1',
+      (i: { key: string }) => i.key === 's_p1~MAD',
     );
     expect(shirtGroup).toBeDefined();
     expect(shirtGroup?.totalQuantity).toBe(3);
@@ -218,7 +218,7 @@ describe('PurchasesService.list grouping', () => {
     expect(result.summary.totalSpent).toBe('56.00');
     expect(result.summary.currency).toBe('MAD');
     expect(result.items[0]).toMatchObject({
-      key: 'm_wp1',
+      key: 'm_wp1~MAD',
       itemType: 'PRODUCT',
       sourceLabel: 'Manual',
       quantityLabel: '5 piece',
@@ -226,7 +226,7 @@ describe('PurchasesService.list grouping', () => {
       editable: true,
     });
     expect(result.items[1]).toMatchObject({
-      key: 'p_pm1',
+      key: 'p_pm1~MAD',
       itemType: 'PACKAGING',
       quantityLabel: '3 roll',
     });
@@ -347,7 +347,7 @@ describe('PurchasesService.create (manual)', () => {
       },
     });
     expect(result).toMatchObject({
-      groupKey: 'm_wp1',
+      groupKey: 'm_wp1~MAD',
       itemType: 'PRODUCT',
       totalCost: '37.50',
       stockAdded: true,
@@ -401,7 +401,7 @@ describe('PurchasesService.create (manual)', () => {
       data: { inventoryItemId: 'inv-new', quantityDelta: 4 },
     });
     expect(result).toMatchObject({
-      groupKey: 'p_pm1',
+      groupKey: 'p_pm1~MAD',
       itemType: 'PACKAGING',
       unitLabel: 'roll',
       quantityLabel: '4 roll',

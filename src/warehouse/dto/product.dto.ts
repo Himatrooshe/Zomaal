@@ -1,3 +1,4 @@
+import { SupplierNamesDto } from '../../common/dto/supplier-names.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { InventoryBarcodeType, WarehouseProductStatus } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
@@ -171,7 +172,7 @@ export class ProductPackagingInputDto {
   quantityPerUnit: number;
 }
 
-export class CreateWarehouseProductDto {
+export class CreateWarehouseProductDto extends SupplierNamesDto {
   @ApiProperty({
     minLength: 8,
     maxLength: 100,
@@ -351,7 +352,7 @@ export class CreateWarehouseProductDto {
   packaging?: ProductPackagingInputDto[];
 }
 
-export class UpdateWarehouseProductDto {
+export class UpdateWarehouseProductDto extends SupplierNamesDto {
   @ApiProperty({
     description:
       'Current version from the latest product response. A stale version returns 409.',

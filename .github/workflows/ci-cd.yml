@@ -172,6 +172,11 @@ jobs:
           TRACKING_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
         run: npm run test:e2e -- --runInBand tracking-pack-workflow.postgres
 
+      - name: Verify purchase concurrency, receipts and supplier snapshots in PostgreSQL
+        env:
+          PURCHASES_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run test:e2e -- --runInBand purchases-workflow.postgres
+
       - name: Build
         run: npm run build
 

@@ -17954,7 +17954,7 @@ paths:
         - Zomaal Shop
   /purchases:
     get:
-      description: Use tab=ALL|MANUAL|FROM_SHOP (Figma). Each item has source + sourceLabel.
+      description: Use tab=ALL|MANUAL|FROM_SHOP (Figma). Each item has source + sourceLabel. Group keys are opaque and include currency; the same item purchased in two currencies has two groups.
       operationId: Purchases_list
       parameters:
         - name: tab
@@ -18006,7 +18006,7 @@ paths:
       tags:
         - Purchases
     post:
-      description: Records qty × unit price × date against one of your products (warehouseProductId [+ warehouseVariantId]) or packaging items (packagingMaterialId). Adds the quantity to stock unless addToStock=false, and records the total as a "Purchase costs" expense (with the optional receipt). Does not create a Zomaal Shop order — use POST /shop/orders for that.
+      description: Records qty × unit price × date against one of your products (warehouseProductId [+ warehouseVariantId]) or packaging items (packagingMaterialId). Adds the quantity to stock unless addToStock=false, and records the total as a "Purchase costs" expense (with the optional receipt). Optional supplierName must match this item supplierNames; invoiceNumber is stored with it as a historical snapshot. Rejects invalid/null inputs and money overflow with 400. Does not create a Zomaal Shop order — use POST /shop/orders for that.
       operationId: Purchases_create
       parameters: []
       requestBody:
@@ -18053,7 +18053,7 @@ paths:
         - Purchases
   /purchases/product-options:
     get:
-      description: Each option has itemType PRODUCT or PACKAGING. Products list their variants (send warehouseVariantId when there is more than one); packaging has a unit and its last price paid as costPrice. To buy from Zomaal, use /shop instead — delivery creates From Shop rows automatically.
+      description: Each option has itemType PRODUCT or PACKAGING and supplierNames configured on that item. Products list their variants (send warehouseVariantId when there is more than one); packaging has a unit and its last price paid as costPrice. To buy from Zomaal, use /shop instead — delivery creates From Shop rows automatically.
       operationId: Purchases_productOptions
       parameters:
         - name: search
@@ -18098,6 +18098,7 @@ paths:
         - Purchases
   /purchases/groups/{key}:
     get:
+      description: Use the exact key from the list. Legacy keys without a currency suffix remain accepted; mixed-currency history returns null totalCost/currency and separate totalCostByCurrency amounts.
       operationId: Purchases_group
       parameters:
         - name: key
@@ -18132,7 +18133,7 @@ paths:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
-      summary: 'Purchases Details: product card + history (date, qty, box price, total)'
+      summary: 'Purchases Details: product card + history (date, qty, box price, total, supplier and invoice)'
       tags:
         - Purchases
   /purchases/{id}:
@@ -27570,6 +27571,12 @@ components:
     CreateWarehouseProductDto:
       type: object
       properties:
+        supplierNames:
+          maxItems: 50
+          description: Supplier names available when recording purchases of this item. Empty array clears the list; existing purchases retain their snapshot.
+          type: array
+          items:
+            type: string
         idempotencyKey:
           type: string
           minLength: 8
@@ -27992,6 +27999,10 @@ components:
     WarehouseProductResponseDto:
       type: object
       properties:
+        supplierNames:
+          type: array
+          items:
+            type: string
         id:
           type: string
           format: uuid
@@ -28062,6 +28073,7 @@ components:
           nullable: true
           format: date-time
       required:
+        - supplierNames
         - id
         - name
         - description
@@ -28648,6 +28660,12 @@ components:
     UpdateWarehouseProductDto:
       type: object
       properties:
+        supplierNames:
+          maxItems: 50
+          description: Supplier names available when recording purchases of this item. Empty array clears the list; existing purchases retain their snapshot.
+          type: array
+          items:
+            type: string
         version:
           type: number
           description: Current version from the latest product response. A stale version returns 409.
@@ -29047,6 +29065,10 @@ components:
     OwnedPackagingMaterialResponseDto:
       type: object
       properties:
+        supplierNames:
+          type: array
+          items:
+            type: string
         id:
           type: string
           format: uuid
@@ -29116,6 +29138,7 @@ components:
           type: string
           format: date-time
       required:
+        - supplierNames
         - id
         - source
         - zomaalShopVariantId
@@ -29135,6 +29158,12 @@ components:
     CreatePackagingDto:
       type: object
       properties:
+        supplierNames:
+          maxItems: 50
+          description: Supplier names available when recording purchases of this item. Empty array clears the list; existing purchases retain their snapshot.
+          type: array
+          items:
+            type: string
         name:
           type: string
           minLength: 1
@@ -29203,6 +29232,10 @@ components:
     PackagingMaterialDetailResponseDto:
       type: object
       properties:
+        supplierNames:
+          type: array
+          items:
+            type: string
         id:
           type: string
           format: uuid
@@ -29280,6 +29313,7 @@ components:
           items:
             $ref: '#/components/schemas/PackagingProductUsageDto'
       required:
+        - supplierNames
         - id
         - source
         - zomaalShopVariantId
@@ -29302,6 +29336,12 @@ components:
     UpdatePackagingDto:
       type: object
       properties:
+        supplierNames:
+          maxItems: 50
+          description: Supplier names available when recording purchases of this item. Empty array clears the list; existing purchases retain their snapshot.
+          type: array
+          items:
+            type: string
         name:
           type: string
           minLength: 1
@@ -32982,6 +33022,14 @@ components:
     CreatePurchaseDto:
       type: object
       properties:
+        supplierName:
+          type: string
+          maxLength: 120
+          description: Select an exact name from the item supplierNames in product-options. Stored as a historical snapshot.
+        invoiceNumber:
+          type: string
+          maxLength: 100
+          description: Supplier invoice identifier; stored on the purchase.
         warehouseProductId:
           type: string
           format: uuid
@@ -33016,6 +33064,7 @@ components:
         unitPrice:
           type: number
           minimum: 0
+          maximum: 9999999999999998
           example: 12.5
           description: Unit purchase price. Total cost = quantity × unit price.
         purchaseDate:
@@ -33032,12 +33081,21 @@ components:
     UpdatePurchaseDto:
       type: object
       properties:
+        supplierName:
+          type: string
+          maxLength: 120
+          description: Select an exact name from the item supplierNames in product-options. Stored as a historical snapshot.
+        invoiceNumber:
+          type: string
+          maxLength: 100
+          description: Supplier invoice identifier; stored on the purchase.
         quantity:
           type: number
           minimum: 1
         unitPrice:
           type: number
           minimum: 0
+          maximum: 9999999999999998
         purchaseDate:
           type: string
         notes:

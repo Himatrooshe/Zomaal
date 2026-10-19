@@ -15,6 +15,7 @@ import {
   WarehouseProductKind,
   WarehouseProductStatus,
 } from '@prisma/client';
+import { assertPersistedMoney } from '../common/persisted-money';
 import { PrismaService } from '../prisma/prisma.service';
 import type { StoreAccess } from '../access/store-access.service';
 import {
@@ -58,6 +59,7 @@ interface PurchaseTarget {
   unitLabel: string;
   imageUrl: string | null;
   inventoryItemId: string | null;
+  supplierNames: string[];
 }
 
 // A purchases-list row groups every purchase of the same product from the
@@ -66,7 +68,7 @@ interface PurchaseTarget {
 //   p_<packagingMaterialId>  manual purchase of the merchant's packaging
 //   s_<shopProductId>        delivered Zomaal Shop product
 //   mn_/sn_<base64url name>  product has since been deleted — grouped by name
-function groupKey(
+function legacyGroupKey(
   p: Pick<
     MerchantPurchase,
     | 'source'
@@ -74,6 +76,7 @@ function groupKey(
     | 'packagingMaterialId'
     | 'shopProductId'
     | 'productName'
+    | 'currency'
   >,
 ) {
   if (p.source === MerchantPurchaseSource.MANUAL && p.warehouseProductId)
@@ -86,10 +89,21 @@ function groupKey(
   return prefix + Buffer.from(p.productName, 'utf8').toString('base64url');
 }
 
+function groupKey(p: Parameters<typeof legacyGroupKey>[0]) {
+  return `${legacyGroupKey(p)}~${p.currency}`;
+}
+
 function whereForKey(
   storeId: string,
   key: string,
 ): Prisma.MerchantPurchaseWhereInput {
+  const delimiter = key.lastIndexOf('~');
+  if (delimiter !== -1) {
+    const currency = key.slice(delimiter + 1);
+    if (!/^[A-Z]{3}$/.test(currency))
+      throw new NotFoundException('Purchase group not found');
+    return { ...whereForKey(storeId, key.slice(0, delimiter)), currency };
+  }
   const [prefix, ...rest] = key.split('_');
   const value = rest.join('_');
   if (!value) throw new NotFoundException('Purchase group not found');
@@ -259,10 +273,25 @@ export class PurchasesService {
       packagingMaterialId: latest.packagingMaterialId,
       shopProductId: latest.shopProductId,
       totalQuantity: totalQty,
-      totalCost: rows
-        .reduce((sum, r) => sum.plus(r.totalCost), new Prisma.Decimal(0))
-        .toFixed(2),
-      currency: latest.currency,
+      totalCost:
+        new Set(rows.map((r) => r.currency)).size === 1
+          ? rows
+              .reduce((sum, r) => sum.plus(r.totalCost), new Prisma.Decimal(0))
+              .toFixed(2)
+          : null,
+      currency:
+        new Set(rows.map((r) => r.currency)).size === 1
+          ? latest.currency
+          : null,
+      totalCostByCurrency: [...new Set(rows.map((r) => r.currency))].map(
+        (currency) => ({
+          currency,
+          amount: rows
+            .filter((r) => r.currency === currency)
+            .reduce((sum, r) => sum.plus(r.totalCost), new Prisma.Decimal(0))
+            .toFixed(2),
+        }),
+      ),
       editable: latest.source === MerchantPurchaseSource.MANUAL,
       history: rows.map((r) => this.toHistoryRow(r)),
     };
@@ -284,7 +313,14 @@ export class PurchasesService {
         );
     const addToStock = dto.addToStock ?? true;
     const unitPrice = new Prisma.Decimal(dto.unitPrice);
+    assertPersistedMoney(unitPrice, 'unitPrice');
     const totalCost = unitPrice.times(dto.quantity).toDecimalPlaces(2);
+    assertPersistedMoney(totalCost, 'totalCost');
+    const supplierName = this.selectedSupplier(
+      dto.supplierName,
+      target.supplierNames,
+    );
+    const invoiceNumber = this.invoiceNumber(dto.invoiceNumber);
     const purchaseDate = this.parseDate(dto.purchaseDate);
     const notes = dto.notes?.trim() || null;
 
@@ -313,6 +349,8 @@ export class PurchasesService {
           warehouseProductId: target.warehouseProductId,
           warehouseVariantId: target.warehouseVariantId,
           packagingMaterialId: target.packagingMaterialId,
+          supplierName,
+          invoiceNumber,
           productName: target.productName,
           unitLabel: target.unitLabel,
           imageUrl: target.imageUrl,
@@ -350,35 +388,48 @@ export class PurchasesService {
   }
 
   async update(storeId: string, id: string, dto: UpdatePurchaseDto) {
-    const row = await this.requireEditable(storeId, id);
-    const quantity = dto.quantity ?? row.quantity;
-    const unitPrice =
-      dto.unitPrice !== undefined
-        ? new Prisma.Decimal(dto.unitPrice)
-        : row.unitPrice;
-    const totalCost = unitPrice.times(quantity).toDecimalPlaces(2);
-    const purchaseDate =
-      dto.purchaseDate !== undefined
-        ? this.parseDate(dto.purchaseDate)
-        : row.purchaseDate;
-    const notes =
-      dto.notes !== undefined ? dto.notes?.trim() || null : row.notes;
-    const delta = quantity - row.quantity;
-    const inventoryItemId =
-      row.stockAdded && delta !== 0 ? await this.stockItemId(row) : null;
-    const previousReceipt =
-      dto.receiptAssetId !== undefined && row.expenseId
-        ? await this.prisma.mediaAsset.findUnique({
-            where: { expenseId: row.expenseId },
-            select: { id: true },
-          })
-        : null;
-    const replacedReceipt =
-      previousReceipt && previousReceipt.id !== dto.receiptAssetId
-        ? previousReceipt
-        : null;
+    const result = await this.serializable(async (tx) => {
+      const row = await this.requireEditable(storeId, id, tx);
+      const quantity = dto.quantity ?? row.quantity;
+      const unitPrice =
+        dto.unitPrice !== undefined
+          ? new Prisma.Decimal(dto.unitPrice)
+          : row.unitPrice;
+      assertPersistedMoney(unitPrice, 'unitPrice');
+      const totalCost = unitPrice.times(quantity).toDecimalPlaces(2);
+      assertPersistedMoney(totalCost, 'totalCost');
+      const supplierName =
+        dto.supplierName === undefined
+          ? row.supplierName
+          : this.selectedSupplier(
+              dto.supplierName,
+              await this.targetSuppliers(tx, storeId, row),
+            );
+      const invoiceNumber =
+        dto.invoiceNumber === undefined
+          ? row.invoiceNumber
+          : this.invoiceNumber(dto.invoiceNumber);
+      const purchaseDate =
+        dto.purchaseDate !== undefined
+          ? this.parseDate(dto.purchaseDate)
+          : row.purchaseDate;
+      const notes =
+        dto.notes !== undefined ? dto.notes?.trim() || null : row.notes;
+      const delta = quantity - row.quantity;
+      const inventoryItemId =
+        row.stockAdded && delta !== 0 ? await this.stockItemId(row, tx) : null;
+      const previousReceipt =
+        dto.receiptAssetId !== undefined && row.expenseId
+          ? await tx.mediaAsset.findUnique({
+              where: { expenseId: row.expenseId },
+              select: { id: true },
+            })
+          : null;
+      const replacedReceipt =
+        previousReceipt && previousReceipt.id !== dto.receiptAssetId
+          ? previousReceipt
+          : null;
 
-    const updated = await this.serializable(async (tx) => {
       if (inventoryItemId) {
         await this.moveStock(tx, storeId, inventoryItemId, delta, {
           reason: 'Manual purchase quantity changed',
@@ -432,9 +483,11 @@ export class PurchasesService {
         }
       }
 
-      return tx.merchantPurchase.update({
+      const updated = await tx.merchantPurchase.update({
         where: { id },
         data: {
+          supplierName,
+          invoiceNumber,
           quantity,
           unitPrice,
           totalCost,
@@ -444,27 +497,30 @@ export class PurchasesService {
         },
         include: PURCHASE_INCLUDE,
       });
+      return { updated, replacedReceipt };
     });
 
-    if (replacedReceipt) {
+    if (result.replacedReceipt) {
       await this.media
-        .deleteAttachedAsset(replacedReceipt.id)
+        .deleteAttachedAsset(result.replacedReceipt.id)
         .catch(() => undefined);
     }
-    return this.toResponse(updated);
+    return this.toResponse(result.updated);
   }
 
   async remove(storeId: string, id: string) {
-    const row = await this.requireEditable(storeId, id);
-    const inventoryItemId = row.stockAdded ? await this.stockItemId(row) : null;
-    const receipt = row.expenseId
-      ? await this.prisma.mediaAsset.findUnique({
-          where: { expenseId: row.expenseId },
-          select: { id: true },
-        })
-      : null;
+    const receipt = await this.serializable(async (tx) => {
+      const row = await this.requireEditable(storeId, id, tx);
+      const inventoryItemId = row.stockAdded
+        ? await this.stockItemId(row, tx)
+        : null;
+      const receipt = row.expenseId
+        ? await tx.mediaAsset.findUnique({
+            where: { expenseId: row.expenseId },
+            select: { id: true },
+          })
+        : null;
 
-    await this.serializable(async (tx) => {
       if (inventoryItemId) {
         await this.moveStock(tx, storeId, inventoryItemId, -row.quantity, {
           reason: 'Manual purchase deleted',
@@ -475,6 +531,7 @@ export class PurchasesService {
       if (row.expenseId) {
         await tx.expense.delete({ where: { id: row.expenseId } });
       }
+      return receipt;
     });
 
     if (receipt) {
@@ -514,6 +571,7 @@ export class PurchasesService {
             select: {
               id: true,
               name: true,
+              supplierNames: true,
               media: {
                 orderBy: { position: 'asc' },
                 take: 1,
@@ -552,6 +610,7 @@ export class PurchasesService {
             select: {
               id: true,
               name: true,
+              supplierNames: true,
               unit: true,
               imageObjectName: true,
               inventoryItem: {
@@ -586,6 +645,7 @@ export class PurchasesService {
           itemType: 'PRODUCT' as const,
           id: p.id,
           name: p.name,
+          supplierNames: p.supplierNames,
           imageUrl: p.media[0]
             ? `/warehouse/media/${p.media[0].id}/content`
             : null,
@@ -602,6 +662,7 @@ export class PurchasesService {
         itemType: 'PACKAGING' as const,
         id: m.id,
         name: m.name,
+        supplierNames: m.supplierNames,
         imageUrl: m.imageObjectName
           ? `/warehouse/packaging/${m.id}/image`
           : null,
@@ -642,6 +703,7 @@ export class PurchasesService {
       select: {
         id: true,
         name: true,
+        supplierNames: true,
         kind: true,
         media: { orderBy: { position: 'asc' }, take: 1, select: { id: true } },
         variants: {
@@ -672,6 +734,7 @@ export class PurchasesService {
       warehouseProductId: product.id,
       warehouseVariantId: variant.id,
       packagingMaterialId: null,
+      supplierNames: product.supplierNames ?? [],
       productName: product.name,
       unitLabel: 'piece',
       imageUrl: product.media[0]
@@ -690,6 +753,7 @@ export class PurchasesService {
       select: {
         id: true,
         name: true,
+        supplierNames: true,
         unit: true,
         imageObjectName: true,
         inventoryItem: { select: { id: true } },
@@ -700,6 +764,7 @@ export class PurchasesService {
       warehouseProductId: null,
       warehouseVariantId: null,
       packagingMaterialId: material.id,
+      supplierNames: material.supplierNames ?? [],
       productName: material.name,
       unitLabel: packagingUnitLabel(material.unit, 1),
       imageUrl: material.imageObjectName
@@ -739,9 +804,12 @@ export class PurchasesService {
   }
 
   /** The inventory item a purchase added stock to; null once it is gone. */
-  private async stockItemId(row: MerchantPurchase): Promise<string | null> {
+  private async stockItemId(
+    row: MerchantPurchase,
+    tx: Prisma.TransactionClient = this.prisma,
+  ): Promise<string | null> {
     if (!row.packagingMaterialId && !row.warehouseVariantId) return null;
-    const item = await this.prisma.inventoryItem.findFirst({
+    const item = await tx.inventoryItem.findFirst({
       where: row.packagingMaterialId
         ? { packagingMaterialId: row.packagingMaterialId }
         : { variantId: row.warehouseVariantId },
@@ -792,8 +860,12 @@ export class PurchasesService {
     }
   }
 
-  private async requireEditable(storeId: string, id: string) {
-    const row = await this.prisma.merchantPurchase.findFirst({
+  private async requireEditable(
+    storeId: string,
+    id: string,
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    const row = await tx.merchantPurchase.findFirst({
       where: { id, storeId },
     });
     if (!row) throw new NotFoundException('Purchase not found');
@@ -805,7 +877,49 @@ export class PurchasesService {
     return row;
   }
 
+  private selectedSupplier(
+    value: string | undefined,
+    names: string[],
+  ): string | null {
+    if (value === undefined) return null;
+    const name = value.trim();
+    if (!name || !names.includes(name))
+      throw new BadRequestException(
+        'Choose a supplier from this item supplierNames',
+      );
+    return name;
+  }
+
+  private invoiceNumber(value: string | undefined): string | null {
+    if (value === undefined) return null;
+    const invoice = value.trim();
+    if (!invoice)
+      throw new BadRequestException('invoiceNumber cannot be blank');
+    return invoice;
+  }
+
+  private async targetSuppliers(
+    tx: Prisma.TransactionClient,
+    storeId: string,
+    row: MerchantPurchase,
+  ): Promise<string[]> {
+    const target = row.warehouseProductId
+      ? await tx.warehouseProduct.findFirst({
+          where: { id: row.warehouseProductId, storeId },
+          select: { supplierNames: true },
+        })
+      : row.packagingMaterialId
+        ? await tx.packagingMaterial.findFirst({
+            where: { id: row.packagingMaterialId, storeId },
+            select: { supplierNames: true },
+          })
+        : null;
+    return target?.supplierNames ?? [];
+  }
+
   private parseDate(value: string) {
+    if (typeof value !== 'string')
+      throw new BadRequestException('purchaseDate must be a valid date');
     const date = new Date(value);
     if (Number.isNaN(date.getTime()))
       throw new BadRequestException('purchaseDate must be a valid date');
@@ -832,6 +946,8 @@ export class PurchasesService {
       unitPrice: unit,
       totalCost: money(r.totalCost),
       currency: r.currency,
+      supplierName: r.supplierName,
+      invoiceNumber: r.invoiceNumber,
       notes: r.notes,
       warehouseVariantId: r.warehouseVariantId,
       stockAdded: r.stockAdded,
@@ -864,6 +980,8 @@ export class PurchasesService {
       totalCost: money(r.totalCost),
       currency: r.currency,
       purchaseDate: r.purchaseDate.toISOString(),
+      supplierName: r.supplierName,
+      invoiceNumber: r.invoiceNumber,
       notes: r.notes,
       stockAdded: r.stockAdded,
       expenseId: r.expenseId,

@@ -22,6 +22,7 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
+import { MAX_MONEY_INPUT } from '../../common/persisted-money';
 import { MAX_LINE_QUANTITY } from '../cart.service';
 
 // ---- Catalog ----
@@ -279,6 +280,27 @@ export type PurchaseItemType = (typeof PURCHASE_ITEM_TYPES)[number];
 
 export class CreatePurchaseDto {
   @ApiPropertyOptional({
+    maxLength: 120,
+    description:
+      'Select an exact name from the item supplierNames in product-options. Stored as a historical snapshot.',
+  })
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  supplierName?: string;
+
+  @ApiPropertyOptional({
+    maxLength: 100,
+    description: 'Supplier invoice identifier; stored on the purchase.',
+  })
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  invoiceNumber?: string;
+
+  @ApiPropertyOptional({
     format: 'uuid',
     description:
       'One of your own warehouse products (Select Product, type PRODUCT). Send this or packagingMaterialId.',
@@ -292,7 +314,7 @@ export class CreatePurchaseDto {
     description:
       'Which variant was bought. Required when the product has more than one variant.',
   })
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsUUID()
   warehouseVariantId?: string;
 
@@ -301,7 +323,7 @@ export class CreatePurchaseDto {
     description:
       'One of your packaging items (Select Product, type PACKAGING). Send this or warehouseProductId.',
   })
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsUUID()
   packagingMaterialId?: string;
 
@@ -310,7 +332,7 @@ export class CreatePurchaseDto {
     description:
       'Add the quantity to stock. Turn off when the stock was already counted.',
   })
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsBoolean()
   addToStock?: boolean;
 
@@ -319,7 +341,7 @@ export class CreatePurchaseDto {
     default: ExpensePaymentMethod.CASH,
     description: 'Payment method of the Purchase costs expense.',
   })
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsEnum(ExpensePaymentMethod)
   paymentMethod?: ExpensePaymentMethod;
 
@@ -327,7 +349,7 @@ export class CreatePurchaseDto {
     format: 'uuid',
     description: 'Receipt photo uploaded with POST /expenses/receipts.',
   })
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsUUID()
   receiptAssetId?: string;
 
@@ -339,11 +361,13 @@ export class CreatePurchaseDto {
 
   @ApiProperty({
     minimum: 0,
+    maximum: MAX_MONEY_INPUT,
     example: 12.5,
     description: 'Unit purchase price. Total cost = quantity × unit price.',
   })
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   unitPrice: number;
 
   @ApiProperty({
@@ -361,21 +385,43 @@ export class CreatePurchaseDto {
 }
 
 export class UpdatePurchaseDto {
+  @ApiPropertyOptional({
+    maxLength: 120,
+    description:
+      'Select an exact name from the item supplierNames in product-options. Stored as a historical snapshot.',
+  })
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  supplierName?: string;
+
+  @ApiPropertyOptional({
+    maxLength: 100,
+    description: 'Supplier invoice identifier; stored on the purchase.',
+  })
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  invoiceNumber?: string;
+
   @ApiPropertyOptional({ minimum: 1 })
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsInt()
   @Min(1)
   @Max(1_000_000)
   quantity?: number;
 
-  @ApiPropertyOptional({ minimum: 0 })
-  @IsOptional()
+  @ApiPropertyOptional({ minimum: 0, maximum: MAX_MONEY_INPUT })
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   unitPrice?: number;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsDateString()
   purchaseDate?: string;
 
@@ -386,7 +432,7 @@ export class UpdatePurchaseDto {
   notes?: string;
 
   @ApiPropertyOptional({ enum: ExpensePaymentMethod })
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsEnum(ExpensePaymentMethod)
   paymentMethod?: ExpensePaymentMethod;
 

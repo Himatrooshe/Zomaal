@@ -8,6 +8,8 @@ import {
 } from './packaging.dto';
 
 export class OwnedPackagingMaterialResponseDto {
+  @ApiProperty({ type: [String] })
+  supplierNames: string[];
   @ApiProperty({ format: 'uuid' })
   id: string;
 

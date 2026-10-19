@@ -75,7 +75,7 @@ export class PurchasesController {
     summary:
       'Purchases List: totals + one row per product (All / Manual / From Shop)',
     description:
-      'Use tab=ALL|MANUAL|FROM_SHOP (Figma). Each item has source + sourceLabel.',
+      'Use tab=ALL|MANUAL|FROM_SHOP (Figma). Each item has source + sourceLabel. Group keys are opaque and include currency; the same item purchased in two currencies has two groups.',
   })
   @ApiOkResponse(OBJ)
   list(
@@ -92,7 +92,7 @@ export class PurchasesController {
     summary:
       'Add Purchase → Select Product: your products and packaging (not the Zomaal Shop catalog)',
     description:
-      'Each option has itemType PRODUCT or PACKAGING. Products list their variants (send warehouseVariantId when there is more than one); packaging has a unit and its last price paid as costPrice. To buy from Zomaal, use /shop instead — delivery creates From Shop rows automatically.',
+      'Each option has itemType PRODUCT or PACKAGING and supplierNames configured on that item. Products list their variants (send warehouseVariantId when there is more than one); packaging has a unit and its last price paid as costPrice. To buy from Zomaal, use /shop instead — delivery creates From Shop rows automatically.',
   })
   @ApiOkResponse({ schema: { type: 'array', items: { type: 'object' } } })
   productOptions(
@@ -110,7 +110,9 @@ export class PurchasesController {
   @RequirePermission(PERMISSIONS.SHOP_VIEW)
   @ApiOperation({
     summary:
-      'Purchases Details: product card + history (date, qty, box price, total)',
+      'Purchases Details: product card + history (date, qty, box price, total, supplier and invoice)',
+    description:
+      'Use the exact key from the list. Legacy keys without a currency suffix remain accepted; mixed-currency history returns null totalCost/currency and separate totalCostByCurrency amounts.',
   })
   @ApiOkResponse(OBJ)
   @ApiNotFoundResponse({ type: ApiErrorDto })
@@ -123,7 +125,7 @@ export class PurchasesController {
   @ApiOperation({
     summary: 'Add Purchase (manual / personal / outside the Zomaal Shop)',
     description:
-      'Records qty × unit price × date against one of your products (warehouseProductId [+ warehouseVariantId]) or packaging items (packagingMaterialId). Adds the quantity to stock unless addToStock=false, and records the total as a "Purchase costs" expense (with the optional receipt). Does not create a Zomaal Shop order — use POST /shop/orders for that.',
+      'Records qty × unit price × date against one of your products (warehouseProductId [+ warehouseVariantId]) or packaging items (packagingMaterialId). Adds the quantity to stock unless addToStock=false, and records the total as a "Purchase costs" expense (with the optional receipt). Optional supplierName must match this item supplierNames; invoiceNumber is stored with it as a historical snapshot. Rejects invalid/null inputs and money overflow with 400. Does not create a Zomaal Shop order — use POST /shop/orders for that.',
   })
   @ApiCreatedResponse(OBJ)
   @ApiBadRequestResponse({ type: ApiErrorDto })

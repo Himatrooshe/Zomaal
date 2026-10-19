@@ -123,3 +123,7 @@ Products edit fixes (20 October 2026): blank normalized product names return 400
 - Courier refreshes reject older timestamps and terminal-to-progress regressions. Ameex shipments can link through an unambiguous owner-scoped order reference; prefer the internal order UUID. Ambiguous references are not automatically applied.
 
 Verification: the PostgreSQL tracking suite runs in CI alongside existing Returns and Products suites. Real provider ticket printing and physical parcel scanning still require an actual test parcel.
+
+## Supplier names for Purchases
+
+Product create/edit supports `supplierNames`: a trimmed, case-insensitively unique array, maximum 50 names of 1–120 characters. Empty array clears the list; null is rejected. Product responses and purchase product-options expose the list. Purchases select a name from it and retain a historical snapshot even after the product supplier list changes.

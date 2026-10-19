@@ -243,6 +243,7 @@ export class ProductService {
             storeId: store.id,
             categoryId: dto.categoryId,
             name: dto.name.trim(),
+            supplierNames: dto.supplierNames ?? [],
             description: dto.description?.trim() || null,
             status: dto.status ?? WarehouseProductStatus.ACTIVE,
             idempotencyKey: dto.idempotencyKey,
@@ -1498,6 +1499,9 @@ export class ProductService {
           where: { id: productId, storeId: store.id, version: dto.version },
           data: {
             ...(dto.name === undefined ? {} : { name: dto.name.trim() }),
+            ...(dto.supplierNames === undefined
+              ? {}
+              : { supplierNames: dto.supplierNames }),
             ...(dto.description === undefined
               ? {}
               : { description: dto.description?.trim() || null }),
@@ -2752,6 +2756,7 @@ export class ProductService {
     return {
       id: product.id,
       name: product.name,
+      supplierNames: product.supplierNames,
       description: product.description,
       status: product.status,
       kind: product.kind,

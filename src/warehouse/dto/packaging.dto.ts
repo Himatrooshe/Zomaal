@@ -1,3 +1,4 @@
+import { SupplierNamesDto } from '../../common/dto/supplier-names.dto';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { PackagingUnit } from '@prisma/client';
 import { Transform } from 'class-transformer';
@@ -57,7 +58,7 @@ export class PackagingListQueryDto {
   source?: PackagingSource;
 }
 
-export class CreatePackagingDto {
+export class CreatePackagingDto extends SupplierNamesDto {
   @ApiProperty({ minLength: 1, maxLength: 200, example: 'Medium box' })
   @Transform(trim)
   @IsString()
@@ -120,7 +121,7 @@ export class CreatePackagingDto {
   imageUploadId?: string;
 }
 
-export class UpdatePackagingDto {
+export class UpdatePackagingDto extends SupplierNamesDto {
   @ApiPropertyOptional({
     minLength: 1,
     maxLength: 200,
