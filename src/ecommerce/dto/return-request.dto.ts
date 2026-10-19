@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -20,6 +20,21 @@ import {
 // -----------------------------------------------------------------------------
 // Detect (Scan / Manual Verification screens)
 // -----------------------------------------------------------------------------
+
+export class ReturnSearchQueryDto {
+  @ApiProperty({
+    type: String,
+    minLength: 1,
+    description:
+      'Non-empty search term. Leading and trailing whitespace is ignored.',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MinLength(1)
+  q: string;
+}
 
 export class DetectReturnDto {
   @ApiProperty({
@@ -48,7 +63,8 @@ export class DetectReturnDto {
 export class ReturnLossPreviewDto {
   @ApiProperty({
     example: '100.00',
-    description: 'Sum of the returned lines\' totalPrice — what the customer paid for these items.',
+    description:
+      "Sum of the returned lines' totalPrice — what the customer paid for these items.",
   })
   originalOrderValue: string;
 
@@ -64,9 +80,9 @@ export class ReturnLossPreviewDto {
   @ApiProperty({
     example: '25.00',
     description:
-      'deliveryCost, plus each line\'s loss based on its CURRENT recorded condition: ' +
+      "deliveryCost, plus each line's loss based on its CURRENT recorded condition: " +
       '0 for GOOD/RETURNED (restocked), damageCost for DAMAGED (0 if not entered yet), ' +
-      "full line value for LOST/MISSING. Lines with no condition recorded yet " +
+      'full line value for LOST/MISSING. Lines with no condition recorded yet ' +
       'contribute 0 beyond deliveryCost — this is a live preview, not a final figure.',
   })
   netLoss: string;
@@ -99,7 +115,8 @@ export class DetectedReturnLineDto {
   @ApiPropertyOptional({
     nullable: true,
     enum: PRODUCT_CONDITIONS,
-    description: 'Already-recorded condition from a previous verification, if any.',
+    description:
+      'Already-recorded condition from a previous verification, if any.',
   })
   condition: string | null;
 }
@@ -118,7 +135,8 @@ export class DetectedReturnResponseDto {
   status: string;
 
   @ApiProperty({
-    description: 'Customer name — from platform data (Shopify/YouCan/Lightfunnels) or the manual order.',
+    description:
+      'Customer name — from platform data (Shopify/YouCan/Lightfunnels) or the manual order.',
   })
   customerName: string | null;
 
@@ -241,7 +259,8 @@ export class ReturnListItemDto {
   customerPhone: string | null;
 
   @ApiProperty({
-    description: "First returned line's product name, plus a count of any others.",
+    description:
+      "First returned line's product name, plus a count of any others.",
     example: 'Product name',
   })
   productSummary: string;
@@ -285,7 +304,7 @@ export class ReturnListResponseDto {
   @ApiProperty({
     example: 'MAD',
     description:
-      "Store base currency — same unit as summary card and row values. Not invented from UI mocks.",
+      'Store base currency — same unit as summary card and row values. Not invented from UI mocks.',
   })
   currency: string;
 

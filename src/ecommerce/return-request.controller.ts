@@ -19,7 +19,6 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
-  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -36,6 +35,7 @@ import {
   DetectedReturnResponseDto,
   ReturnListQueryDto,
   ReturnListResponseDto,
+  ReturnSearchQueryDto,
   VerifyReturnDto,
   VerifiedReturnResponseDto,
 } from './dto/return-request.dto';
@@ -95,21 +95,16 @@ export class ReturnRequestController {
       'at rest (see EcommerceOrder in schema.prisma), so there is nothing to search there ' +
       'without a live per-candidate platform call, which this endpoint does not do.',
   })
-  @ApiQuery({
-    name: 'q',
-    required: true,
-    type: String,
-    description:
-      'Non-empty search term. Leading and trailing whitespace is ignored.',
-    schema: { type: 'string', minLength: 1 },
-  })
   @ApiOkResponse({ description: 'Up to 20 matching orders.' })
   @ApiBadRequestResponse({
     description: 'Search term is missing, blank, or not a string.',
     type: ApiErrorDto,
   })
-  search(@CurrentUser() user: JwtPayload, @Query('q') q: string) {
-    return this.returns.search(user.userId, q);
+  search(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ReturnSearchQueryDto,
+  ) {
+    return this.returns.search(user.userId, query.q);
   }
 
   @Post('detect')

@@ -9041,8 +9041,8 @@ paths:
           in: query
           description: Non-empty search term. Leading and trailing whitespace is ignored.
           schema:
-            type: string
             minLength: 1
+            type: string
       responses:
         '200':
           description: Up to 20 matching orders.
