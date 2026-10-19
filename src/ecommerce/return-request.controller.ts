@@ -141,7 +141,7 @@ export class ReturnRequestController {
       'Record conditions and confirm a return (Return Detected screen "Confirm")',
     description:
       "Records each line's condition via the same engine as POST /orders/:orderId/" +
-      'condition — the matching inventory movement and, for DAMAGED, financial event ' +
+      'condition — the matching inventory movements and condition-loss ledger changes ' +
       'apply in the same call. Once every line on the request has a recorded condition, ' +
       'status advances to PROCESSED automatically.',
   })

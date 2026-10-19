@@ -224,6 +224,9 @@ export class ReturnRequestService {
           `Order line ${input.orderLineId} is not part of this return request`,
         );
       }
+    }
+    // Validate the entire request before applying any line's stock or ledger changes.
+    for (const input of dto.lines) {
       await this.ecommerceService.recordProductConditionByLineId(
         userId,
         returnRequest.orderId,
@@ -238,7 +241,15 @@ export class ReturnRequestService {
     const updated = await this.prisma.returnRequest.update({
       where: { id: returnRequest.id },
       data: { reason: dto.reason ?? returnRequest.reason },
-      include: { lines: { include: { orderLine: true } } },
+      include: {
+        lines: {
+          include: {
+            orderLine: {
+              include: { warehouseVariant: { select: { costPrice: true } } },
+            },
+          },
+        },
+      },
     });
 
     const lines = updated.lines.map((rl) => rl.orderLine);

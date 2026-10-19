@@ -80,10 +80,11 @@ export class ReturnLossPreviewDto {
   @ApiProperty({
     example: '25.00',
     description:
-      "deliveryCost, plus each line's loss based on its CURRENT recorded condition: " +
-      '0 for GOOD/RETURNED (restocked), damageCost for DAMAGED (0 if not entered yet), ' +
-      'full line value for LOST/MISSING. Lines with no condition recorded yet ' +
-      'contribute 0 beyond deliveryCost — this is a live preview, not a final figure.',
+      'deliveryCost plus the loss for each recorded condition: GOOD/RETURNED = 0; ' +
+      'LOST/MISSING = purchase cost × quantity; DAMAGED = entered damage cost, ' +
+      'or purchase cost × quantity when no amount is entered. Unlinked lines have ' +
+      'no known purchase cost, so only an entered damage cost counts. Unverified ' +
+      'lines add no item loss yet. This is a live preview, not a final figure.',
   })
   netLoss: string;
 }

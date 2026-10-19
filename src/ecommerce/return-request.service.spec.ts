@@ -242,6 +242,28 @@ describe('ReturnRequestService', () => {
   });
 
   describe('verify', () => {
+    it('validates every line before writing any conditions', async () => {
+      const { service, prisma, ecommerceService } = build();
+      prisma.returnRequest.findFirst.mockResolvedValue({
+        id: 'rr-1',
+        orderId: ORDER.id,
+        lines: [{ orderLineId: 'line-1' }],
+      });
+
+      await expect(
+        service.verify('user-1', 'rr-1', {
+          lines: [
+            { orderLineId: 'line-1', condition: ProductCondition.LOST },
+            { orderLineId: 'foreign-line', condition: ProductCondition.GOOD },
+          ],
+        }),
+      ).rejects.toThrow('is not part of this return request');
+      expect(
+        ecommerceService.recordProductConditionByLineId,
+      ).not.toHaveBeenCalled();
+      expect(prisma.returnRequest.update).not.toHaveBeenCalled();
+    });
+
     it('records conditions and returns updated loss summary', async () => {
       const { service, prisma, ecommerceService } = build();
       prisma.returnRequest.findFirst.mockResolvedValue({

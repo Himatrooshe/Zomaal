@@ -9118,7 +9118,7 @@ paths:
         - E-commerce Returns
   /ecommerce/returns/{returnRequestId}/verify:
     post:
-      description: Records each line's condition via the same engine as POST /orders/:orderId/condition — the matching inventory movement and, for DAMAGED, financial event apply in the same call. Once every line on the request has a recorded condition, status advances to PROCESSED automatically.
+      description: Records each line's condition via the same engine as POST /orders/:orderId/condition — the matching inventory movements and condition-loss ledger changes apply in the same call. Once every line on the request has a recorded condition, status advances to PROCESSED automatically.
       operationId: ReturnRequest_verify
       parameters:
         - name: returnRequestId
@@ -26508,7 +26508,7 @@ components:
         netLoss:
           type: string
           example: '25.00'
-          description: 'deliveryCost, plus each line''s loss based on its CURRENT recorded condition: 0 for GOOD/RETURNED (restocked), damageCost for DAMAGED (0 if not entered yet), full line value for LOST/MISSING. Lines with no condition recorded yet contribute 0 beyond deliveryCost — this is a live preview, not a final figure.'
+          description: 'deliveryCost plus the loss for each recorded condition: GOOD/RETURNED = 0; LOST/MISSING = purchase cost × quantity; DAMAGED = entered damage cost, or purchase cost × quantity when no amount is entered. Unlinked lines have no known purchase cost, so only an entered damage cost counts. Unverified lines add no item loss yet. This is a live preview, not a final figure.'
       required:
         - originalOrderValue
         - deliveryCost
