@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma, ReturnRequestStatus } from '@prisma/client';
 import { ReturnRequestService } from './return-request.service';
 import { ProductCondition } from './constants/product-condition';
@@ -113,6 +113,49 @@ const ORDER = {
 };
 
 describe('ReturnRequestService', () => {
+  describe('search', () => {
+    it.each([undefined, null, '', '   ', '\t\n', [], {}, 123])(
+      'rejects invalid search input %j before querying orders',
+      async (query) => {
+        const { service, prisma } = build();
+
+        await expect(
+          service.search('user-1', query as never),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(prisma.ecommerceOrder.findMany).not.toHaveBeenCalled();
+      },
+    );
+
+    it('trims valid searches and keeps them scoped to the current store', async () => {
+      const { service, prisma } = build();
+
+      await expect(service.search('user-1', '  ORD-1001  ')).resolves.toEqual({
+        data: [],
+      });
+      expect(prisma.ecommerceOrder.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            connection: { storeId: 'store-1' },
+            OR: [
+              {
+                externalOrderId: { contains: 'ORD-1001', mode: 'insensitive' },
+              },
+              { orderName: { contains: 'ORD-1001', mode: 'insensitive' } },
+              {
+                manualCustomerName: {
+                  contains: 'ORD-1001',
+                  mode: 'insensitive',
+                },
+              },
+              { manualCustomerPhone: { contains: 'ORD-1001' } },
+            ],
+          },
+          take: 20,
+        }),
+      );
+    });
+  });
+
   describe('list', () => {
     it('includes store baseCurrency on the response', async () => {
       const { service, storeAccess } = build();
@@ -164,9 +207,9 @@ describe('ReturnRequestService', () => {
         imageUrl: '/warehouse/media/media-variant-1/content',
       });
       expect(result.lossSummary.deliveryCost).toBe('15.00');
-      expect(financialService.resolveEffectiveShippingCost).toHaveBeenCalledWith(
-        ORDER.id,
-      );
+      expect(
+        financialService.resolveEffectiveShippingCost,
+      ).toHaveBeenCalledWith(ORDER.id);
     });
 
     it('leaves imageUrl null when the line has no warehouse media', async () => {
@@ -235,7 +278,9 @@ describe('ReturnRequestService', () => {
         ],
       });
 
-      expect(ecommerceService.recordProductConditionByLineId).toHaveBeenCalled();
+      expect(
+        ecommerceService.recordProductConditionByLineId,
+      ).toHaveBeenCalled();
       expect(result.status).toBe('PROCESSED');
       expect(result.lossSummary.netLoss).toBe('135.00'); // 15 delivery + 120 damage
     });

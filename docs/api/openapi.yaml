@@ -9039,11 +9039,19 @@ paths:
         - name: q
           required: true
           in: query
+          description: Non-empty search term. Leading and trailing whitespace is ignored.
           schema:
             type: string
+            minLength: 1
       responses:
         '200':
           description: Up to 20 matching orders.
+        '400':
+          description: Search term is missing, blank, or not a string.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:

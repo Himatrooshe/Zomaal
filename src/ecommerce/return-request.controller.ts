@@ -42,7 +42,8 @@ import {
 
 const PRIVATE_NO_STORE_HEADERS = {
   'Cache-Control': {
-    description: 'Return data is private to the authenticated store and must not be cached.',
+    description:
+      'Return data is private to the authenticated store and must not be cached.',
     schema: { type: 'string', example: 'private, no-store' },
   },
 };
@@ -72,7 +73,10 @@ export class ReturnRequestController {
       'and the tabbed, searchable list. DELAYED is a NEED_VERIFICATION request older than 2 ' +
       'days — computed on read, not a stored status.',
   })
-  @ApiOkResponse({ type: ReturnListResponseDto, headers: PRIVATE_NO_STORE_HEADERS })
+  @ApiOkResponse({
+    type: ReturnListResponseDto,
+    headers: PRIVATE_NO_STORE_HEADERS,
+  })
   list(
     @CurrentUser() user: JwtPayload,
     @Query() query: ReturnListQueryDto,
@@ -91,8 +95,19 @@ export class ReturnRequestController {
       'at rest (see EcommerceOrder in schema.prisma), so there is nothing to search there ' +
       'without a live per-candidate platform call, which this endpoint does not do.',
   })
-  @ApiQuery({ name: 'q', required: true, type: String })
+  @ApiQuery({
+    name: 'q',
+    required: true,
+    type: String,
+    description:
+      'Non-empty search term. Leading and trailing whitespace is ignored.',
+    schema: { type: 'string', minLength: 1 },
+  })
   @ApiOkResponse({ description: 'Up to 20 matching orders.' })
+  @ApiBadRequestResponse({
+    description: 'Search term is missing, blank, or not a string.',
+    type: ApiErrorDto,
+  })
   search(@CurrentUser() user: JwtPayload, @Query('q') q: string) {
     return this.returns.search(user.userId, q);
   }
@@ -101,7 +116,8 @@ export class ReturnRequestController {
   @RequirePermission(PERMISSIONS.RETURNS_SCAN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Resolve a scan/manual code to a return (Scan + Return Detected screens)',
+    summary:
+      'Resolve a scan/manual code to a return (Scan + Return Detected screens)',
     description:
       'Resolves value the same way GET /ecommerce/scan does (Zomaal QR, courier tracking ' +
       'number — covers both our own couriers and 3rd-party carriers — or a typed order ' +
@@ -111,7 +127,10 @@ export class ReturnRequestController {
   })
   @ApiOkResponse({ type: DetectedReturnResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid payload.', type: ApiErrorDto })
-  @ApiNotFoundResponse({ description: 'No order matches this code.', type: ApiErrorDto })
+  @ApiNotFoundResponse({
+    description: 'No order matches this code.',
+    type: ApiErrorDto,
+  })
   detect(
     @CurrentUser() user: JwtPayload,
     @Body() dto: DetectReturnDto,
@@ -123,9 +142,10 @@ export class ReturnRequestController {
   @RequirePermission(PERMISSIONS.RETURNS_PROCESS)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Record conditions and confirm a return (Return Detected screen "Confirm")',
+    summary:
+      'Record conditions and confirm a return (Return Detected screen "Confirm")',
     description:
-      'Records each line\'s condition via the same engine as POST /orders/:orderId/' +
+      "Records each line's condition via the same engine as POST /orders/:orderId/" +
       'condition — the matching inventory movement and, for DAMAGED, financial event ' +
       'apply in the same call. Once every line on the request has a recorded condition, ' +
       'status advances to PROCESSED automatically.',
@@ -133,10 +153,14 @@ export class ReturnRequestController {
   @ApiParam({ name: 'returnRequestId', format: 'uuid' })
   @ApiOkResponse({ type: VerifiedReturnResponseDto })
   @ApiBadRequestResponse({
-    description: 'Invalid payload, or a line does not belong to this return request.',
+    description:
+      'Invalid payload, or a line does not belong to this return request.',
     type: ApiErrorDto,
   })
-  @ApiNotFoundResponse({ description: 'Return request not found.', type: ApiErrorDto })
+  @ApiNotFoundResponse({
+    description: 'Return request not found.',
+    type: ApiErrorDto,
+  })
   verify(
     @CurrentUser() user: JwtPayload,
     @Param('returnRequestId', new ParseUUIDPipe()) returnRequestId: string,

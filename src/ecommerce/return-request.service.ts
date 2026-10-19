@@ -411,15 +411,19 @@ export class ReturnRequestService {
    * platform call, which this endpoint deliberately does not do.
    */
   async search(userId: string, q: string) {
+    if (typeof q !== 'string' || !q.trim()) {
+      throw new BadRequestException('A non-empty search query is required');
+    }
+    const term = q.trim();
     const store = await this.requireStore(userId);
     const orders = await this.prisma.ecommerceOrder.findMany({
       where: {
         connection: { storeId: store.id },
         OR: [
-          { externalOrderId: { contains: q, mode: 'insensitive' } },
-          { orderName: { contains: q, mode: 'insensitive' } },
-          { manualCustomerName: { contains: q, mode: 'insensitive' } },
-          { manualCustomerPhone: { contains: q } },
+          { externalOrderId: { contains: term, mode: 'insensitive' } },
+          { orderName: { contains: term, mode: 'insensitive' } },
+          { manualCustomerName: { contains: term, mode: 'insensitive' } },
+          { manualCustomerPhone: { contains: term } },
         ],
       },
       take: 20,
