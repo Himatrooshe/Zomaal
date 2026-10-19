@@ -10,11 +10,11 @@ Updated 19 October 2026.
 
 ## Current status
 
-Manual product/packaging purchases and stock/expense sync exist. The 20 October live audit found six unresolved issues; final production signoff is pending. All six findings are now fixed and verified locally; see [fix verification](./fix-verification-2026-10-20.md) for the new contract and deployment status. Original client Google Doc Q7.4 confirms supplier selection from the product and invoice recording are required; the opposite local module answer is stale. See [live audit](./live-server-test-results-2026-10-20.md).
+Manual product/packaging purchases, receipts, stock/expense sync and supplier/invoice recording are deployed in `54e1048`. All six reported findings passed the production retest: **284 recorded checks passed, zero failed**. See [live results](./live-fix-retest-2026-10-20.md) and [API contract changes](./fix-verification-2026-10-20.md). Client Google Doc Q7.4 requires supplier selection from the product and invoice recording; the API now supports them.
 
 ## Main flow
 
-Create product or packaging purchase; select stock behavior; confirm linked expense and inventory ledger; attach receipt/note.
+Create product or packaging purchase; select stock behavior and a configured supplier; record the invoice; confirm linked expense and inventory ledger; attach receipt/note.
 
 ## Test checklist
 
@@ -31,7 +31,7 @@ Create product or packaging purchase; select stock behavior; confirm linked expe
 Verify purchase types, add-to-stock switch, expense sync/no double-counting, receipt handling, and supplier/invoice requirement against the client answer before signoff.
 
 
-## Live audit handoff — 20 October 2026
+## Historical live audit handoff — before the fixes
 
 - [Results and reproduction evidence](./live-server-test-results-2026-10-20.md): 82 relevant unit tests passed, with six live/requirements findings still open.
 - Retest concurrent quantity edits against stock, receipt upload/attachment, mixed-currency groups, money overflow and null PATCH fields after fixes.
@@ -39,6 +39,10 @@ Verify purchase types, add-to-stock switch, expense sync/no double-counting, rec
 - Receipt lifecycle remains blocked by a database constraint; Shop delivery was covered only by existing unit tests in this pass.
 - All temporary purchase/store records removed; original account preserved.
 
-## Local fixes ready — deployment pending
+## Historical local verification phase
 
 The findings above describe the earlier live version. [Fix verification](./fix-verification-2026-10-20.md) documents all six local fixes, supplier/invoice fields, currency-qualified group keys, receipt lifecycle tests and required live retests. Use that contract after deployment. Do not replace the historical production failures with local pass results.
+
+## Current production status — 20 October 2026
+
+All six reported Purchases findings are deployed in `54e1048` and passed **284 recorded live checks**. [Production results and actual responses](./live-fix-retest-2026-10-20.md) supersede the pending-deployment notes above. Use the supplier/invoice and currency-group contract in the fix verification. Receipt expiry, actual Shop fulfillment and mobile UI acceptance retain the limits listed in the production report.

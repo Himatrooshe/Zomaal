@@ -1,5 +1,7 @@
 # Purchases — live audit, 20 October 2026
 
+> Historical audit before the fixes. All six findings are now deployed and passed the [production retest](./live-fix-retest-2026-10-20.md).
+
 ## Result
 
 **Not ready for final signoff. Six findings remain open.** This pass tested the deployed backend and reviewed the Figma purchase screens and original client answers. No application fixes, commits or deployments were made in this pass.

@@ -2,7 +2,7 @@
 
 ## Status
 
-**All six audit findings are implemented and verified locally. Production deployment and the live retest are pending.** The earlier live audit remains the record of the deployed version's failures; its results have not been replaced with local results.
+**Update: all six fixes are now deployed in `54e1048` and passed 284 recorded live checks.** See [production results](./live-fix-retest-2026-10-20.md). The following records the earlier local verification phase. The earlier live audit remains the record of the deployed version's failures; its results have not been replaced with local results.
 
 - Branch: `fix/purchases-live-audit-20261020`.
 - Worktree: `/private/tmp/zomaal-tracking-workflow`.

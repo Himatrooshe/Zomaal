@@ -1,0 +1,2122 @@
+{
+  "module": "Purchases",
+  "date": "2026-10-20",
+  "timezone": "Asia/Dhaka",
+  "environment": "production",
+  "apiBase": "https://zomaal-backend-563898960389.us-central1.run.app",
+  "deployedCommit": "54e104890b51d4a42e9fa5516ab5236279c4b373",
+  "revision": "zomaal-backend-00062-gmt",
+  "trafficPercent": 100,
+  "ciRun": "https://github.com/Himatrooshe/Zomaal/actions/runs/39340906840",
+  "status": "REPORTED_FIXES_PASSED_LIVE",
+  "resolvedFindings": [
+    "PUR-01",
+    "PUR-02",
+    "PUR-03",
+    "PUR-04",
+    "PUR-05",
+    "PUR-06"
+  ],
+  "observations": {
+    "total": 284,
+    "passed": 284,
+    "failed": 0,
+    "note": "HTTP requests, assertions, setup and cleanup observations; not distinct scenario counts."
+  },
+  "checks": [
+    {
+      "name": "read original stores",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "baseline original Home",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "baseline original Purchases",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create isolated QA store",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "empty purchases list",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "empty state zero totals",
+      "pass": true
+    },
+    {
+      "name": "create synthetic category",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "upload synthetic product image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create simple product",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "upload synthetic product image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create variant product",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create synthetic packaging",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "product and packaging options",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "selector includes owned products and packaging",
+      "pass": true
+    },
+    {
+      "name": "product-only selector",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "product filter excludes packaging",
+      "pass": true
+    },
+    {
+      "name": "packaging-only selector",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "packaging filter excludes products",
+      "pass": true
+    },
+    {
+      "name": "upload synthetic receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create stock purchase with receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "purchase money and expense linkage",
+      "pass": true
+    },
+    {
+      "name": "read stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "stock credited once",
+      "pass": true
+    },
+    {
+      "name": "read linked expense",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "expense matches purchase",
+      "pass": true
+    },
+    {
+      "name": "manual tab",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "manual summary totals",
+      "pass": true
+    },
+    {
+      "name": "Figma purchase history",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "history contains date quantity price and receipt",
+      "pass": true
+    },
+    {
+      "name": "edit purchase quantity price date and note",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "updated purchase totals",
+      "pass": true
+    },
+    {
+      "name": "read stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "stock changes only by delta",
+      "pass": true
+    },
+    {
+      "name": "read synced expense",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "same expense updated without duplicate",
+      "pass": true
+    },
+    {
+      "name": "list linked expenses",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "exactly one automatic expense",
+      "pass": true
+    },
+    {
+      "name": "clear purchase note and receipt",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "record already-counted stock",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "read stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "addToStock false leaves physical balance unchanged",
+      "pass": true
+    },
+    {
+      "name": "edit non-stock purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "editing non-stock purchase keeps balance",
+      "pass": true
+    },
+    {
+      "name": "create packaging purchase",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "packaging last paid cost",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "packaging stock and latest cost",
+      "pass": true
+    },
+    {
+      "name": "multi-variant selection required",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "purchase chosen variant",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "read stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "only selected variant restocked",
+      "pass": true
+    },
+    {
+      "name": "reserve QA stock",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "cannot reduce reserved stock",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot delete reserved purchase",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "read stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "rejected operations leave balance intact",
+      "pass": true
+    },
+    {
+      "name": "expense unchanged after rejected reduction",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "rejected mutation does not change expense",
+      "pass": true
+    },
+    {
+      "name": "release QA reservation",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "purchase expense category",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "manual purchase-cost expense blocked",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "direct linked expense edit blocked",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "direct linked expense delete blocked",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "zero quantity rejected",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "quantity must not be less than 1"
+      ]
+    },
+    {
+      "name": "negative quantity rejected",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "quantity must not be less than 1"
+      ]
+    },
+    {
+      "name": "fraction quantity rejected",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "quantity must be an integer number"
+      ]
+    },
+    {
+      "name": "too many quantity rejected",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "quantity must not be greater than 1000000"
+      ]
+    },
+    {
+      "name": "negative price rejected",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "unitPrice must not be less than 0"
+      ]
+    },
+    {
+      "name": "excess price precision rejected",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "unitPrice must be a number conforming to the specified constraints"
+      ]
+    },
+    {
+      "name": "invalid date rejected",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "purchaseDate must be a valid ISO 8601 date string"
+      ]
+    },
+    {
+      "name": "future date rejected",
+      "pass": true,
+      "http": 400,
+      "message": "purchaseDate can\u2019t be in the future"
+    },
+    {
+      "name": "both targets rejected",
+      "pass": true,
+      "http": 400,
+      "message": "Choose either a product or a packaging item, not both."
+    },
+    {
+      "name": "wrong variant rejected",
+      "pass": true,
+      "http": 400,
+      "message": "This variant does not belong to the product."
+    },
+    {
+      "name": "invalid payment rejected",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "paymentMethod must be one of the following values: CASH, BANK"
+      ]
+    },
+    {
+      "name": "unknown property rejected",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "property unrecognised should not exist"
+      ]
+    },
+    {
+      "name": "unconfigured supplier rejected",
+      "pass": true,
+      "http": 400,
+      "message": "Choose a supplier from this item supplierNames"
+    },
+    {
+      "name": "money overflow gives validation error",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "unitPrice must not be greater than 9999999999999998"
+      ]
+    },
+    {
+      "name": "computed total overflow gives validation error",
+      "pass": true,
+      "http": 400,
+      "message": "totalCost exceeds the supported monetary range"
+    },
+    {
+      "name": "purchase history before invalid amounts",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "expense before invalid amounts",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "invalid purchase PATCH rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "invalid purchase PATCH rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "invalid purchase PATCH rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "invalid purchase PATCH rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "purchase history after invalid amounts",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "expense after invalid amounts",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "invalid PATCH leaves purchase and expense unchanged",
+      "pass": true
+    },
+    {
+      "name": "missing target rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "unknown purchase 404",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "invalid purchase UUID 400",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "unknown group 404",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "invalid tab 400",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "invalid option type 400",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "no login purchase access denied",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cross-store history denied",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "cross-store update denied",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "cross-store delete denied",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "cross-store product purchase denied",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "cross-store packaging purchase denied",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read all QA purchase expenses",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "each purchase has exactly one expense",
+      "pass": true
+    },
+    {
+      "name": "product cost remains independent",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "purchases never overwrite product cost",
+      "pass": true
+    },
+    {
+      "name": "purchase search case insensitive",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "search returns matching item groups",
+      "pass": true
+    },
+    {
+      "name": "purchase search empty match",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "empty filtered totals",
+      "pass": true
+    },
+    {
+      "name": "From Shop empty tab",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "manual purchases excluded from From Shop",
+      "pass": true
+    },
+    {
+      "name": "null unitPrice rejected with 400",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "unitPrice must not be greater than 9999999999999998",
+        "unitPrice must not be less than 0",
+        "unitPrice must be a number conforming to the specified constraints"
+      ]
+    },
+    {
+      "name": "null purchaseDate rejected with 400",
+      "pass": true,
+      "http": 400,
+      "message": [
+        "purchaseDate must be a valid ISO 8601 date string"
+      ]
+    },
+    {
+      "name": "invalid patch leaves purchases unchanged",
+      "pass": true
+    },
+    {
+      "name": "nonexistent receipt rejected cleanly",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "expenses after invalid receipt",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "invalid receipt creates no orphan expense",
+      "pass": true
+    },
+    {
+      "name": "create concurrency fixture",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "purchase concurrency fixture",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "read concurrent final purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read concurrent final stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "concurrent edits preserve purchase-stock equality 0",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ],
+      "finalQuantity": 20,
+      "stock": 20
+    },
+    {
+      "name": "create concurrency fixture",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "purchase concurrency fixture",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "read concurrent final purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read concurrent final stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "concurrent edits preserve purchase-stock equality 1",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ],
+      "finalQuantity": 20,
+      "stock": 20
+    },
+    {
+      "name": "create concurrency fixture",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "purchase concurrency fixture",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "read concurrent final purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read concurrent final stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "concurrent edits preserve purchase-stock equality 2",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ],
+      "finalQuantity": 20,
+      "stock": 20
+    },
+    {
+      "name": "create currency fixture",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "record MAD purchase",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "change only QA store currency",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "record USD purchase",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "read multi-currency purchase list",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "summary does not sum different currencies",
+      "pass": true
+    },
+    {
+      "name": "read mixed-currency group",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "group never mislabels mixed money as one currency",
+      "pass": true,
+      "totalCost": "10.00",
+      "currency": "MAD",
+      "history": [
+        {
+          "currency": "MAD",
+          "totalCost": "10.00"
+        }
+      ]
+    },
+    {
+      "name": "read legacy mixed currency group",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "legacy group returns null aggregate and separate currencies",
+      "pass": true,
+      "totalCost": null,
+      "currency": null,
+      "byCurrency": [
+        {
+          "currency": "USD",
+          "amount": "20.00"
+        },
+        {
+          "currency": "MAD",
+          "amount": "10.00"
+        }
+      ]
+    },
+    {
+      "name": "read currency qualified list",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "same item has separate currency groups",
+      "pass": true
+    },
+    {
+      "name": "restore QA currency",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create restricted QA staff",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "view-only staff can list purchases",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "view-only staff cannot purchase",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "view-only staff cannot access product selector",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "schedule disposable staff account deletion",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "deactivate disposable staff",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "confirm product cost numeric response",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "purchase preserved original product cost",
+      "pass": true,
+      "currentCost": 25,
+      "originalCost": 25
+    },
+    {
+      "name": "inspect null date in purchase history",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "null date never changes purchase to Unix epoch",
+      "pass": true,
+      "purchaseDate": "2026-10-18T00:00:00.000Z"
+    },
+    {
+      "name": "restore QA purchase date",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "verify purchase-linked expense count",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "expense count equals purchase count",
+      "pass": true,
+      "expenses": 9,
+      "purchases": 9
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cleared original receipt is gone",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "upload synthetic receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "attach receipt to existing purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "private receipt preview serves actual PNG",
+      "pass": true
+    },
+    {
+      "name": "purchase count before reused receipt",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "attached receipt cannot be reused",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "purchase count after reused receipt",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "reuse failure creates no purchase",
+      "pass": true
+    },
+    {
+      "name": "upload synthetic receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "replace attached receipt",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "replaced receipt removed",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "upload synthetic receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "purchase for receipt delete",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "receipt delete history",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "delete purchase that owns receipt",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "purchase deletion removes receipt",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "purchase deletion removes linked expense",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "create second QA receipt store",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "upload synthetic receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "foreign receipt cannot be previewed",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign receipt cannot attach",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "receipt after rejected foreign replacement",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "rejected replacement preserves original receipt",
+      "pass": true
+    },
+    {
+      "name": "clear real attached receipt",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cleared attached receipt removed",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "delete temporary foreign upload",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "delete second QA store",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read product supplier version",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "configure product supplier options",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "configure packaging supplier options",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "supplier options from both item types",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "supplier names are trimmed and attached to correct item",
+      "pass": true
+    },
+    {
+      "name": "create supplier and invoice purchase",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "supplier invoice stored in create response",
+      "pass": true
+    },
+    {
+      "name": "save supplier and invoice",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read latest product version",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "change product suppliers after purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read supplier history",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "historical supplier invoice survive product edit",
+      "pass": true
+    },
+    {
+      "name": "unconfigured supplier rejected on edit",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "rejected supplier preserves snapshot",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "invalid supplier edit leaves invoice unchanged",
+      "pass": true
+    },
+    {
+      "name": "blank invoice rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "null invoice rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "get validation version",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "duplicate supplier names rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "null supplier list rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "packaging supplier purchase",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "packaging purchase stores own supplier",
+      "pass": true
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create deletion race material",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create deletion race purchase",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "edit-delete returns only expected race statuses",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ]
+    },
+    {
+      "name": "edit-delete final delete is safe",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "read stock after deletion race",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "edit-delete leaves zero stock",
+      "pass": true,
+      "stock": 0
+    },
+    {
+      "name": "edit-delete removes purchase expense",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "create deletion race material",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create deletion race purchase",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "delete-delete returns only expected race statuses",
+      "pass": true,
+      "statuses": [
+        200,
+        404
+      ]
+    },
+    {
+      "name": "delete-delete final delete is safe",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "read stock after deletion race",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "delete-delete leaves zero stock",
+      "pass": true,
+      "stock": 0
+    },
+    {
+      "name": "delete-delete removes purchase expense",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "mark QA units damaged",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "damaged stock blocks purchase deletion",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "damaged stock blocks purchase reduction",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "restore QA damaged units",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "simulate consumed stock on QA fixture",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "consumed stock blocks deletion",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "restore QA consumed stock",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "delete purchase removes its expense and stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "physical stock reversed to zero",
+      "pass": true
+    },
+    {
+      "name": "purchase expense removed",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "repeat purchase deletion returns 404",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "read immutable purchase stock journal",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "purchase journal remains after deletion",
+      "pass": true
+    },
+    {
+      "name": "archive QA product",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "archived product cannot be purchased",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "archive QA packaging",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "archived packaging cannot be purchased",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "selector after archives",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "archived entries hidden from selector",
+      "pass": true
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "delete temporary store and journals",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original store set restored",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "no temporary stores remain",
+      "pass": true
+    },
+    {
+      "name": "original Home after cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original Home orders shipping catalog preserved",
+      "pass": true
+    },
+    {
+      "name": "original Purchases after cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original purchase records untouched",
+      "pass": true
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    }
+  ],
+  "selectedApiResponses": [
+    {
+      "name": "read mixed-currency group",
+      "http": 200,
+      "data": {
+        "key": "p_<qa-id>~MAD",
+        "source": "MANUAL",
+        "sourceLabel": "Manual",
+        "itemType": "PACKAGING",
+        "productName": "[QA PURCHASES] mixed currency",
+        "imageUrl": null,
+        "unitLabel": "piece",
+        "quantityLabel": "1 piece",
+        "warehouseProductId": null,
+        "packagingMaterialId": "<qa-id>",
+        "shopProductId": null,
+        "totalQuantity": 1,
+        "totalCost": "10.00",
+        "currency": "MAD",
+        "totalCostByCurrency": [
+          {
+            "currency": "MAD",
+            "amount": "10.00"
+          }
+        ],
+        "editable": true,
+        "history": [
+          {
+            "id": "<qa-id>",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "date": "2026-10-19T00:00:00.000Z",
+            "purchaseDate": "2026-10-19T00:00:00.000Z",
+            "quantity": 1,
+            "quantityLabel": "1 piece",
+            "unitLabel": "piece",
+            "boxPrice": "10.00",
+            "unitPrice": "10.00",
+            "totalCost": "10.00",
+            "currency": "MAD",
+            "supplierName": null,
+            "invoiceNumber": null,
+            "notes": "Synthetic QA only",
+            "warehouseVariantId": null,
+            "stockAdded": true,
+            "expenseId": "<qa-id>",
+            "paymentMethod": "CASH",
+            "receiptUrl": null,
+            "editable": true,
+            "createdAt": "2026-10-19T23:29:26.864Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "read legacy mixed currency group",
+      "http": 200,
+      "data": {
+        "key": "p_<qa-id>",
+        "source": "MANUAL",
+        "sourceLabel": "Manual",
+        "itemType": "PACKAGING",
+        "productName": "[QA PURCHASES] mixed currency",
+        "imageUrl": null,
+        "unitLabel": "piece",
+        "quantityLabel": "2 piece",
+        "warehouseProductId": null,
+        "packagingMaterialId": "<qa-id>",
+        "shopProductId": null,
+        "totalQuantity": 2,
+        "totalCost": null,
+        "currency": null,
+        "totalCostByCurrency": [
+          {
+            "currency": "USD",
+            "amount": "20.00"
+          },
+          {
+            "currency": "MAD",
+            "amount": "10.00"
+          }
+        ],
+        "editable": true,
+        "history": [
+          {
+            "id": "<qa-id>",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "date": "2026-10-19T00:00:00.000Z",
+            "purchaseDate": "2026-10-19T00:00:00.000Z",
+            "quantity": 1,
+            "quantityLabel": "1 piece",
+            "unitLabel": "piece",
+            "boxPrice": "20.00",
+            "unitPrice": "20.00",
+            "totalCost": "20.00",
+            "currency": "USD",
+            "supplierName": null,
+            "invoiceNumber": null,
+            "notes": "Synthetic QA only",
+            "warehouseVariantId": null,
+            "stockAdded": true,
+            "expenseId": "<qa-id>",
+            "paymentMethod": "CASH",
+            "receiptUrl": null,
+            "editable": true,
+            "createdAt": "2026-10-19T23:29:27.578Z"
+          },
+          {
+            "id": "<qa-id>",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "date": "2026-10-19T00:00:00.000Z",
+            "purchaseDate": "2026-10-19T00:00:00.000Z",
+            "quantity": 1,
+            "quantityLabel": "1 piece",
+            "unitLabel": "piece",
+            "boxPrice": "10.00",
+            "unitPrice": "10.00",
+            "totalCost": "10.00",
+            "currency": "MAD",
+            "supplierName": null,
+            "invoiceNumber": null,
+            "notes": "Synthetic QA only",
+            "warehouseVariantId": null,
+            "stockAdded": true,
+            "expenseId": "<qa-id>",
+            "paymentMethod": "CASH",
+            "receiptUrl": null,
+            "editable": true,
+            "createdAt": "2026-10-19T23:29:26.864Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "read currency qualified list",
+      "http": 200,
+      "data": {
+        "summary": {
+          "totalSpent": null,
+          "currency": null,
+          "totalSpentByCurrency": [
+            {
+              "currency": "USD",
+              "amount": "20.00"
+            },
+            {
+              "currency": "MAD",
+              "amount": "483.00"
+            }
+          ],
+          "totalItems": 108,
+          "purchaseCount": 9,
+          "productCount": 8
+        },
+        "items": [
+          {
+            "key": "p_<qa-id>~USD",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "itemType": "PACKAGING",
+            "productName": "[QA PURCHASES] mixed currency",
+            "imageUrl": null,
+            "unitLabel": "piece",
+            "totalQuantity": 1,
+            "quantityLabel": "1 piece",
+            "totalCost": "20.00",
+            "currency": "USD",
+            "lastUnitPrice": "20.00",
+            "lastBoxPrice": "20.00",
+            "lastPurchaseDate": "2026-10-19T00:00:00.000Z",
+            "purchaseCount": 1,
+            "editable": true
+          },
+          {
+            "key": "p_<qa-id>~MAD",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "itemType": "PACKAGING",
+            "productName": "[QA PURCHASES] mixed currency",
+            "imageUrl": null,
+            "unitLabel": "piece",
+            "totalQuantity": 1,
+            "quantityLabel": "1 piece",
+            "totalCost": "10.00",
+            "currency": "MAD",
+            "lastUnitPrice": "10.00",
+            "lastBoxPrice": "10.00",
+            "lastPurchaseDate": "2026-10-19T00:00:00.000Z",
+            "purchaseCount": 1,
+            "editable": true
+          },
+          {
+            "key": "p_<qa-id>~MAD",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "itemType": "PACKAGING",
+            "productName": "[QA PURCHASES] race 2",
+            "imageUrl": null,
+            "unitLabel": "piece",
+            "totalQuantity": 20,
+            "quantityLabel": "20 piece",
+            "totalCost": "20.00",
+            "currency": "MAD",
+            "lastUnitPrice": "1.00",
+            "lastBoxPrice": "1.00",
+            "lastPurchaseDate": "2026-10-19T00:00:00.000Z",
+            "purchaseCount": 1,
+            "editable": true
+          },
+          {
+            "key": "p_<qa-id>~MAD",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "itemType": "PACKAGING",
+            "productName": "[QA PURCHASES] race 1",
+            "imageUrl": null,
+            "unitLabel": "piece",
+            "totalQuantity": 20,
+            "quantityLabel": "20 piece",
+            "totalCost": "20.00",
+            "currency": "MAD",
+            "lastUnitPrice": "1.00",
+            "lastBoxPrice": "1.00",
+            "lastPurchaseDate": "2026-10-19T00:00:00.000Z",
+            "purchaseCount": 1,
+            "editable": true
+          },
+          {
+            "key": "p_<qa-id>~MAD",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "itemType": "PACKAGING",
+            "productName": "[QA PURCHASES] race 0",
+            "imageUrl": null,
+            "unitLabel": "piece",
+            "totalQuantity": 20,
+            "quantityLabel": "20 piece",
+            "totalCost": "20.00",
+            "currency": "MAD",
+            "lastUnitPrice": "1.00",
+            "lastBoxPrice": "1.00",
+            "lastPurchaseDate": "2026-10-19T00:00:00.000Z",
+            "purchaseCount": 1,
+            "editable": true
+          },
+          {
+            "key": "m_<qa-id>~MAD",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "itemType": "PRODUCT",
+            "productName": "[QA PURCHASES] variant",
+            "imageUrl": "/warehouse/media/<qa-id>/content",
+            "unitLabel": "piece",
+            "totalQuantity": 4,
+            "quantityLabel": "4 piece",
+            "totalCost": "28.00",
+            "currency": "MAD",
+            "lastUnitPrice": "7.00",
+            "lastBoxPrice": "7.00",
+            "lastPurchaseDate": "2026-10-19T00:00:00.000Z",
+            "purchaseCount": 1,
+            "editable": true
+          },
+          {
+            "key": "p_<qa-id>~MAD",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "itemType": "PACKAGING",
+            "productName": "[QA PURCHASES] box",
+            "imageUrl": null,
+            "unitLabel": "piece",
+            "totalQuantity": 20,
+            "quantityLabel": "20 piece",
+            "totalCost": "50.00",
+            "currency": "MAD",
+            "lastUnitPrice": "2.50",
+            "lastBoxPrice": "2.50",
+            "lastPurchaseDate": "2026-10-19T00:00:00.000Z",
+            "purchaseCount": 1,
+            "editable": true
+          },
+          {
+            "key": "m_<qa-id>~MAD",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "itemType": "PRODUCT",
+            "productName": "[QA PURCHASES] simple",
+            "imageUrl": "/warehouse/media/<qa-id>/content",
+            "unitLabel": "piece",
+            "totalQuantity": 22,
+            "quantityLabel": "22 piece",
+            "totalCost": "335.00",
+            "currency": "MAD",
+            "lastUnitPrice": "5.00",
+            "lastBoxPrice": "5.00",
+            "lastPurchaseDate": "2026-10-19T00:00:00.000Z",
+            "purchaseCount": 2,
+            "editable": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "inspect null date in purchase history",
+      "http": 200,
+      "data": {
+        "key": "m_<qa-id>~MAD",
+        "source": "MANUAL",
+        "sourceLabel": "Manual",
+        "itemType": "PRODUCT",
+        "productName": "[QA PURCHASES] simple",
+        "imageUrl": "/warehouse/media/<qa-id>/content",
+        "unitLabel": "piece",
+        "quantityLabel": "22 piece",
+        "warehouseProductId": "<qa-id>",
+        "packagingMaterialId": null,
+        "shopProductId": null,
+        "totalQuantity": 22,
+        "totalCost": "335.00",
+        "currency": "MAD",
+        "totalCostByCurrency": [
+          {
+            "currency": "MAD",
+            "amount": "335.00"
+          }
+        ],
+        "editable": true,
+        "history": [
+          {
+            "id": "<qa-id>",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "date": "2026-10-19T00:00:00.000Z",
+            "purchaseDate": "2026-10-19T00:00:00.000Z",
+            "quantity": 7,
+            "quantityLabel": "7 piece",
+            "unitLabel": "piece",
+            "boxPrice": "5.00",
+            "unitPrice": "5.00",
+            "totalCost": "35.00",
+            "currency": "MAD",
+            "supplierName": null,
+            "invoiceNumber": null,
+            "notes": "Synthetic QA only",
+            "warehouseVariantId": "<qa-id>",
+            "stockAdded": false,
+            "expenseId": "<qa-id>",
+            "paymentMethod": "CASH",
+            "receiptUrl": null,
+            "editable": true,
+            "createdAt": "2026-10-19T23:28:46.124Z"
+          },
+          {
+            "id": "<qa-id>",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "date": "2026-10-18T00:00:00.000Z",
+            "purchaseDate": "2026-10-18T00:00:00.000Z",
+            "quantity": 15,
+            "quantityLabel": "15 piece",
+            "unitLabel": "piece",
+            "boxPrice": "20.00",
+            "unitPrice": "20.00",
+            "totalCost": "300.00",
+            "currency": "MAD",
+            "supplierName": null,
+            "invoiceNumber": null,
+            "notes": null,
+            "warehouseVariantId": "<qa-id>",
+            "stockAdded": true,
+            "expenseId": "<qa-id>",
+            "paymentMethod": "CASH",
+            "receiptUrl": null,
+            "editable": true,
+            "createdAt": "2026-10-19T23:28:42.581Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "save supplier and invoice",
+      "http": 200,
+      "data": {
+        "id": "<qa-id>",
+        "source": "MANUAL",
+        "sourceLabel": "Manual",
+        "itemType": "PRODUCT",
+        "groupKey": "m_<qa-id>~MAD",
+        "warehouseProductId": "<qa-id>",
+        "warehouseVariantId": "<qa-id>",
+        "packagingMaterialId": null,
+        "productName": "[QA PURCHASES] simple",
+        "unitLabel": "piece",
+        "imageUrl": "/warehouse/media/<qa-id>/content",
+        "quantity": 1,
+        "quantityLabel": "1 piece",
+        "unitPrice": "10.00",
+        "boxPrice": "10.00",
+        "totalCost": "10.00",
+        "currency": "MAD",
+        "purchaseDate": "2026-10-19T00:00:00.000Z",
+        "supplierName": "Local Supplier",
+        "invoiceNumber": "INV-002",
+        "notes": "Synthetic QA only",
+        "stockAdded": false,
+        "expenseId": "<qa-id>",
+        "paymentMethod": "CASH",
+        "receiptUrl": null,
+        "editable": true,
+        "createdAt": "2026-10-19T23:30:06.400Z"
+      }
+    },
+    {
+      "name": "read supplier history",
+      "http": 200,
+      "data": {
+        "key": "m_<qa-id>~MAD",
+        "source": "MANUAL",
+        "sourceLabel": "Manual",
+        "itemType": "PRODUCT",
+        "productName": "[QA PURCHASES] simple",
+        "imageUrl": "/warehouse/media/<qa-id>/content",
+        "unitLabel": "piece",
+        "quantityLabel": "23 piece",
+        "warehouseProductId": "<qa-id>",
+        "packagingMaterialId": null,
+        "shopProductId": null,
+        "totalQuantity": 23,
+        "totalCost": "345.00",
+        "currency": "MAD",
+        "totalCostByCurrency": [
+          {
+            "currency": "MAD",
+            "amount": "345.00"
+          }
+        ],
+        "editable": true,
+        "history": [
+          {
+            "id": "<qa-id>",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "date": "2026-10-19T00:00:00.000Z",
+            "purchaseDate": "2026-10-19T00:00:00.000Z",
+            "quantity": 1,
+            "quantityLabel": "1 piece",
+            "unitLabel": "piece",
+            "boxPrice": "10.00",
+            "unitPrice": "10.00",
+            "totalCost": "10.00",
+            "currency": "MAD",
+            "supplierName": "Local Supplier",
+            "invoiceNumber": "INV-002",
+            "notes": "Synthetic QA only",
+            "warehouseVariantId": "<qa-id>",
+            "stockAdded": false,
+            "expenseId": "<qa-id>",
+            "paymentMethod": "CASH",
+            "receiptUrl": null,
+            "editable": true,
+            "createdAt": "2026-10-19T23:30:06.400Z"
+          },
+          {
+            "id": "<qa-id>",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "date": "2026-10-19T00:00:00.000Z",
+            "purchaseDate": "2026-10-19T00:00:00.000Z",
+            "quantity": 7,
+            "quantityLabel": "7 piece",
+            "unitLabel": "piece",
+            "boxPrice": "5.00",
+            "unitPrice": "5.00",
+            "totalCost": "35.00",
+            "currency": "MAD",
+            "supplierName": null,
+            "invoiceNumber": null,
+            "notes": "Synthetic QA only",
+            "warehouseVariantId": "<qa-id>",
+            "stockAdded": false,
+            "expenseId": "<qa-id>",
+            "paymentMethod": "CASH",
+            "receiptUrl": null,
+            "editable": true,
+            "createdAt": "2026-10-19T23:28:46.124Z"
+          },
+          {
+            "id": "<qa-id>",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "date": "2026-10-18T00:00:00.000Z",
+            "purchaseDate": "2026-10-18T00:00:00.000Z",
+            "quantity": 15,
+            "quantityLabel": "15 piece",
+            "unitLabel": "piece",
+            "boxPrice": "20.00",
+            "unitPrice": "20.00",
+            "totalCost": "300.00",
+            "currency": "MAD",
+            "supplierName": null,
+            "invoiceNumber": null,
+            "notes": null,
+            "warehouseVariantId": "<qa-id>",
+            "stockAdded": true,
+            "expenseId": "<qa-id>",
+            "paymentMethod": "CASH",
+            "receiptUrl": null,
+            "editable": true,
+            "createdAt": "2026-10-19T23:28:42.581Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rejected supplier preserves snapshot",
+      "http": 200,
+      "data": {
+        "key": "m_<qa-id>~MAD",
+        "source": "MANUAL",
+        "sourceLabel": "Manual",
+        "itemType": "PRODUCT",
+        "productName": "[QA PURCHASES] simple",
+        "imageUrl": "/warehouse/media/<qa-id>/content",
+        "unitLabel": "piece",
+        "quantityLabel": "23 piece",
+        "warehouseProductId": "<qa-id>",
+        "packagingMaterialId": null,
+        "shopProductId": null,
+        "totalQuantity": 23,
+        "totalCost": "345.00",
+        "currency": "MAD",
+        "totalCostByCurrency": [
+          {
+            "currency": "MAD",
+            "amount": "345.00"
+          }
+        ],
+        "editable": true,
+        "history": [
+          {
+            "id": "<qa-id>",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "date": "2026-10-19T00:00:00.000Z",
+            "purchaseDate": "2026-10-19T00:00:00.000Z",
+            "quantity": 1,
+            "quantityLabel": "1 piece",
+            "unitLabel": "piece",
+            "boxPrice": "10.00",
+            "unitPrice": "10.00",
+            "totalCost": "10.00",
+            "currency": "MAD",
+            "supplierName": "Local Supplier",
+            "invoiceNumber": "INV-002",
+            "notes": "Synthetic QA only",
+            "warehouseVariantId": "<qa-id>",
+            "stockAdded": false,
+            "expenseId": "<qa-id>",
+            "paymentMethod": "CASH",
+            "receiptUrl": null,
+            "editable": true,
+            "createdAt": "2026-10-19T23:30:06.400Z"
+          },
+          {
+            "id": "<qa-id>",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "date": "2026-10-19T00:00:00.000Z",
+            "purchaseDate": "2026-10-19T00:00:00.000Z",
+            "quantity": 7,
+            "quantityLabel": "7 piece",
+            "unitLabel": "piece",
+            "boxPrice": "5.00",
+            "unitPrice": "5.00",
+            "totalCost": "35.00",
+            "currency": "MAD",
+            "supplierName": null,
+            "invoiceNumber": null,
+            "notes": "Synthetic QA only",
+            "warehouseVariantId": "<qa-id>",
+            "stockAdded": false,
+            "expenseId": "<qa-id>",
+            "paymentMethod": "CASH",
+            "receiptUrl": null,
+            "editable": true,
+            "createdAt": "2026-10-19T23:28:46.124Z"
+          },
+          {
+            "id": "<qa-id>",
+            "source": "MANUAL",
+            "sourceLabel": "Manual",
+            "date": "2026-10-18T00:00:00.000Z",
+            "purchaseDate": "2026-10-18T00:00:00.000Z",
+            "quantity": 15,
+            "quantityLabel": "15 piece",
+            "unitLabel": "piece",
+            "boxPrice": "20.00",
+            "unitPrice": "20.00",
+            "totalCost": "300.00",
+            "currency": "MAD",
+            "supplierName": null,
+            "invoiceNumber": null,
+            "notes": null,
+            "warehouseVariantId": "<qa-id>",
+            "stockAdded": true,
+            "expenseId": "<qa-id>",
+            "paymentMethod": "CASH",
+            "receiptUrl": null,
+            "editable": true,
+            "createdAt": "2026-10-19T23:28:42.581Z"
+          }
+        ]
+      }
+    }
+  ],
+  "cleanup": {
+    "temporaryStoresDeleted": 2,
+    "syntheticPurchasesRemoved": 14,
+    "syntheticCloudImageObjectsRemoved": 2,
+    "originalStoreSetRestored": true,
+    "originalPurchasesUnchanged": true,
+    "originalHomeCountsUnchanged": true,
+    "originalActiveStoreRestored": true,
+    "disposableStaffDeactivated": true,
+    "disposableStaffStandardDeletionScheduled": true
+  },
+  "notVerifiedLive": [
+    "24-hour receipt expiry (covered in PostgreSQL tests)",
+    "Actual Shop-admin delivery and payment (not placed in this pass)",
+    "Mobile/frontend visual acceptance"
+  ]
+}
