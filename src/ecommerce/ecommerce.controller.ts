@@ -19,6 +19,7 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -368,7 +369,7 @@ export class EcommerceController {
       'through the exact same dispatch/timeline/financial-event pipeline as ' +
       'any synced order.',
   })
-  @ApiOkResponse({ type: EcommerceOrderDto })
+  @ApiCreatedResponse({ type: EcommerceOrderDto })
   @ApiBadRequestResponse({
     description: 'Invalid payload, or one or more product codes do not exist.',
     type: ApiErrorDto,

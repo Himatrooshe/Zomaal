@@ -865,6 +865,36 @@ describe('EcommerceService', () => {
       to: '2026-01-31',
     });
     expect(homeWithFourConnectedCouriers.shipping.connectedProviders).toBe(4);
+
+    const remote = {
+      platform: 'YOUCAN',
+      status: 'ACTIVE',
+      productCount: 6,
+      customerCount: 10,
+      metricsSyncedAt: '2026-10-18T19:50:08.899Z',
+    };
+    const manual = {
+      platform: 'MANUAL',
+      status: 'ACTIVE',
+      productCount: null,
+      customerCount: null,
+      metricsSyncedAt: null,
+    };
+    const connections = jest
+      .spyOn(service, 'listConnections')
+      .mockResolvedValue({ data: [remote, manual] } as never);
+    const homeWithManualOrders = await service.getHome('user-id', {});
+    expect(homeWithManualOrders.catalog).toMatchObject({
+      connectedProducts: 6,
+      connectedCustomers: 10,
+      complete: true,
+      metricsFreshAsOf: remote.metricsSyncedAt,
+    });
+
+    connections.mockResolvedValue({
+      data: [{ ...remote, productCount: null }, manual],
+    } as never);
+    expect((await service.getHome('user-id', {})).catalog.complete).toBe(false);
   });
 });
 

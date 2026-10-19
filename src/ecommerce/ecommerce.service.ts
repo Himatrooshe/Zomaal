@@ -426,7 +426,10 @@ export class EcommerceService {
 
     const row = orderRows[0] ?? emptyHomeOrderMetrics();
     const activeConnections = connectionsResult.data.filter(
-      (connection) => connection.status === 'ACTIVE',
+      // Manual orders have no remote catalog or provider metrics to synchronize.
+      (connection) =>
+        connection.status === 'ACTIVE' &&
+        connection.platform !== EcommercePlatform.MANUAL,
     );
     const metricDates = activeConnections
       .map((connection) => connection.metricsSyncedAt)
