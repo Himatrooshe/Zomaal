@@ -695,28 +695,31 @@ describe('EcommerceService', () => {
       } as never,
     );
 
+    const verify = jest
+      .spyOn(service, 'verifyProductConditions')
+      .mockResolvedValue({
+        inventoryUpdates: { 'line-1': true },
+        lines: [
+          {
+            ...line,
+            condition: 'DAMAGED',
+            damageCost: new Prisma.Decimal(60),
+            conditionNotes: null,
+            conditionRecordedAt: new Date(),
+          },
+        ],
+      } as never);
     const result = await service.recordProductCondition('user-id', 'order-1', {
       productCode: 'DH564BJ0',
       condition: 'DAMAGED',
       damageCost: 60,
     });
 
-    expect(applyReturnCondition).toHaveBeenCalledWith(
-      expect.objectContaining({
-        storeId: 'store-id',
-        orderId: 'order-1',
-        lineId: 'line-1',
-        condition: 'DAMAGED',
-        isCorrection: true,
-      }),
-    );
+    expect(verify).toHaveBeenCalledWith('store-id', 'order-1', [
+      { orderLineId: 'line-1', condition: 'DAMAGED', damageCost: 60 },
+    ]);
     expect(result.inventoryUpdated).toBe(true);
-    expect(setLineLoss).toHaveBeenCalledTimes(1);
-    const [orderId, lineId, currency, target, reason] = setLineLoss.mock
-      .calls[0] as [string, string, string, Prisma.Decimal, string];
-    expect([orderId, lineId, currency]).toEqual(['order-1', 'line-1', 'MAD']);
-    expect(target.toFixed(2)).toBe('60.00');
-    expect(reason).toContain('corrected');
+    expect(result.damageCost).toBe('60.00');
   });
 
   it('counts only delivered, not-reversed orders as revenue', async () => {

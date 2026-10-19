@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { withOrderTransaction } from '../prisma/order-transaction';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, ShippingShipmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -21,6 +23,9 @@ const TERMINAL_FAILURE_STATUSES = new Set<ShippingShipmentStatus>([
   ShippingShipmentStatus.CANCELLED,
   ShippingShipmentStatus.REFUSED,
   ShippingShipmentStatus.RETURNED_TO_SELLER,
+  ShippingShipmentStatus.RETURNED_TO_WAREHOUSE,
+  ShippingShipmentStatus.RETURN_INSPECTION,
+  ShippingShipmentStatus.RETURNED_TO_STOCK,
 ]);
 
 // The parcel travelled and came back, so the courier still charges for it.
@@ -28,6 +33,9 @@ const TERMINAL_FAILURE_STATUSES = new Set<ShippingShipmentStatus>([
 const SHIPPED_FAILURE_STATUSES = new Set<ShippingShipmentStatus>([
   ShippingShipmentStatus.REFUSED,
   ShippingShipmentStatus.RETURNED_TO_SELLER,
+  ShippingShipmentStatus.RETURNED_TO_WAREHOUSE,
+  ShippingShipmentStatus.RETURN_INSPECTION,
+  ShippingShipmentStatus.RETURNED_TO_STOCK,
 ]);
 const SHIPPED_FAILURE_EVENT_TYPES = new Set<string>([
   OrderEventType.DELIVERY_FAILED,
@@ -75,6 +83,84 @@ export class EcommerceOrderFinancialService {
     private readonly whatsAppTrigger: WhatsAppTriggerService,
   ) {}
 
+  forTransaction(prisma: PrismaService): EcommerceOrderFinancialService {
+    return new EcommerceOrderFinancialService(
+      prisma,
+      this.orderStock.forTransaction(prisma),
+      this.whatsAppTrigger,
+    );
+  }
+
+  async syncFromAmeexShipmentId(shipmentId: string) {
+    const shipment = await this.prisma.ameexShipment.findUnique({
+      where: { id: shipmentId },
+    });
+    if (!shipment?.reference)
+      return { applied: false, reason: 'NO_ORDER_REFERENCE' };
+    const orders = await this.prisma.ecommerceOrder.findMany({
+      where: {
+        connection: { store: { userId: shipment.userId } },
+        OR: [{ id: shipment.reference }, { orderName: shipment.reference }],
+      },
+      take: 2,
+      select: { id: true, dispatch: { select: { id: true } } },
+    });
+    if (orders.length !== 1 || orders[0].dispatch)
+      return {
+        applied: false,
+        reason:
+          orders.length > 1
+            ? 'AMBIGUOUS_ORDER_REFERENCE'
+            : 'NO_MATCHING_UNDISPATCHED_ORDER',
+      };
+    return withOrderTransaction(this.prisma, orders[0].id, async (tx) => {
+      const orderId = orders[0].id;
+      const type =
+        shipment.normalizedStatus === ShippingShipmentStatus.DELIVERED
+          ? OrderEventType.DELIVERED
+          : shipment.normalizedStatus === ShippingShipmentStatus.CANCELLED
+            ? OrderEventType.ORDER_CANCELLED
+            : shipment.normalizedStatus === ShippingShipmentStatus.REFUSED
+              ? OrderEventType.DELIVERY_FAILED
+              : TERMINAL_FAILURE_STATUSES.has(shipment.normalizedStatus)
+                ? OrderEventType.RETURNED
+                : shipment.normalizedStatus === ShippingShipmentStatus.PICKED_UP
+                  ? OrderEventType.PICKED_UP
+                  : OrderEventType.IN_TRANSIT;
+      const occurredAt =
+        shipment.providerUpdatedAt ??
+        shipment.lastActionAt ??
+        shipment.updatedAt;
+      const providerEventId = `ameex:${shipment.id}:${shipment.normalizedStatus}:${occurredAt.getTime()}`;
+      await tx.ecommerceOrderEvent.upsert({
+        where: { orderId_providerEventId: { orderId, providerEventId } },
+        create: {
+          orderId,
+          providerEventId,
+          source: 'SYSTEM',
+          type,
+          title: `Ameex ${shipment.normalizedStatus}`,
+          occurredAt,
+          metadata: {
+            number: shipment.providerCode,
+            carrier: 'AMEEX',
+            shipmentId: shipment.id,
+            fee: shipment.fee?.toFixed(4) ?? null,
+            currency: shipment.currency,
+          },
+        },
+        update: {},
+      });
+      const scoped = this.forTransaction(tx);
+      if (
+        !TERMINAL_FAILURE_STATUSES.has(shipment.normalizedStatus) &&
+        shipment.normalizedStatus !== ShippingShipmentStatus.DELIVERED
+      )
+        await new OrderStockService(tx).reserveOrder(orderId);
+      return scoped.syncFromTimelineEvents(orderId);
+    });
+  }
+
   /** Customer message for the new courier status; never blocks the ledger. */
   private async queueWhatsApp(
     orderId: string,
@@ -101,7 +187,7 @@ export class EcommerceOrderFinancialService {
     }
   }
 
-  /** Stock follows the same carrier outcome; a failure must not undo the ledger write. */
+  /** Stock and ledger follow the same carrier outcome in one atomic transaction. */
   private async syncStock(
     orderId: string,
     outcome: 'DELIVERED' | 'CANCELLED',
@@ -117,6 +203,7 @@ export class EcommerceOrderFinancialService {
       this.logger.error(
         `Order stock sync (${outcome}) failed for order ${orderId}: ${error instanceof Error ? error.message : String(error)}`,
       );
+      throw error;
     }
   }
 
@@ -154,7 +241,10 @@ export class EcommerceOrderFinancialService {
 
     for (const event of events) {
       netProfit = netProfit.plus(event.netProfitImpact);
-      if (event.type === 'REVENUE_RECOGNIZED') {
+      if (
+        event.type === 'REVENUE_RECOGNIZED' ||
+        event.type === 'REVENUE_REINSTATED'
+      ) {
         revenue = revenue.plus(event.revenue);
         productCost = productCost.plus(event.productCost);
         shippingCost = shippingCost.plus(event.shippingCost);
@@ -216,7 +306,9 @@ export class EcommerceOrderFinancialService {
       // shipping plugin on Shopify/YouCan/Lightfunnels (any carrier: FedEx,
       // DHL, local couriers). Fall back to the order's Timeline data
       // instead of leaving revenue stuck at 0 forever.
-      return this.syncFromTimelineEvents(order.id);
+      return withOrderTransaction(this.prisma, order.id, (tx) =>
+        this.forTransaction(tx).syncFromTimelineEvents(order.id),
+      );
     }
     return this.syncFromDispatchId(order.dispatch.id);
   }
@@ -227,6 +319,12 @@ export class EcommerceOrderFinancialService {
    * (platform plugin or manual shipping) are evaluated here.
    */
   async syncUndispatchedOrder(orderId: string): Promise<void> {
+    return withOrderTransaction(this.prisma, orderId, (tx) =>
+      this.forTransaction(tx).syncUndispatchedOrderLocked(orderId),
+    );
+  }
+
+  private async syncUndispatchedOrderLocked(orderId: string): Promise<void> {
     const order = await this.prisma.ecommerceOrder.findUnique({
       where: { id: orderId },
       select: { dispatch: { select: { id: true } } },
@@ -255,7 +353,7 @@ export class EcommerceOrderFinancialService {
   private async syncFromTimelineEvents(orderId: string) {
     const events = await this.prisma.ecommerceOrderEvent.findMany({
       where: { orderId },
-      select: { type: true, occurredAt: true },
+      select: { type: true, occurredAt: true, metadata: true },
     });
     if (events.length === 0) {
       return { applied: false, reason: 'NOT_DISPATCHED' as SyncReason };
@@ -279,7 +377,21 @@ export class EcommerceOrderFinancialService {
           lines: { include: ORDER_LINE_STOCK_INCLUDE },
         },
       });
-      const event = await this.applyRevenueRecognition(order, null);
+      const latest = [...events]
+        .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
+        .find(
+          (e) =>
+            (e.metadata as { carrier?: string } | null)?.carrier === 'AMEEX',
+        );
+      const meta = latest?.metadata as
+        | { fee?: string | null; currency?: string }
+        | null
+        | undefined;
+      const fee =
+        meta?.fee && meta.currency === order.currency
+          ? new Prisma.Decimal(meta.fee)
+          : null;
+      const event = await this.applyRevenueRecognition(order, fee);
       const deliveredAt = events
         .filter((e) => e.type === OrderEventType.DELIVERED)
         .reduce(
@@ -301,7 +413,23 @@ export class EcommerceOrderFinancialService {
       });
       const event = await this.applyRevenueReversal(order.id, order.currency);
       if (SHIPPED_FAILURE_EVENT_TYPES.has(currentStatus)) {
-        await this.applyShippingLoss(order.id, order.currency, order.shipping);
+        const latest = [...events]
+          .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
+          .find(
+            (e) =>
+              (e.metadata as { carrier?: string } | null)?.carrier === 'AMEEX',
+          );
+        const meta = latest?.metadata as
+          | { fee?: string | null; currency?: string }
+          | null
+          | undefined;
+        await this.applyShippingLoss(
+          order.id,
+          order.currency,
+          meta?.fee && meta.currency === order.currency
+            ? new Prisma.Decimal(meta.fee)
+            : order.shipping,
+        );
       }
       await this.syncStock(order.id, 'CANCELLED');
       return {
@@ -343,6 +471,13 @@ export class EcommerceOrderFinancialService {
       where: { id: orderId },
       select: {
         shipping: true,
+        currency: true,
+        events: {
+          where: { metadata: { path: ['carrier'], equals: 'AMEEX' } },
+          orderBy: { occurredAt: 'desc' },
+          take: 1,
+          select: { metadata: true },
+        },
         dispatch: {
           select: {
             senditShipment: { select: { fee: true } },
@@ -354,10 +489,45 @@ export class EcommerceOrderFinancialService {
       },
     });
     const fee = pickShipmentFee(order.dispatch);
-    return fee ?? order.shipping;
+    const meta = order.events?.[0]?.metadata as
+      | { fee?: string | null; currency?: string }
+      | null
+      | undefined;
+    const ameexFee =
+      meta?.fee && meta.currency === order.currency
+        ? new Prisma.Decimal(meta.fee)
+        : null;
+    return fee ?? ameexFee ?? order.shipping;
   }
 
   async syncFromDispatchId(dispatchId: string) {
+    const dispatch = await this.prisma.ecommerceOrderDispatch.findUnique({
+      where: { id: dispatchId },
+      select: { orderId: true },
+    });
+    if (!dispatch)
+      return { applied: false, reason: 'NOT_DISPATCHED' as SyncReason };
+    const result = await withOrderTransaction(
+      this.prisma,
+      dispatch.orderId,
+      (tx) => this.forTransaction(tx).syncFromDispatchIdLocked(dispatchId),
+    );
+    // Notification writes/network calls run after the order transaction commits.
+    const current = await this.prisma.ecommerceOrderDispatch.findUnique({
+      where: { id: dispatchId },
+      include: {
+        senditShipment: { select: SHIPMENT_SYNC_SELECT },
+        quickLivraisonShipment: { select: SHIPMENT_SYNC_SELECT },
+        forceLogShipment: { select: SHIPMENT_SYNC_SELECT },
+        ozoneExpressShipment: { select: SHIPMENT_SYNC_SELECT },
+      },
+    });
+    const shipment = current ? pickCourierShipment(current) : null;
+    if (shipment) await this.queueWhatsApp(dispatch.orderId, shipment);
+    return result;
+  }
+
+  private async syncFromDispatchIdLocked(dispatchId: string) {
     const dispatch = await this.prisma.ecommerceOrderDispatch.findUnique({
       where: { id: dispatchId },
       include: {
@@ -379,7 +549,6 @@ export class EcommerceOrderFinancialService {
       return { applied: false, reason: 'NO_CARRIER_STATUS_YET' as SyncReason };
     }
     await this.syncCodStatus(dispatch.order.id);
-    await this.queueWhatsApp(dispatch.order.id, shipment);
 
     if (shipment.normalizedStatus === ShippingShipmentStatus.DELIVERED) {
       const event = await this.applyRevenueRecognition(
@@ -456,7 +625,7 @@ export class EcommerceOrderFinancialService {
     if (delta.isZero()) return null;
 
     const idempotencyKey = booked._sum.damageCost
-      ? `${lineKey}:${recordedAt.getTime()}`
+      ? `${lineKey}:${randomUUID()}`
       : lineKey;
     return this.prisma.ecommerceOrderFinancialEvent.upsert({
       where: {
@@ -465,6 +634,7 @@ export class EcommerceOrderFinancialService {
       create: {
         orderId,
         type: 'DAMAGE_LOSS',
+        createdAt: recordedAt,
         revenue: new Prisma.Decimal(0),
         productCost: new Prisma.Decimal(0),
         shippingCost: new Prisma.Decimal(0),
@@ -497,7 +667,35 @@ export class EcommerceOrderFinancialService {
       },
     });
     if (existing) {
-      return existing;
+      const reversal = await this.prisma.ecommerceOrderFinancialEvent.findFirst(
+        {
+          where: { orderId: order.id, type: 'REVENUE_REVERSED' },
+          orderBy: { createdAt: 'desc' },
+        },
+      );
+      if (!reversal) return existing;
+      const idempotencyKey = `revenue-reinstated:${reversal.id}`;
+      return this.prisma.ecommerceOrderFinancialEvent.upsert({
+        where: {
+          orderId_idempotencyKey: { orderId: order.id, idempotencyKey },
+        },
+        create: {
+          orderId: order.id,
+          type: 'REVENUE_REINSTATED',
+          revenue: existing.revenue,
+          productCost: existing.productCost,
+          shippingCost: new Prisma.Decimal(0),
+          giftCost: new Prisma.Decimal(0),
+          packagingCost: new Prisma.Decimal(0),
+          damageCost: new Prisma.Decimal(0),
+          netProfitImpact: existing.revenue.minus(existing.productCost),
+          currency: order.currency,
+          reason:
+            'Later courier delivery corrects a previous reversal; incurred costs retained',
+          idempotencyKey,
+        },
+        update: {},
+      });
     }
 
     // COGS from lines matched to a warehouse product: product, gift and
@@ -568,8 +766,22 @@ export class EcommerceOrderFinancialService {
         },
       },
     });
+    let reversalKey = REVENUE_REVERSED_KEY;
     if (existing) {
-      return existing;
+      const reinstated =
+        await this.prisma.ecommerceOrderFinancialEvent.findFirst({
+          where: { orderId, type: 'REVENUE_REINSTATED' },
+          orderBy: { createdAt: 'desc' },
+        });
+      if (!reinstated) return existing;
+      reversalKey = `revenue-reversed:${reinstated.id}`;
+      const correction =
+        await this.prisma.ecommerceOrderFinancialEvent.findUnique({
+          where: {
+            orderId_idempotencyKey: { orderId, idempotencyKey: reversalKey },
+          },
+        });
+      if (correction) return correction;
     }
 
     const recognized =
@@ -605,7 +817,7 @@ export class EcommerceOrderFinancialService {
         currency,
         reason:
           'Carrier marked shipment as cancelled/refused/returned after being delivered',
-        idempotencyKey: REVENUE_REVERSED_KEY,
+        idempotencyKey: reversalKey,
       },
     });
   }

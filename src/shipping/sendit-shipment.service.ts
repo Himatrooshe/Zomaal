@@ -1,4 +1,8 @@
 import {
+  staleShipmentStatus,
+  terminalRegressionFilter,
+} from './shipment-status-chronology';
+import {
   BadRequestException,
   BadGatewayException,
   ConflictException,
@@ -371,10 +375,21 @@ export class SenditShipmentService {
             ? dispatch?.id
             : undefined;
         const shouldRefresh =
-          !current ||
-          !current.lastActionAt ||
-          (delivery.lastActionAt !== null &&
-            delivery.lastActionAt >= current.lastActionAt);
+          !staleShipmentStatus(
+            current
+              ? {
+                  normalizedStatus: current.normalizedStatus,
+                  providerUpdatedAt:
+                    current.providerUpdatedAt ?? current.lastActionAt,
+                }
+              : null,
+            normalizedStatus,
+            delivery.providerUpdatedAt ?? delivery.lastActionAt,
+          ) &&
+          (!current ||
+            !current.lastActionAt ||
+            (delivery.lastActionAt !== null &&
+              delivery.lastActionAt >= current.lastActionAt));
 
         let shipmentId: string;
         if (!current) {
@@ -589,6 +604,7 @@ export class SenditShipmentService {
       const updateResult = await tx.senditShipment.updateMany({
         where: {
           id: shipment.id,
+          ...terminalRegressionFilter(normalizedStatus),
           OR: [{ lastActionAt: null }, { lastActionAt: { lte: eventAt } }],
         },
         data: {

@@ -19,6 +19,9 @@ const FAILED_SHIPMENT_STATUSES = new Set<ShippingShipmentStatus>([
   ShippingShipmentStatus.CANCELLED,
   ShippingShipmentStatus.REFUSED,
   ShippingShipmentStatus.RETURNED_TO_SELLER,
+  ShippingShipmentStatus.RETURNED_TO_WAREHOUSE,
+  ShippingShipmentStatus.RETURN_INSPECTION,
+  ShippingShipmentStatus.RETURNED_TO_STOCK,
 ]);
 
 export function isCourierPaidSituation(

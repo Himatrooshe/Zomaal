@@ -1105,15 +1105,18 @@ model EcommerceOrderLine {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  // Null until all ordered quantities are verified; MIXED for multiple complete conditions.
   // Recorded by the warehouse scan-and-condition workflow when a shipment
-  // comes back. GOOD | DAMAGED | LOST | RETURNED | MISSING. Null until scanned.
-  condition           String?
-  damageCost          Decimal?              @db.Decimal(20, 4)
-  conditionNotes      String?
-  conditionRecordedAt DateTime?
+  // comes back. GOOD | DAMAGED | LOST | RETURNED | MISSING | MIXED.
+  condition            String?
+  damageCost           Decimal?              @db.Decimal(20, 4)
+  conditionNotes       String?
+  conditionRecordedAt  DateTime?
+  conditionAllocations Json? // quantity/component condition snapshot; immutable stock/financial journals retain corrections
+  conditionRevision    Int                   @default(0)
   // Where this line's units are in the order-driven stock flow: reserved at
   // courier dispatch, deducted at delivery, released on cancel/return.
-  stockStatus         OrderLineStockStatus?
+  stockStatus          OrderLineStockStatus?
 
   orderId String
   order   EcommerceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)

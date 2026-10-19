@@ -27,6 +27,7 @@ describe('ForceLogShipmentService', () => {
   const shipmentCount = jest.fn();
   const txShipmentFindUnique = jest.fn().mockResolvedValue(null);
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     forceLogConnection: { findUnique: connectionFindUnique },
     ecommerceOrderDispatch: { findFirst: dispatchFindFirst },
     forceLogShipment: {

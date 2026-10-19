@@ -18,7 +18,8 @@ export class ReturnsSummaryResponseDto {
 
   @ApiProperty({
     example: 'MAD',
-    description: "The store's base currency. All bucket values are converted into it.",
+    description:
+      "The store's base currency. All bucket values are converted into it.",
   })
   currency!: string;
 
@@ -42,13 +43,14 @@ export class ReturnsSummaryResponseDto {
     type: ReturnsBucketDto,
     description:
       'Order lines scanned in as DAMAGED. Value uses the recorded damageCost when present, ' +
-      'falling back to the line total.',
+      'falling back to known purchase cost; unknown purchase cost contributes zero.',
   })
   damaged!: ReturnsBucketDto;
 
   @ApiProperty({
     type: ReturnsBucketDto,
-    description: 'Order lines scanned in as MISSING or LOST.',
+    description:
+      'Physical items recorded MISSING or LOST; value is purchase-cost loss.',
   })
   missing!: ReturnsBucketDto;
 
@@ -56,7 +58,8 @@ export class ReturnsSummaryResponseDto {
     type: String,
     nullable: true,
     format: 'date-time',
-    description: 'Most recent order-line update timestamp among the included orders.',
+    description:
+      'Most recent order-line update timestamp among the included orders.',
   })
   dataUpdatedAt!: string | null;
 }

@@ -1,4 +1,10 @@
 import {
+  OrderConditionService,
+  type ConditionInput,
+  conditionSnapshot,
+  publicConditionEntries,
+} from './order-condition.service';
+import {
   BadGatewayException,
   BadRequestException,
   ConflictException,
@@ -52,7 +58,6 @@ import type { ReturnsSummaryResponseDto } from './dto/returns-summary.dto';
 import { ShippingService } from '../shipping/shipping.service';
 import { OrderStockService } from './order-stock.service';
 import { ProductCondition } from './constants/product-condition';
-import { conditionLoss } from './condition-loss.util';
 import {
   deriveCurrentStatus,
   deriveTerminalOutcome,
@@ -63,16 +68,8 @@ import { EcommerceOrderFinancialService } from './ecommerce-order-financial.serv
 // records delivery from the courier (or the platform timeline for plugin
 // shipping) and reverses it when the parcel comes back.
 const DELIVERED_ORDER_FILTER = Prisma.sql`
-  EXISTS (
-    SELECT 1 FROM "EcommerceOrderFinancialEvent" recognized
-    WHERE recognized."orderId" = orders."id"
-      AND recognized."type" = 'REVENUE_RECOGNIZED'
-  )
-  AND NOT EXISTS (
-    SELECT 1 FROM "EcommerceOrderFinancialEvent" reversed
-    WHERE reversed."orderId" = orders."id"
-      AND reversed."type" = 'REVENUE_REVERSED'
-  )
+  COALESCE((SELECT SUM(CASE WHEN outcome."type" IN ('REVENUE_RECOGNIZED','REVENUE_REINSTATED') THEN 1 WHEN outcome."type"='REVENUE_REVERSED' THEN -1 ELSE 0 END)
+    FROM "EcommerceOrderFinancialEvent" outcome WHERE outcome."orderId"=orders."id"),0)>0
 `;
 const MAX_TIMESERIES_DAYS = 366;
 
@@ -114,10 +111,19 @@ const LOST_SHIPMENT_STATUSES = Prisma.sql`(
 )`;
 
 // One dispatch has at most one linked shipment across these four courier
-// integrations (Ameex is not wired to EcommerceOrderDispatch, so it is
-// intentionally excluded — see shipping-dashboard.service.ts).
+// integrations. Ameex is linked through verified, store-owned timeline events.
 const SHIPMENT_STATUS_CTE = Prisma.sql`
-  WITH shipment_status AS (
+  WITH ameex_status AS (
+    SELECT DISTINCT ON (events."orderId") events."orderId", am."normalizedStatus"
+    FROM "EcommerceOrderEvent" events
+    INNER JOIN "AmeexShipment" am ON am."id"=events."metadata"->>'shipmentId'
+    INNER JOIN "EcommerceOrder" o ON o."id"=events."orderId"
+    INNER JOIN "EcommerceConnection" c ON c."id"=o."connectionId"
+    INNER JOIN "Store" st ON st."id"=c."storeId" AND st."userId"=am."userId"
+    WHERE events."metadata"->>'carrier'='AMEEX'
+      AND NOT EXISTS (SELECT 1 FROM "EcommerceOrderDispatch" d WHERE d."orderId"=o."id")
+    ORDER BY events."orderId",am."providerUpdatedAt" DESC NULLS LAST,am."updatedAt" DESC
+  ), shipment_status AS (
     SELECT
       dispatch."orderId" AS "orderId",
       COALESCE(
@@ -131,6 +137,7 @@ const SHIPMENT_STATUS_CTE = Prisma.sql`
     LEFT JOIN "QuickLivraisonShipment" quick ON quick."dispatchId" = dispatch."id"
     LEFT JOIN "ForceLogShipment" forcelog ON forcelog."dispatchId" = dispatch."id"
     LEFT JOIN "OzoneExpressShipment" ozone ON ozone."dispatchId" = dispatch."id"
+    UNION ALL SELECT "orderId","normalizedStatus" FROM ameex_status
   )
 `;
 
@@ -795,7 +802,7 @@ export class EcommerceService {
       include: {
         connection: { select: { platform: true } },
         lines: {
-          include: { warehouseVariant: { include: { product: true } } },
+          include: { warehouseVariant: { include: SCANNED_VARIANT_INCLUDE } },
         },
       },
     });
@@ -1115,118 +1122,156 @@ export class EcommerceService {
       }
       if (
         typeof payload.trackingNumber !== 'string' ||
-        !payload.trackingNumber
-      ) {
+        !payload.trackingNumber.trim()
+      )
         throw new BadRequestException(
           'Scanned QR payload is missing trackingNumber',
         );
-      }
-      trackingNumber = payload.trackingNumber;
+      trackingNumber = payload.trackingNumber.trim();
     }
-
+    if (!trackingNumber)
+      throw new BadRequestException('Tracking number must not be blank');
     const store = await this.requireStore(userId);
-    const dispatch = await this.prisma.ecommerceOrderDispatch.findFirst({
-      where: {
-        providerTracking: trackingNumber,
-        order: { connection: { storeId: store.id } },
-      },
-      include: {
-        order: {
-          include: {
-            lines: {
-              include: { warehouseVariant: { include: { product: true } } },
+    const owner = await this.prisma.store.findUnique({
+      where: { id: store.id },
+      select: { userId: true },
+    });
+    const [dispatches, events, ameex] = await Promise.all([
+      this.prisma.ecommerceOrderDispatch.findMany({
+        where: {
+          providerTracking: trackingNumber,
+          order: { connection: { storeId: store.id } },
+        },
+        take: 2,
+        include: {
+          order: {
+            include: {
+              lines: {
+                include: {
+                  warehouseVariant: { include: SCANNED_VARIANT_INCLUDE },
+                },
+              },
+            },
+          },
+          senditShipment: { select: { normalizedStatus: true } },
+          quickLivraisonShipment: { select: { normalizedStatus: true } },
+          forceLogShipment: { select: { normalizedStatus: true } },
+          ozoneExpressShipment: { select: { normalizedStatus: true } },
+        },
+      }),
+      this.prisma.ecommerceOrderEvent.findMany({
+        distinct: ['orderId'],
+        take: 2,
+        where: {
+          order: { connection: { storeId: store.id } },
+          metadata: { path: ['number'], equals: trackingNumber },
+        },
+        select: {
+          metadata: true,
+          order: {
+            select: {
+              id: true,
+              orderName: true,
+              events: { select: { type: true, occurredAt: true } },
+              lines: {
+                include: {
+                  warehouseVariant: { include: SCANNED_VARIANT_INCLUDE },
+                },
+              },
             },
           },
         },
-        // Dispatch.status only tells you whether we succeeded in HANDING
-        // the parcel to the courier (PENDING/DISPATCHED/FAILED) — it never
-        // changes again after that. The real "where is it now" status
-        // (PICKED_UP/IN_TRANSIT/DELIVERED/...) lives on whichever of these
-        // 4 courier-specific tables is linked.
-        senditShipment: { select: { normalizedStatus: true } },
-        quickLivraisonShipment: { select: { normalizedStatus: true } },
-        forceLogShipment: { select: { normalizedStatus: true } },
-        ozoneExpressShipment: { select: { normalizedStatus: true } },
-      },
-    });
-    if (dispatch) {
-      const shipment =
-        dispatch.senditShipment ??
-        dispatch.quickLivraisonShipment ??
-        dispatch.forceLogShipment ??
-        dispatch.ozoneExpressShipment ??
-        null;
-
+      }),
+      owner
+        ? this.prisma.ameexShipment.findFirst({
+            where: { providerCode: trackingNumber, userId: owner.userId },
+          })
+        : Promise.resolve(null),
+    ]);
+    const ameexCandidates = ameex?.reference
+      ? await this.prisma.ecommerceOrder.findMany({
+          where: {
+            connection: { store: { userId: owner!.userId } },
+            OR: [{ id: ameex.reference }, { orderName: ameex.reference }],
+          },
+          take: 2,
+          include: {
+            connection: { select: { storeId: true } },
+            lines: {
+              include: {
+                warehouseVariant: { include: SCANNED_VARIANT_INCLUDE },
+              },
+            },
+          },
+        })
+      : [];
+    if (ameexCandidates.length > 1)
+      throw new ConflictException(
+        'Shipment reference matches multiple stores/orders; select an order explicitly',
+      );
+    const ameexOrders = ameexCandidates.filter(
+      (order) => order.connection.storeId === store.id,
+    );
+    const orderIds = new Set([
+      ...dispatches.map((d) => d.order.id),
+      ...events.map((e) => e.order.id),
+      ...ameexOrders.map((o) => o.id),
+    ]);
+    if (orderIds.size > 1)
+      throw new ConflictException(
+        'Tracking number matches multiple orders; select an order explicitly',
+      );
+    if (dispatches[0]) {
+      const d = dispatches[0],
+        shipment =
+          d.senditShipment ??
+          d.quickLivraisonShipment ??
+          d.forceLogShipment ??
+          d.ozoneExpressShipment;
       return {
-        orderId: dispatch.order.id,
-        orderName: dispatch.order.orderName,
+        orderId: d.order.id,
+        orderName: d.order.orderName,
         source: 'ZOMAAL_COURIER' as const,
-        provider: dispatch.provider,
-        // Guaranteed non-null: the where clause above only matches dispatches
-        // whose providerTracking equals trackingNumber.
-        trackingNumber: dispatch.providerTracking ?? trackingNumber,
-        dispatchStatus: dispatch.status,
-        // Null only if the courier hasn't sent us a status update yet (or we
-        // haven't synced/received its webhook). Never derived from dispatch
-        // status — that would silently show "PENDING" forever after delivery.
+        provider: d.provider,
+        trackingNumber,
+        dispatchStatus: d.status,
         status: shipment?.normalizedStatus ?? null,
-        products: mapScannedLines(dispatch.order.lines),
+        products: mapScannedLines(d.order.lines),
       };
     }
-
-    // No Zomaal dispatch matched — try the order's Timeline tracking info
-    // instead (fulfilled via a 3rd-party shipping plugin on the platform;
-    // any carrier, e.g. FedEx). The GIN index on EcommerceOrderEvent.metadata
-    // keeps this a fast lookup rather than a table scan.
-    const trackingEvent = await this.prisma.ecommerceOrderEvent.findFirst({
-      where: {
-        order: { connection: { storeId: store.id } },
-        metadata: { path: ['number'], equals: trackingNumber },
-      },
-      select: {
-        metadata: true,
-        order: {
-          select: {
-            id: true,
-            orderName: true,
-            events: { select: { type: true, occurredAt: true } },
-            lines: {
-              include: { warehouseVariant: { include: { product: true } } },
-            },
-          },
-        },
-      },
-    });
-    if (!trackingEvent) {
-      throw new NotFoundException('No shipment found for this code');
+    if (ameex && ameexOrders[0]) {
+      const order = ameexOrders[0];
+      return {
+        orderId: order.id,
+        orderName: order.orderName,
+        source: 'ZOMAAL_COURIER' as const,
+        provider: 'AMEEX',
+        trackingNumber,
+        dispatchStatus: null,
+        status: ameex.normalizedStatus,
+        products: mapScannedLines(order.lines),
+      };
     }
-
-    const metadata = trackingEvent.metadata as {
-      carrier?: unknown;
-      number?: unknown;
-    } | null;
-    const carrier =
-      typeof metadata?.carrier === 'string'
-        ? metadata.carrier
-        : 'Unknown carrier';
-
-    return {
-      orderId: trackingEvent.order.id,
-      orderName: trackingEvent.order.orderName,
-      source: 'PLATFORM_TRACKING' as const,
-      provider: carrier,
-      trackingNumber,
-      dispatchStatus: null,
-      // deriveTerminalOutcome first — correctly resolves a delivered-then-
-      // returned order to RETURNED, which deriveCurrentStatus's severity
-      // ranking never would (DELIVERED always outranks RETURNED there).
-      // Falls back to deriveCurrentStatus only when no terminal outcome
-      // exists yet, to still show an in-progress status like IN_TRANSIT.
-      status:
-        deriveTerminalOutcome(trackingEvent.order.events) ??
-        deriveCurrentStatus(trackingEvent.order.events),
-      products: mapScannedLines(trackingEvent.order.lines),
-    };
+    if (events[0]) {
+      const e = events[0],
+        metadata = e.metadata as { carrier?: unknown } | null;
+      return {
+        orderId: e.order.id,
+        orderName: e.order.orderName,
+        source: 'PLATFORM_TRACKING' as const,
+        provider:
+          typeof metadata?.carrier === 'string'
+            ? metadata.carrier
+            : 'Unknown carrier',
+        trackingNumber,
+        dispatchStatus: null,
+        status:
+          deriveTerminalOutcome(e.order.events) ??
+          deriveCurrentStatus(e.order.events),
+        products: mapScannedLines(e.order.lines),
+      };
+    }
+    throw new NotFoundException('No shipment found for this code');
   }
 
   /**
@@ -1265,10 +1310,15 @@ export class EcommerceService {
       throw new NotFoundException('Order not found');
     }
 
-    const line = order.lines.find(
+    const matchingLines = order.lines.filter(
       (candidate) =>
         candidate.warehouseVariant?.productCode === input.productCode,
     );
+    if (matchingLines.length > 1)
+      throw new ConflictException(
+        'Product occurs on multiple order lines; verify by orderLineId',
+      );
+    const line = matchingLines[0];
     if (!line) {
       throw new NotFoundException(
         `No line on this order matches product code ${input.productCode}`,
@@ -1288,6 +1338,19 @@ export class EcommerceService {
    * reach those). Single source of truth: recordProductCondition and this
    * both delegate to applyProductCondition below — never duplicated.
    */
+  async verifyProductConditions(
+    storeId: string,
+    orderId: string,
+    inputs: ConditionInput[],
+    context?: { returnRequestId: string; reason?: string },
+  ) {
+    return new OrderConditionService(
+      this.prisma,
+      this.financialService,
+      this.currencyService,
+    ).record(storeId, orderId, inputs, context);
+  }
+
   async recordProductConditionByLineId(
     userId: string,
     orderId: string,
@@ -1321,92 +1384,32 @@ export class EcommerceService {
 
   private async applyProductCondition(
     store: { id: string },
-    order: {
-      id: string;
-      orderName: string | null;
-      currency: string;
-    },
-    line: {
-      id: string;
-      quantity: number;
-      condition: string | null;
-      damageCost: Prisma.Decimal | null;
-      totalPrice: Prisma.Decimal;
-      warehouseVariant: {
-        costPrice: Prisma.Decimal;
-        inventoryItem: { id: string } | null;
-      } | null;
-    },
-    input: {
-      condition: ProductCondition;
-      damageCost?: number;
-      notes?: string;
-    },
+    order: { id: string; orderName: string | null; currency: string },
+    line: { id: string },
+    input: { condition: ProductCondition; damageCost?: number; notes?: string },
   ) {
-    const damageCost =
-      input.condition === ProductCondition.DAMAGED &&
-      input.damageCost !== undefined
-        ? new Prisma.Decimal(input.damageCost)
-        : null;
-    const notes = input.notes?.trim() || null;
-    const recordedAt = new Date();
-
-    // Captured BEFORE the update below overwrites them — needed to detect
-    // whether this call is a correction (condition or cost actually changed)
-    // versus the first-ever recording or an exact repeat.
-    const previousCondition = line.condition as ProductCondition | null;
-    const previousDamageCost = line.damageCost;
-    const conditionChanged =
-      previousCondition !== null && previousCondition !== input.condition;
-    const costChanged =
-      previousDamageCost !== null &&
-      damageCost !== null &&
-      !previousDamageCost.equals(damageCost);
-
-    await this.prisma.ecommerceOrderLine.update({
-      where: { id: line.id },
-      data: {
+    const updated = await this.verifyProductConditions(store.id, order.id, [
+      {
+        orderLineId: line.id,
         condition: input.condition,
-        damageCost,
-        conditionNotes: notes,
-        conditionRecordedAt: recordedAt,
+        ...(input.damageCost === undefined
+          ? {}
+          : { damageCost: input.damageCost }),
+        ...(input.notes === undefined ? {} : { notes: input.notes }),
       },
-    });
-
-    const inventoryUpdated = await this.orderStock.applyReturnCondition({
-      storeId: store.id,
-      orderId: order.id,
-      orderLabel: order.orderName ?? order.id,
-      lineId: line.id,
-      condition: input.condition,
-      isCorrection: conditionChanged,
-      recordedAt,
-    });
-
-    await this.financialService.setLineLoss(
-      order.id,
-      line.id,
-      order.currency,
-      conditionLoss({
-        condition: input.condition,
-        damageCost,
-        quantity: line.quantity,
-        warehouseVariant: line.warehouseVariant,
-      }),
-      conditionChanged || costChanged
-        ? `Return condition corrected to ${input.condition.toLowerCase()}`
-        : `Product returned ${input.condition.toLowerCase()}`,
-      recordedAt,
-    );
-
+    ]);
+    const recorded = updated.lines.find(
+      (candidate) => candidate.id === line.id,
+    )!;
     return {
       orderId: order.id,
       orderLineId: line.id,
-      condition: input.condition,
-      damageCost: damageCost?.toFixed(2) ?? null,
-      notes,
-      recordedAt: recordedAt.toISOString(),
-      inventoryUpdated,
+      condition: recorded.condition ?? input.condition,
+      damageCost: recorded.damageCost?.toFixed(2) ?? null,
+      notes: recorded.conditionNotes,
+      recordedAt:
+        recorded.conditionRecordedAt?.toISOString() ?? new Date().toISOString(),
+      inventoryUpdated: updated.inventoryUpdates[line.id] ?? false,
     };
   }
 
@@ -1426,6 +1429,7 @@ export class EcommerceService {
                     kind: true,
                     bundleComponents: {
                       select: {
+                        quantity: true,
                         componentVariant: { select: { productCode: true } },
                       },
                     },
@@ -1460,8 +1464,11 @@ export class EcommerceService {
               packCode: variant.productCode as string,
               quantity: line.quantity,
               items: variant.product.bundleComponents
-                .map((component) => component.componentVariant.productCode)
-                .filter((code): code is string => !!code),
+                .filter((component) => !!component.componentVariant.productCode)
+                .map((component) => ({
+                  productCode: component.componentVariant.productCode!,
+                  quantity: component.quantity * line.quantity,
+                })),
             }
           : {
               type: 'PRODUCT' as const,
@@ -1487,6 +1494,7 @@ export class EcommerceService {
         ? {
             type: 'PACK' as const,
             packCode: only.packCode,
+            quantity: only.quantity,
             orderId: orderRef,
             trackingNumber,
             items: only.items,
@@ -1829,40 +1837,35 @@ export class EcommerceService {
     const dateFilter = buildDateFilter(range);
     const rows = await this.prisma.$queryRaw<ReturnsBucketRow[]>(Prisma.sql`
       ${SHIPMENT_STATUS_CTE}
-      SELECT
-        lines."currency",
-        COALESCE(SUM(lines."quantity") FILTER (
-          WHERE lines."condition" IN ('GOOD', 'RETURNED')
-        ), 0)::int AS "receivedItems",
-        COALESCE(SUM(lines."totalPrice") FILTER (
-          WHERE lines."condition" IN ('GOOD', 'RETURNED')
-        ), 0) AS "receivedValue",
-        COALESCE(SUM(lines."quantity") FILTER (
-          WHERE lines."condition" IS NULL
-            AND ss."normalizedStatus" IN ${RETURN_IN_PROGRESS_STATUSES}
-        ), 0)::int AS "pendingItems",
-        COALESCE(SUM(lines."totalPrice") FILTER (
-          WHERE lines."condition" IS NULL
-            AND ss."normalizedStatus" IN ${RETURN_IN_PROGRESS_STATUSES}
-        ), 0) AS "pendingValue",
-        COALESCE(SUM(lines."quantity") FILTER (
-          WHERE lines."condition" = 'DAMAGED'
-        ), 0)::int AS "damagedItems",
-        COALESCE(SUM(COALESCE(lines."damageCost", lines."totalPrice")) FILTER (
-          WHERE lines."condition" = 'DAMAGED'
-        ), 0) AS "damagedValue",
-        COALESCE(SUM(lines."quantity") FILTER (
-          WHERE lines."condition" IN ('MISSING', 'LOST')
-        ), 0)::int AS "missingItems",
-        COALESCE(SUM(lines."totalPrice") FILTER (
-          WHERE lines."condition" IN ('MISSING', 'LOST')
-        ), 0) AS "missingValue",
+      SELECT lines."currency",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."receivedItems",0) ELSE CASE WHEN lines."condition" IN ('GOOD','RETURNED') THEN lines."quantity" ELSE 0 END END),0)::int AS "receivedItems",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."receivedValue",0) ELSE CASE WHEN lines."condition" IN ('GOOD','RETURNED') THEN lines."totalPrice" ELSE 0 END END),0) AS "receivedValue",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN GREATEST(COALESCE((lines."conditionAllocations"->>'expectedQuantity')::int,0)-COALESCE(alloc."allocatedItems",0),0) ELSE CASE WHEN lines."condition" IS NULL AND ss."normalizedStatus" IN ${RETURN_IN_PROGRESS_STATUSES} THEN lines."quantity" ELSE 0 END END),0)::int AS "pendingItems",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN GREATEST(lines."totalPrice"-COALESCE(alloc."allocatedValue",0),0) ELSE CASE WHEN lines."condition" IS NULL AND ss."normalizedStatus" IN ${RETURN_IN_PROGRESS_STATUSES} THEN lines."totalPrice" ELSE 0 END END),0) AS "pendingValue",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."damagedItems",0) ELSE CASE WHEN lines."condition"='DAMAGED' THEN lines."quantity" ELSE 0 END END),0)::int AS "damagedItems",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."damagedValue",0) ELSE CASE WHEN lines."condition"='DAMAGED' THEN COALESCE(lines."damageCost",wv."costPrice"*lines."quantity",0) ELSE 0 END END),0) AS "damagedValue",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."missingItems",0) ELSE CASE WHEN lines."condition" IN ('MISSING','LOST') THEN lines."quantity" ELSE 0 END END),0)::int AS "missingItems",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."missingValue",0) ELSE CASE WHEN lines."condition" IN ('MISSING','LOST') THEN COALESCE(wv."costPrice"*lines."quantity",0) ELSE 0 END END),0) AS "missingValue",
         MAX(lines."updatedAt") AS "latestUpdatedAt"
       FROM "EcommerceOrderLine" lines
       INNER JOIN "EcommerceOrder" orders ON orders."id" = lines."orderId"
       INNER JOIN "EcommerceConnection" connection
         ON connection."id" = orders."connectionId"
       LEFT JOIN shipment_status ss ON ss."orderId" = orders."id"
+      LEFT JOIN "WarehouseVariant" wv ON wv."id"=lines."warehouseVariantId"
+      LEFT JOIN LATERAL (
+        SELECT
+          SUM((e->>'physicalQuantity')::int) FILTER (WHERE e->>'condition' IN ('GOOD','RETURNED')) AS "receivedItems",
+          SUM((e->>'saleValue')::numeric) FILTER (WHERE e->>'condition' IN ('GOOD','RETURNED')) AS "receivedValue",
+          SUM((e->>'physicalQuantity')::int) AS "allocatedItems",
+          SUM((e->>'saleValue')::numeric) AS "allocatedValue",
+          SUM((e->>'physicalQuantity')::int) FILTER (WHERE e->>'condition'='DAMAGED') AS "damagedItems",
+          SUM(COALESCE((e->>'damageCost')::numeric,(e->>'unitCost')::numeric*(e->>'quantity')::int)) FILTER (WHERE e->>'condition'='DAMAGED') AS "damagedValue",
+          SUM((e->>'physicalQuantity')::int) FILTER (WHERE e->>'condition' IN ('LOST','MISSING')) AS "missingItems",
+          SUM((e->>'unitCost')::numeric*(e->>'quantity')::int) FILTER (WHERE e->>'condition' IN ('LOST','MISSING')) AS "missingValue"
+        FROM jsonb_array_elements(COALESCE(lines."conditionAllocations"->'entries','[]'::jsonb)) e
+      ) alloc ON true
+
       WHERE connection."storeId" = ${store.id}
         ${dateFilter}
       GROUP BY lines."currency"
@@ -2194,25 +2197,67 @@ function formatSqlDate(value: Date | string | undefined): string {
     : String(value).slice(0, 10);
 }
 
+const SCANNED_VARIANT_INCLUDE = {
+  product: {
+    include: {
+      bundleComponents: {
+        include: { componentVariant: { include: { product: true } } },
+      },
+    },
+  },
+} satisfies Prisma.WarehouseVariantInclude;
+
 function mapScannedLines(
   lines: {
+    id: string;
     quantity: number;
     condition: string | null;
     damageCost: Prisma.Decimal | null;
+    conditionAllocations?: unknown;
+    conditionRevision?: number;
     warehouseVariant: {
+      id?: string;
       productCode: string | null;
-      product: { name: string };
+      product: {
+        name: string;
+        kind?: string;
+        bundleComponents?: {
+          quantity: number;
+          componentVariant: {
+            id: string;
+            productCode: string | null;
+            title: string;
+            product: { name: string };
+          };
+        }[];
+      };
     } | null;
   }[],
 ) {
   return lines
     .filter((line) => line.warehouseVariant?.productCode)
     .map((line) => ({
-      productCode: line.warehouseVariant!.productCode as string,
+      orderLineId: line.id,
+      productCode: line.warehouseVariant!.productCode!,
       productName: line.warehouseVariant!.product.name,
       quantity: line.quantity,
       condition: line.condition,
       damageCost: line.damageCost?.toFixed(2) ?? null,
+      kind: line.warehouseVariant!.product.kind ?? 'STANDARD',
+      allocations: publicConditionEntries(line.conditionAllocations),
+      conditionComplete:
+        conditionSnapshot(line.conditionAllocations)?.completed ?? null,
+      conditionRevision: line.conditionRevision ?? 0,
+      components: (line.warehouseVariant!.product.bundleComponents ?? []).map(
+        (component) => ({
+          componentVariantId: component.componentVariant.id,
+          productCode: component.componentVariant.productCode,
+          productName: component.componentVariant.product.name,
+          variantTitle: component.componentVariant.title,
+          quantityPerPack: component.quantity,
+          quantity: component.quantity * line.quantity,
+        }),
+      ),
     }));
 }
 

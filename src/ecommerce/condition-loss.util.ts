@@ -1,3 +1,4 @@
+import { conditionSnapshot } from './order-condition.service';
 import { Prisma } from '@prisma/client';
 import { ProductCondition } from './constants/product-condition';
 
@@ -9,11 +10,14 @@ import { ProductCondition } from './constants/product-condition';
  * explicit damage cost counts for them.
  */
 export function conditionLoss(line: {
+  conditionAllocations?: unknown;
   condition: string | null;
   damageCost: Prisma.Decimal | null;
   quantity: number;
   warehouseVariant?: { costPrice: Prisma.Decimal } | null;
 }): Prisma.Decimal {
+  const allocations = conditionSnapshot(line.conditionAllocations);
+  if (allocations) return new Prisma.Decimal(allocations.loss);
   const zero = new Prisma.Decimal(0);
   const cost = line.warehouseVariant
     ? line.warehouseVariant.costPrice.times(line.quantity)

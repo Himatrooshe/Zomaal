@@ -12,6 +12,7 @@ function build() {
       }),
     },
     returnRequest: {
+      findUniqueOrThrow: jest.fn(),
       findFirst: jest.fn(),
       findFirstOrThrow: jest.fn(),
       create: jest.fn(),
@@ -46,6 +47,7 @@ function build() {
   const ecommerceService = {
     getFulfillmentPreview: jest.fn(),
     recordProductConditionByLineId: jest.fn(),
+    verifyProductConditions: jest.fn().mockResolvedValue(undefined),
   };
 
   const financialService = {
@@ -258,9 +260,7 @@ describe('ReturnRequestService', () => {
           ],
         }),
       ).rejects.toThrow('is not part of this return request');
-      expect(
-        ecommerceService.recordProductConditionByLineId,
-      ).not.toHaveBeenCalled();
+      expect(ecommerceService.verifyProductConditions).not.toHaveBeenCalled();
       expect(prisma.returnRequest.update).not.toHaveBeenCalled();
     });
 
@@ -274,7 +274,7 @@ describe('ReturnRequestService', () => {
         lines: [{ orderLineId: 'line-1' }],
         order: { id: ORDER.id },
       });
-      prisma.returnRequest.update.mockResolvedValue({
+      prisma.returnRequest.findUniqueOrThrow.mockResolvedValue({
         id: 'rr-1',
         status: ReturnRequestStatus.NEED_VERIFICATION,
         reason: 'Box crushed',
@@ -300,9 +300,7 @@ describe('ReturnRequestService', () => {
         ],
       });
 
-      expect(
-        ecommerceService.recordProductConditionByLineId,
-      ).toHaveBeenCalled();
+      expect(ecommerceService.verifyProductConditions).toHaveBeenCalled();
       expect(result.status).toBe('PROCESSED');
       expect(result.lossSummary.netLoss).toBe('135.00'); // 15 delivery + 120 damage
     });
@@ -317,7 +315,7 @@ describe('ReturnRequestService', () => {
         lines: [{ orderLineId: 'line-1' }],
         order: { id: ORDER.id },
       });
-      prisma.returnRequest.update.mockResolvedValue({
+      prisma.returnRequest.findUniqueOrThrow.mockResolvedValue({
         id: 'rr-1',
         status: ReturnRequestStatus.NEED_VERIFICATION,
         reason: null,

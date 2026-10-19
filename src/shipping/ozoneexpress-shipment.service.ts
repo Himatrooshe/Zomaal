@@ -1,3 +1,4 @@
+import { staleShipmentStatus } from './shipment-status-chronology';
 import {
   BadGatewayException,
   Injectable,
@@ -359,8 +360,9 @@ export class OzoneExpressShipmentService {
     const normalizedStatus = normalizeOzoneExpressStatus(providerStatus);
     const lastActionAt = trackingDate(latestRecord) ?? new Date();
 
-    const { shipment, previousStatus, previousPhone, previousName } =
+    const { shipment, previousStatus, previousPhone, previousName, ignored } =
       await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`OZONEEXPRESS:${userId}:${providerCode}`},0))`;
         const [connection, current] = await Promise.all([
           tx.ozoneExpressConnection.findUnique({
             where: { userId },
@@ -373,11 +375,35 @@ export class OzoneExpressShipmentService {
               returnedPrice: true,
               refusedPrice: true,
               normalizedStatus: true,
+              lastActionAt: true,
               recipientPhone: true,
               recipientName: true,
             },
           }),
         ]);
+        if (
+          staleShipmentStatus(
+            current
+              ? {
+                  normalizedStatus: current.normalizedStatus,
+                  providerUpdatedAt: current.lastActionAt,
+                }
+              : null,
+            normalizedStatus,
+            trackingDate(latestRecord),
+          )
+        ) {
+          const shipment = await tx.ozoneExpressShipment.findUniqueOrThrow({
+            where: { userId_providerCode: { userId, providerCode } },
+          });
+          return {
+            shipment,
+            previousStatus: current!.normalizedStatus,
+            previousPhone: current!.recipientPhone,
+            previousName: current!.recipientName,
+            ignored: true,
+          };
+        }
         const prices = {
           deliveredPrice: current?.deliveredPrice ?? null,
           returnedPrice: current?.returnedPrice ?? null,
@@ -444,12 +470,14 @@ export class OzoneExpressShipmentService {
         }
         return {
           shipment,
+          ignored: false,
           previousStatus: current?.normalizedStatus ?? null,
           previousPhone: current?.recipientPhone ?? null,
           previousName: current?.recipientName ?? null,
         };
       });
 
+    if (ignored) return shipment;
     if (
       previousStatus !== normalizedStatus &&
       (normalizedStatus === ShippingShipmentStatus.REFUSED ||

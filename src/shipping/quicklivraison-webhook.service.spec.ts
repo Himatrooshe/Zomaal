@@ -26,6 +26,7 @@ describe('QuickLivraisonShipmentService webhook', () => {
       return Promise.resolve({});
     });
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     quickLivraisonShipment: { updateMany },
     quickLivraisonTrackingEvent: { upsert: eventUpsert },
   };

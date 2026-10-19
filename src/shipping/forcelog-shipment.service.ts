@@ -1,3 +1,4 @@
+import { staleShipmentStatus } from './shipment-status-chronology';
 import {
   BadGatewayException,
   Injectable,
@@ -42,6 +43,7 @@ type ForceLogSnapshot = {
   comment: string | null;
   productNature: string | null;
   providerCreatedAt: Date | null;
+  providerUpdatedAt: Date | null;
 };
 
 @Injectable()
@@ -244,8 +246,9 @@ export class ForceLogShipmentService {
     const statusCode =
       normalizeForceLogStatusCode(snapshot.providerStatus) ?? 'UNKNOWN';
 
-    const { shipment, previousStatus } = await this.prisma.$transaction(
-      async (tx) => {
+    const { shipment, previousStatus, ignored } =
+      await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`FORCELOG:${userId}:${snapshot.providerCode}`}, 0))`;
         const connection = await tx.forceLogConnection.findUnique({
           where: { userId },
           select: { id: true },
@@ -267,8 +270,29 @@ export class ForceLogShipmentService {
               providerCode: snapshot.providerCode,
             },
           },
-          select: { normalizedStatus: true },
+          select: { normalizedStatus: true, providerUpdatedAt: true },
         });
+        if (
+          staleShipmentStatus(
+            previous,
+            snapshot.normalizedStatus,
+            snapshot.providerUpdatedAt,
+          )
+        ) {
+          const shipment = await tx.forceLogShipment.findUniqueOrThrow({
+            where: {
+              userId_providerCode: {
+                userId,
+                providerCode: snapshot.providerCode,
+              },
+            },
+          });
+          return {
+            shipment,
+            previousStatus: previous!.normalizedStatus,
+            ignored: true,
+          };
+        }
         const shipment = await tx.forceLogShipment.upsert({
           where: {
             userId_providerCode: {
@@ -314,10 +338,14 @@ export class ForceLogShipmentService {
             rawPayload: jsonValue(providerResponse),
           },
         });
-        return { shipment, previousStatus: previous?.normalizedStatus ?? null };
-      },
-    );
+        return {
+          shipment,
+          previousStatus: previous?.normalizedStatus ?? null,
+          ignored: false,
+        };
+      });
 
+    if (ignored) return shipment;
     if (shipment.dispatchId) {
       try {
         await this.financialService.syncFromDispatchId(shipment.dispatchId);
@@ -397,6 +425,9 @@ function snapshotFromProvider(
       optionalString(first(parcel, 'PRODUCT_NATURE')) ??
       request?.PRODUCT_NATURE ??
       null,
+    providerUpdatedAt: providerDate(
+      first(parcel, 'UPDATED_AT', 'UPDATE_TIME', 'LAST_UPDATE', 'DATE_UPDATE'),
+    ),
     providerCreatedAt: providerDate(
       first(parcel, 'CREATION_TIME', 'CREATED_AT'),
     ),

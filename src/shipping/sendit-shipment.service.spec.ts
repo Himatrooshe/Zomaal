@@ -1,3 +1,4 @@
+import { TERMINAL_SHIPMENT_STATUSES } from './shipment-status-chronology';
 import {
   BadGatewayException,
   BadRequestException,
@@ -504,6 +505,7 @@ describe('SenditShipmentService', () => {
     expect(shipmentUpdateMany).toHaveBeenCalledWith({
       where: {
         id: 'shipment-1',
+        normalizedStatus: { notIn: TERMINAL_SHIPMENT_STATUSES },
         OR: [
           { lastActionAt: null },
           { lastActionAt: { lte: new Date('2025-06-11T16:05:05Z') } },

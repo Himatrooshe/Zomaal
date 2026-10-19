@@ -1,3 +1,4 @@
+import { isOrderTransaction } from '../prisma/order-transaction';
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import {
   InventoryBucket,
@@ -50,6 +51,10 @@ export class OrderStockService {
   private readonly logger = new Logger(OrderStockService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  forTransaction(prisma: PrismaService) {
+    return new OrderStockService(prisma);
+  }
 
   async reserveOrder(orderId: string): Promise<void> {
     const order = await this.loadOrder(orderId);
@@ -234,6 +239,77 @@ export class OrderStockService {
               ? `return:${line.id}:${input.condition}`
               : `return:${line.id}:${input.condition}:${index}`,
         });
+        updated ||= applied !== 0;
+      }
+    }
+    return updated;
+  }
+
+  async reconcileReturnTargets(input: {
+    storeId: string;
+    orderId: string;
+    lineId: string;
+    revision: number;
+    targets: Map<string, { onHand: number; damaged: number }>;
+  }) {
+    let updated = false;
+    const order = await this.loadOrder(input.orderId);
+    const line = order?.lines.find(
+      (candidate) => candidate.id === input.lineId,
+    );
+    if (!order || !line) return false;
+    if (line.stockStatus === OrderLineStockStatus.RESERVED)
+      await this.releaseLine(input.storeId, order.label, line);
+    const prior = await this.prisma.inventoryMovement.findMany({
+      where: {
+        referenceType: ORDER_LINE_REFERENCE,
+        referenceId: input.lineId,
+        type: { in: RETURN_MOVEMENT_TYPES },
+      },
+      select: { inventoryItemId: true },
+      distinct: ['inventoryItemId'],
+    });
+    for (const movement of prior)
+      if (!input.targets.has(movement.inventoryItemId))
+        input.targets.set(movement.inventoryItemId, { onHand: 0, damaged: 0 });
+    for (const [inventoryItemId, target] of input.targets) {
+      const onHand = await this.netReturned(
+        input.orderId,
+        input.lineId,
+        inventoryItemId,
+        InventoryBucket.ON_HAND,
+      );
+      const damaged = await this.netReturned(
+        input.orderId,
+        input.lineId,
+        inventoryItemId,
+        InventoryBucket.DAMAGED,
+      );
+      const deltas: [InventoryBucket, number][] = [];
+      if (target.damaged < damaged)
+        deltas.push([InventoryBucket.DAMAGED, target.damaged - damaged]);
+      deltas.push([InventoryBucket.ON_HAND, target.onHand - onHand]);
+      if (target.damaged > damaged)
+        deltas.push([InventoryBucket.DAMAGED, target.damaged - damaged]);
+      for (const [index, [bucket, delta]] of deltas.entries()) {
+        if (!delta) continue;
+        const applied = await this.move(
+          input.storeId,
+          { inventoryItemId, quantity: Math.abs(delta), role: 'PRODUCT' },
+          {
+            bucket,
+            delta,
+            type:
+              bucket === InventoryBucket.DAMAGED
+                ? InventoryMovementType.RETURN_DAMAGED
+                : delta > 0
+                  ? InventoryMovementType.RETURN_GOOD
+                  : InventoryMovementType.RETURN_LOST,
+            reason: 'Warehouse condition allocation reconciled',
+            lineId: input.lineId,
+            idempotencyKey: `return-allocation:${input.lineId}:${input.revision}:${inventoryItemId}:${index}`,
+          },
+        );
         updated ||= applied !== 0;
       }
     }
@@ -430,7 +506,12 @@ export class OrderStockService {
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
       } catch (error) {
-        if (!isWriteConflict(error) || attempt === 3) throw error;
+        if (
+          isOrderTransaction(this.prisma) ||
+          !isWriteConflict(error) ||
+          attempt === 3
+        )
+          throw error;
       }
     }
     throw new ConflictException('Inventory changed concurrently');

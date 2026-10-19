@@ -1,5 +1,10 @@
 import {
+  conditionSnapshot,
+  publicConditionEntries,
+} from './order-condition.service';
+import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -37,6 +42,9 @@ const orderLineImageInclude = {
       },
       product: {
         include: {
+          bundleComponents: {
+            include: { componentVariant: { include: { product: true } } },
+          },
           media: {
             where: { purpose: MediaAssetPurpose.PRODUCT_MAIN },
             orderBy: { position: 'asc' as const },
@@ -58,6 +66,7 @@ const returnRequestWithLinesInclude = {
 } satisfies Prisma.ReturnRequestInclude;
 
 type OrderLineForLoss = {
+  conditionAllocations?: unknown;
   id: string;
   quantity: number;
   totalPrice: Prisma.Decimal;
@@ -66,15 +75,19 @@ type OrderLineForLoss = {
   warehouseVariant?: { costPrice: Prisma.Decimal } | null;
 };
 
-type OrderLineWithImage = OrderLineForLoss & {
-  sku: string | null;
-  name: string;
-  warehouseVariant?: {
-    costPrice: Prisma.Decimal;
-    productCode: string | null;
-    media: { id: string }[];
-    product?: { media: { id: string }[] } | null;
-  } | null;
+type OrderLineWithImage = Prisma.EcommerceOrderLineGetPayload<{
+  include: typeof orderLineImageInclude;
+}>;
+type ReturnWithLines = Prisma.ReturnRequestGetPayload<{
+  include: typeof returnRequestWithLinesInclude;
+}>;
+type ReturnOrder = {
+  id: string;
+  connectionId: string;
+  orderName: string | null;
+  manualCustomerName: string | null;
+  manualCustomerPhone: string | null;
+  manualShippingAddress: string | null;
 };
 
 @Injectable()
@@ -104,7 +117,7 @@ export class ReturnRequestService {
     dto: DetectReturnDto,
   ): Promise<DetectedReturnResponseDto> {
     const store = await this.requireStore(userId);
-    const order = await this.resolveOrder(store.id, dto);
+    const order = await this.resolveOrder(userId, store.id, dto);
 
     let returnRequest = await this.prisma.returnRequest.findFirst({
       where: {
@@ -164,11 +177,34 @@ export class ReturnRequestService {
     if (isNewReturn) {
       await this.recordReturnRisk(store.id, order, customer);
     }
+    return this.present(userId, returnRequest, order, customer);
+  }
+
+  async get(userId: string, id: string): Promise<DetectedReturnResponseDto> {
+    const store = await this.requireStore(userId);
+    const request = await this.prisma.returnRequest.findFirst({
+      where: { id, order: { connection: { storeId: store.id } } },
+      include: { ...returnRequestWithLinesInclude, order: true },
+    });
+    if (!request) throw new NotFoundException('Return request not found');
+    return this.present(userId, request, request.order);
+  }
+
+  private async present(
+    userId: string,
+    returnRequest: ReturnWithLines,
+    order: ReturnOrder,
+    providedCustomer?: {
+      name: string | null;
+      phone: string | null;
+      address: string | null;
+    },
+  ): Promise<DetectedReturnResponseDto> {
+    const customer =
+      providedCustomer ?? (await this.resolveCustomer(userId, order));
     const deliveryCost =
       await this.financialService.resolveEffectiveShippingCost(order.id);
-    const lines = returnRequest.lines.map(
-      (rl) => rl.orderLine as OrderLineWithImage,
-    );
+    const lines = returnRequest.lines.map((rl) => rl.orderLine);
 
     return {
       returnRequestId: returnRequest.id,
@@ -187,6 +223,21 @@ export class ReturnRequestService {
         totalPrice: line.totalPrice.toFixed(2),
         imageUrl: this.resolveLineImageUrl(line),
         condition: line.condition,
+        allocations: publicConditionEntries(line.conditionAllocations),
+        conditionComplete:
+          conditionSnapshot(line.conditionAllocations)?.completed ?? null,
+        conditionRevision: line.conditionRevision,
+        kind: line.warehouseVariant?.product.kind ?? null,
+        components: (line.warehouseVariant?.product.bundleComponents ?? []).map(
+          (c) => ({
+            componentVariantId: c.componentVariant.id,
+            productCode: c.componentVariant.productCode,
+            productName: c.componentVariant.product.name,
+            variantTitle: c.componentVariant.title,
+            quantityPerPack: c.quantity,
+            quantity: c.quantity * line.quantity,
+          }),
+        ),
       })),
       lossSummary: this.computeLoss(lines, deliveryCost),
     };
@@ -219,28 +270,20 @@ export class ReturnRequestService {
 
     const lineIds = new Set(returnRequest.lines.map((l) => l.orderLineId));
     for (const input of dto.lines) {
-      if (!lineIds.has(input.orderLineId)) {
+      if (!lineIds.has(input.orderLineId))
         throw new BadRequestException(
-          `Order line ${input.orderLineId} is not part of this return request`,
+          'Order line is not part of this return request',
         );
-      }
     }
-    // Validate the entire request before applying any line's stock or ledger changes.
-    for (const input of dto.lines) {
-      await this.ecommerceService.recordProductConditionByLineId(
-        userId,
-        returnRequest.orderId,
-        input.orderLineId,
-        {
-          condition: input.condition,
-          damageCost: input.damageCost,
-        },
-      );
-    }
+    await this.ecommerceService.verifyProductConditions(
+      store.id,
+      returnRequest.orderId,
+      dto.lines,
+      { returnRequestId, reason: dto.reason },
+    );
 
-    const updated = await this.prisma.returnRequest.update({
+    const updated = await this.prisma.returnRequest.findUniqueOrThrow({
       where: { id: returnRequest.id },
-      data: { reason: dto.reason ?? returnRequest.reason },
       include: {
         lines: {
           include: {
@@ -253,13 +296,11 @@ export class ReturnRequestService {
     });
 
     const lines = updated.lines.map((rl) => rl.orderLine);
-    const allVerified = lines.every((line) => line.condition !== null);
-    if (allVerified && updated.status !== ReturnRequestStatus.PROCESSED) {
-      await this.prisma.returnRequest.update({
-        where: { id: updated.id },
-        data: { status: ReturnRequestStatus.PROCESSED, verifiedAt: new Date() },
-      });
-    }
+    const allVerified = lines.every(
+      (line) =>
+        conditionSnapshot(line.conditionAllocations)?.completed ??
+        line.condition !== null,
+    );
 
     const deliveryCost =
       await this.financialService.resolveEffectiveShippingCost(
@@ -458,7 +499,11 @@ export class ReturnRequestService {
     };
   }
 
-  private async resolveOrder(storeId: string, dto: DetectReturnDto) {
+  private async resolveOrder(
+    userId: string,
+    storeId: string,
+    dto: DetectReturnDto,
+  ) {
     const linesInclude = { lines: { include: orderLineImageInclude } };
 
     if (dto.orderId) {
@@ -470,64 +515,38 @@ export class ReturnRequestService {
       return order;
     }
 
-    // Try the same tracking-number resolution as GET /ecommerce/scan first
-    // (covers Zomaal-dispatched AND 3rd-party-carrier orders). trimmedValue,
-    // not dto.value, is used consistently for every lookup below — a
-    // barcode scanner appending a trailing newline must not make the final
-    // order-reference fallback miss a real, stored order.
     const trimmedValue = dto.value.trim();
-    let trackingNumber = trimmedValue;
-    if (trimmedValue.startsWith('{')) {
-      // Same contract as EcommerceService.resolveScannedCode: a QR payload
-      // is either valid JSON with a trackingNumber, or a hard 400 — never
-      // silently falls through to the order-reference lookup below, which
-      // would turn a scanner malfunction into a confusing 404 instead of a
-      // clear "this QR is broken" error.
-      let payload: { trackingNumber?: unknown };
-      try {
-        payload = JSON.parse(trimmedValue) as { trackingNumber?: unknown };
-      } catch {
-        throw new BadRequestException('Scanned QR payload is not valid JSON');
-      }
-      if (
-        typeof payload.trackingNumber !== 'string' ||
-        !payload.trackingNumber
-      ) {
-        throw new BadRequestException(
-          'Scanned QR payload is missing trackingNumber',
-        );
-      }
-      trackingNumber = payload.trackingNumber;
+    try {
+      const scanned = await this.ecommerceService.resolveScannedCode(
+        userId,
+        trimmedValue,
+      );
+      const order = await this.prisma.ecommerceOrder.findFirst({
+        where: { id: scanned.orderId, connection: { storeId } },
+        include: linesInclude,
+      });
+      if (order) return order;
+    } catch (error) {
+      if (!(error instanceof NotFoundException)) throw error;
+      if (trimmedValue.startsWith('{')) throw error;
     }
-
-    const byDispatch = await this.prisma.ecommerceOrderDispatch.findFirst({
-      where: {
-        providerTracking: trackingNumber,
-        order: { connection: { storeId } },
-      },
-      include: { order: { include: linesInclude } },
-    });
-    if (byDispatch) return byDispatch.order;
-
-    const byTracking = await this.prisma.ecommerceOrderEvent.findFirst({
-      where: {
-        order: { connection: { storeId } },
-        metadata: { path: ['number'], equals: trackingNumber },
-      },
-      include: { order: { include: linesInclude } },
-    });
-    if (byTracking) return byTracking.order;
-
-    // "Or enter order ID manually" fallback.
-    const byReference = await this.prisma.ecommerceOrder.findFirst({
+    const candidates = await this.prisma.ecommerceOrder.findMany({
       where: {
         connection: { storeId },
-        OR: [{ externalOrderId: trimmedValue }, { orderName: trimmedValue }],
+        OR: [
+          { id: trimmedValue },
+          { externalOrderId: trimmedValue },
+          { orderName: trimmedValue },
+        ],
       },
+      take: 2,
       include: linesInclude,
     });
-    if (byReference) return byReference;
-
+    if (candidates.length > 1)
+      throw new ConflictException(
+        'Order reference is ambiguous; select an order explicitly',
+      );
+    if (candidates[0]) return candidates[0];
     throw new NotFoundException('No order matches this code');
   }
 

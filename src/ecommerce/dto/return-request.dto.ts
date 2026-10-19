@@ -1,3 +1,7 @@
+import {
+  ShipmentComponentDto,
+  ConditionAllocationResponseDto,
+} from './order-condition-response.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
@@ -8,9 +12,12 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
+  ArrayMaxSize,
   Min,
   MinLength,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import {
   PRODUCT_CONDITIONS,
@@ -90,6 +97,18 @@ export class ReturnLossPreviewDto {
 }
 
 export class DetectedReturnLineDto {
+  @ApiProperty({ enum: ['STANDARD', 'BUNDLE'], nullable: true }) kind:
+    | string
+    | null;
+  @ApiProperty({ type: [ShipmentComponentDto] })
+  components: ShipmentComponentDto[];
+  @ApiProperty({ type: [ConditionAllocationResponseDto] })
+  allocations: ConditionAllocationResponseDto[];
+  @ApiProperty({ type: Boolean, nullable: true }) conditionComplete:
+    | boolean
+    | null;
+  @ApiProperty() conditionRevision: number;
+
   @ApiProperty({ format: 'uuid' })
   orderLineId: string;
 
@@ -166,6 +185,40 @@ export class DetectedReturnResponseDto {
 // -----------------------------------------------------------------------------
 
 export class VerifyReturnLineDto {
+  @ApiPropertyOptional({
+    minimum: 0,
+    description:
+      'Optional conditionRevision from the latest read. Stale changes return 409; identical retries remain safe.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  expectedRevision?: number;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Pack component variant; omit for whole-line/whole-pack conditions.',
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === null ? undefined : value,
+  )
+  @IsUUID()
+  componentVariantId?: string;
+
+  @ApiPropertyOptional({
+    minimum: 1,
+    description:
+      'Affected physical units (component mode) or ordered units/packs (whole-line mode). All allocations for an included line replace its current snapshot.',
+  })
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  quantity?: number;
+
   @ApiProperty({ format: 'uuid' })
   @IsString()
   orderLineId: string;
@@ -176,8 +229,11 @@ export class VerifyReturnLineDto {
 
   @ApiPropertyOptional({ example: 120 })
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === null ? undefined : value,
+  )
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
   damageCost?: number;
 }
@@ -194,6 +250,7 @@ export class VerifyReturnDto {
   @ApiProperty({ type: [VerifyReturnLineDto] })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(200)
   @ValidateNested({ each: true })
   @Type(() => VerifyReturnLineDto)
   lines: VerifyReturnLineDto[];

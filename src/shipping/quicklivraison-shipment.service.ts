@@ -1,4 +1,8 @@
 import {
+  staleShipmentStatus,
+  terminalRegressionFilter,
+} from './shipment-status-chronology';
+import {
   BadRequestException,
   BadGatewayException,
   Injectable,
@@ -215,6 +219,7 @@ export class QuickLivraisonShipmentService {
     }> = [];
 
     const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`QUICKLIVRAISON:${userId}`},0))`;
       const connection = await tx.quickLivraisonConnection.findUnique({
         where: { userId },
         select: { id: true },
@@ -263,6 +268,22 @@ export class QuickLivraisonShipmentService {
           delivery.providerStatus,
           delivery.providerSecondaryStatus,
         );
+        if (
+          staleShipmentStatus(
+            current
+              ? {
+                  normalizedStatus: current.normalizedStatus,
+                  providerUpdatedAt:
+                    current.providerUpdatedAt ?? current.lastActionAt,
+                }
+              : null,
+            normalizedStatus,
+            delivery.providerUpdatedAt ?? delivery.lastActionAt,
+          )
+        ) {
+          reconciled += 1;
+          continue;
+        }
         const dispatch = delivery.reference
           ? dispatchByReference.get(delivery.reference)
           : undefined;
@@ -463,9 +484,11 @@ export class QuickLivraisonShipmentService {
     ].join(':');
 
     const applied = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`QUICKLIVRAISON:${shipment.userId}`},0))`;
       const updateResult = await tx.quickLivraisonShipment.updateMany({
         where: {
           id: shipment.id,
+          ...terminalRegressionFilter(normalizedStatus),
           OR: [
             { lastActionAt: null },
             { lastActionAt: { lte: event.eventAt } },

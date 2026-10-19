@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiConflictResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -118,7 +119,12 @@ export class ReturnRequestController {
       'number — covers both our own couriers and 3rd-party carriers — or a typed order ' +
       'ID/name), then finds or creates the open ReturnRequest for that order, covering ' +
       'every line on it. lossSummary is a live preview based on whatever condition is ' +
-      'already recorded — recompute by calling this again after partial verification.',
+      'already recorded — read saved allocations via GET /ecommerce/returns/:returnRequestId after verification.',
+  })
+  @ApiConflictResponse({
+    description:
+      'Tracking/reference matches multiple orders; select an order explicitly',
+    type: ApiErrorDto,
   })
   @ApiOkResponse({ type: DetectedReturnResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid payload.', type: ApiErrorDto })
@@ -143,7 +149,7 @@ export class ReturnRequestController {
       "Records each line's condition via the same engine as POST /orders/:orderId/" +
       'condition — the matching inventory movements and condition-loss ledger changes ' +
       'apply in the same call. Once every line on the request has a recorded condition, ' +
-      'status advances to PROCESSED automatically.',
+      'status advances to PROCESSED automatically. Quantity/component rows replace all saved allocations for each included line; omit quantity for a whole-line condition.',
   })
   @ApiParam({ name: 'returnRequestId', format: 'uuid' })
   @ApiOkResponse({ type: VerifiedReturnResponseDto })
@@ -162,5 +168,25 @@ export class ReturnRequestController {
     @Body() dto: VerifyReturnDto,
   ): Promise<VerifiedReturnResponseDto> {
     return this.returns.verify(user.userId, returnRequestId, dto);
+  }
+  @Get(':returnRequestId')
+  @RequirePermission(PERMISSIONS.RETURNS_VIEW)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Read a saved return with its component/quantity conditions',
+    description:
+      'Reads open or processed returns without creating another return request.',
+  })
+  @ApiParam({ name: 'returnRequestId', format: 'uuid' })
+  @ApiOkResponse({ type: DetectedReturnResponseDto })
+  @ApiNotFoundResponse({
+    description: 'Store-owned return not found',
+    type: ApiErrorDto,
+  })
+  get(
+    @CurrentUser() user: JwtPayload,
+    @Param('returnRequestId', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.returns.get(user.userId, id);
   }
 }

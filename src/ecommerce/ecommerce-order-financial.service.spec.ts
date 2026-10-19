@@ -40,10 +40,14 @@ function deliveredLine() {
 
 function setup(status: ShippingShipmentStatus) {
   const events = new Map<string, StoredEvent>();
+  const transaction = jest.fn();
   const prisma = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    $transaction: transaction,
     ecommerceOrderDispatch: {
       findUnique: jest.fn().mockResolvedValue({
         id: 'dispatch-1',
+        orderId: 'order-1',
         order: {
           id: 'order-1',
           currency: 'MAD',
@@ -75,8 +79,16 @@ function setup(status: ShippingShipmentStatus) {
             events.get(where.orderId_idempotencyKey.idempotencyKey) ?? null,
           ),
       ),
+      findFirst: jest.fn(({ where }: { where: { type: string } }) =>
+        Promise.resolve(
+          [...events.values()]
+            .reverse()
+            .find((event) => event.type === where.type) ?? null,
+        ),
+      ),
       create: jest.fn(({ data }: { data: StoredEvent }) => {
         const stored = {
+          id: `event-${events.size + 1}`,
           giftCost: new Prisma.Decimal(0),
           packagingCost: new Prisma.Decimal(0),
           ...data,
@@ -103,10 +115,15 @@ function setup(status: ShippingShipmentStatus) {
         .mockResolvedValue({ unitPrice: new Prisma.Decimal(5) }),
     },
   };
+  transaction.mockImplementation((work: (tx: unknown) => Promise<unknown>) =>
+    work(prisma),
+  );
   const orderStock = {
+    forTransaction: jest.fn(),
     deliverOrder: jest.fn().mockResolvedValue(undefined),
     releaseOrder: jest.fn().mockResolvedValue(undefined),
   };
+  orderStock.forTransaction.mockReturnValue(orderStock);
   const whatsAppTrigger = {
     onShipmentStatus: jest.fn().mockResolvedValue('NOT_CONNECTED'),
   };
@@ -250,7 +267,7 @@ describe('EcommerceOrderFinancialService', () => {
     const { service, prisma, events } = setup(ShippingShipmentStatus.DELIVERED);
     await service.syncFromDispatchId('dispatch-1');
 
-    prisma.ecommerceOrderDispatch.findUnique.mockResolvedValueOnce({
+    prisma.ecommerceOrderDispatch.findUnique.mockResolvedValue({
       ...(await prisma.ecommerceOrderDispatch.findUnique()),
       senditShipment: {
         normalizedStatus: ShippingShipmentStatus.RETURNED_TO_SELLER,

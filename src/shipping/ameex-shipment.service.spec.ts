@@ -9,6 +9,7 @@ describe('AmeexShipmentService', () => {
   const shipmentUpsert = jest.fn((args: UpsertArgs): unknown => args);
   const eventUpsert = jest.fn();
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     ameexConnection: {
       findUnique: jest.fn().mockResolvedValue({ id: 'connection-1' }),
     },
@@ -86,10 +87,20 @@ describe('AmeexShipmentService', () => {
       const stored = new Map<string, Record<string, unknown>>();
       const trackingEventUpsert = jest.fn().mockResolvedValue({});
       const transactionClient = {
+        $queryRaw: jest.fn().mockResolvedValue([]),
         ameexConnection: {
           findUnique: jest.fn().mockResolvedValue({ id: 'connection-1' }),
         },
         ameexShipment: {
+          findUniqueOrThrow: jest.fn(
+            ({
+              where,
+            }: {
+              where: { userId_providerCode: { providerCode: string } };
+            }) => ({
+              ...stored.get(where.userId_providerCode.providerCode),
+            }),
+          ),
           findUnique: jest.fn(({ where }) => {
             const code = where.userId_providerCode.providerCode as string;
             return stored.has(code)
@@ -115,6 +126,15 @@ describe('AmeexShipmentService', () => {
             callback(transactionClient),
         ),
         ameexShipment: {
+          findUniqueOrThrow: jest.fn(
+            ({
+              where,
+            }: {
+              where: { userId_providerCode: { providerCode: string } };
+            }) => ({
+              ...stored.get(where.userId_providerCode.providerCode),
+            }),
+          ),
           findUnique: jest.fn(({ where }) => {
             const code = where.userId_providerCode.providerCode as string;
             return stored.has(code) ? { id: `shipment-${code}` } : null;

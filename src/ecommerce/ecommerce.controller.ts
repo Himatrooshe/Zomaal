@@ -715,8 +715,8 @@ export class EcommerceController {
       'Renders a QR label Zomaal prints and attaches to the parcel — separate ' +
       "from the carrier's own label. Encodes { productCode, orderId, " +
       'trackingNumber } (or a PACK/ORDER envelope for bundles and multi-line ' +
-      'orders) so a later scan resolves the order and products without a ' +
-      'network round trip. Only available after dispatch, once a tracking ' +
+      'orders), including pack component quantities. A later scan uses the tracking ' +
+      'number to resolve current order/products/status from the backend. Only available after dispatch, once a tracking ' +
       'number exists.',
   })
   @ApiParam({

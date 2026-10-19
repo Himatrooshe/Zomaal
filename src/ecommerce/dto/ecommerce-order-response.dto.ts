@@ -1,3 +1,7 @@
+import {
+  ShipmentComponentDto,
+  ConditionAllocationResponseDto,
+} from './order-condition-response.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   EcommerceOrderStatus,
@@ -293,6 +297,17 @@ export class PaginationDto {
 }
 
 export class ScannedShipmentProductDto {
+  @ApiProperty({ format: 'uuid' }) orderLineId: string;
+  @ApiProperty({ enum: ['STANDARD', 'BUNDLE'] }) kind: string;
+  @ApiProperty({ type: [ShipmentComponentDto] })
+  components: ShipmentComponentDto[];
+  @ApiProperty({ type: [ConditionAllocationResponseDto] })
+  allocations: ConditionAllocationResponseDto[];
+  @ApiProperty({ type: Boolean, nullable: true }) conditionComplete:
+    | boolean
+    | null;
+  @ApiProperty() conditionRevision: number;
+
   @ApiProperty({ example: 'DH564BJ0' })
   productCode: string;
 
@@ -304,7 +319,7 @@ export class ScannedShipmentProductDto {
 
   @ApiProperty({
     nullable: true,
-    enum: ['GOOD', 'DAMAGED', 'LOST', 'RETURNED', 'MISSING'],
+    enum: ['GOOD', 'DAMAGED', 'LOST', 'RETURNED', 'MISSING', 'MIXED'],
     description: 'Null until a condition has been recorded for this line.',
   })
   condition: string | null;
@@ -328,7 +343,7 @@ export class ScannedShipmentResponseDto {
     enum: ['ZOMAAL_COURIER', 'PLATFORM_TRACKING'],
     description:
       'ZOMAAL_COURIER — dispatched through one of our own courier integrations ' +
-      '(Sendit/QuickLivraison/ForceLog/OzoneExpress); dispatchStatus is meaningful. ' +
+      '(Sendit/QuickLivraison/ForceLog/OzoneExpress), or Ameex by a verified order reference. Ameex has no Zomaal dispatchStatus. ' +
       'PLATFORM_TRACKING — fulfilled via a 3rd-party shipping plugin on the ' +
       "e-commerce platform (any carrier); resolved from the order's Timeline " +
       'tracking data instead of a Zomaal dispatch — dispatchStatus is always null here.',
@@ -338,7 +353,7 @@ export class ScannedShipmentResponseDto {
   @ApiProperty({
     example: 'SENDIT',
     description:
-      'One of SENDIT/QUICKLIVRAISON/FORCELOG/OZONEEXPRESS for source=ZOMAAL_COURIER, ' +
+      'One of SENDIT/QUICKLIVRAISON/FORCELOG/OZONEEXPRESS/AMEEX for source=ZOMAAL_COURIER, ' +
       'or the carrier name as reported by the platform (e.g. "FedEx", "DHL") for ' +
       'source=PLATFORM_TRACKING — open-ended, not a fixed enum.',
   })
@@ -411,6 +426,7 @@ export class OrderFinancialEventDto {
   @ApiProperty({
     enum: [
       'REVENUE_RECOGNIZED',
+      'REVENUE_REINSTATED',
       'REVENUE_REVERSED',
       'DAMAGE_LOSS',
       'SHIPPING_LOSS',

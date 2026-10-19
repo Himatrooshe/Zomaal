@@ -20,6 +20,7 @@ describe('OzoneExpressShipmentService', () => {
   const shipmentFindMany = jest.fn();
   const shipmentCount = jest.fn();
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     ozoneExpressConnection: { findUnique: connectionFindUnique },
     ecommerceOrderDispatch: { findFirst: dispatchFindFirst },
     ozoneExpressShipment: {

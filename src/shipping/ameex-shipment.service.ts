@@ -1,3 +1,5 @@
+import { EcommerceOrderFinancialService } from '../ecommerce/ecommerce-order-financial.service';
+import { staleShipmentStatus } from './shipment-status-chronology';
 import {
   BadGatewayException,
   Injectable,
@@ -32,6 +34,7 @@ export class AmeexShipmentService {
     private readonly client: AmeexClient,
     private readonly connection: AmeexConnectionService,
     private readonly customerRisk: CustomerRiskService,
+    private readonly financial?: EcommerceOrderFinancialService,
   ) {}
 
   async persistCreatedParcel(
@@ -274,16 +277,29 @@ export class AmeexShipmentService {
     const providerUpdatedAt = providerDate(
       first(value, 'UPDATED_AT', 'DATE_UPDATE', 'MODIFIED_AT'),
     );
-    const { shipment, previousStatus } = await this.prisma.$transaction(
-      async (tx) => {
+    const { shipment, previousStatus, ignored } =
+      await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`AMEEX:${userId}:${code}`},0))`;
         const connection = await tx.ameexConnection.findUnique({
           where: { userId },
           select: { id: true },
         });
         const previous = await tx.ameexShipment.findUnique({
           where: { userId_providerCode: { userId, providerCode: code } },
-          select: { normalizedStatus: true },
+          select: { normalizedStatus: true, providerUpdatedAt: true },
         });
+        if (
+          staleShipmentStatus(previous, normalizedStatus, providerUpdatedAt)
+        ) {
+          const shipment = await tx.ameexShipment.findUniqueOrThrow({
+            where: { userId_providerCode: { userId, providerCode: code } },
+          });
+          return {
+            shipment,
+            previousStatus: previous!.normalizedStatus,
+            ignored: true,
+          };
+        }
         const shipment = await tx.ameexShipment.upsert({
           where: { userId_providerCode: { userId, providerCode: code } },
           create: {
@@ -292,6 +308,7 @@ export class AmeexShipmentService {
             providerCode: code,
             providerStatus: status,
             providerSubStatus: subStatus,
+            fee: decimal(first(value, 'DELIVERY_FEES', 'FEES', 'FEE')),
             normalizedStatus,
             reference:
               request?.orderNumber ??
@@ -318,6 +335,12 @@ export class AmeexShipmentService {
             providerSubStatus: subStatus,
             normalizedStatus,
             lastActionAt: now,
+            ...(decimal(first(value, 'DELIVERY_FEES', 'FEES', 'FEE')) !== null
+              ? { fee: decimal(first(value, 'DELIVERY_FEES', 'FEES', 'FEE')) }
+              : {}),
+            ...(text(first(value, 'ORDER_NUM', 'ORDER_NUMBER'))
+              ? { reference: text(first(value, 'ORDER_NUM', 'ORDER_NUMBER')) }
+              : {}),
             ...(providerCreatedAt ? { providerCreatedAt } : {}),
             ...(providerUpdatedAt ? { providerUpdatedAt } : {}),
             ...(request
@@ -356,10 +379,16 @@ export class AmeexShipmentService {
             update: { rawPayload: json(options.rawPayload) },
           });
         }
-        return { shipment, previousStatus: previous?.normalizedStatus ?? null };
-      },
-    );
+        return {
+          shipment,
+          previousStatus: previous?.normalizedStatus ?? null,
+          ignored: false,
+        };
+      });
 
+    if (ignored) return shipment;
+    if (this.financial)
+      await this.financial.syncFromAmeexShipmentId(shipment.id);
     if (
       previousStatus !== normalizedStatus &&
       (normalizedStatus === ShippingShipmentStatus.REFUSED ||

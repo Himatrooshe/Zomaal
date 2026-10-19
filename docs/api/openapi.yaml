@@ -8781,7 +8781,7 @@ paths:
         - E-commerce Revenue
   /ecommerce/orders/{orderId}/shipping-qr:
     get:
-      description: Renders a QR label Zomaal prints and attaches to the parcel — separate from the carrier's own label. Encodes { productCode, orderId, trackingNumber } (or a PACK/ORDER envelope for bundles and multi-line orders) so a later scan resolves the order and products without a network round trip. Only available after dispatch, once a tracking number exists.
+      description: Renders a QR label Zomaal prints and attaches to the parcel — separate from the carrier's own label. Encodes { productCode, orderId, trackingNumber } (or a PACK/ORDER envelope for bundles and multi-line orders), including pack component quantities. A later scan uses the tracking number to resolve current order/products/status from the backend. Only available after dispatch, once a tracking number exists.
       operationId: Ecommerce_shippingQr
       parameters:
         - name: orderId
@@ -9071,7 +9071,7 @@ paths:
         - E-commerce Returns
   /ecommerce/returns/detect:
     post:
-      description: Resolves value the same way GET /ecommerce/scan does (Zomaal QR, courier tracking number — covers both our own couriers and 3rd-party carriers — or a typed order ID/name), then finds or creates the open ReturnRequest for that order, covering every line on it. lossSummary is a live preview based on whatever condition is already recorded — recompute by calling this again after partial verification.
+      description: Resolves value the same way GET /ecommerce/scan does (Zomaal QR, courier tracking number — covers both our own couriers and 3rd-party carriers — or a typed order ID/name), then finds or creates the open ReturnRequest for that order, covering every line on it. lossSummary is a live preview based on whatever condition is already recorded — read saved allocations via GET /ecommerce/returns/:returnRequestId after verification.
       operationId: ReturnRequest_detect
       parameters: []
       requestBody:
@@ -9111,6 +9111,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: Tracking/reference matches multiple orders; select an order explicitly
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
       summary: Resolve a scan/manual code to a return (Scan + Return Detected screens)
@@ -9118,7 +9124,7 @@ paths:
         - E-commerce Returns
   /ecommerce/returns/{returnRequestId}/verify:
     post:
-      description: Records each line's condition via the same engine as POST /orders/:orderId/condition — the matching inventory movements and condition-loss ledger changes apply in the same call. Once every line on the request has a recorded condition, status advances to PROCESSED automatically.
+      description: Records each line's condition via the same engine as POST /orders/:orderId/condition — the matching inventory movements and condition-loss ledger changes apply in the same call. Once every line on the request has a recorded condition, status advances to PROCESSED automatically. Quantity/component rows replace all saved allocations for each included line; omit quantity for a whole-line condition.
       operationId: ReturnRequest_verify
       parameters:
         - name: returnRequestId
@@ -9167,6 +9173,47 @@ paths:
       security:
         - bearer: []
       summary: Record conditions and confirm a return (Return Detected screen "Confirm")
+      tags:
+        - E-commerce Returns
+  /ecommerce/returns/{returnRequestId}:
+    get:
+      description: Reads open or processed returns without creating another return request.
+      operationId: ReturnRequest_get
+      parameters:
+        - name: returnRequestId
+          required: true
+          in: path
+          schema:
+            format: uuid
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectedReturnResponseDto'
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: You don't have permission to access Returns.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: Store-owned return not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Read a saved return with its component/quantity conditions
       tags:
         - E-commerce Returns
   /youcan/auth/start:
@@ -25587,11 +25634,11 @@ components:
           allOf:
             - $ref: '#/components/schemas/ReturnsBucketDto'
         damaged:
-          description: Order lines scanned in as DAMAGED. Value uses the recorded damageCost when present, falling back to the line total.
+          description: Order lines scanned in as DAMAGED. Value uses the recorded damageCost when present, falling back to known purchase cost; unknown purchase cost contributes zero.
           allOf:
             - $ref: '#/components/schemas/ReturnsBucketDto'
         missing:
-          description: Order lines scanned in as MISSING or LOST.
+          description: Physical items recorded MISSING or LOST; value is purchase-cost loss.
           allOf:
             - $ref: '#/components/schemas/ReturnsBucketDto'
         dataUpdatedAt:
@@ -25707,9 +25754,95 @@ components:
       required:
         - data
         - pagination
+    ShipmentComponentDto:
+      type: object
+      properties:
+        componentVariantId:
+          type: string
+          format: uuid
+        productCode:
+          type: string
+          nullable: true
+        productName:
+          type: string
+        variantTitle:
+          type: string
+        quantityPerPack:
+          type: number
+          description: Units of this component in one pack.
+        quantity:
+          type: number
+          description: Physical units in this order line, including ordered pack quantity.
+      required:
+        - componentVariantId
+        - productCode
+        - productName
+        - variantTitle
+        - quantityPerPack
+        - quantity
+    ConditionAllocationResponseDto:
+      type: object
+      properties:
+        componentVariantId:
+          type: string
+          format: uuid
+          nullable: true
+        quantity:
+          type: number
+          description: Allocated component units or whole-line units/packs.
+        physicalQuantity:
+          type: number
+          description: Number of physical items represented by this allocation.
+        condition:
+          type: string
+          enum:
+            - GOOD
+            - RETURNED
+            - DAMAGED
+            - LOST
+            - MISSING
+        damageCost:
+          type: string
+          nullable: true
+          description: Explicit total damage cost for this allocation, not a per-unit amount.
+        unitCost:
+          type: string
+          description: Snapshot purchase cost per allocated unit/component, in order currency.
+        saleValue:
+          type: string
+          description: Allocated portion of the actual order-line selling value. Pack components use purchase-cost weights; zero-cost packs use physical quantity weights.
+      required:
+        - componentVariantId
+        - quantity
+        - physicalQuantity
+        - condition
+        - damageCost
+        - unitCost
+        - saleValue
     ScannedShipmentProductDto:
       type: object
       properties:
+        orderLineId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - STANDARD
+            - BUNDLE
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentComponentDto'
+        allocations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConditionAllocationResponseDto'
+        conditionComplete:
+          type: boolean
+          nullable: true
+        conditionRevision:
+          type: number
         productCode:
           type: string
           example: DH564BJ0
@@ -25728,12 +25861,19 @@ components:
             - LOST
             - RETURNED
             - MISSING
+            - MIXED
           description: Null until a condition has been recorded for this line.
         damageCost:
           type: object
           nullable: true
           example: '120.00'
       required:
+        - orderLineId
+        - kind
+        - components
+        - allocations
+        - conditionComplete
+        - conditionRevision
         - productCode
         - productName
         - quantity
@@ -25756,11 +25896,11 @@ components:
           enum:
             - ZOMAAL_COURIER
             - PLATFORM_TRACKING
-          description: ZOMAAL_COURIER — dispatched through one of our own courier integrations (Sendit/QuickLivraison/ForceLog/OzoneExpress); dispatchStatus is meaningful. PLATFORM_TRACKING — fulfilled via a 3rd-party shipping plugin on the e-commerce platform (any carrier); resolved from the order's Timeline tracking data instead of a Zomaal dispatch — dispatchStatus is always null here.
+          description: ZOMAAL_COURIER — dispatched through one of our own courier integrations (Sendit/QuickLivraison/ForceLog/OzoneExpress), or Ameex by a verified order reference. Ameex has no Zomaal dispatchStatus. PLATFORM_TRACKING — fulfilled via a 3rd-party shipping plugin on the e-commerce platform (any carrier); resolved from the order's Timeline tracking data instead of a Zomaal dispatch — dispatchStatus is always null here.
         provider:
           type: string
           example: SENDIT
-          description: One of SENDIT/QUICKLIVRAISON/FORCELOG/OZONEEXPRESS for source=ZOMAAL_COURIER, or the carrier name as reported by the platform (e.g. "FedEx", "DHL") for source=PLATFORM_TRACKING — open-ended, not a fixed enum.
+          description: One of SENDIT/QUICKLIVRAISON/FORCELOG/OZONEEXPRESS/AMEEX for source=ZOMAAL_COURIER, or the carrier name as reported by the platform (e.g. "FedEx", "DHL") for source=PLATFORM_TRACKING — open-ended, not a fixed enum.
         trackingNumber:
           type: string
           example: SH92831
@@ -25863,6 +26003,7 @@ components:
           type: string
           enum:
             - REVENUE_RECOGNIZED
+            - REVENUE_REINSTATED
             - REVENUE_REVERSED
             - DAMAGE_LOSS
             - SHIPPING_LOSS
@@ -26461,6 +26602,25 @@ components:
     DetectedReturnLineDto:
       type: object
       properties:
+        kind:
+          type: string
+          enum:
+            - STANDARD
+            - BUNDLE
+          nullable: true
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentComponentDto'
+        allocations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConditionAllocationResponseDto'
+        conditionComplete:
+          type: boolean
+          nullable: true
+        conditionRevision:
+          type: number
         orderLineId:
           type: string
           format: uuid
@@ -26490,6 +26650,11 @@ components:
             - MISSING
           description: Already-recorded condition from a previous verification, if any.
       required:
+        - kind
+        - components
+        - allocations
+        - conditionComplete
+        - conditionRevision
         - orderLineId
         - name
         - quantity
@@ -26562,6 +26727,18 @@ components:
     VerifyReturnLineDto:
       type: object
       properties:
+        expectedRevision:
+          type: number
+          minimum: 0
+          description: Optional conditionRevision from the latest read. Stale changes return 409; identical retries remain safe.
+        componentVariantId:
+          type: string
+          format: uuid
+          description: Pack component variant; omit for whole-line/whole-pack conditions.
+        quantity:
+          type: number
+          minimum: 1
+          description: Affected physical units (component mode) or ordered units/packs (whole-line mode). All allocations for an included line replace its current snapshot.
         orderLineId:
           type: string
           format: uuid

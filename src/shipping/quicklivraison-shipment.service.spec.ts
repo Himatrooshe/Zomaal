@@ -25,6 +25,7 @@ describe('QuickLivraisonShipmentService', () => {
     .mockResolvedValue({});
   const shipmentFindUnique = jest.fn();
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     quickLivraisonConnection: { findUnique: connectionFindUnique },
     ecommerceOrderDispatch: { findMany: dispatchFindMany },
     quickLivraisonShipment: { upsert: shipmentUpsert },
