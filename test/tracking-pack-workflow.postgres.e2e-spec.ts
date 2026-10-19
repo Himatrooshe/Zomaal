@@ -1,3 +1,5 @@
+import { MANUAL_REQUEST_EVENT_ID } from '../src/ecommerce/manual-order-retry';
+import { StoresService } from '../src/stores/stores.service';
 import { OrderConditionService } from '../src/ecommerce/order-condition.service';
 import { ProductCondition } from '../src/ecommerce/constants/product-condition';
 import { QuickLivraisonShipmentService } from '../src/shipping/quicklivraison-shipment.service';
@@ -7,6 +9,7 @@ import { AmeexShipmentService } from '../src/shipping/ameex-shipment.service';
 import { ForceLogShipmentService } from '../src/shipping/forcelog-shipment.service';
 import type { Server } from 'node:http';
 import {
+  BadGatewayException,
   ExecutionContext,
   INestApplication,
   ValidationPipe,
@@ -1940,5 +1943,356 @@ postgres('Tracking, pack and return edge cases with PostgreSQL', () => {
         })
       ).normalizedStatus,
     ).toBe('DELIVERED');
+  });
+  it('LIVE limits list pagination and rejects overflowing losses before any write', async () => {
+    await request(server)
+      .get('/ecommerce/returns?limit=101')
+      .set('x-test-user', owner)
+      .expect(400);
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2),
+      d = await edgeDetect(f);
+    const before = await balance(p.item.id);
+    await request(server)
+      .post(`/ecommerce/returns/${d.returnRequestId}/verify`)
+      .set('x-test-user', owner)
+      .send({
+        lines: [
+          {
+            orderLineId: f.order.lines[0].id,
+            condition: 'DAMAGED',
+            quantity: 2,
+            damageCost: 10000000000000000,
+          },
+        ],
+      })
+      .expect(400);
+    expect(await balance(p.item.id)).toEqual(before);
+    expect(
+      await db.ecommerceOrderFinancialEvent.count({
+        where: { orderId: f.order.id },
+      }),
+    ).toBe(0);
+    await expect(
+      ecommerce.verifyProductConditions(stores[0], f.order.id, [
+        {
+          orderLineId: f.order.lines[0].id,
+          quantity: 1,
+          condition: 'DAMAGED',
+          damageCost: 6000000000000000,
+        },
+        { orderLineId: f.order.lines[0].id, quantity: 1, condition: 'MISSING' },
+      ]),
+    ).resolves.toBeDefined();
+    // Individually valid component costs can exceed the persisted total as well.
+    await db.warehouseVariant.update({
+      where: { id: p.variant.id },
+      data: { costPrice: '6000000000000000' },
+    });
+    await expect(
+      ecommerce.verifyProductConditions(stores[0], f.order.id, [
+        { orderLineId: f.order.lines[0].id, quantity: 2, condition: 'LOST' },
+      ]),
+    ).rejects.toThrow('supported monetary range');
+    expect(
+      (
+        await db.ecommerceOrderLine.findUniqueOrThrow({
+          where: { id: f.order.lines[0].id },
+        })
+      ).condition,
+    ).toBe('MIXED');
+  });
+
+  it('LIVE authorized staff reads and refreshes only its own store financials', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id);
+    expect((await financial.getSummary(viewer, f.order.id)).orderId).toBe(
+      f.order.id,
+    );
+    await expect(
+      financial.syncFromDispatch(viewer, f.order.id),
+    ).resolves.toBeDefined();
+    await expect(financial.getSummary(otherOwner, f.order.id)).rejects.toThrow(
+      'Order not found',
+    );
+    await db.staffMember.update({
+      where: { userId: viewer },
+      data: { status: 'INACTIVE' },
+    });
+    try {
+      await expect(financial.getSummary(viewer, f.order.id)).rejects.toThrow(
+        'deactivated',
+      );
+    } finally {
+      await db.staffMember.update({
+        where: { userId: viewer },
+        data: { status: 'ACTIVE' },
+      });
+    }
+  });
+
+  it('LIVE manual retries preserve original intent and reject changed concurrent payloads', async () => {
+    const p = await physical();
+    const body = {
+      idempotencyKey: randomUUID(),
+      customerName: 'QA retry',
+      customerPhone: `qa-${randomUUID()}`,
+      shippingAddress: 'QA',
+      currency: 'MAD',
+      shippingCost: 15,
+      items: [{ productCode: p.variant.productCode!, quantity: 2 }],
+    };
+    const first = await ecommerce.createManualOrder(owner, body);
+    await db.warehouseVariant.update({
+      where: { id: p.variant.id },
+      data: { price: 110 },
+    });
+    expect((await ecommerce.createManualOrder(owner, body)).id).toBe(first.id);
+    await expect(
+      ecommerce.createManualOrder(owner, { ...body, shippingCost: 16 }),
+    ).rejects.toThrow('different manual-order payload');
+    await db.ecommerceOrderEvent.deleteMany({
+      where: { orderId: first.id, providerEventId: MANUAL_REQUEST_EVENT_ID },
+    });
+    expect((await ecommerce.createManualOrder(owner, body)).id).toBe(first.id);
+    await expect(
+      ecommerce.createManualOrder(owner, { ...body, customerName: 'Changed' }),
+    ).rejects.toThrow('different manual-order payload');
+    const key = randomUUID();
+    const race = await Promise.allSettled([
+      ecommerce.createManualOrder(owner, { ...body, idempotencyKey: key }),
+      ecommerce.createManualOrder(owner, {
+        ...body,
+        idempotencyKey: key,
+        shippingCost: 20,
+      }),
+    ]);
+    expect(race.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(race.filter((r) => r.status === 'rejected')).toHaveLength(1);
+    expect(
+      await db.ecommerceOrder.count({
+        where: {
+          externalOrderId: `MANUAL-${key}`,
+          connection: { storeId: stores[0] },
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('LIVE confirmed ForceLog deletion atomically cancels tracking and releases reservations', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2);
+    const dispatch = await db.ecommerceOrderDispatch.create({
+      data: {
+        orderId: f.order.id,
+        provider: 'FORCELOG',
+        providerTracking: f.tracking,
+        merchantTracking: randomUUID(),
+        status: 'DISPATCHED',
+      },
+    });
+    const shipment = await db.forceLogShipment.create({
+      data: {
+        userId: owner,
+        providerCode: f.tracking,
+        providerStatus: 'NEW_PARCEL',
+        normalizedStatus: 'PENDING',
+        dispatchId: dispatch.id,
+      },
+    });
+    const carrier = new ForceLogShipmentService(
+      db as PrismaService,
+      {} as never,
+      {} as never,
+      financial,
+      {} as never,
+    );
+    await expect(
+      carrier.reconcileProviderDeletion(owner, f.tracking, {
+        'DELETE-PARCEL': { RESULT: 'ERROR' },
+      }),
+    ).rejects.toThrow('did not confirm');
+    expect((await balance(p.item.id)).reserved).toBe(2);
+    const confirm = {
+      'DELETE-PARCEL': { RESULT: 'SUCCESS', TRACKING_NUMBER: f.tracking },
+    };
+    await carrier.reconcileProviderDeletion(owner, f.tracking, confirm);
+    await carrier.reconcileProviderDeletion(owner, f.tracking, confirm);
+    expect((await ecommerce.resolveScannedCode(owner, f.tracking)).status).toBe(
+      'CANCELLED',
+    );
+    expect(await balance(p.item.id)).toMatchObject({ onHand: 20, reserved: 0 });
+    expect(
+      (
+        await db.ecommerceOrderDispatch.findUniqueOrThrow({
+          where: { id: dispatch.id },
+        })
+      ).status,
+    ).toBe('CANCELLED');
+    expect(
+      await db.forceLogTrackingEvent.count({
+        where: { shipmentId: shipment.id, providerEventKey: 'parcel.deleted' },
+      }),
+    ).toBe(1);
+    expect((await financial.getSummary(owner, f.order.id)).shippingCost).toBe(
+      '0.00',
+    );
+  });
+
+  it('LIVE explicit store deletion handles journals bundle gifts categories and expenses without touching another store', async () => {
+    const store = await db.store.create({
+      data: {
+        userId: owner,
+        ownerName: 'QA',
+        businessName: 'Delete fixture',
+        country: 'Morocco',
+        address: 'QA',
+        city: 'QA',
+      },
+    });
+    stores.push(store.id);
+    const category = await db.productCategory.create({
+      data: {
+        storeId: store.id,
+        name: 'Delete category',
+        slug: 'delete-category',
+      },
+    });
+    const product = await db.warehouseProduct.create({
+      data: {
+        storeId: store.id,
+        name: 'Delete product',
+        categoryId: category.id,
+        variants: {
+          create: {
+            storeId: store.id,
+            title: 'Default',
+            price: 1,
+            costPrice: 1,
+          },
+        },
+      },
+      include: { variants: true },
+    });
+    const variant = product.variants[0];
+    const location = await db.warehouseLocation.create({
+      data: { storeId: store.id, name: 'Delete location', code: randomUUID() },
+    });
+    const item = await db.inventoryItem.create({
+      data: {
+        storeId: store.id,
+        kind: 'PRODUCT_VARIANT',
+        variantId: variant.id,
+      },
+    });
+    await db.inventoryMovement.create({
+      data: {
+        inventoryItemId: item.id,
+        locationId: location.id,
+        type: 'OPENING_BALANCE',
+        bucket: 'ON_HAND',
+        quantityDelta: 1,
+        resultingQuantity: 1,
+      },
+    });
+    await db.warehouseProduct.create({
+      data: {
+        storeId: store.id,
+        name: 'Delete pack',
+        kind: 'BUNDLE',
+        bundleComponents: {
+          create: { componentVariantId: variant.id, quantity: 2 },
+        },
+      },
+    });
+    await db.productGift.create({
+      data: { productId: product.id, giftVariantId: variant.id },
+    });
+    const expenseCat = await db.expenseCategory.create({
+      data: { storeId: store.id, name: 'Delete expense' },
+    });
+    await db.expense.create({
+      data: {
+        storeId: store.id,
+        categoryId: expenseCat.id,
+        title: 'Delete expense',
+        amount: 1,
+        paymentMethod: 'CASH',
+        spentAt: new Date(),
+      },
+    });
+    const service = new StoresService(
+      db as PrismaService,
+      new StoreAccessService(db as PrismaService),
+      {} as never,
+    );
+    const originalMovementCount = await db.inventoryMovement.count({
+      where: { inventoryItem: { storeId: stores[0] } },
+    });
+    await service.remove(owner, store.id);
+    expect(await db.store.findUnique({ where: { id: store.id } })).toBeNull();
+    expect(
+      await db.inventoryMovement.count({
+        where: { inventoryItem: { storeId: stores[0] } },
+      }),
+    ).toBe(originalMovementCount);
+    expect(
+      await db.store.findUnique({ where: { id: stores[1] } }),
+    ).not.toBeNull();
+    await expect(service.remove(otherOwner, stores[1])).rejects.toThrow(
+      'only store',
+    );
+  });
+  it('LIVE refresh reconciles an authenticated missing pending parcel without changing terminal history', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2);
+    const dispatch = await db.ecommerceOrderDispatch.create({
+      data: {
+        orderId: f.order.id,
+        provider: 'FORCELOG',
+        providerTracking: f.tracking,
+        merchantTracking: randomUUID(),
+        status: 'DISPATCHED',
+      },
+    });
+    await db.forceLogShipment.create({
+      data: {
+        userId: owner,
+        providerCode: f.tracking,
+        providerStatus: 'NEW_PARCEL',
+        normalizedStatus: 'PENDING',
+        dispatchId: dispatch.id,
+      },
+    });
+    const error = new BadGatewayException({
+      forcelog: {
+        AUTH: { RESULT: 'SUCCESS' },
+        'GET-PARCEL': { RESULT: 'ERROR', MESSAGE: 'Parcel code Not Found' },
+      },
+    });
+    const carrier = new ForceLogShipmentService(
+      db as PrismaService,
+      { getParcel: jest.fn().mockRejectedValue(error) } as never,
+      { getApiKey: jest.fn().mockResolvedValue('fixture-only') } as never,
+      financial,
+      {} as never,
+    );
+    await carrier.refresh(owner, f.tracking);
+    expect((await ecommerce.resolveScannedCode(owner, f.tracking)).status).toBe(
+      'CANCELLED',
+    );
+    expect((await balance(p.item.id)).reserved).toBe(0);
+    await expect(carrier.refresh(owner, f.tracking)).resolves.toMatchObject({
+      normalizedStatus: 'CANCELLED',
+    });
+    await db.forceLogShipment.update({
+      where: {
+        userId_providerCode: { userId: owner, providerCode: f.tracking },
+      },
+      data: { providerStatus: 'DELIVERED', normalizedStatus: 'DELIVERED' },
+    });
+    await expect(carrier.refresh(owner, f.tracking)).rejects.toThrow(
+      'terminal history was preserved',
+    );
   });
 });

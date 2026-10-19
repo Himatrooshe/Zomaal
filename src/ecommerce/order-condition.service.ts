@@ -1,3 +1,4 @@
+import { assertPersistedMoney } from '../common/persisted-money';
 import type { CurrencyService } from '../currency/currency.service';
 import {
   BadRequestException,
@@ -316,6 +317,7 @@ export class OrderConditionService {
                 : 0,
           );
         }, new Prisma.Decimal(0));
+        assertPersistedMoney(loss, 'Allocated loss');
         return {
           line,
           snapshot: {

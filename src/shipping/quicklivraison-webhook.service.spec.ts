@@ -114,4 +114,27 @@ describe('QuickLivraisonShipmentService webhook', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(findFirst).not.toHaveBeenCalled();
   });
+  it('acknowledges a signed event for an untracked parcel without writes', async () => {
+    findFirst.mockResolvedValue(null);
+    const payload = {
+      event: 'status_changed',
+      timestamp: '2026-05-22T15:00:00+01:00',
+      data: { tracking_number: 'UNTRACKED-QA', status: 'DELIVERED' },
+    };
+    const raw = Buffer.from(JSON.stringify(payload));
+    const signature =
+      'sha256=' +
+      createHmac('sha256', 'webhook-secret').update(raw).digest('hex');
+    await expect(
+      service.processStatusWebhook(
+        { 'x-webhook-signature': signature },
+        payload,
+        raw,
+      ),
+    ).resolves.toEqual({
+      success: true,
+      message: 'Untracked QuickLivraison parcel ignored',
+    });
+    expect(updateMany).not.toHaveBeenCalled();
+  });
 });

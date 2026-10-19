@@ -1,3 +1,4 @@
+import { manualOrderRequestHash } from './manual-order-retry';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
@@ -556,11 +557,28 @@ describe('EcommerceService', () => {
   });
 
   it('replays an existing manual order instead of duplicating it when the same idempotencyKey is reused', async () => {
+    const manualRequest = {
+      idempotencyKey: 'whatsapp-retry-001',
+      customerName: 'Ahmed',
+      customerPhone: '+212612345678',
+      shippingAddress: '123 Rue Al Massira',
+      items: [{ productCode: 'DH564BJ0', quantity: 1 }],
+    };
     let orderFindFirstArgs: { where: Record<string, unknown> } | undefined;
     const orderFindFirst = jest.fn(
       (args: { where: Record<string, unknown> }) => {
         orderFindFirstArgs = args;
-        return Promise.resolve({ id: 'existing-order-1' });
+        return Promise.resolve({
+          id: 'existing-order-1',
+          lines: [],
+          events: [
+            {
+              metadata: {
+                requestFingerprint: manualOrderRequestHash(manualRequest),
+              },
+            },
+          ],
+        });
       },
     );
     const orderFindUnique = jest.fn().mockResolvedValue({

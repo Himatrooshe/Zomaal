@@ -1,3 +1,4 @@
+import { MAX_MONEY_INPUT } from '../../common/persisted-money';
 import {
   ShipmentComponentDto,
   ConditionAllocationResponseDto,
@@ -14,6 +15,7 @@ import {
   IsString,
   IsUUID,
   ArrayMaxSize,
+  Max,
   Min,
   MinLength,
   ValidateNested,
@@ -234,6 +236,7 @@ export class VerifyReturnLineDto {
   )
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 4 })
+  @Max(MAX_MONEY_INPUT)
   @Min(0)
   damageCost?: number;
 }
@@ -297,6 +300,7 @@ export class ReturnListQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number = 20;
 }
 

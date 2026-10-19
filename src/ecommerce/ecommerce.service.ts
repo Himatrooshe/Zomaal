@@ -1,4 +1,9 @@
 import {
+  findManualOrderRetry,
+  manualOrderRequestHash,
+  MANUAL_REQUEST_EVENT_ID,
+} from './manual-order-retry';
+import {
   OrderConditionService,
   type ConditionInput,
   conditionSnapshot,
@@ -617,22 +622,8 @@ export class EcommerceService {
     const store = await this.requireStore(userId);
     const currency = (dto.currency ?? store.baseCurrency).toUpperCase();
 
-    // Retry-safe when the client supplies a key: reuses the existing
-    // (connectionId, externalOrderId) uniqueness rather than a separate
-    // idempotency column, since MANUAL externalOrderId is already
-    // synthetic (see below).
-    if (dto.idempotencyKey) {
-      const existing = await this.prisma.ecommerceOrder.findFirst({
-        where: {
-          externalOrderId: `MANUAL-${dto.idempotencyKey}`,
-          connection: { storeId: store.id, platform: EcommercePlatform.MANUAL },
-        },
-        select: { id: true },
-      });
-      if (existing) {
-        return this.getOrder(userId, existing.id);
-      }
-    }
+    const retryId = await findManualOrderRetry(this.prisma, store.id, dto);
+    if (retryId) return this.getOrder(userId, retryId);
 
     const productCodes = dto.items.map((item) => item.productCode);
     const variants = await this.prisma.warehouseVariant.findMany({
@@ -747,6 +738,20 @@ export class EcommerceService {
             processedAt: now,
             providerUpdatedAt: now,
             customerId: customer?.id ?? null,
+            events: dto.idempotencyKey
+              ? {
+                  create: {
+                    providerEventId: MANUAL_REQUEST_EVENT_ID,
+                    source: 'SYSTEM',
+                    type: 'ORDER_CREATED',
+                    title: 'Manual order created',
+                    occurredAt: now,
+                    metadata: {
+                      requestFingerprint: manualOrderRequestHash(dto),
+                    },
+                  },
+                }
+              : undefined,
             lines: { createMany: { data: lines } },
           },
         });
@@ -772,19 +777,12 @@ export class EcommerceService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        const existing = await this.prisma.ecommerceOrder.findFirst({
-          where: {
-            externalOrderId: `MANUAL-${dto.idempotencyKey}`,
-            connection: {
-              storeId: store.id,
-              platform: EcommercePlatform.MANUAL,
-            },
-          },
-          select: { id: true },
-        });
-        if (existing) {
-          return this.getOrder(userId, existing.id);
-        }
+        const existingId = await findManualOrderRetry(
+          this.prisma,
+          store.id,
+          dto,
+        );
+        if (existingId) return this.getOrder(userId, existingId);
       }
       throw error;
     }
@@ -989,6 +987,11 @@ export class EcommerceService {
     if (order.dispatch) {
       if (order.dispatch.status === 'DISPATCHED') {
         throw new BadRequestException('Order is already dispatched');
+      }
+      if (order.dispatch.status === 'CANCELLED') {
+        throw new BadRequestException(
+          'This shipment was cancelled; create a replacement order to dispatch again',
+        );
       }
       if (order.dispatch.status === 'PENDING') {
         throw new BadRequestException('Order dispatch is currently pending');

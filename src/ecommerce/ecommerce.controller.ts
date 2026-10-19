@@ -370,6 +370,11 @@ export class EcommerceController {
       'any synced order.',
   })
   @ApiCreatedResponse({ type: EcommerceOrderDto })
+  @ApiConflictResponse({
+    description:
+      'The retry key was used with a different manual-order payload.',
+    type: ApiErrorDto,
+  })
   @ApiBadRequestResponse({
     description: 'Invalid payload, or one or more product codes do not exist.',
     type: ApiErrorDto,

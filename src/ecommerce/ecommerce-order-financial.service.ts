@@ -1,5 +1,9 @@
+import { StoreAccessService } from '../access/store-access.service';
 import { randomUUID } from 'node:crypto';
-import { withOrderTransaction } from '../prisma/order-transaction';
+import {
+  withOrderTransaction,
+  isOrderTransaction,
+} from '../prisma/order-transaction';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, ShippingShipmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -81,6 +85,9 @@ export class EcommerceOrderFinancialService {
     private readonly prisma: PrismaService,
     private readonly orderStock: OrderStockService,
     private readonly whatsAppTrigger: WhatsAppTriggerService,
+    private readonly storeAccess: StoreAccessService = new StoreAccessService(
+      prisma,
+    ),
   ) {}
 
   forTransaction(prisma: PrismaService): EcommerceOrderFinancialService {
@@ -218,8 +225,9 @@ export class EcommerceOrderFinancialService {
   }
 
   async getSummary(userId: string, orderId: string) {
+    const { storeId } = await this.storeAccess.require(userId);
     const order = await this.prisma.ecommerceOrder.findFirst({
-      where: { id: orderId, connection: { store: { userId } } },
+      where: { id: orderId, connection: { storeId } },
       select: { id: true, currency: true },
     });
     if (!order) {
@@ -294,8 +302,9 @@ export class EcommerceOrderFinancialService {
    * sync/webhook hooks call directly by dispatchId.
    */
   async syncFromDispatch(userId: string, orderId: string) {
+    const { storeId } = await this.storeAccess.require(userId);
     const order = await this.prisma.ecommerceOrder.findFirst({
-      where: { id: orderId, connection: { store: { userId } } },
+      where: { id: orderId, connection: { storeId } },
       select: { id: true, dispatch: { select: { id: true } } },
     });
     if (!order) {
@@ -501,6 +510,8 @@ export class EcommerceOrderFinancialService {
   }
 
   async syncFromDispatchId(dispatchId: string) {
+    if (isOrderTransaction(this.prisma))
+      return this.syncFromDispatchIdLocked(dispatchId);
     const dispatch = await this.prisma.ecommerceOrderDispatch.findUnique({
       where: { id: dispatchId },
       select: { orderId: true },

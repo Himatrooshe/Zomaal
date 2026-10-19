@@ -52,6 +52,7 @@ export class CreateManualOrderDto {
       'Optional client-generated retry key. Resending the identical request ' +
       'with the same key returns the existing order instead of creating a ' +
       'duplicate — protects against double-submit on a flaky connection. ' +
+      'Reusing the key with different customer, shipping or item data returns 409. ' +
       'Omit it and every call creates a new order.',
   })
   @IsOptional()

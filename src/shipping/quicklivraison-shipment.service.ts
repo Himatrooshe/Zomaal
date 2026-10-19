@@ -466,9 +466,13 @@ export class QuickLivraisonShipmentService {
       },
     });
     if (!shipment) {
-      throw new NotFoundException(
-        'Tracked QuickLivraison shipment was not found',
-      );
+      // Account-wide webhooks also cover parcels not imported into Zomaal.
+      // Acknowledge authenticated events without inventing a local shipment;
+      // provider retries must not disable the integration for unrelated parcels.
+      return {
+        success: true,
+        message: 'Untracked QuickLivraison parcel ignored',
+      };
     }
 
     const normalizedStatus = normalizeQuickLivraisonStatus(

@@ -261,6 +261,7 @@ jobs:
             TWILIO_SERVICE_SID=zomaal-twilio-service-sid:latest
             SUPER_ADMIN_JWT_SECRET=zomaal-super-admin-jwt-secret:latest
             ADS_SYNC_SCHEDULER_SECRET=zomaal-ads-sync-scheduler-secret:latest
+            QUICKLIVRAISON_WEBHOOK_SECRET=zomaal-quicklivraison-webhook-secret:latest
           secrets_update_strategy: merge
 
       - name: Smoke-test the deployed revision

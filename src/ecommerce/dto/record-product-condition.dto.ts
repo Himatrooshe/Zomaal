@@ -1,3 +1,4 @@
+import { MAX_MONEY_INPUT } from '../../common/persisted-money';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -5,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -35,7 +37,8 @@ export class RecordProductConditionDto {
   })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Max(MAX_MONEY_INPUT)
   @Min(0)
   damageCost?: number;
 

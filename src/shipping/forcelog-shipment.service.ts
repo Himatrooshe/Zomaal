@@ -1,3 +1,7 @@
+import {
+  withOrderTransaction,
+  transactionPrisma,
+} from '../prisma/order-transaction';
 import { staleShipmentStatus } from './shipment-status-chronology';
 import {
   BadGatewayException,
@@ -87,12 +91,125 @@ export class ForceLogShipmentService {
     return this.persistSnapshot(userId, snapshot, providerResponse, false);
   }
 
+  /** Only an authenticated provider confirmation can mark a parcel deleted. */
+  async reconcileProviderDeletion(
+    userId: string,
+    code: string,
+    response: unknown,
+  ) {
+    const confirmation = findNestedRecord(response, 'DELETE-PARCEL');
+    const absence = findNestedRecord(response, 'GET-PARCEL');
+    const authenticatedAbsence =
+      findNestedRecord(response, 'AUTH')?.RESULT === 'SUCCESS' &&
+      absence?.RESULT === 'ERROR' &&
+      absence.MESSAGE === 'Parcel code Not Found';
+    if (
+      !authenticatedAbsence &&
+      (confirmation?.RESULT !== 'SUCCESS' ||
+        (confirmation.TRACKING_NUMBER && confirmation.TRACKING_NUMBER !== code))
+    )
+      throw new BadGatewayException(
+        'ForceLog did not confirm deletion of this parcel',
+      );
+    const shipment = await this.prisma.forceLogShipment.findUnique({
+      where: { userId_providerCode: { userId, providerCode: code } },
+      include: { dispatch: { select: { orderId: true } } },
+    });
+    if (!shipment) return;
+    const reconcile = async (tx: PrismaService) => {
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`FORCELOG:${userId}:${code}`}, 0))`;
+      const current = await tx.forceLogShipment.findUniqueOrThrow({
+        where: { id: shipment.id },
+      });
+      if (
+        authenticatedAbsence &&
+        current.normalizedStatus === ShippingShipmentStatus.CANCELLED &&
+        current.providerStatus === 'DELETED'
+      )
+        return;
+      // Only a parcel still awaiting pickup can be inferred cancelled from an
+      // authenticated missing-record response. Never rewrite delivered history.
+      if (
+        authenticatedAbsence &&
+        current.normalizedStatus !== ShippingShipmentStatus.PENDING
+      )
+        throw new BadGatewayException(
+          'ForceLog parcel was not found; terminal history was preserved',
+        );
+      const now = new Date();
+      await tx.forceLogShipment.update({
+        where: { id: shipment.id },
+        data: {
+          providerStatus: 'DELETED',
+          normalizedStatus: ShippingShipmentStatus.CANCELLED,
+          situation: 'Parcel deleted at ForceLog',
+          providerUpdatedAt: now,
+          lastActionAt: now,
+        },
+      });
+      await tx.forceLogTrackingEvent.upsert({
+        where: {
+          shipmentId_providerEventKey: {
+            shipmentId: shipment.id,
+            providerEventKey: 'parcel.deleted',
+          },
+        },
+        create: {
+          shipmentId: shipment.id,
+          providerEventKey: 'parcel.deleted',
+          eventType: 'parcel.deleted',
+          providerStatus: 'DELETED',
+          normalizedStatus: ShippingShipmentStatus.CANCELLED,
+          message: 'Parcel deleted at ForceLog',
+          actor: 'ForceLog',
+          eventAt: now,
+          rawPayload: jsonValue(response),
+        },
+        update: {},
+      });
+      if (shipment.dispatchId) {
+        await tx.ecommerceOrderDispatch.update({
+          where: { id: shipment.dispatchId },
+          data: { status: 'CANCELLED' },
+        });
+        // Scoped financial synchronization commits inventory release and ledger
+        // corrections with the cancellation; it does not queue external messages.
+        await this.financialService
+          .forTransaction(tx)
+          .syncFromDispatchId(shipment.dispatchId);
+      }
+    };
+    if (shipment.dispatch)
+      await withOrderTransaction(
+        this.prisma,
+        shipment.dispatch.orderId,
+        reconcile,
+      );
+    else
+      await this.prisma.$transaction((tx) => reconcile(transactionPrisma(tx)));
+  }
+
   async refresh(userId: string, providerCode: string) {
-    const response = await this.client.getParcel(
-      await this.connection.getApiKey(userId),
-      providerCode,
-    );
-    await this.reconcileProviderParcel(userId, providerCode, response);
+    try {
+      const response = await this.client.getParcel(
+        await this.connection.getApiKey(userId),
+        providerCode,
+      );
+      await this.reconcileProviderParcel(userId, providerCode, response);
+    } catch (error) {
+      if (!(error instanceof BadGatewayException)) throw error;
+      const payload = error.getResponse();
+      const body =
+        payload && typeof payload === 'object' && 'forcelog' in payload
+          ? payload.forcelog
+          : null;
+      if (
+        findNestedRecord(body, 'GET-PARCEL')?.MESSAGE !==
+        'Parcel code Not Found'
+      )
+        throw error;
+      await this.reconcileProviderDeletion(userId, providerCode, body);
+    }
     return this.getByProviderCode(userId, providerCode);
   }
 

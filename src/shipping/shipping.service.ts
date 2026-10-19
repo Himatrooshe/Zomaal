@@ -538,10 +538,16 @@ export class ShippingService {
   }
 
   async deleteForceLogParcel(userId: string, code: string) {
-    return this.forceLogClient.deleteParcel(
+    const response = await this.forceLogClient.deleteParcel(
       await this.forceLogConnectionService.getApiKey(userId),
       code,
     );
+    await this.forceLogShipments.reconcileProviderDeletion(
+      userId,
+      code,
+      response,
+    );
+    return response;
   }
 
   async getForceLogParcelSticker(userId: string, code: string) {
