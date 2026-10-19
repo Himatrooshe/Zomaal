@@ -47,7 +47,7 @@ Edit product (`PATCH /warehouse/products/:id`, optimistic `version`):
 - Details, prices, costs, low-stock thresholds, SKUs (empty string clears).
 - Images: replace main image, add / remove gallery images (max 4), set a variant image. Upload first via media upload; replaced or removed files are deleted from storage after the edit commits. The main image can be replaced but not removed.
 - Gift: set or replace; `null` removes it. Packaging list is replaced as a whole. Bundle components are replaced as a whole and the bundle cost is recalculated.
-- Variants: add new combinations of the existing options (new option values are created; each gets a product code, barcode and opening stock). Remove only variants with no stock, no order lines and no gift / bundle uses — otherwise archive the product.
+- Variants: add new combinations of the existing options (new option values are created; each gets a product code, barcode and opening stock). Remove only unused variants with no stock, no actual inventory movements, no purchases or order lines and no gift / bundle uses — otherwise archive the product. Only empty zero opening-balance initialization rows are discarded with an unused variant; actual stock history remains protected even after stock reaches zero.
 - Orders already reserved keep working if a gift or bundle component changes: the old reserved items are released on cancel, or deducted on delivery (they physically shipped).
 
 Import from platforms (`POST /warehouse/products/import`, up to 20 products per call):
@@ -104,3 +104,5 @@ condition (Good / Damaged / Lost / Returned / Missing, optional damage cost) →
 
 Status effects: Dispatched = reserve stock; Delivered = deduct stock, recognize revenue, product + shipping + packaging +
 gift cost; Cancelled / Returned = release stock, reverse revenue; return condition decides restock vs. loss.
+
+Products edit fixes (20 October 2026): blank normalized product names return 400; `description: null` clears the description. Image replacement/removal detaches assets as expired temporary uploads inside the product transaction, preserving the media attachment constraint and rollback behavior. Detached files are cleaned after commit; interrupted cleanup can be recovered by upload expiry cleanup. No schema migration is needed. PostgreSQL edit regression coverage runs in CI.

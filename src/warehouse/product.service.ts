@@ -199,6 +199,7 @@ export class ProductService {
   }
 
   async create(userId: string, dto: CreateWarehouseProductDto) {
+    requireProductName(dto.name);
     const store = await this.stores.requireStore(userId);
     const fingerprint = createFingerprint(dto);
     const existing = await this.prisma.warehouseProduct.findUnique({
@@ -436,6 +437,7 @@ export class ProductService {
   }
 
   async createBundle(userId: string, dto: CreateProductBundleDto) {
+    requireProductName(dto.name);
     const store = await this.stores.requireStore(userId);
     const fingerprint = createFingerprint(dto);
     const existing = await this.prisma.warehouseProduct.findUnique({
@@ -1440,6 +1442,7 @@ export class ProductService {
   ) {
     const store = await this.stores.requireStore(userId);
     const product = await this.requireProduct(store.id, productId);
+    if (dto.name !== undefined) requireProductName(dto.name);
     if (dto.categoryId)
       await this.requireActiveCategory(store.id, dto.categoryId);
     if (
@@ -1497,7 +1500,7 @@ export class ProductService {
             ...(dto.name === undefined ? {} : { name: dto.name.trim() }),
             ...(dto.description === undefined
               ? {}
-              : { description: dto.description.trim() || null }),
+              : { description: dto.description?.trim() || null }),
             ...(dto.categoryId === undefined
               ? {}
               : { categoryId: dto.categoryId }),
@@ -1736,18 +1739,39 @@ export class ProductService {
         (b) =>
           b.onHand > 0 || b.reserved > 0 || b.damaged > 0 || b.incoming > 0,
       );
-      const [orderLines, giftUses, bundleUses] = await Promise.all([
-        this.prisma.ecommerceOrderLine.count({
-          where: { warehouseVariantId: id },
-        }),
-        this.prisma.productGift.count({ where: { giftVariantId: id } }),
-        this.prisma.productBundleComponent.count({
-          where: { componentVariantId: id },
-        }),
-      ]);
-      if (hasStock || orderLines || giftUses || bundleUses) {
+      const [orderLines, giftUses, bundleUses, purchases, stockHistory] =
+        await Promise.all([
+          this.prisma.ecommerceOrderLine.count({
+            where: { warehouseVariantId: id },
+          }),
+          this.prisma.productGift.count({ where: { giftVariantId: id } }),
+          this.prisma.productBundleComponent.count({
+            where: { componentVariantId: id },
+          }),
+          this.prisma.merchantPurchase.count({
+            where: { warehouseVariantId: id },
+          }),
+          this.prisma.inventoryMovement.count({
+            where: {
+              inventoryItem: { variantId: id, storeId },
+              NOT: {
+                type: 'OPENING_BALANCE',
+                quantityDelta: 0,
+                resultingQuantity: 0,
+              },
+            },
+          }),
+        ]);
+      if (
+        hasStock ||
+        orderLines ||
+        giftUses ||
+        bundleUses ||
+        purchases ||
+        stockHistory
+      ) {
         throw new BadRequestException(
-          `Variant ${variant.title} has stock, order history, or is used as a gift or bundle component; set its stock to 0 or archive the product instead`,
+          `Variant ${variant.title} has stock, inventory or purchase history, order history, or is used as a gift or bundle component; archive the product instead`,
         );
       }
     }
@@ -1820,7 +1844,12 @@ export class ProductService {
       if (!ids.length) return;
       await tx.mediaAsset.updateMany({
         where: { id: { in: ids }, storeId },
-        data: { productId: null, variantId: null },
+        data: {
+          productId: null,
+          variantId: null,
+          status: MediaAssetStatus.TEMPORARY,
+          expiresAt: new Date(),
+        },
       });
     };
 
@@ -1927,6 +1956,20 @@ export class ProductService {
         .flatMap((v) => v.media.map((m) => m.id));
       detached.push(...variantMedia);
       await detach(variantMedia);
+      // An unused variant still has a zero opening-balance initialization row.
+      // Remove only that empty record; actual stock movements remain protected
+      // by validation and the InventoryMovement restrictive foreign key.
+      await tx.inventoryMovement.deleteMany({
+        where: {
+          inventoryItem: {
+            storeId,
+            variantId: { in: content.removeVariantIds },
+          },
+          type: 'OPENING_BALANCE',
+          quantityDelta: 0,
+          resultingQuantity: 0,
+        },
+      });
       await tx.warehouseVariant.deleteMany({
         where: { id: { in: content.removeVariantIds }, productId: product.id },
       });
@@ -3248,4 +3291,10 @@ function sortForFingerprint(value: unknown): unknown {
     );
   }
   return value;
+}
+
+function requireProductName(name: string): void {
+  if (typeof name !== 'string' || !name.trim()) {
+    throw new BadRequestException('Product name must not be blank');
+  }
 }

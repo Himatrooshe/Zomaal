@@ -149,6 +149,11 @@ function setup(current = product()) {
     },
     warehouseLocation: { upsert: jest.fn().mockResolvedValue({ id: 'loc' }) },
     inventoryItem: { create: jest.fn() },
+    inventoryMovement: {
+      count: jest.fn().mockResolvedValue(0),
+      deleteMany: jest.fn(),
+    },
+    merchantPurchase: { count: jest.fn().mockResolvedValue(0) },
   };
   const prisma = Object.assign(db, {
     $transaction: jest.fn((fn: (tx: typeof db) => Promise<unknown>) => fn(db)),
@@ -176,6 +181,40 @@ function setup(current = product()) {
 }
 
 describe('warehouse product full edit', () => {
+  it('clears a nullable description without calling trim on null', async () => {
+    const { service, db } = setup();
+    await service.update('user-1', 'product-1', {
+      version: 3,
+      description: null,
+    });
+    expect(db.warehouseProduct.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ description: null }) as unknown,
+      }),
+    );
+  });
+
+  it('rejects a name that becomes blank after trimming', async () => {
+    const { service, db } = setup();
+    await expect(
+      service.update('user-1', 'product-1', { version: 3, name: '   ' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(db.warehouseProduct.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('preserves inventory history when a zero-stock variant has been used', async () => {
+    const { service, db } = setup();
+    db.inventoryMovement.count.mockResolvedValue(1);
+    await expect(
+      service.update('user-1', 'product-1', {
+        version: 3,
+        removeVariantIds: ['var-l'],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(db.inventoryMovement.deleteMany).not.toHaveBeenCalled();
+    expect(db.warehouseVariant.deleteMany).not.toHaveBeenCalled();
+  });
+
   it('replaces gift and packaging and deletes a removed gallery image', async () => {
     const { service, db, mediaService } = setup();
 

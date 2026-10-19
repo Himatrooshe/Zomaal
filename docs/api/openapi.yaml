@@ -11612,7 +11612,7 @@ paths:
       tags:
         - Warehouse Products
     patch:
-      description: Updates name, description, category, status, prices, costs, low-stock thresholds and SKUs. Also replaces the main image, adds or removes gallery images (max 4), sets variant images, sets or removes (null) the gift, replaces packaging, replaces bundle components (bundle cost is recalculated), adds variants for existing options, and removes variants that have no stock, orders, gift or bundle uses. Upload images first via the media upload endpoint. Send the latest version returned by GET/PATCH; the response increments it. Stock changes use the dedicated inventory endpoint.
+      description: Updates name, description, category, status, prices, costs, low-stock thresholds and SKUs. Also replaces the main image, adds or removes gallery images (max 4), sets variant images, sets or removes (null) the gift, replaces packaging, replaces bundle components (bundle cost is recalculated), adds variants for existing options, and removes unused variants that have no stock, actual inventory movements, purchases, orders, gift or bundle uses. A zero opening-balance initialization alone does not block removal. Upload images first via the media upload endpoint. Send the latest version returned by GET/PATCH; the response increments it. Stock changes use the dedicated inventory endpoint.
       operationId: Product_update
       parameters:
         - name: id
@@ -28468,6 +28468,8 @@ components:
           example: 1
         name:
           type: string
+          minLength: 1
+          maxLength: 255
         description:
           type: string
           nullable: true
@@ -28533,7 +28535,7 @@ components:
           items:
             $ref: '#/components/schemas/ProductVariantInputDto'
         removeVariantIds:
-          description: Variants to delete. Rejected while a variant has stock, order history, or is used as a gift or bundle component — archive the product instead.
+          description: Variants to delete. Only unused variants may be removed. Nonzero stock, any actual inventory movement, purchase or order history, or gift/bundle use blocks removal. A zero opening-balance initialization alone does not block it; archive the product to preserve used variants.
           type: array
           items:
             type: string

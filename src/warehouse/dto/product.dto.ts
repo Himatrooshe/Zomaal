@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { InventoryBarcodeType, WarehouseProductStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -185,6 +185,9 @@ export class CreateWarehouseProductDto {
   idempotencyKey: string;
 
   @ApiProperty({ example: 'Premium Cotton T-Shirt' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(1)
   @MaxLength(255)
@@ -358,18 +361,21 @@ export class UpdateWarehouseProductDto {
   @Min(1)
   version: number;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiPropertyOptional({ minLength: 1, maxLength: 255 })
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(1)
   @MaxLength(255)
   name?: string;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: String, nullable: true })
   @IsOptional()
   @IsString()
   @MaxLength(100000)
-  description?: string;
+  description?: string | null;
 
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
@@ -503,7 +509,7 @@ export class UpdateWarehouseProductDto {
   @ApiPropertyOptional({
     type: [String],
     description:
-      'Variants to delete. Rejected while a variant has stock, order history, or is used as a gift or bundle component — archive the product instead.',
+      'Variants to delete. Only unused variants may be removed. Nonzero stock, any actual inventory movement, purchase or order history, or gift/bundle use blocks removal. A zero opening-balance initialization alone does not block it; archive the product to preserve used variants.',
   })
   @IsOptional()
   @IsArray()
@@ -578,6 +584,9 @@ export class CreateProductBundleDto {
   idempotencyKey: string;
 
   @ApiProperty({ example: 'Wireless Essentials Bundle' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(1)
   @MaxLength(255)

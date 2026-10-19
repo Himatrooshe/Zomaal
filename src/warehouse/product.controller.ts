@@ -394,7 +394,7 @@ export class ProductController {
   @ApiOperation({
     summary: 'Edit a warehouse product',
     description:
-      'Updates name, description, category, status, prices, costs, low-stock thresholds and SKUs. Also replaces the main image, adds or removes gallery images (max 4), sets variant images, sets or removes (null) the gift, replaces packaging, replaces bundle components (bundle cost is recalculated), adds variants for existing options, and removes variants that have no stock, orders, gift or bundle uses. Upload images first via the media upload endpoint. Send the latest version returned by GET/PATCH; the response increments it. Stock changes use the dedicated inventory endpoint.',
+      'Updates name, description, category, status, prices, costs, low-stock thresholds and SKUs. Also replaces the main image, adds or removes gallery images (max 4), sets variant images, sets or removes (null) the gift, replaces packaging, replaces bundle components (bundle cost is recalculated), adds variants for existing options, and removes unused variants that have no stock, actual inventory movements, purchases, orders, gift or bundle uses. A zero opening-balance initialization alone does not block removal. Upload images first via the media upload endpoint. Send the latest version returned by GET/PATCH; the response increments it. Stock changes use the dedicated inventory endpoint.',
   })
   @ApiOkResponse({ type: WarehouseProductResponseDto })
   @ApiBadRequestResponse({
