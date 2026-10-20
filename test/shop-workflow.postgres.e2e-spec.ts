@@ -643,6 +643,21 @@ postgres('Zomaal Shop live regressions with PostgreSQL', () => {
         .stock,
     ).toBe(100);
   });
+  it('concurrent catalog edits keep slug lookup on the same transaction connection', async () => {
+    const results = await Promise.all(
+      Array.from({ length: 20 }, () =>
+        request(server)
+          .patch(`/admin/shop/products/${product}`)
+          .send({ name: 'Renamed boxes' }),
+      ),
+    );
+    expect(results.map((result) => result.status)).toEqual(Array(20).fill(200));
+    expect(
+      (await db.shopProduct.findUniqueOrThrow({ where: { id: product } }))
+        .stock,
+    ).toBe(100);
+  });
+
   it('store locking leaves other stores independent', async () => {
     let release!: () => void, ready!: () => void;
     const held = new Promise<void>((r) => (ready = r)),

@@ -234,7 +234,7 @@ export class ShopService {
           ...(dto.name !== undefined
             ? {
                 name: dto.name.trim(),
-                slug: await this.uniqueProductSlug(dto.name, productId),
+                slug: await this.uniqueProductSlug(dto.name, productId, tx),
               }
             : {}),
           ...(dto.categoryId !== undefined
