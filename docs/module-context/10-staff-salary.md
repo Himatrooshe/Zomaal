@@ -35,3 +35,7 @@ Answer:
 "Last active / Last login" is shown. Does the owner need a full audit log (who edited which order)?
 Assumption: last login only in v1.
 Answer:
+
+## Live audit and corrections — 2026-10-21
+
+The live audit recorded228 observations,213 passed and15 failed expectations. Validation, page overflow, malformed dates, timezone support and scheduler provisioning are addressed in the linked Staff & Salary final-test documents. The inactive-forecast sentence in the old guide was stale: existing behavior and explicit regression tests require salary accrual and projections to continue after access deactivation. This fix preserves that established rule. See [final-test handoff](../final-test/staff-salary/README.md) for deployed status.

@@ -12,7 +12,6 @@ import {
   SalaryFrequency,
   SalaryPaymentMethod,
   SalaryPaymentStatus,
-  StaffStatus,
   type StaffSalaryProfile,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -21,16 +20,8 @@ import {
   attachReceipt,
   receiptPreviewPath,
 } from '../common/media/attach-receipt.util';
-import {
-  calculateTrend,
-  lastNMonthKeys,
-  monthKey,
-  monthsAgoStart,
-} from '../common/trend.util';
-import {
-  MonthlyTrendQueryDto,
-  MonthlyTrendResponseDto,
-} from '../common/dto/monthly-trend.dto';
+import { calculateTrend, lastNMonthKeys } from '../common/trend.util';
+import { MonthlyTrendResponseDto } from '../common/dto/monthly-trend.dto';
 import {
   ConfirmSalaryPaymentDto,
   CreateSalaryPaymentDto,
@@ -42,6 +33,7 @@ import {
   SalaryPaymentResponseDto,
   SalaryProfileResponseDto,
   SalarySummaryResponseDto,
+  SalaryTrendQueryDto,
   SetSalaryProfileDto,
 } from './dto/staff-salary.dto';
 import {
@@ -49,6 +41,13 @@ import {
   salaryDay,
   type SalaryPaymentDisplayStatus,
 } from './salary-payment-status.util';
+
+import {
+  calendarDay,
+  dateInZone,
+  monthInZone,
+  salaryCalendarInput,
+} from '../common/calendar-date.util';
 
 const PAYMENT_INCLUDE = {
   staffMember: { include: { salaryProfile: true } },
@@ -132,7 +131,10 @@ export class StaffSalaryService {
     const page = query.page ?? 1,
       limit = query.limit ?? 20,
       now = new Date();
-    const where = { ...baseWhere, ...displayStatusWhere(query.status, now) };
+    const where = {
+      ...baseWhere,
+      ...displayStatusWhere(query.status, now, query.timezone),
+    };
     const [payments, total] = await Promise.all([
       this.prisma.staffSalaryPayment.findMany({
         where,
@@ -144,7 +146,7 @@ export class StaffSalaryService {
       this.prisma.staffSalaryPayment.count({ where }),
     ]);
     return {
-      payments: payments.map((p) => toPaymentResponse(p, now)),
+      payments: payments.map((p) => toPaymentResponse(p, now, query.timezone)),
       total,
       page,
       limit,
@@ -171,7 +173,7 @@ export class StaffSalaryService {
     return {
       currency: baseCurrency,
       totalSalaryPaid: (paid._sum.amount ?? new Prisma.Decimal(0)).toFixed(2),
-      pendingPaymentCount: pending._count as number,
+      pendingPaymentCount: pending._count,
       pendingPaymentsTotal: (
         pending._sum.amount ?? new Prisma.Decimal(0)
       ).toFixed(2),
@@ -180,23 +182,25 @@ export class StaffSalaryService {
 
   async trend(
     userId: string,
-    query: MonthlyTrendQueryDto,
+    query: SalaryTrendQueryDto,
   ): Promise<MonthlyTrendResponseDto> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
-    const months = query.months ?? 6,
-      keys = lastNMonthKeys(months);
+    const months = query.months ?? 6;
+    const timezone = query.timezone ?? 'UTC';
+    const now = new Date();
+    const keys = lastNMonthKeys(months, calendarDay(now, timezone));
     const payments = await this.prisma.staffSalaryPayment.findMany({
       where: {
         staffMember: { storeId },
         status: SalaryPaymentStatus.PAID,
-        paidAt: { gte: monthsAgoStart(months), lte: new Date() },
+        paidAt: { gte: dateInZone(`${keys[0]}-01`, timezone), lte: now },
       },
       select: { amount: true, paidAt: true },
     });
     const totals = new Map<string, Prisma.Decimal>();
     for (const p of payments) {
       if (!p.paidAt) continue;
-      const key = monthKey(p.paidAt);
+      const key = monthInZone(p.paidAt, timezone);
       totals.set(
         key,
         (totals.get(key) ?? new Prisma.Decimal(0)).plus(p.amount),
@@ -221,7 +225,7 @@ export class StaffSalaryService {
   ): Promise<SalaryPaymentBatchResponseDto> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
     const ids = [...dto.staffMemberIds].sort();
-    const date = salaryDay(new Date(dto.paymentDate));
+    const date = salaryCalendarInput(dto.paymentDate, dto.timezone);
     const status = dto.status ?? SalaryPaymentStatus.PENDING;
     const fingerprint = createHash('sha256')
       .update(
@@ -320,7 +324,7 @@ export class StaffSalaryService {
     const byId = new Map(payments.map((p) => [p.staffMemberId, p]));
     return {
       payments: dto.staffMemberIds.map((id) =>
-        toPaymentResponse(byId.get(id)!),
+        toPaymentResponse(byId.get(id)!, new Date(), dto.timezone),
       ),
     };
   }
@@ -331,7 +335,11 @@ export class StaffSalaryService {
     dto: ConfirmSalaryPaymentDto,
   ): Promise<SalaryPaymentResponseDto> {
     const { storeId } = await this.storeAccess.requireOwner(userId);
-    const paidAt = dto.paidAt ? new Date(dto.paidAt) : new Date();
+    const paidAt = dto.paidAt
+      ? /^\d{4}-\d{2}-\d{2}$/.test(dto.paidAt)
+        ? dateInZone(dto.paidAt, dto.timezone ?? 'UTC')
+        : new Date(dto.paidAt)
+      : new Date();
     if (paidAt > new Date())
       throw new BadRequestException(
         'Payment timestamp cannot be in the future',
@@ -339,7 +347,7 @@ export class StaffSalaryService {
     return this.prisma.$transaction(async (tx) => {
       const payment = await this.lockPayment(tx, storeId, paymentId);
       if (payment.status === SalaryPaymentStatus.PAID)
-        return toPaymentResponse(payment);
+        return toPaymentResponse(payment, new Date(), dto.timezone);
       if (payment.expenseHandling === SalaryExpenseHandling.MANUAL)
         throw new ConflictException(
           'Manual salaries are marked paid when the owner records their expense.',
@@ -367,7 +375,7 @@ export class StaffSalaryService {
         include: PAYMENT_INCLUDE,
       });
       await this.linkExpense(tx, storeId, userId, updated);
-      return toPaymentResponse(updated);
+      return toPaymentResponse(updated, new Date(), dto.timezone);
     });
   }
 
@@ -465,30 +473,29 @@ export class StaffSalaryService {
     processed: number;
     skippedInactive: number;
   }> {
-    const today = salaryDay(new Date());
-    const due = await this.prisma.staffSalaryProfile.findMany({
-      where: { nextPaymentDate: { lt: new Date(today.getTime() + 86400000) } },
-      select: {
-        staffMemberId: true,
-        staffMember: { select: { storeId: true } },
-      },
-      orderBy: [{ nextPaymentDate: 'asc' }, { staffMemberId: 'asc' }],
-      take: 500,
-    });
+    // Let PostgreSQL select only truly due profiles across all saved timezones.
+    // Fetching the first 500 UTC candidates can starve due profiles behind
+    // not-yet-due western-timezone schedules on the same calendar date.
+    const due = await this.prisma.$queryRaw<
+      {
+        staffMemberId: string;
+        storeId: string;
+      }[]
+    >`SELECT p."staffMemberId", s."storeId"
+      FROM "StaffSalaryProfile" p JOIN "StaffMember" s ON s.id = p."staffMemberId"
+      WHERE p."nextPaymentDate"::date <= (CURRENT_TIMESTAMP AT TIME ZONE p.timezone)::date
+      ORDER BY p."nextPaymentDate", p."staffMemberId" LIMIT 500`;
     let processed = 0,
       skippedInactive = 0;
     for (const candidate of due) {
       const result = await this.prisma.$transaction(
         async (tx) => {
-          await lockStaff(
-            tx,
-            candidate.staffMember.storeId,
-            candidate.staffMemberId,
-          );
+          await lockStaff(tx, candidate.storeId, candidate.staffMemberId);
           const profile = await tx.staffSalaryProfile.findUnique({
             where: { staffMemberId: candidate.staffMemberId },
             include: { staffMember: { select: { status: true } } },
           });
+          const today = calendarDay(new Date(), profile?.timezone ?? 'UTC');
           if (
             !profile?.nextPaymentDate ||
             salaryDay(profile.nextPaymentDate) > today
@@ -527,12 +534,7 @@ export class StaffSalaryService {
                 include: PAYMENT_INCLUDE,
               });
               if (profile.expenseHandling === SalaryExpenseHandling.AUTOMATIC)
-                await this.linkExpense(
-                  tx,
-                  candidate.staffMember.storeId,
-                  null,
-                  payment,
-                );
+                await this.linkExpense(tx, candidate.storeId, null, payment);
               count++;
             } else if (
               profile.expenseHandling === SalaryExpenseHandling.AUTOMATIC &&
@@ -543,12 +545,7 @@ export class StaffSalaryService {
                 data: { status: SalaryPaymentStatus.PAID, paidAt: new Date() },
                 include: PAYMENT_INCLUDE,
               });
-              await this.linkExpense(
-                tx,
-                candidate.staffMember.storeId,
-                null,
-                paid,
-              );
+              await this.linkExpense(tx, candidate.storeId, null, paid);
               count++;
             }
             date = advance(
@@ -579,17 +576,21 @@ export class StaffSalaryService {
   ): Promise<SalaryAnnualSummaryDto> {
     const { storeId, baseCurrency } =
       await this.storeAccess.requireOwner(userId);
-    const staff = await this.requireStaff(storeId, staffId);
-    const year = query.year ?? new Date().getUTCFullYear();
+    await this.requireStaff(storeId, staffId);
+    const timezone = query.timezone ?? 'UTC';
+    const year =
+      query.year ?? calendarDay(new Date(), timezone).getUTCFullYear();
     const from = new Date(Date.UTC(year, 0, 1)),
       to = new Date(Date.UTC(year + 1, 0, 1));
+    const payoutFrom = dateInZone(`${year}-01-01`, timezone);
+    const payoutTo = dateInZone(`${year + 1}-01-01`, timezone);
     const [payments, profile] = await Promise.all([
       this.prisma.staffSalaryPayment.findMany({
         where: {
           staffMemberId: staffId,
           OR: [
             { paymentDate: { gte: from, lt: to } },
-            { paidAt: { gte: from, lt: to } },
+            { paidAt: { gte: payoutFrom, lt: payoutTo } },
           ],
         },
       }),
@@ -608,8 +609,8 @@ export class StaffSalaryService {
       if (
         p.status === SalaryPaymentStatus.PAID &&
         p.paidAt &&
-        p.paidAt >= from &&
-        p.paidAt < to
+        p.paidAt >= payoutFrom &&
+        p.paidAt < payoutTo
       )
         paid = paid.plus(p.amount);
       if (
@@ -676,10 +677,12 @@ export function salaryProfileData(
   dto: SetSalaryProfileDto,
   existing?: StaffSalaryProfile | null,
 ) {
-  const startDate = salaryDay(new Date(dto.startDate));
+  const timezone = dto.timezone ?? existing?.timezone ?? 'UTC';
+  const startDate = salaryCalendarInput(dto.startDate, timezone);
   const unchanged =
     existing && salaryDay(existing.startDate).getTime() === startDate.getTime();
   return {
+    timezone,
     baseSalary: dto.baseSalary,
     frequency: dto.frequency,
     paymentMethod: dto.paymentMethod,
@@ -718,24 +721,12 @@ export function advance(
 }
 
 function addMonthClamped(date: Date, anchorDay: number): Date {
-  const firstOfTargetMonth = new Date(
-    Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth() + 1,
-      1,
-      date.getUTCHours(),
-      date.getUTCMinutes(),
-      date.getUTCSeconds(),
-      date.getUTCMilliseconds(),
-    ),
-  );
-  const lastDayOfTargetMonth = new Date(
-    Date.UTC(
-      firstOfTargetMonth.getUTCFullYear(),
-      firstOfTargetMonth.getUTCMonth() + 1,
-      0,
-    ),
-  ).getUTCDate();
+  const firstOfTargetMonth = new Date(date);
+  firstOfTargetMonth.setUTCDate(1);
+  firstOfTargetMonth.setUTCMonth(firstOfTargetMonth.getUTCMonth() + 1);
+  const end = new Date(firstOfTargetMonth);
+  end.setUTCMonth(end.getUTCMonth() + 1, 0);
+  const lastDayOfTargetMonth = end.getUTCDate();
   firstOfTargetMonth.setUTCDate(Math.min(anchorDay, lastDayOfTargetMonth));
   return firstOfTargetMonth;
 }
@@ -744,6 +735,7 @@ export function toProfileResponse(
   profile: StaffSalaryProfile,
 ): SalaryProfileResponseDto {
   return {
+    timezone: profile.timezone ?? 'UTC',
     baseSalary: profile.baseSalary.toFixed(2),
     frequency: profile.frequency,
     paymentMethod: profile.paymentMethod,
@@ -757,6 +749,7 @@ export function toProfileResponse(
 function toPaymentResponse(
   p: Payment,
   now = new Date(),
+  timezone = 'UTC',
 ): SalaryPaymentResponseDto {
   return {
     id: p.id,
@@ -769,7 +762,12 @@ function toPaymentResponse(
     paidAt: p.paidAt?.toISOString() ?? null,
     paymentMethod: p.paymentMethod,
     status: p.status,
-    displayStatus: deriveSalaryDisplayStatus(p.status, p.paymentDate, now),
+    displayStatus: deriveSalaryDisplayStatus(
+      p.status,
+      p.paymentDate,
+      now,
+      timezone,
+    ),
     notes: p.notes,
     receiptUrl: p.receiptUrl,
     frequency: p.frequency,
@@ -783,13 +781,16 @@ function toPaymentResponse(
 function displayStatusWhere(
   status: SalaryPaymentDisplayStatus | undefined,
   now: Date,
+  timezone = 'UTC',
 ): Prisma.StaffSalaryPaymentWhereInput {
   if (!status) return {};
   if (status === 'PAID') return { status: SalaryPaymentStatus.PAID };
   return {
     status: SalaryPaymentStatus.PENDING,
     paymentDate:
-      status === 'PENDING' ? { gte: salaryDay(now) } : { lt: salaryDay(now) },
+      status === 'PENDING'
+        ? { gte: calendarDay(now, timezone) }
+        : { lt: calendarDay(now, timezone) },
   };
 }
 

@@ -16,16 +16,18 @@ import {
   Min,
   MinLength,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import {
   SetSalaryProfileDto,
   SalaryProfileResponseDto,
 } from './staff-salary.dto';
+import { strictInteger, trimText } from '../../common/calendar-date.util';
 import { ALL_PERMISSIONS, type Permission } from '../../access/permissions';
 
 export class CreateStaffDto {
   @ApiPropertyOptional({ enum: StaffStatus, default: StaffStatus.ACTIVE })
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsIn(Object.values(StaffStatus))
   status?: StaffStatus;
 
@@ -33,12 +35,13 @@ export class CreateStaffDto {
     type: SetSalaryProfileDto,
     description: 'Save salary configuration atomically with staff details.',
   })
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @ValidateNested()
   @Type(() => SetSalaryProfileDto)
   salary?: SetSalaryProfileDto;
 
   @ApiProperty({ example: 'Sara Amrani', maxLength: 120 })
+  @Transform(trimText)
   @IsString()
   @IsNotEmpty()
   @MaxLength(120)
@@ -83,7 +86,7 @@ export class CreateStaffDto {
     description:
       'Per-person exception list. Non-empty REPLACES the role permissions entirely for this person. Leave empty to inherit the role.',
   })
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsArray()
   @ArrayUnique()
   @IsIn(ALL_PERMISSIONS, { each: true })
@@ -92,7 +95,7 @@ export class CreateStaffDto {
 
 export class UpdateStaffDto {
   @ApiPropertyOptional({ enum: StaffStatus, default: StaffStatus.ACTIVE })
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsIn(Object.values(StaffStatus))
   status?: StaffStatus;
 
@@ -100,20 +103,21 @@ export class UpdateStaffDto {
     type: SetSalaryProfileDto,
     description: 'Save salary configuration atomically with staff details.',
   })
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @ValidateNested()
   @Type(() => SetSalaryProfileDto)
   salary?: SetSalaryProfileDto;
 
   @ApiPropertyOptional({ maxLength: 120 })
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @Transform(trimText)
   @IsString()
   @IsNotEmpty()
   @MaxLength(120)
   name?: string;
 
   @ApiPropertyOptional({ description: 'Login phone number, E.164 format.' })
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsString()
   @IsPhoneNumber()
   phone?: string;
@@ -127,7 +131,9 @@ export class UpdateStaffDto {
   @IsOptional()
   @IsString()
   @MinLength(8)
-  @Transform(({ value }) => (value === '' ? undefined : value))
+  @Transform(({ value }: { value: unknown }) =>
+    value === '' ? undefined : value,
+  )
   password?: string;
 
   @ApiPropertyOptional({ maxLength: 120 })
@@ -147,7 +153,7 @@ export class UpdateStaffDto {
   roleId?: string | null;
 
   @ApiPropertyOptional({ enum: ALL_PERMISSIONS, isArray: true })
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsArray()
   @ArrayUnique()
   @IsIn(ALL_PERMISSIONS, { each: true })
@@ -170,20 +176,21 @@ export class StaffListQueryDto {
   search?: string;
 
   @ApiPropertyOptional({ enum: StaffStatus })
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsIn(Object.values(StaffStatus))
   status?: StaffStatus;
 
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: 1000000, default: 1 })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
+  @Max(1000000)
   page?: number = 1;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
   @Max(100)

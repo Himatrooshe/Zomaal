@@ -1,3 +1,4 @@
+import { calendarDay } from '../common/calendar-date.util';
 import { SalaryPaymentStatus } from '@prisma/client';
 
 /** UI filter / display values — OVERDUE is never stored. */
@@ -17,20 +18,19 @@ export function deriveSalaryDisplayStatus(
   status: SalaryPaymentStatus,
   paymentDate: Date,
   now: Date = new Date(),
+  timezone = 'UTC',
 ): SalaryPaymentDisplayStatus {
   if (status === SalaryPaymentStatus.PAID) {
     return 'PAID';
   }
-  // Salary dates are UTC calendar days: a payment due today is pending
-  // throughout today, not overdue immediately after midnight.
-  if (paymentDate.getTime() < salaryDay(now).getTime()) {
+  // Due dates are calendar labels encoded at UTC midnight. Compare with
+  // the phone-local calendar label, rather than a guessed UTC offset.
+  if (paymentDate.getTime() < calendarDay(now, timezone).getTime()) {
     return 'OVERDUE';
   }
   return 'PENDING';
 }
 
 export function salaryDay(date: Date): Date {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
+  return calendarDay(date);
 }

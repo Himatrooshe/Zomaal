@@ -13431,6 +13431,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -13731,6 +13732,12 @@ paths:
             maximum: 24
             default: 6
             type: number
+        - name: timezone
+          required: false
+          in: query
+          description: Phone IANA timezone for paid-month grouping; defaults to UTC.
+          schema:
+            type: string
       responses:
         '200':
           description: ''
@@ -13759,6 +13766,12 @@ paths:
     get:
       operationId: StaffSalary_listStorePayments
       parameters:
+        - name: timezone
+          required: false
+          in: query
+          description: Phone IANA timezone; defaults to UTC for compatibility.
+          schema:
+            type: string
         - name: status
           required: false
           in: query
@@ -13774,6 +13787,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -13940,10 +13954,16 @@ paths:
           schema:
             format: uuid
             type: string
+        - name: timezone
+          required: false
+          in: query
+          description: Phone IANA timezone; defaults to UTC for compatibility.
+          schema:
+            type: string
         - name: year
           required: false
           in: query
-          description: UTC calendar year, defaults to current year.
+          description: Phone-local calendar year for payouts; defaults to the current year in the requested timezone.
           schema:
             minimum: 2000
             maximum: 2100
@@ -14068,6 +14088,12 @@ paths:
           schema:
             format: uuid
             type: string
+        - name: timezone
+          required: false
+          in: query
+          description: Phone IANA timezone; defaults to UTC for compatibility.
+          schema:
+            type: string
         - name: status
           required: false
           in: query
@@ -14083,6 +14109,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -30194,6 +30221,9 @@ components:
     SalaryProfileResponseDto:
       type: object
       properties:
+        timezone:
+          type: string
+          description: Saved IANA schedule timezone. Due dates are calendar labels encoded at UTC midnight.
         baseSalary:
           type: string
         frequency:
@@ -30221,6 +30251,7 @@ components:
           type: string
           nullable: true
       required:
+        - timezone
         - baseSalary
         - frequency
         - paymentMethod
@@ -30351,6 +30382,9 @@ components:
     SetSalaryProfileDto:
       type: object
       properties:
+        timezone:
+          type: string
+          description: Phone IANA timezone; defaults to UTC for compatibility.
         baseSalary:
           type: string
           example: '3500.00'
@@ -30375,7 +30409,7 @@ components:
           description: 'AUTOMATIC: the scheduler marks the due salary PAID and creates its linked expense. MANUAL: the scheduler creates a PENDING obligation; the owner records the expense to mark it PAID.'
         startDate:
           type: string
-          description: ISO date the salary schedule starts from.
+          description: Calendar date the salary schedule starts from in its saved timezone.
         notes:
           type: string
       required:
@@ -30617,7 +30651,7 @@ components:
             - PAID
             - PENDING
             - OVERDUE
-          description: Derived for the UI. OVERDUE = PENDING with paymentDate before today in UTC — never stored.
+          description: Derived for the UI. OVERDUE = PENDING with paymentDate before today in the requested timezone — never stored.
         notes:
           type: string
           nullable: true
@@ -30682,6 +30716,9 @@ components:
     CreateSalaryPaymentDto:
       type: object
       properties:
+        timezone:
+          type: string
+          description: Phone IANA timezone; defaults to UTC for compatibility.
         idempotencyKey:
           type: string
           format: uuid
@@ -30715,7 +30752,7 @@ components:
           description: Amount per staff member. Defaults to each staff member's configured base salary when omitted.
         paymentDate:
           type: string
-          description: Salary due date in UTC. One obligation per staff member per date.
+          description: Salary due calendar date. Date-only input retains its label; timestamps use the supplied timezone, default UTC. One obligation per staff member per calendar date.
         paymentMethod:
           type: string
           enum:
@@ -30747,6 +30784,9 @@ components:
     ConfirmSalaryPaymentDto:
       type: object
       properties:
+        timezone:
+          type: string
+          description: Phone IANA timezone; defaults to UTC for compatibility.
         paidAt:
           type: string
           description: Actual payment timestamp, defaults to now. Cannot be in the future.

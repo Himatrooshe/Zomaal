@@ -25,7 +25,7 @@ A nonempty `permissionOverrides` list replaces the role permissions. An empty li
 ## Salary lifecycle and expenses
 
 1. `PUT /staff/:staffId/salary` sets base salary, DAILY/WEEKLY/MONTHLY frequency, start date, CASH/BANK_TRANSFER, expense handling, and notes. `GET` on the same route returns `{ profile: null }` when unset.
-2. The scheduler creates the due record. **AUTOMATIC** marks it **PAID** and creates the linked Expense on the exact due date. **MANUAL** leaves it **PENDING** until the owner records the Expense.
+2. The scheduler creates the due record. **AUTOMATIC** marks it **PAID** and creates the linked Expense when the due date is processed. **MANUAL** leaves it **PENDING** until the owner records the Expense.
 3. `POST /staff/salary/payments/:paymentId/pay` is available for an automatic payout that needs explicit confirmation or correction. Manual records should use the expense action.
 4. `POST /staff/salary/payments/:paymentId/expense` records the linked Expense and marks a manual salary **PAID** in one transaction.
 
@@ -53,13 +53,23 @@ Upload receipts through `POST /expenses/receipts`. A batch receipt is attached t
 | A person's payment history                           | `GET /staff/:staffId/salary/payments`                       |
 | Annual paid, remaining count/amount, projected total | `GET /staff/:staffId/salary/annual-summary?year=2026`       |
 
-Payments include photo, job title, frequency snapshot, next scheduled date, expense handling, linked expense ID, and `expenseRecorded`. `displayStatus` derives OVERDUE when an unpaid due date is **before today in UTC**; due today stays PENDING all day. Paid monthly charts use `paidAt`, not the due date. Monetary outputs are strings with two decimal places.
+Payments include photo, job title, frequency snapshot, next scheduled date, expense handling, linked expense ID, and `expenseRecorded`. `displayStatus` derives OVERDUE when an unpaid due date is **before today in the requested phone timezone**; due today stays PENDING throughout that local day. Paid monthly charts use `paidAt`, not the due date. Monetary outputs are strings with two decimal places.
 
-The annual summary combines payments made in the requested UTC year, unpaid records due that year, and remaining occurrences of the current active profile without duplicating existing records. `annualTotal` is a projection, not a fixed annual commitment. `projected` indicates that uncreated occurrences contributed. Inactive staff contribute recorded payments and obligations but no future forecast.
+The annual summary combines payments made in the requested phone-local year for payouts (calendar due-date labels retain their year), unpaid records due that year, and remaining occurrences of the current active profile without duplicating existing records. `annualTotal` is a projection, not a fixed annual commitment. `projected` indicates that uncreated occurrences contributed. Inactive staff retain their salary agreement: recorded payments, outstanding obligations and future forecasts remain included. Deactivation blocks login and store access; it does not terminate employment or stop salary scheduling. The earlier sentence excluding inactive forecasts was stale; the existing implementation and regression tests consistently require accrual to continue.
+
+## Phone timezone and date contract
+
+Send the device IANA `timezone` (for example `Africa/Casablanca` or `Asia/Dhaka`) on payment lists, staff history, monthly trend and annual-summary queries. Omission defaults to UTC for existing clients. Summary is all-time, so it has no month/day boundary. Paid charts and annual paid totals group actual `paidAt` instants in the requested timezone; overdue filters and response chips use the same local calendar day.
+
+Salary profile create/update accepts `timezone` and persists it. A new profile defaults to UTC. Omitting it on an edit preserves the existing timezone and cursor. The scheduler checks each profile's local calendar day every fifteen minutes. The profile timezone must be explicitly updated if the owner wants a changed device timezone to change the recurring schedule; read-query timezones do not rewrite an agreement.
+
+`startDate` and `paymentDate` accept a complete, real `YYYY-MM-DD` calendar date, or an ISO timestamp with an explicit `Z`/offset. Date-only inputs retain the calendar label; timestamp inputs use the provided timezone to select the calendar date. Due dates/cursors are returned as ISO strings at UTC midnight **encoding a calendar label**, rather than an instant to shift for display. Render the date part as the due date. Payout timestamps (`paidAt`) are actual instants and should be formatted in the device timezone. Date-only `paidAt` confirmation is interpreted as local midnight using its timezone, default UTC. Skipped dates such as `2011-12-30` in `Pacific/Apia` are rejected.
+
+Staff names are trimmed and must contain text. Required staff fields and permission arrays reject null; `roleId:null` deliberately clears a role. Pagination is digit-only, page1–1,000,000 and limit1–100. Invalid inputs return400 instead of a database500.
 
 ## Scheduler and rollout
 
-Apply migrations with `npx prisma migrate deploy` before starting this version. The additive migration preserves existing payments and expenses. Existing MANUAL profiles without a cursor begin accruing at rollout day or their future start date; no historical debt is fabricated. New profiles begin at their explicit start date, including catch-up if that date is in the past. Editing frequency or amount preserves the current next due date; changing the start date explicitly restarts the schedule.
+The additive `20261020183803_staff_salary_schedule_timezone` migration adds only a timezone column with UTC default. No payments, profiles or due cursors are rewritten. Apply migrations with `npx prisma migrate deploy` before starting this version. The additive migration preserves existing payments and expenses. Existing MANUAL profiles without a cursor begin accruing at rollout day or their future start date; no historical debt is fabricated. New profiles begin at their explicit start date, including catch-up if that date is in the past. Editing frequency or amount preserves the current next due date; changing the start date explicitly restarts the schedule.
 
 Configure:
 
@@ -77,3 +87,9 @@ Cloud Run needs an external trigger; enabling the environment flag alone does no
 - Against a migrated, disposable test database: `STAFF_TEST_DATABASE_URL=... npm run test:e2e -- --runInBand staff-salary.postgres`
 
 The PostgreSQL suite covers concurrent scheduling/confirmation/batch retries, manual expense recording, transaction rollback, staff creation and reactivation. It only runs when explicitly given `STAFF_TEST_DATABASE_URL`; it never falls back to the application's database. CI runs it against its disposable PostgreSQL service.
+
+### Production provisioning
+
+Run `python3 scripts/setup-staff-salary-scheduler.py --project <project> --prepare` before deploying. This provisions `zomaal-staff-salary-scheduler-secret` and runtime access without printing the secret. CI binds the secret and enables the endpoint. After the new revision serves traffic, run the same command without `--prepare` to configure `zomaal-staff-salary-run` every15 minutes. Unauthenticated/wrong-secret requests must return401; verify an actual Scheduler run200 and its execution log. Scheduler retries are safe through staff locks and the per-date obligation key.
+
+Rollback: revert the application commit and disable/pause the salary Scheduler job if needed. Keep the additive timezone column; the previous application can run with it. Pausing stops future accrual processing without deleting history.

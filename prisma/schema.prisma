@@ -2151,6 +2151,7 @@ enum SalaryExpenseHandling {
 // The recurring salary agreement — the "Manage Salary Info" screen. One per
 // staff member; individual payments live in StaffSalaryPayment.
 model StaffSalaryProfile {
+  timezone        String                @default("UTC")
   id              String                @id @default(uuid())
   baseSalary      Decimal               @db.Decimal(20, 4)
   frequency       SalaryFrequency

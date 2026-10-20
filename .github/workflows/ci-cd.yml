@@ -264,6 +264,7 @@ jobs:
             OTP_SMS_DISABLED_COUNTRIES=MA
             ADS_SYNC_SCHEDULER_ENABLED=true
             NOTIFICATIONS_SCHEDULER_ENABLED=true
+            STAFF_SALARY_SCHEDULER_ENABLED=true
           env_vars_update_strategy: merge
           secrets: |-
             YOUCAN_CLIENT_ID=zomaal-youcan-client-id:latest
@@ -278,6 +279,7 @@ jobs:
             SUPER_ADMIN_JWT_SECRET=zomaal-super-admin-jwt-secret:latest
             ADS_SYNC_SCHEDULER_SECRET=zomaal-ads-sync-scheduler-secret:latest
             NOTIFICATIONS_SCHEDULER_SECRET=zomaal-notifications-scheduler-secret:latest
+            STAFF_SALARY_SCHEDULER_SECRET=zomaal-staff-salary-scheduler-secret:latest
             QUICKLIVRAISON_WEBHOOK_SECRET=zomaal-quicklivraison-webhook-secret:latest
           secrets_update_strategy: merge
 

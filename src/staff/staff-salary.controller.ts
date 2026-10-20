@@ -25,10 +25,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
-import {
-  MonthlyTrendQueryDto,
-  MonthlyTrendResponseDto,
-} from '../common/dto/monthly-trend.dto';
+import { MonthlyTrendResponseDto } from '../common/dto/monthly-trend.dto';
 import { StaffSalaryService } from './staff-salary.service';
 import {
   ConfirmSalaryPaymentDto,
@@ -42,6 +39,7 @@ import {
   SalaryProfileResponseDto,
   SalaryProfileWrapperDto,
   SalarySummaryResponseDto,
+  SalaryTrendQueryDto,
   SetSalaryProfileDto,
 } from './dto/staff-salary.dto';
 
@@ -78,7 +76,7 @@ export class StaffSalaryController {
   @ApiOkResponse({ type: MonthlyTrendResponseDto })
   trend(
     @CurrentUser() user: JwtPayload,
-    @Query() query: MonthlyTrendQueryDto,
+    @Query() query: SalaryTrendQueryDto,
   ): Promise<MonthlyTrendResponseDto> {
     return this.salary.trend(user.userId, query);
   }

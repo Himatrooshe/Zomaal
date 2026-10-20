@@ -21,13 +21,16 @@ export class StaffSalarySchedulerGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const enabled =
-      this.configService.get<string>('STAFF_SALARY_SCHEDULER_ENABLED', 'false') === 'true';
+      this.configService.get<string>(
+        'STAFF_SALARY_SCHEDULER_ENABLED',
+        'false',
+      ) === 'true';
     const expectedSecret = this.configService.get<string>(
       'STAFF_SALARY_SCHEDULER_SECRET',
       '',
     );
 
-    if (!enabled || !expectedSecret) {
+    if (!enabled || expectedSecret.length < 32) {
       throw new ServiceUnavailableException(
         'Scheduled salary processing is not enabled',
       );
@@ -35,7 +38,9 @@ export class StaffSalarySchedulerGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<SchedulerRequest>();
     const headerValue = request.headers['x-zomaal-scheduler-secret'];
-    const providedSecret = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+    const providedSecret = Array.isArray(headerValue)
+      ? headerValue[0]
+      : headerValue;
 
     if (
       !providedSecret ||

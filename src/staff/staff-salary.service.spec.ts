@@ -17,6 +17,7 @@ import type { CreateSalaryPaymentDto } from './dto/staff-salary.dto';
 
 const profile = {
   id: 'profile-1',
+  timezone: 'UTC',
   staffMemberId: 'staff-1',
   baseSalary: new Prisma.Decimal('100'),
   startDate: new Date('2026-01-31'),
@@ -58,15 +59,22 @@ const batch: CreateSalaryPaymentDto = {
   paymentMethod: SalaryPaymentMethod.CASH,
 };
 function build() {
+  const profileQueries = jest
+    .fn<
+      Promise<{ staffMemberId: string; staffMember: { storeId: string } }[]>,
+      []
+    >()
+    .mockResolvedValue([]);
+  const rawQuery = jest.fn<Promise<unknown[]>, [TemplateStringsArray]>();
   const prisma: any = {
-    $queryRaw: jest.fn().mockResolvedValue([{ id: staff.id }]),
+    $queryRaw: rawQuery,
     staffMember: {
       findFirst: jest.fn().mockResolvedValue(staff),
       findUniqueOrThrow: jest.fn().mockResolvedValue(staff),
     },
     staffSalaryProfile: {
       findUnique: jest.fn().mockResolvedValue(profile),
-      findMany: jest.fn().mockResolvedValue([]),
+      findMany: profileQueries,
       upsert: jest.fn(),
       update: jest.fn(),
     },
@@ -91,6 +99,16 @@ function build() {
     expense: { create: jest.fn().mockResolvedValue({ id: 'expense-1' }) },
     mediaAsset: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
   };
+  rawQuery.mockImplementation((query: TemplateStringsArray) =>
+    query.join('').includes('FROM "StaffSalaryProfile"')
+      ? profileQueries().then((rows) =>
+          rows.map((p) => ({
+            staffMemberId: p.staffMemberId,
+            storeId: p.staffMember.storeId,
+          })),
+        )
+      : Promise.resolve([{ id: staff.id }]),
+  );
   prisma.$transaction = jest.fn((cb) => cb(prisma));
   prisma.staffSalaryPayment.create.mockImplementation(({ data }: any) => ({
     ...payment,

@@ -5,7 +5,7 @@ import {
   SalaryPaymentMethod,
   SalaryPaymentStatus,
 } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   ArrayMinSize,
   ArrayMaxSize,
@@ -13,7 +13,8 @@ import {
   IsUrl,
   ArrayUnique,
   IsArray,
-  IsDateString,
+  IsTimeZone,
+  ValidateIf,
   IsIn,
   IsInt,
   IsNumberString,
@@ -24,9 +25,29 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { MonthlyTrendQueryDto } from '../../common/dto/monthly-trend.dto';
+import { IsCalendarDate, strictInteger } from '../../common/calendar-date.util';
 import { IsPositiveAmount } from '../../common/validators/is-positive-amount.validator';
 
-export class SetSalaryProfileDto {
+export class SalaryTimezoneQueryDto {
+  @ApiPropertyOptional({
+    description: 'Phone IANA timezone; defaults to UTC for compatibility.',
+  })
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsTimeZone()
+  timezone?: string;
+}
+export class SalaryTrendQueryDto extends MonthlyTrendQueryDto {
+  @ApiPropertyOptional({
+    description:
+      'Phone IANA timezone for paid-month grouping; defaults to UTC.',
+  })
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsTimeZone()
+  timezone?: string;
+}
+
+export class SetSalaryProfileDto extends SalaryTimezoneQueryDto {
   @ApiProperty({
     example: '3500.00',
     description: 'Base salary amount in the store currency.',
@@ -56,8 +77,11 @@ export class SetSalaryProfileDto {
   @IsIn(Object.values(SalaryExpenseHandling))
   expenseHandling?: SalaryExpenseHandling;
 
-  @ApiProperty({ description: 'ISO date the salary schedule starts from.' })
-  @IsDateString()
+  @ApiProperty({
+    description:
+      'Calendar date the salary schedule starts from in its saved timezone.',
+  })
+  @IsCalendarDate()
   startDate!: string;
 
   @ApiPropertyOptional()
@@ -68,6 +92,11 @@ export class SetSalaryProfileDto {
 }
 
 export class SalaryProfileResponseDto {
+  @ApiProperty({
+    description:
+      'Saved IANA schedule timezone. Due dates are calendar labels encoded at UTC midnight.',
+  })
+  timezone!: string;
   @ApiProperty() baseSalary!: string;
   @ApiProperty({ enum: SalaryFrequency }) frequency!: SalaryFrequency;
   @ApiProperty({ enum: SalaryPaymentMethod })
@@ -90,7 +119,7 @@ export class SalaryProfileWrapperDto {
   profile!: SalaryProfileResponseDto | null;
 }
 
-export class CreateSalaryPaymentDto {
+export class CreateSalaryPaymentDto extends SalaryTimezoneQueryDto {
   @ApiProperty({
     format: 'uuid',
     description:
@@ -150,9 +179,9 @@ export class CreateSalaryPaymentDto {
 
   @ApiProperty({
     description:
-      'Salary due date in UTC. One obligation per staff member per date.',
+      'Salary due calendar date. Date-only input retains its label; timestamps use the supplied timezone, default UTC. One obligation per staff member per calendar date.',
   })
-  @IsDateString()
+  @IsCalendarDate()
   paymentDate!: string;
 
   @ApiProperty({ enum: SalaryPaymentMethod })
@@ -208,7 +237,7 @@ export class SalaryPaymentResponseDto {
   @ApiProperty({
     enum: ['PAID', 'PENDING', 'OVERDUE'],
     description:
-      'Derived for the UI. OVERDUE = PENDING with paymentDate before today in UTC — never stored.',
+      'Derived for the UI. OVERDUE = PENDING with paymentDate before today in the requested timezone — never stored.',
   })
   displayStatus!: 'PAID' | 'PENDING' | 'OVERDUE';
 
@@ -249,7 +278,7 @@ export class SalaryPaymentListResponseDto {
   @ApiProperty() limit!: number;
 }
 
-export class SalaryPaymentListQueryDto {
+export class SalaryPaymentListQueryDto extends SalaryTimezoneQueryDto {
   @ApiPropertyOptional({
     enum: ['PAID', 'PENDING', 'OVERDUE'],
     description: 'Filter by derived display status (All when omitted).',
@@ -258,16 +287,17 @@ export class SalaryPaymentListQueryDto {
   @IsIn(['PAID', 'PENDING', 'OVERDUE'])
   status?: 'PAID' | 'PENDING' | 'OVERDUE';
 
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: 1000000, default: 1 })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
+  @Max(1000000)
   page?: number = 1;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(strictInteger)
   @IsInt()
   @Max(100)
   @Min(1)
@@ -293,13 +323,13 @@ export class SalarySummaryResponseDto {
   pendingPaymentsTotal!: string;
 }
 
-export class ConfirmSalaryPaymentDto {
+export class ConfirmSalaryPaymentDto extends SalaryTimezoneQueryDto {
   @ApiPropertyOptional({
     description:
       'Actual payment timestamp, defaults to now. Cannot be in the future.',
   })
   @IsOptional()
-  @IsDateString()
+  @IsCalendarDate()
   paidAt?: string;
 
   @ApiPropertyOptional({ enum: SalaryPaymentMethod })
@@ -313,14 +343,15 @@ export class ConfirmSalaryPaymentDto {
   receiptAssetId?: string;
 }
 
-export class SalaryAnnualQueryDto {
+export class SalaryAnnualQueryDto extends SalaryTimezoneQueryDto {
   @ApiPropertyOptional({
     minimum: 2000,
     maximum: 2100,
-    description: 'UTC calendar year, defaults to current year.',
+    description:
+      'Phone-local calendar year for payouts; defaults to the current year in the requested timezone.',
   })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(strictInteger)
   @IsInt()
   @Min(2000)
   @Max(2100)

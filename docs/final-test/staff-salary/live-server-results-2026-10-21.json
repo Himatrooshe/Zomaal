@@ -1,0 +1,2031 @@
+{
+  "module": "Staff & Salary",
+  "dateLocal": "2026-10-21",
+  "timezone": "Asia/Dhaka",
+  "revision": "zomaal-backend-00064-jbb",
+  "baseUrl": "https://zomaal-backend-563898960389.us-central1.run.app",
+  "total": 228,
+  "passed": 213,
+  "failed": 15,
+  "checks": [
+    {
+      "name": "original stores",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "baseline /staff?limit=100",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "baseline /staff/salary/summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "baseline /staff/salary/payments?limit=100",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "baseline /expenses?limit=100",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "baseline /expenses/summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "baseline /ecommerce/home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create isolated staff test store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "empty /staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "empty /staff/salary/summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "empty /staff/salary/payments",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "empty /staff/salary/trend",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create a",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "staff response excludes passwords a",
+      "pass": true
+    },
+    {
+      "name": "create b",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "staff response excludes passwords b",
+      "pass": true
+    },
+    {
+      "name": "create c",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "staff response excludes passwords c",
+      "pass": true
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "list three staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "counts correct",
+      "pass": true
+    },
+    {
+      "name": "search staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff pagination",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "unknown staff",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "invalid staff UUID",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "duplicate phone",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "initial unset salary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "set salary profile",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "edit staff title and name",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff detail persisted",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "edit and salary persisted",
+      "pass": true
+    },
+    {
+      "name": "create role",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "assign role",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read effective role",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "role inheritance correct",
+      "pass": true
+    },
+    {
+      "name": "override role",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "effective overrides",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "override replaces role",
+      "pass": true
+    },
+    {
+      "name": "restore role inheritance",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create pending manual payment",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "manual starts overdue without expense",
+      "pass": true
+    },
+    {
+      "name": "retry batch",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "retry returns identical payment",
+      "pass": true
+    },
+    {
+      "name": "changed retry conflict",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "same day new key conflict",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "manual confirm endpoint conflict",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "concurrent expense confirmations both succeed",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ]
+    },
+    {
+      "name": "concurrent confirmations share expense",
+      "pass": true
+    },
+    {
+      "name": "linked expense readonly edit",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "linked expense readonly delete",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "paid salary summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "salary counted once",
+      "pass": true
+    },
+    {
+      "name": "salary in Expenses",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "salary expense once",
+      "pass": true
+    },
+    {
+      "name": "salary in Home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "Home expense salary included",
+      "pass": true
+    },
+    {
+      "name": "create automatic pending",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "confirm automatic with actual payout",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "automatic payment saved",
+      "pass": true
+    },
+    {
+      "name": "paid retry unchanged",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "future paidAt rejected",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "concurrent batch retry same row",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ]
+    },
+    {
+      "name": "multi-staff paid batch",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "payments before invalid batch",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "batch rolls back missing staff",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "payments after invalid batch",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "invalid batch atomic",
+      "pass": true
+    },
+    {
+      "name": "PAID filter",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "PAID filter matches display status",
+      "pass": true
+    },
+    {
+      "name": "PENDING filter",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "PENDING filter matches display status",
+      "pass": true
+    },
+    {
+      "name": "OVERDUE filter",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "OVERDUE filter matches display status",
+      "pass": true
+    },
+    {
+      "name": "history projection /staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b/salary/payments",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "history projection /staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b/salary/annual-summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "history projection /staff/salary/trend?months=2",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "change profile future salary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "history amount after profile change",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "history immutable salary amounts",
+      "pass": true
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff PATCH rejects name \"   \"",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "staff PATCH rejects name null",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "staff PATCH rejects phone null",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "staff PATCH rejects permissionOverrides null",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "staff PATCH rejects status null",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "restore staff after null probes",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "reject /staff page=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff/salary/payments page=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff page=1.5",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff/salary/payments page=1.5",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff page=abc",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff/salary/payments page=abc",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff page=999999999999999999999",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "reject /staff/salary/payments page=999999999999999999999",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "reject /staff limit=101",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff/salary/payments limit=101",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff limit=1.5",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff/salary/payments limit=1.5",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff status=BAD",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff/salary/payments status=BAD",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff unknown=1",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /staff/salary/payments unknown=1",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "trend rejects months=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "trend rejects months=25",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "trend rejects months=1junk",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "annual rejects 1999",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "annual rejects 2101",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "annual rejects abc",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "annual rejects 2026.5",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject salary zero",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject salary negative",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject salary precision",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject salary overflow",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject salary numeric",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject salary bad date",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject salary impossible date",
+      "pass": false,
+      "http": 201,
+      "expected": 400
+    },
+    {
+      "name": "reject salary short date",
+      "pass": false,
+      "http": 201,
+      "expected": 400
+    },
+    {
+      "name": "reject salary duplicate staff",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject salary empty staff",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject salary missing key",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject salary unknown field",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject salary bad receipt",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "profile rejects bad date",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "profile rejects reduced date",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "profile rejects zero",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "profile rejects null method",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "profile rejects null salary",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "anonymous denied /staff",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "anonymous denied /staff/salary/summary",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "anonymous denied /staff/salary/payments",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "anonymous denied /staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "scheduler endpoint protected",
+      "pass": false,
+      "http": 503,
+      "expected": 401,
+      "message": "Scheduled salary processing is not enabled"
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff login",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff allowed expense read",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff denied expense write",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "staff denied owner route /staff",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "staff denied owner route /staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "staff denied owner route /staff/salary/summary",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "staff denied owner route /staff/salary/payments",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "staff denied owner route /roles",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "staff denied profile write",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "disable staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "inactive old token denied",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "inactive login denied",
+      "pass": true,
+      "http": 401,
+      "expected": 401,
+      "message": "This staff account has been deactivated",
+      "harnessCorrection": "Initial assertion expected 403. AuthService intentionally returns 401 for inactive login; access with an existing token returns 403. Both deny access as required."
+    },
+    {
+      "name": "reactivate staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "reactivated staff login",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "remove role and override access",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "permission removal applies to existing token",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "create second isolated store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "cross-store denied /staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "cross-store denied /staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b/salary",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "cross-store denied /staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b/salary/payments",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "cross-store denied /staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b/salary/annual-summary",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "cross-store payout denied",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "cross-store role denied",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff photo valid",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff photo replace",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff photo corrupt",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "staff photo unsupported",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "staff photo oversize",
+      "pass": true,
+      "http": 413,
+      "expected": 413
+    },
+    {
+      "name": "staff photo missing",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "salary totals final baseline",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "paid and pending exact totals",
+      "pass": true,
+      "actual": {
+        "currency": "MAD",
+        "totalSalaryPaid": "30.50",
+        "pendingPaymentCount": 3,
+        "pendingPaymentsTotal": "30.75"
+      }
+    },
+    {
+      "name": "restore valid profile after date probes",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "change synthetic password",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "old password no longer authenticates",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "new password authenticates",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "restore synthetic password",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "duplicate phone update conflict",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "invalid role assignment",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "unknown permission rejected",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "upload salary receipt",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "paid salary batch receipt",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "receipt belongs to first submitted staff",
+      "pass": true
+    },
+    {
+      "name": "paid receipt batch retry",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "receipt batch retry preserves IDs",
+      "pass": true
+    },
+    {
+      "name": "consumed salary receipt rejected",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "pending due today",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "due today stays pending",
+      "pass": true
+    },
+    {
+      "name": "phone timezone salary list support",
+      "pass": false,
+      "http": 400,
+      "expected": 200,
+      "message": [
+        "property timezone should not exist"
+      ]
+    },
+    {
+      "name": "phone timezone salary trend support",
+      "pass": false,
+      "http": 400,
+      "expected": 200,
+      "message": [
+        "property timezone should not exist"
+      ]
+    },
+    {
+      "name": "staff photo current path",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff photo readable",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "active annual projection",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deactivate projection fixture",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "inactive annual projection",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "inactive staff excludes uncreated forecast per published contract",
+      "pass": false,
+      "active": {
+        "year": 2026,
+        "currency": "MAD",
+        "totalPaidThisYear": "6.00",
+        "remainingPayments": 2,
+        "remainingAmount": "401.00",
+        "annualTotal": "407.00",
+        "projected": true
+      },
+      "inactive": {
+        "year": 2026,
+        "currency": "MAD",
+        "totalPaidThisYear": "6.00",
+        "remainingPayments": 2,
+        "remainingAmount": "401.00",
+        "annualTotal": "407.00",
+        "projected": true
+      }
+    },
+    {
+      "name": "restore projection fixture",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "activate for QA account cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "schedule synthetic staff account deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deactivate synthetic staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "activate for QA account cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "schedule synthetic staff account deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deactivate synthetic staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "activate for QA account cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "schedule synthetic staff account deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deactivate synthetic staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete second QA store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated QA staff store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "stores restored",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store set preserved",
+      "pass": true
+    },
+    {
+      "name": "original data after cleanup /staff?limit=100",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "preserved /staff?limit=100",
+      "pass": true
+    },
+    {
+      "name": "original data after cleanup /staff/salary/summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "preserved /staff/salary/summary",
+      "pass": true
+    },
+    {
+      "name": "original data after cleanup /staff/salary/payments?limit=100",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "preserved /staff/salary/payments?limit=100",
+      "pass": true
+    },
+    {
+      "name": "original data after cleanup /expenses?limit=100",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "preserved /expenses?limit=100",
+      "pass": true
+    },
+    {
+      "name": "original data after cleanup /expenses/summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "preserved /expenses/summary",
+      "pass": true
+    },
+    {
+      "name": "original data after cleanup /ecommerce/home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "preserved /ecommerce/home",
+      "pass": true
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    }
+  ],
+  "responses": [
+    {
+      "name": "empty /staff",
+      "path": "/staff",
+      "http": 200,
+      "data": {
+        "staff": [],
+        "total": 0,
+        "activeCount": 0,
+        "page": 1,
+        "limit": 20
+      }
+    },
+    {
+      "name": "empty /staff/salary/summary",
+      "path": "/staff/salary/summary",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "totalSalaryPaid": "0.00",
+        "pendingPaymentCount": 0,
+        "pendingPaymentsTotal": "0.00"
+      }
+    },
+    {
+      "name": "empty /staff/salary/payments",
+      "path": "/staff/salary/payments",
+      "http": 200,
+      "data": {
+        "payments": [],
+        "total": 0,
+        "page": 1,
+        "limit": 20
+      }
+    },
+    {
+      "name": "empty /staff/salary/trend",
+      "path": "/staff/salary/trend",
+      "http": 200,
+      "data": {
+        "points": [
+          {
+            "month": "2026-05",
+            "total": "0.00"
+          },
+          {
+            "month": "2026-06",
+            "total": "0.00"
+          },
+          {
+            "month": "2026-07",
+            "total": "0.00"
+          },
+          {
+            "month": "2026-08",
+            "total": "0.00"
+          },
+          {
+            "month": "2026-09",
+            "total": "0.00"
+          },
+          {
+            "month": "2026-10",
+            "total": "0.00"
+          }
+        ],
+        "trend": {
+          "changePercent": 0,
+          "direction": "flat"
+        }
+      }
+    },
+    {
+      "name": "initial unset salary",
+      "path": "/staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b/salary",
+      "http": 200,
+      "data": {
+        "profile": null
+      }
+    },
+    {
+      "name": "set salary profile",
+      "path": "/staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b/salary",
+      "http": 200,
+      "data": {
+        "baseSalary": "100.25",
+        "frequency": "MONTHLY",
+        "paymentMethod": "CASH",
+        "expenseHandling": "MANUAL",
+        "startDate": "2026-11-29T00:00:00.000Z",
+        "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+        "notes": null
+      }
+    },
+    {
+      "name": "create pending manual payment",
+      "path": "/staff/salary/payments",
+      "http": 201,
+      "data": {
+        "payments": [
+          {
+            "id": "e8c4fa4c-484e-49af-8699-71ca3851d262",
+            "staffMemberId": "c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+            "staffName": "[QA STAFF] Edited",
+            "photoUrl": null,
+            "jobTitle": "Tester",
+            "amount": "10.25",
+            "paymentDate": "2026-10-18T00:00:00.000Z",
+            "paidAt": null,
+            "paymentMethod": "CASH",
+            "status": "PENDING",
+            "displayStatus": "OVERDUE",
+            "notes": null,
+            "receiptUrl": null,
+            "frequency": "MONTHLY",
+            "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+            "expenseHandling": "MANUAL",
+            "expenseId": null,
+            "expenseRecorded": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "paid salary summary",
+      "path": "/staff/salary/summary",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "totalSalaryPaid": "10.25",
+        "pendingPaymentCount": 0,
+        "pendingPaymentsTotal": "0.00"
+      }
+    },
+    {
+      "name": "confirm automatic with actual payout",
+      "path": "/staff/salary/payments/66b3ffcc-f042-4e5b-99f7-5ce6098107b7/pay",
+      "http": 200,
+      "data": {
+        "id": "66b3ffcc-f042-4e5b-99f7-5ce6098107b7",
+        "staffMemberId": "c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+        "staffName": "[QA STAFF] Edited",
+        "photoUrl": null,
+        "jobTitle": "Tester",
+        "amount": "10.25",
+        "paymentDate": "2026-10-17T00:00:00.000Z",
+        "paidAt": "2026-10-19T12:00:00.000Z",
+        "paymentMethod": "BANK_TRANSFER",
+        "status": "PAID",
+        "displayStatus": "PAID",
+        "notes": null,
+        "receiptUrl": null,
+        "frequency": "MONTHLY",
+        "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+        "expenseHandling": "AUTOMATIC",
+        "expenseId": "37d0b28d-601e-4fc0-a29c-1c87dc3f1310",
+        "expenseRecorded": true
+      }
+    },
+    {
+      "name": "multi-staff paid batch",
+      "path": "/staff/salary/payments",
+      "http": 201,
+      "data": {
+        "payments": [
+          {
+            "id": "a9c514b9-336c-4dd1-97fe-1ca686b91565",
+            "staffMemberId": "867abcfe-01a1-45f6-b7c1-c47749dc2d2c",
+            "staffName": "[QA STAFF] b",
+            "photoUrl": null,
+            "jobTitle": null,
+            "amount": "5.00",
+            "paymentDate": "2026-10-15T00:00:00.000Z",
+            "paidAt": "2026-10-20T18:32:08.874Z",
+            "paymentMethod": "CASH",
+            "status": "PAID",
+            "displayStatus": "PAID",
+            "notes": null,
+            "receiptUrl": null,
+            "frequency": "MONTHLY",
+            "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+            "expenseHandling": "MANUAL",
+            "expenseId": "c0019f09-39d1-4cf7-9230-7c8bb13c9322",
+            "expenseRecorded": true
+          },
+          {
+            "id": "1a713aec-12e5-4c81-aa69-8083ba558417",
+            "staffMemberId": "c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+            "staffName": "[QA STAFF] Edited",
+            "photoUrl": null,
+            "jobTitle": "Tester",
+            "amount": "5.00",
+            "paymentDate": "2026-10-15T00:00:00.000Z",
+            "paidAt": "2026-10-20T18:32:08.909Z",
+            "paymentMethod": "CASH",
+            "status": "PAID",
+            "displayStatus": "PAID",
+            "notes": null,
+            "receiptUrl": null,
+            "frequency": "MONTHLY",
+            "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+            "expenseHandling": "MANUAL",
+            "expenseId": "c43de19a-7f71-4120-b63c-e42fe940c457",
+            "expenseRecorded": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "history projection /staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b/salary/payments",
+      "path": "/staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b/salary/payments",
+      "http": 200,
+      "data": {
+        "payments": [
+          {
+            "id": "e8c4fa4c-484e-49af-8699-71ca3851d262",
+            "staffMemberId": "c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+            "staffName": "[QA STAFF] Edited",
+            "photoUrl": null,
+            "jobTitle": "Tester",
+            "amount": "10.25",
+            "paymentDate": "2026-10-18T00:00:00.000Z",
+            "paidAt": "2026-10-20T18:32:05.042Z",
+            "paymentMethod": "CASH",
+            "status": "PAID",
+            "displayStatus": "PAID",
+            "notes": null,
+            "receiptUrl": null,
+            "frequency": "MONTHLY",
+            "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+            "expenseHandling": "MANUAL",
+            "expenseId": "63e30077-4258-41f3-b503-4e76064b35b6",
+            "expenseRecorded": true
+          },
+          {
+            "id": "66b3ffcc-f042-4e5b-99f7-5ce6098107b7",
+            "staffMemberId": "c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+            "staffName": "[QA STAFF] Edited",
+            "photoUrl": null,
+            "jobTitle": "Tester",
+            "amount": "10.25",
+            "paymentDate": "2026-10-17T00:00:00.000Z",
+            "paidAt": "2026-10-19T12:00:00.000Z",
+            "paymentMethod": "BANK_TRANSFER",
+            "status": "PAID",
+            "displayStatus": "PAID",
+            "notes": null,
+            "receiptUrl": null,
+            "frequency": "MONTHLY",
+            "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+            "expenseHandling": "AUTOMATIC",
+            "expenseId": "37d0b28d-601e-4fc0-a29c-1c87dc3f1310",
+            "expenseRecorded": true
+          },
+          {
+            "id": "ef6a3f76-c988-4331-a3da-a74e07a0eed2",
+            "staffMemberId": "c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+            "staffName": "[QA STAFF] Edited",
+            "photoUrl": null,
+            "jobTitle": "Tester",
+            "amount": "10.25",
+            "paymentDate": "2026-10-16T00:00:00.000Z",
+            "paidAt": null,
+            "paymentMethod": "CASH",
+            "status": "PENDING",
+            "displayStatus": "OVERDUE",
+            "notes": null,
+            "receiptUrl": null,
+            "frequency": "MONTHLY",
+            "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+            "expenseHandling": "MANUAL",
+            "expenseId": null,
+            "expenseRecorded": false
+          },
+          {
+            "id": "1a713aec-12e5-4c81-aa69-8083ba558417",
+            "staffMemberId": "c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+            "staffName": "[QA STAFF] Edited",
+            "photoUrl": null,
+            "jobTitle": "Tester",
+            "amount": "5.00",
+            "paymentDate": "2026-10-15T00:00:00.000Z",
+            "paidAt": "2026-10-20T18:32:08.909Z",
+            "paymentMethod": "CASH",
+            "status": "PAID",
+            "displayStatus": "PAID",
+            "notes": null,
+            "receiptUrl": null,
+            "frequency": "MONTHLY",
+            "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+            "expenseHandling": "MANUAL",
+            "expenseId": "c43de19a-7f71-4120-b63c-e42fe940c457",
+            "expenseRecorded": true
+          }
+        ],
+        "total": 4,
+        "page": 1,
+        "limit": 20
+      }
+    },
+    {
+      "name": "history projection /staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b/salary/annual-summary",
+      "path": "/staff/c978603e-95f1-4f3b-9fb0-a537a48aba6b/salary/annual-summary",
+      "http": 200,
+      "data": {
+        "year": 2026,
+        "currency": "MAD",
+        "totalPaidThisYear": "25.50",
+        "remainingPayments": 3,
+        "remainingAmount": "210.75",
+        "annualTotal": "236.25",
+        "projected": true
+      }
+    },
+    {
+      "name": "history projection /staff/salary/trend?months=2",
+      "path": "/staff/salary/trend?months=2",
+      "http": 200,
+      "data": {
+        "points": [
+          {
+            "month": "2026-09",
+            "total": "0.00"
+          },
+          {
+            "month": "2026-10",
+            "total": "30.50"
+          }
+        ],
+        "trend": {
+          "changePercent": null,
+          "direction": "up"
+        }
+      }
+    },
+    {
+      "name": "staff PATCH rejects name null",
+      "path": "/staff/f3876713-0efd-46fa-8ce2-049a467a5e87",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "staff PATCH rejects phone null",
+      "path": "/staff/f3876713-0efd-46fa-8ce2-049a467a5e87",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "staff PATCH rejects permissionOverrides null",
+      "path": "/staff/f3876713-0efd-46fa-8ce2-049a467a5e87",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "reject /staff page=999999999999999999999",
+      "path": "/staff?page=999999999999999999999",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "reject /staff/salary/payments page=999999999999999999999",
+      "path": "/staff/salary/payments?page=999999999999999999999",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "reject salary impossible date",
+      "path": "/staff/salary/payments",
+      "http": 201,
+      "data": {
+        "payments": [
+          {
+            "id": "cdb4deef-3575-4081-b291-836238261768",
+            "staffMemberId": "c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+            "staffName": "[QA STAFF] Edited",
+            "photoUrl": null,
+            "jobTitle": "Tester",
+            "amount": "10.25",
+            "paymentDate": "2026-03-02T00:00:00.000Z",
+            "paidAt": null,
+            "paymentMethod": "CASH",
+            "status": "PENDING",
+            "displayStatus": "OVERDUE",
+            "notes": null,
+            "receiptUrl": null,
+            "frequency": "MONTHLY",
+            "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+            "expenseHandling": "MANUAL",
+            "expenseId": null,
+            "expenseRecorded": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "reject salary short date",
+      "path": "/staff/salary/payments",
+      "http": 201,
+      "data": {
+        "payments": [
+          {
+            "id": "a05befdd-fb71-4629-b389-b867d7fc8b8d",
+            "staffMemberId": "c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+            "staffName": "[QA STAFF] Edited",
+            "photoUrl": null,
+            "jobTitle": "Tester",
+            "amount": "10.25",
+            "paymentDate": "2026-02-01T00:00:00.000Z",
+            "paidAt": null,
+            "paymentMethod": "CASH",
+            "status": "PENDING",
+            "displayStatus": "OVERDUE",
+            "notes": null,
+            "receiptUrl": null,
+            "frequency": "MONTHLY",
+            "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+            "expenseHandling": "MANUAL",
+            "expenseId": null,
+            "expenseRecorded": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "profile rejects bad date",
+      "path": "/staff/f3876713-0efd-46fa-8ce2-049a467a5e87/salary",
+      "http": 200,
+      "data": {
+        "baseSalary": "100.25",
+        "frequency": "MONTHLY",
+        "paymentMethod": "CASH",
+        "expenseHandling": "MANUAL",
+        "startDate": "2026-03-02T00:00:00.000Z",
+        "nextPaymentDate": "2026-03-02T00:00:00.000Z",
+        "notes": null
+      }
+    },
+    {
+      "name": "profile rejects reduced date",
+      "path": "/staff/f3876713-0efd-46fa-8ce2-049a467a5e87/salary",
+      "http": 200,
+      "data": {
+        "baseSalary": "100.25",
+        "frequency": "MONTHLY",
+        "paymentMethod": "CASH",
+        "expenseHandling": "MANUAL",
+        "startDate": "2026-02-01T00:00:00.000Z",
+        "nextPaymentDate": "2026-02-01T00:00:00.000Z",
+        "notes": null
+      }
+    },
+    {
+      "name": "profile rejects zero",
+      "path": "/staff/f3876713-0efd-46fa-8ce2-049a467a5e87/salary",
+      "http": 400,
+      "data": {
+        "message": [
+          "baseSalary must be a positive amount greater than zero"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "profile rejects null method",
+      "path": "/staff/f3876713-0efd-46fa-8ce2-049a467a5e87/salary",
+      "http": 400,
+      "data": {
+        "message": [
+          "paymentMethod must be one of the following values: BANK_TRANSFER, CASH"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "profile rejects null salary",
+      "path": "/staff/f3876713-0efd-46fa-8ce2-049a467a5e87/salary",
+      "http": 400,
+      "data": {
+        "message": [
+          "Amount must have at most 16 integer digits and 2 decimal places",
+          "baseSalary must be a positive amount greater than zero",
+          "baseSalary must be a number string"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "scheduler endpoint protected",
+      "path": "/internal/staff-salary/run",
+      "http": 503,
+      "data": {
+        "message": "Scheduled salary processing is not enabled",
+        "error": "Service Unavailable",
+        "statusCode": 503
+      }
+    },
+    {
+      "name": "staff photo valid",
+      "path": "/staff/f3876713-0efd-46fa-8ce2-049a467a5e87/photo",
+      "http": 200,
+      "data": {
+        "id": "f3876713-0efd-46fa-8ce2-049a467a5e87",
+        "name": "[QA STAFF] c",
+        "phone": "+12025550140",
+        "jobTitle": null,
+        "photoUrl": "/profile-media/users/4d07f1d0-dbae-4347-adfc-1af7ed3070c9/photo-d3c60fc5-e9c3-483d-813f-12698f6548c7.png",
+        "status": "ACTIVE",
+        "role": null,
+        "joinedAt": "2026-10-20T18:31:49.279Z",
+        "lastActiveAt": null,
+        "lastLoginAt": null,
+        "baseSalary": "100.25",
+        "salaryFrequency": "MONTHLY",
+        "nextPaymentDate": "2026-02-01T00:00:00.000Z",
+        "effectivePermissions": [],
+        "hasOverrides": false,
+        "permissionOverrides": [],
+        "salaryProfile": {
+          "baseSalary": "100.25",
+          "frequency": "MONTHLY",
+          "paymentMethod": "CASH",
+          "expenseHandling": "MANUAL",
+          "startDate": "2026-02-01T00:00:00.000Z",
+          "nextPaymentDate": "2026-02-01T00:00:00.000Z",
+          "notes": null
+        }
+      }
+    },
+    {
+      "name": "staff photo replace",
+      "path": "/staff/f3876713-0efd-46fa-8ce2-049a467a5e87/photo",
+      "http": 200,
+      "data": {
+        "id": "f3876713-0efd-46fa-8ce2-049a467a5e87",
+        "name": "[QA STAFF] c",
+        "phone": "+12025550140",
+        "jobTitle": null,
+        "photoUrl": "/profile-media/users/4d07f1d0-dbae-4347-adfc-1af7ed3070c9/photo-3903f0be-8252-466e-9102-653fa4c372f0.png",
+        "status": "ACTIVE",
+        "role": null,
+        "joinedAt": "2026-10-20T18:31:49.279Z",
+        "lastActiveAt": null,
+        "lastLoginAt": null,
+        "baseSalary": "100.25",
+        "salaryFrequency": "MONTHLY",
+        "nextPaymentDate": "2026-02-01T00:00:00.000Z",
+        "effectivePermissions": [],
+        "hasOverrides": false,
+        "permissionOverrides": [],
+        "salaryProfile": {
+          "baseSalary": "100.25",
+          "frequency": "MONTHLY",
+          "paymentMethod": "CASH",
+          "expenseHandling": "MANUAL",
+          "startDate": "2026-02-01T00:00:00.000Z",
+          "nextPaymentDate": "2026-02-01T00:00:00.000Z",
+          "notes": null
+        }
+      }
+    },
+    {
+      "name": "paid salary batch receipt",
+      "path": "/staff/salary/payments",
+      "http": 201,
+      "data": {
+        "payments": [
+          {
+            "id": "1dcc31dd-cdf4-46a1-9fbd-d1fe1ac9cadd",
+            "staffMemberId": "867abcfe-01a1-45f6-b7c1-c47749dc2d2c",
+            "staffName": "[QA STAFF] b",
+            "photoUrl": null,
+            "jobTitle": null,
+            "amount": "1.00",
+            "paymentDate": "2026-09-20T00:00:00.000Z",
+            "paidAt": "2026-10-20T18:33:11.115Z",
+            "paymentMethod": "CASH",
+            "status": "PAID",
+            "displayStatus": "PAID",
+            "notes": null,
+            "receiptUrl": "/expenses/receipts/788a0237-7a8e-4427-98b6-ce638598194c",
+            "frequency": "MONTHLY",
+            "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+            "expenseHandling": "MANUAL",
+            "expenseId": "575236ec-a474-4736-9f1b-511cb7209e62",
+            "expenseRecorded": true
+          },
+          {
+            "id": "d127a19d-fe34-453c-8495-6463825a213e",
+            "staffMemberId": "c978603e-95f1-4f3b-9fb0-a537a48aba6b",
+            "staffName": "[QA STAFF] Edited",
+            "photoUrl": null,
+            "jobTitle": "Tester",
+            "amount": "1.00",
+            "paymentDate": "2026-09-20T00:00:00.000Z",
+            "paidAt": "2026-10-20T18:33:11.168Z",
+            "paymentMethod": "CASH",
+            "status": "PAID",
+            "displayStatus": "PAID",
+            "notes": null,
+            "receiptUrl": null,
+            "frequency": "MONTHLY",
+            "nextPaymentDate": "2026-11-29T00:00:00.000Z",
+            "expenseHandling": "MANUAL",
+            "expenseId": "e2ba5102-a09f-41b5-b552-ffbb026629e3",
+            "expenseRecorded": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "phone timezone salary list support",
+      "path": "/staff/salary/payments?timezone=Asia%2FDhaka",
+      "http": 400,
+      "data": {
+        "message": [
+          "property timezone should not exist"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "phone timezone salary trend support",
+      "path": "/staff/salary/trend?timezone=Asia%2FDhaka",
+      "http": 400,
+      "data": {
+        "message": [
+          "property timezone should not exist"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "inactive annual projection",
+      "path": "/staff/867abcfe-01a1-45f6-b7c1-c47749dc2d2c/salary/annual-summary",
+      "http": 200,
+      "data": {
+        "year": 2026,
+        "currency": "MAD",
+        "totalPaidThisYear": "6.00",
+        "remainingPayments": 2,
+        "remainingAmount": "401.00",
+        "annualTotal": "407.00",
+        "projected": true
+      }
+    }
+  ],
+  "cleaned": true,
+  "runtimeEvidence": {
+    "salaryEnvironmentBindings": [],
+    "salarySchedulerJobPresent": false
+  },
+  "cloudMediaCleaned": true
+}
