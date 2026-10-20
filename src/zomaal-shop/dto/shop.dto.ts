@@ -5,7 +5,7 @@ import {
   ShopOrderStatus,
   ShopPaymentMethod,
 } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
@@ -49,11 +49,12 @@ export class ListShopProductsDto {
   @IsIn(['newest', 'price_asc', 'price_desc', 'name'])
   sort?: 'newest' | 'price_asc' | 'price_desc' | 'name';
 
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @ApiPropertyOptional({ default: 1, minimum: 1, maximum: 1_000_000 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(1_000_000)
   page?: number;
 
   @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 50 })
@@ -99,42 +100,63 @@ export class UpdateCartItemDto {
 
 export class CreateShopAddressDto {
   @ApiProperty({ example: 'Home' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(1)
   @MaxLength(40)
   label: string;
 
   @ApiProperty({ example: 'Youssef El Amrani' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(1)
   @MaxLength(120)
   fullName: string;
 
   @ApiProperty({ example: '+212612345678' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(6)
   @MaxLength(30)
   phone: string;
 
   @ApiProperty({ example: 'Morocco' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(1)
   @MaxLength(80)
   country: string;
 
   @ApiProperty({ example: 'Casablanca' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(1)
   @MaxLength(80)
   city: string;
 
-  @ApiPropertyOptional({ example: 'Maarif' })
+  @ApiPropertyOptional({ example: 'Maarif', nullable: true })
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MaxLength(80)
-  district?: string;
+  district?: string | null;
 
   @ApiProperty({ example: '12 Rue Abou Bakr, Apt 4' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(3)
   @MaxLength(300)
@@ -143,12 +165,14 @@ export class CreateShopAddressDto {
   @ApiPropertyOptional({
     description: 'The first address is always the default.',
   })
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsBoolean()
   isDefault?: boolean;
 }
 
-export class UpdateShopAddressDto extends PartialType(CreateShopAddressDto) {}
+export class UpdateShopAddressDto extends PartialType(CreateShopAddressDto, {
+  skipNullProperties: false,
+}) {}
 
 // ---- Checkout / orders ----
 

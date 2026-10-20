@@ -8,6 +8,17 @@ function firstArg(mock: jest.Mock): unknown {
 
 function build() {
   const prisma = {
+    $queryRaw: jest
+      .fn()
+      .mockImplementation((parts: TemplateStringsArray) =>
+        Promise.resolve(
+          parts.join('').includes('FROM "Store"')
+            ? [{ baseCurrency: 'MAD' }]
+            : parts.join('').includes('SELECT "storeId"')
+              ? [{ storeId: 'store-1' }]
+              : [],
+        ),
+      ),
     shopOrder: {
       updateMany: jest.fn(),
       findUnique: jest.fn(),
@@ -36,6 +47,9 @@ function build() {
   const service = new ShopOrdersService(
     { ...prisma, $transaction } as never,
     packaging as never,
+    {
+      convertAmount: jest.fn().mockResolvedValue(new Prisma.Decimal(1)),
+    } as never,
   );
   return { service, prisma, packaging };
 }
@@ -225,6 +239,8 @@ describe('ShopOrdersService.advance', () => {
       number: 7,
       storeId: 'store-1',
       currency: 'MAD',
+      store: { baseCurrency: 'MAD' },
+      total: new Prisma.Decimal(200),
       placedByUserId: 'user-1',
       items: [
         {
@@ -301,6 +317,8 @@ describe('ShopOrdersService.advance', () => {
       number: 1,
       storeId: 'store-1',
       currency: 'MAD',
+      store: { baseCurrency: 'MAD' },
+      total: new Prisma.Decimal(0),
       placedByUserId: 'user-1',
       items: [],
     });

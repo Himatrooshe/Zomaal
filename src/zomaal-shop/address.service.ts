@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { lockShopStore } from './shop-lock.util';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface AddressInput {
@@ -28,16 +30,23 @@ export class AddressService {
     return rows.map((r) => this.toResponse(r));
   }
 
-  async require(storeId: string, id: string) {
-    const row = await this.prisma.shopAddress.findFirst({
+  async require(
+    storeId: string,
+    id: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    const row = await db.shopAddress.findFirst({
       where: { id, storeId },
     });
     if (!row) throw new NotFoundException('Address not found');
     return row;
   }
 
-  async defaultFor(storeId: string) {
-    return this.prisma.shopAddress.findFirst({
+  async defaultFor(
+    storeId: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    return db.shopAddress.findFirst({
       where: { storeId },
       orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
     });
@@ -46,15 +55,11 @@ export class AddressService {
   // The first address is always the default; marking another as default
   // un-marks the rest, so there is exactly one default whenever any exist.
   async create(storeId: string, input: AddressInput) {
-    const count = await this.prisma.shopAddress.count({ where: { storeId } });
-    const makeDefault = count === 0 || input.isDefault === true;
     const row = await this.prisma.$transaction(async (tx) => {
-      if (makeDefault)
-        await tx.shopAddress.updateMany({
-          where: { storeId },
-          data: { isDefault: false },
-        });
-      return tx.shopAddress.create({
+      await lockShopStore(tx, storeId);
+      const count = await tx.shopAddress.count({ where: { storeId } });
+      const makeDefault = count === 0 || input.isDefault === true;
+      const created = await tx.shopAddress.create({
         data: {
           storeId,
           label: input.label.trim(),
@@ -67,20 +72,27 @@ export class AddressService {
           isDefault: makeDefault,
         },
       });
+      await this.normalizeDefault(
+        tx,
+        storeId,
+        makeDefault ? created.id : undefined,
+      );
+      return tx.shopAddress.findUniqueOrThrow({ where: { id: created.id } });
     });
     return this.toResponse(row);
   }
 
   async update(storeId: string, id: string, input: Partial<AddressInput>) {
-    await this.require(storeId, id);
     const row = await this.prisma.$transaction(async (tx) => {
+      await lockShopStore(tx, storeId);
+      await this.require(storeId, id, tx);
       if (input.isDefault === true) {
         await tx.shopAddress.updateMany({
           where: { storeId, id: { not: id } },
           data: { isDefault: false },
         });
       }
-      return tx.shopAddress.update({
+      await tx.shopAddress.update({
         where: { id },
         data: {
           ...this.clean(input),
@@ -88,27 +100,50 @@ export class AddressService {
           ...(input.isDefault === true ? { isDefault: true } : {}),
         },
       });
+      await this.normalizeDefault(
+        tx,
+        storeId,
+        input.isDefault === true ? id : undefined,
+      );
+      return tx.shopAddress.findUniqueOrThrow({ where: { id } });
     });
     return this.toResponse(row);
   }
 
   async remove(storeId: string, id: string) {
-    const row = await this.require(storeId, id);
     await this.prisma.$transaction(async (tx) => {
+      await lockShopStore(tx, storeId);
+      await this.require(storeId, id, tx);
       await tx.shopAddress.delete({ where: { id } });
-      if (row.isDefault) {
-        const next = await tx.shopAddress.findFirst({
-          where: { storeId },
-          orderBy: { updatedAt: 'desc' },
-        });
-        if (next)
-          await tx.shopAddress.update({
-            where: { id: next.id },
-            data: { isDefault: true },
-          });
-      }
+      await this.normalizeDefault(tx, storeId);
     });
     return { message: 'Address deleted' };
+  }
+
+  private async normalizeDefault(
+    tx: Prisma.TransactionClient,
+    storeId: string,
+    preferred?: string,
+  ) {
+    const next = preferred
+      ? { id: preferred }
+      : await tx.shopAddress.findFirst({
+          where: { storeId },
+          orderBy: [
+            { isDefault: 'desc' },
+            { updatedAt: 'desc' },
+            { id: 'asc' },
+          ],
+        });
+    if (!next) return;
+    await tx.shopAddress.updateMany({
+      where: { storeId, id: { not: next.id } },
+      data: { isDefault: false },
+    });
+    await tx.shopAddress.update({
+      where: { id: next.id },
+      data: { isDefault: true },
+    });
   }
 
   toResponse(r: AddressRow) {

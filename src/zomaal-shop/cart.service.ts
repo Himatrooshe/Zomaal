@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, ShopProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { lockShopStore } from './shop-lock.util';
 import { ShopSettingsService } from './shop-settings.service';
 import { imageUrl } from './shop-catalog.util';
 import {
@@ -53,8 +54,8 @@ export class CartService {
     private readonly settings: ShopSettingsService,
   ) {}
 
-  rows(storeId: string) {
-    return this.prisma.shopCartItem.findMany({
+  rows(storeId: string, db: Prisma.TransactionClient = this.prisma) {
+    return db.shopCartItem.findMany({
       where: { storeId },
       orderBy: { createdAt: 'asc' },
       include: CART_INCLUDE,
@@ -147,92 +148,111 @@ export class CartService {
     storeId: string,
     dto: { productId: string; variantId?: string; quantity: number },
   ) {
-    const product = await this.prisma.shopProduct.findUnique({
-      where: { id: dto.productId },
-      include: {
-        category: { select: { isActive: true } },
-        variants: { where: { isActive: true } },
-      },
-    });
-    if (
-      !product ||
-      product.status !== ShopProductStatus.ACTIVE ||
-      !product.category.isActive
-    ) {
-      throw new NotFoundException('Product not found');
-    }
-
-    let stock = product.stock;
-    if (product.variants.length) {
-      if (!dto.variantId) {
-        throw new BadRequestException(
-          'Choose an option (size / color) for this product.',
-        );
-      }
-      const variant = product.variants.find((v) => v.id === dto.variantId);
-      if (!variant)
-        throw new NotFoundException('That option is not available.');
-      stock = variant.stock;
-    } else if (dto.variantId) {
-      throw new BadRequestException('This product has no options.');
-    }
-
-    const existing = await this.prisma.shopCartItem.findFirst({
-      where: {
-        storeId,
-        productId: dto.productId,
-        variantId: dto.variantId ?? null,
-      },
-    });
-    const newQuantity = (existing?.quantity ?? 0) + dto.quantity;
-    this.assertStock(newQuantity, stock, product.name);
-
-    if (existing) {
-      await this.prisma.shopCartItem.update({
-        where: { id: existing.id },
-        data: { quantity: newQuantity },
+    await this.prisma.$transaction(async (tx) => {
+      await lockShopStore(tx, storeId);
+      const product = await tx.shopProduct.findUnique({
+        where: { id: dto.productId },
+        include: {
+          category: { select: { isActive: true } },
+          variants: { where: { isActive: true } },
+        },
       });
-    } else {
-      await this.prisma.shopCartItem.create({
-        data: {
+      if (
+        !product ||
+        product.status !== ShopProductStatus.ACTIVE ||
+        !product.category.isActive
+      ) {
+        throw new NotFoundException('Product not found');
+      }
+
+      let stock = product.stock;
+      if (product.variants.length) {
+        if (!dto.variantId) {
+          throw new BadRequestException(
+            'Choose an option (size / color) for this product.',
+          );
+        }
+        const variant = product.variants.find((v) => v.id === dto.variantId);
+        if (!variant)
+          throw new NotFoundException('That option is not available.');
+        stock = variant.stock;
+      } else if (dto.variantId) {
+        throw new BadRequestException('This product has no options.');
+      }
+
+      const existingRows = await tx.shopCartItem.findMany({
+        where: {
           storeId,
           productId: dto.productId,
           variantId: dto.variantId ?? null,
-          quantity: dto.quantity,
         },
       });
-    }
+      const existing = existingRows[0];
+      const newQuantity =
+        existingRows.reduce((n, row) => n + row.quantity, 0) + dto.quantity;
+      this.assertStock(newQuantity, stock, product.name);
+
+      if (existingRows.length > 1) {
+        await tx.shopCartItem.deleteMany({
+          where: { id: { in: existingRows.slice(1).map((row) => row.id) } },
+        });
+      }
+      if (existing) {
+        await tx.shopCartItem.update({
+          where: { id: existing.id },
+          data: { quantity: newQuantity },
+        });
+      } else {
+        await tx.shopCartItem.create({
+          data: {
+            storeId,
+            productId: dto.productId,
+            variantId: dto.variantId ?? null,
+            quantity: dto.quantity,
+          },
+        });
+      }
+    });
     return this.get(storeId);
   }
 
   async updateItem(storeId: string, itemId: string, quantity: number) {
-    const row = await this.prisma.shopCartItem.findFirst({
-      where: { id: itemId, storeId },
-      include: { product: true, variant: true },
-    });
-    if (!row) throw new NotFoundException('Cart item not found');
-    const stock = row.variant ? row.variant.stock : row.product.stock;
-    // Lowering the quantity is always allowed, even when stock has since
-    // dropped below it — that's how the merchant fixes the line.
-    if (quantity > row.quantity)
-      this.assertStock(quantity, stock, row.product.name);
-    await this.prisma.shopCartItem.update({
-      where: { id: row.id },
-      data: { quantity },
+    await this.prisma.$transaction(async (tx) => {
+      await lockShopStore(tx, storeId);
+      const row = await tx.shopCartItem.findFirst({
+        where: { id: itemId, storeId },
+        include: { product: true, variant: true },
+      });
+      if (!row) throw new NotFoundException('Cart item not found');
+      const stock = row.variant ? row.variant.stock : row.product.stock;
+      // Lowering the quantity is always allowed, even when stock has since
+      // dropped below it — that's how the merchant fixes the line.
+      if (quantity > row.quantity)
+        this.assertStock(quantity, stock, row.product.name);
+      await tx.shopCartItem.update({
+        where: { id: row.id },
+        data: { quantity },
+      });
     });
     return this.get(storeId);
   }
 
   async removeItem(storeId: string, itemId: string) {
-    const { count } = await this.prisma.shopCartItem.deleteMany({
-      where: { id: itemId, storeId },
+    await this.prisma.$transaction(async (tx) => {
+      await lockShopStore(tx, storeId);
+      const { count } = await tx.shopCartItem.deleteMany({
+        where: { id: itemId, storeId },
+      });
+      if (!count) throw new NotFoundException('Cart item not found');
     });
-    if (!count) throw new NotFoundException('Cart item not found');
     return this.get(storeId);
   }
 
   async clear(storeId: string) {
-    await this.prisma.shopCartItem.deleteMany({ where: { storeId } });
+    await this.prisma.$transaction(async (tx) => {
+      await lockShopStore(tx, storeId);
+      await tx.shopCartItem.deleteMany({ where: { storeId } });
+    });
     return this.get(storeId);
   }
 

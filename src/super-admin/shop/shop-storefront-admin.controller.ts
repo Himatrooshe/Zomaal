@@ -104,7 +104,7 @@ export class ShopStorefrontAdminController {
   @ApiOperation({
     summary: 'Move an order forward: CONFIRMED → SHIPPED → DELIVERED',
     description:
-      'Steps may be skipped. DELIVERED marks Cash on Delivery as paid and adds the items to the merchant’s Purchases (From Shop).',
+      'Steps may be skipped. DELIVERED marks Cash on Delivery as paid and adds the items to the merchant’s Purchases (From Shop). Purchase costs allocate the paid total including discount and delivery; Expenses convert to the store base currency using real FX. Missing rates return 503 with no delivery or ledger changes.',
   })
   @ApiOkResponse(OBJ)
   @ApiConflictResponse({

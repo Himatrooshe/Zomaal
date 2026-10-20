@@ -11,16 +11,23 @@ const SETTINGS = {
 function build() {
   const prisma = {
     shopCartItem: {
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
       deleteMany: jest.fn(),
     },
     shopProduct: { findUnique: jest.fn() },
+    $queryRaw: jest.fn().mockResolvedValue([]),
   };
   const settings = { get: jest.fn().mockResolvedValue(SETTINGS) };
-  const service = new CartService(prisma as never, settings as never);
+  const service = new CartService(
+    {
+      ...prisma,
+      $transaction: (fn: (tx: typeof prisma) => unknown) => fn(prisma),
+    } as never,
+    settings as never,
+  );
   return { service, prisma, settings };
 }
 
@@ -161,20 +168,24 @@ describe('CartService.addItem', () => {
       category: { isActive: true },
       variants: [],
     });
-    prisma.shopCartItem.findFirst.mockResolvedValue({
-      id: 'row-1',
-      quantity: 3,
-    });
+    prisma.shopCartItem.findMany.mockResolvedValueOnce([
+      {
+        id: 'row-1',
+        quantity: 3,
+      },
+    ]);
     prisma.shopCartItem.findMany.mockResolvedValue([]);
 
     await expect(
       service.addItem('store-1', { productId: 'p1', quantity: 3 }),
     ).rejects.toThrow(ConflictException); // 3 + 3 = 6 > stock 5
 
-    prisma.shopCartItem.findFirst.mockResolvedValue({
-      id: 'row-1',
-      quantity: 2,
-    });
+    prisma.shopCartItem.findMany.mockResolvedValueOnce([
+      {
+        id: 'row-1',
+        quantity: 2,
+      },
+    ]);
     await service.addItem('store-1', { productId: 'p1', quantity: 2 });
     expect(prisma.shopCartItem.update).toHaveBeenCalledWith({
       where: { id: 'row-1' },

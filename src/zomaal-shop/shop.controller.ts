@@ -289,7 +289,7 @@ export class ShopController {
     summary:
       'Checkout screen: totals, promo code result, address, payment methods, blockers',
     description:
-      'Safe to call on every change (promo code typed, address switched). Nothing is reserved until POST /shop/orders.',
+      'Safe to call on every change (promo code typed, address switched). Nothing is reserved until POST /shop/orders. Computed amounts outside the supported monetary range return 400.',
   })
   @ApiOkResponse(OBJ)
   preview(

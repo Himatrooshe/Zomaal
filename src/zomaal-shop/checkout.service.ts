@@ -15,6 +15,8 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { StoreAccess } from '../access/store-access.service';
+import { assertPersistedMoney } from '../common/persisted-money';
+import { lockShopStore, lockShopProducts } from './shop-lock.util';
 import { AddressService } from './address.service';
 import { CartService, type EvaluatedLine } from './cart.service';
 import { ShopOrdersService, ORDER_INCLUDE } from './shop-orders.service';
@@ -22,6 +24,7 @@ import { ShopSettingsService } from './shop-settings.service';
 import { imageUrl } from './shop-catalog.util';
 import {
   priceOrder,
+  checkPromo,
   promoRejectionMessage,
   variantLabel,
 } from './shop-pricing.util';
@@ -41,10 +44,14 @@ export class CheckoutService {
   ) {}
 
   /** "Repeated cancellations may restrict your account." */
-  async codRestriction(storeId: string, settings: ShopSettings) {
+  async codRestriction(
+    storeId: string,
+    settings: ShopSettings,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
     const limit = settings.codCancellationLimit;
     const windowDays = settings.codCancellationWindowDays;
-    const cancellations = await this.prisma.shopOrder.count({
+    const cancellations = await db.shopOrder.count({
       where: {
         storeId,
         paymentMethod: ShopPaymentMethod.COD,
@@ -68,14 +75,18 @@ export class CheckoutService {
     };
   }
 
-  private async loadPromo(code: string | undefined, storeId: string) {
+  private async loadPromo(
+    code: string | undefined,
+    storeId: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
     const normalized = code?.trim().toUpperCase();
     if (!normalized) return null;
-    const promo = await this.prisma.shopPromoCode.findUnique({
+    const promo = await db.shopPromoCode.findUnique({
       where: { code: normalized },
     });
     const storeUses = promo
-      ? await this.prisma.shopOrder.count({
+      ? await db.shopOrder.count({
           where: {
             storeId,
             promoCodeId: promo.id,
@@ -89,17 +100,20 @@ export class CheckoutService {
   private async compute(
     access: StoreAccess,
     input: { promoCode?: string; addressId?: string },
+    db?: Prisma.TransactionClient,
   ) {
     const [settings, rows, store] = await Promise.all([
-      this.settingsService.get(),
-      this.cart.rows(access.storeId),
-      this.prisma.store.findUniqueOrThrow({
+      db
+        ? db.shopSettings.findUniqueOrThrow({ where: { id: 'default' } })
+        : this.settingsService.get(),
+      this.cart.rows(access.storeId, db),
+      (db ?? this.prisma).store.findUniqueOrThrow({
         where: { id: access.storeId },
         select: { isActive: true },
       }),
     ]);
     const lines = this.cart.evaluate(rows);
-    const promoCtx = await this.loadPromo(input.promoCode, access.storeId);
+    const promoCtx = await this.loadPromo(input.promoCode, access.storeId, db);
     const pricing = priceOrder({
       lines: lines
         .filter((l) => !l.problem)
@@ -113,10 +127,22 @@ export class CheckoutService {
           }
         : null,
     });
+    for (const [field, value] of Object.entries({
+      subtotal: pricing.subtotal,
+      discount: pricing.discount,
+      deliveryFee: pricing.deliveryFee,
+      total: pricing.total,
+    }))
+      assertPersistedMoney(value, field);
+    for (const line of lines)
+      assertPersistedMoney(
+        line.unitPrice.times(line.row.quantity).toDecimalPlaces(2),
+        'lineTotal',
+      );
     const address = input.addressId
-      ? await this.addresses.require(access.storeId, input.addressId)
-      : await this.addresses.defaultFor(access.storeId);
-    const cod = await this.codRestriction(access.storeId, settings);
+      ? await this.addresses.require(access.storeId, input.addressId, db)
+      : await this.addresses.defaultFor(access.storeId, db);
+    const cod = await this.codRestriction(access.storeId, settings, db);
     return {
       settings,
       lines,
@@ -206,41 +232,55 @@ export class CheckoutService {
     if (dto.paymentMethod !== ShopPaymentMethod.COD) {
       throw new UnprocessableEntityException(ONLINE_UNAVAILABLE);
     }
-    const { settings, lines, pricing, promoCtx, address, cod, storeActive } =
-      await this.compute(access, dto);
-
-    if (!storeActive)
-      throw new ForbiddenException(
-        'Your account is suspended. Contact Zomaal support.',
-      );
-    if (!settings.codEnabled)
-      throw new UnprocessableEntityException(
-        'Cash on Delivery is currently unavailable.',
-      );
-    if (cod.restricted) {
-      throw new ForbiddenException(
-        `Cash on Delivery is paused for your account after ${cod.cancellations} cancelled orders in the last ${cod.windowDays} days.`,
-      );
-    }
-    if (lines.length === 0)
-      throw new BadRequestException('Your cart is empty.');
-    const problem = lines.find((l) => l.problem);
-    if (problem) {
-      throw new ConflictException(
-        `"${problem.row.product.name}" can't be ordered right now (${problem.problem!.toLowerCase().replace(/_/g, ' ')}). Update your cart and try again.`,
-      );
-    }
-    if (!address) throw new BadRequestException('Add a delivery address.');
-    // A promo the merchant typed must actually apply — never place an order
-    // silently without the discount they expected.
-    if (promoCtx && !pricing.promo?.applied) {
-      throw new UnprocessableEntityException(
-        pricing.promo?.message ?? promoRejectionMessage('NOT_FOUND'),
-      );
-    }
-
+    await this.settingsService.get();
     const orderId = await this.prisma.$transaction(
       async (tx) => {
+        await lockShopStore(tx, access.storeId);
+        const currentRows = await this.cart.rows(access.storeId, tx);
+        await lockShopProducts(
+          tx,
+          currentRows.map((row) => row.productId),
+        );
+        const {
+          settings,
+          lines,
+          pricing,
+          promoCtx,
+          address,
+          cod,
+          storeActive,
+        } = await this.compute(access, dto, tx);
+
+        if (!storeActive)
+          throw new ForbiddenException(
+            'Your account is suspended. Contact Zomaal support.',
+          );
+        if (!settings.codEnabled)
+          throw new UnprocessableEntityException(
+            'Cash on Delivery is currently unavailable.',
+          );
+        if (cod.restricted) {
+          throw new ForbiddenException(
+            `Cash on Delivery is paused for your account after ${cod.cancellations} cancelled orders in the last ${cod.windowDays} days.`,
+          );
+        }
+        if (lines.length === 0)
+          throw new BadRequestException('Your cart is empty.');
+        const problem = lines.find((l) => l.problem);
+        if (problem) {
+          throw new ConflictException(
+            `"${problem.row.product.name}" can't be ordered right now (${problem.problem!.toLowerCase().replace(/_/g, ' ')}). Update your cart and try again.`,
+          );
+        }
+        if (!address) throw new BadRequestException('Add a delivery address.');
+        // A promo the merchant typed must actually apply — never place an order
+        // silently without the discount they expected.
+        if (promoCtx && !pricing.promo?.applied) {
+          throw new UnprocessableEntityException(
+            pricing.promo?.message ?? promoRejectionMessage('NOT_FOUND'),
+          );
+        }
+
         // Claim the cart rows first. A double-tapped "Confirm Order" runs this
         // twice: the second transaction waits on the row locks, then finds
         // the rows gone and rolls back instead of creating a duplicate order.
@@ -259,7 +299,12 @@ export class CheckoutService {
         await this.reserveStock(tx, lines);
 
         if (promoCtx?.promo && pricing.promo?.applied) {
-          await this.claimPromo(tx, promoCtx.promo);
+          await this.claimPromo(
+            tx,
+            promoCtx.promo,
+            access.storeId,
+            pricing.subtotal,
+          );
         }
 
         const order = await tx.shopOrder.create({
@@ -356,19 +401,42 @@ export class CheckoutService {
     );
   }
 
-  // Row-locks the promo so two orders can't both take its last use.
-  private async claimPromo(tx: Prisma.TransactionClient, promo: ShopPromoCode) {
-    const [locked] = await tx.$queryRaw<
-      { usedCount: number; usageLimit: number | null; isActive: boolean }[]
-    >`
-      SELECT "usedCount", "usageLimit", "isActive" FROM "ShopPromoCode" WHERE "id" = ${promo.id} FOR UPDATE`;
+  // The store lock serializes per-store use; the promo row lock serializes global use.
+  private async claimPromo(
+    tx: Prisma.TransactionClient,
+    promo: ShopPromoCode,
+    storeId: string,
+    subtotal: Prisma.Decimal,
+  ) {
+    await tx.$queryRaw`SELECT id FROM "ShopPromoCode" WHERE id = ${promo.id} FOR UPDATE`;
+    const current = await tx.shopPromoCode.findUnique({
+      where: { id: promo.id },
+    });
+    const storeUses = await tx.shopOrder.count({
+      where: {
+        storeId,
+        promoCodeId: promo.id,
+        status: { not: ShopOrderStatus.CANCELLED },
+      },
+    });
+    const rejection = checkPromo(current, {
+      subtotal,
+      storeUses,
+      now: new Date(),
+    });
+    // Prevent silently applying an old discount if an admin changed the offer mid-checkout.
     if (
-      !locked ||
-      !locked.isActive ||
-      (locked.usageLimit !== null && locked.usedCount >= locked.usageLimit)
+      rejection ||
+      !current ||
+      !current.value.equals(promo.value) ||
+      current.type !== promo.type ||
+      String(current.maxDiscount) !== String(promo.maxDiscount) ||
+      String(current.minSubtotal) !== String(promo.minSubtotal)
     ) {
       throw new UnprocessableEntityException(
-        promoRejectionMessage('USAGE_LIMIT_REACHED'),
+        rejection
+          ? promoRejectionMessage(rejection, current)
+          : 'Promo code changed. Preview checkout again.',
       );
     }
     await tx.shopPromoCode.update({

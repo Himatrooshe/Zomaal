@@ -63,7 +63,9 @@ export class ShopOrdersAdminService {
       ...(search
         ? {
             OR: [
-              ...(numberMatch ? [{ number: Number(numberMatch[1]) }] : []),
+              ...(numberMatch && Number(numberMatch[1]) <= 2_147_483_647
+                ? [{ number: Number(numberMatch[1]) }]
+                : []),
               {
                 store: {
                   businessName: { contains: search, mode: 'insensitive' },

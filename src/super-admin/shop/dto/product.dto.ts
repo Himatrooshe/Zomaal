@@ -1,5 +1,6 @@
 import { ApiPropertyOptional, ApiProperty, PartialType } from '@nestjs/swagger';
 import { ShopProductStatus } from '@prisma/client';
+import { MAX_MONEY_INPUT } from '../../../common/persisted-money';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -15,6 +16,7 @@ import {
   IsUUID,
   MaxLength,
   Min,
+  Max,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -45,12 +47,14 @@ export class CreateShopProductDto {
   @ApiProperty({ example: 12.0, description: 'Price merchants pay per unit.' })
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   price: number;
 
   @ApiPropertyOptional({ default: 0 })
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(2_147_483_647)
   stock?: number;
 
   @ApiPropertyOptional({
@@ -62,6 +66,7 @@ export class CreateShopProductDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   compareAtPrice?: number | null;
 
   @ApiPropertyOptional({
@@ -147,17 +152,20 @@ export class ShopProductVariantInputDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   price?: number | null;
 
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   compareAtPrice?: number | null;
 
   @ApiProperty({ minimum: 0, example: 120 })
   @IsInt()
   @Min(0)
+  @Max(2_147_483_647)
   stock: number;
 
   @ApiPropertyOptional({ default: true })

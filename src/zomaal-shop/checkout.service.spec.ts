@@ -42,6 +42,7 @@ function buildLine(overrides: Record<string, unknown> = {}) {
 
 function build() {
   const prisma = {
+    shopSettings: { findUniqueOrThrow: jest.fn().mockResolvedValue(SETTINGS) },
     shopOrder: {
       count: jest.fn().mockResolvedValue(0),
       create: jest.fn(),
@@ -57,6 +58,9 @@ function build() {
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
   };
+  prisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
+    fn(prisma),
+  );
   const settingsService = { get: jest.fn().mockResolvedValue(SETTINGS) };
   const cart = {
     rows: jest.fn().mockResolvedValue([]),
@@ -213,7 +217,7 @@ describe('CheckoutService.placeOrder', () => {
         promoCode: 'DEAD',
       }),
     ).rejects.toThrow(UnprocessableEntityException);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalled();
   });
 
   it('rolls back with a friendly error when the cart changed under a double submit', async () => {
@@ -232,8 +236,13 @@ describe('CheckoutService.placeOrder', () => {
     prisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => {
       const tx = {
         shopCartItem: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+        shopOrder: {},
       };
-      return fn(tx);
+      return fn({
+        ...prisma,
+        ...tx,
+        shopOrder: { ...prisma.shopOrder, ...tx.shopOrder },
+      });
     });
 
     await expect(
@@ -264,8 +273,13 @@ describe('CheckoutService.placeOrder', () => {
         },
         shopProduct: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
         shopProductVariant: { updateMany: jest.fn(), aggregate: jest.fn() },
+        shopOrder: {},
       };
-      return fn(tx);
+      return fn({
+        ...prisma,
+        ...tx,
+        shopOrder: { ...prisma.shopOrder, ...tx.shopOrder },
+      });
     });
 
     await expect(
@@ -320,7 +334,11 @@ describe('CheckoutService.placeOrder', () => {
             create: jest.fn().mockResolvedValue({ id: 'order-1' }),
           },
         };
-        const id = (await fn(tx)) as string;
+        const id = (await fn({
+          ...prisma,
+          ...tx,
+          shopOrder: { ...prisma.shopOrder, ...tx.shopOrder },
+        })) as string;
         createdOrderId = id;
         expect(tx.shopProduct.update).toHaveBeenCalledWith({
           where: { id: 'p1' },

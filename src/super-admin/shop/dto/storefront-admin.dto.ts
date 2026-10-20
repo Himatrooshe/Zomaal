@@ -5,6 +5,7 @@ import {
   ShopPromoType,
 } from '@prisma/client';
 import { Type } from 'class-transformer';
+import { MAX_MONEY_INPUT } from '../../../common/persisted-money';
 import {
   IsBoolean,
   IsDateString,
@@ -57,6 +58,7 @@ export class CreateShopBannerDto {
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(2_147_483_647)
   sortOrder?: number;
 
   @ApiPropertyOptional({ default: true })
@@ -106,12 +108,14 @@ export class CreateShopPromoCodeDto {
   })
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0.01)
+  @Max(MAX_MONEY_INPUT)
   value: number;
 
   @ApiPropertyOptional({ nullable: true, example: 200 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   minSubtotal?: number | null;
 
   @ApiPropertyOptional({
@@ -122,6 +126,7 @@ export class CreateShopPromoCodeDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   maxDiscount?: number | null;
 
   @ApiPropertyOptional({
@@ -131,12 +136,14 @@ export class CreateShopPromoCodeDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(2_147_483_647)
   usageLimit?: number | null;
 
   @ApiPropertyOptional({ nullable: true, description: 'Uses per merchant.' })
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(2_147_483_647)
   perStoreLimit?: number | null;
 
   @ApiPropertyOptional({ nullable: true })
@@ -171,6 +178,7 @@ export class UpdateShopSettingsDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   deliveryFee?: number;
 
   @ApiPropertyOptional({
@@ -182,6 +190,7 @@ export class UpdateShopSettingsDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   freeDeliveryMinSubtotal?: number | null;
 
   @ApiPropertyOptional()
@@ -228,11 +237,12 @@ export class AdminListShopOrdersDto {
   @IsUUID()
   storeId?: string;
 
-  @ApiPropertyOptional({ default: 1 })
+  @ApiPropertyOptional({ default: 1, minimum: 1, maximum: 1_000_000 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(1_000_000)
   page?: number;
 }
 

@@ -1,3 +1,4 @@
+import { lockShopProducts } from '../../zomaal-shop/shop-lock.util';
 import {
   BadRequestException,
   ConflictException,
@@ -211,50 +212,60 @@ export class ShopService {
     if (dto.sku !== undefined) {
       await this.assertSkuAvailable(dto.sku, productId);
     }
-    if (dto.stock !== undefined) {
-      const optionCount = await this.prisma.shopProductVariant.count({
-        where: { productId },
-      });
-      if (optionCount > 0 && dto.stock !== before.stock) {
-        throw new BadRequestException(
-          'This product has options — set stock on each option instead.',
-        );
+    const product = await this.prisma.$transaction(async (tx) => {
+      await lockShopProducts(tx, [productId]);
+      if (dto.stock !== undefined) {
+        const optionCount = await tx.shopProductVariant.count({
+          where: { productId },
+        });
+        const current = await tx.shopProduct.findUniqueOrThrow({
+          where: { id: productId },
+        });
+        if (optionCount > 0 && dto.stock !== current.stock) {
+          throw new BadRequestException(
+            'This product has options — set stock on each option instead.',
+          );
+        }
       }
-    }
 
-    const product = await this.prisma.shopProduct.update({
-      where: { id: productId },
-      data: {
-        ...(dto.name !== undefined
-          ? {
-              name: dto.name.trim(),
-              slug: await this.uniqueProductSlug(dto.name, productId),
-            }
-          : {}),
-        ...(dto.categoryId !== undefined ? { categoryId: dto.categoryId } : {}),
-        ...(dto.sku !== undefined ? { sku: dto.sku?.trim() || null } : {}),
-        ...(dto.description !== undefined
-          ? { description: dto.description?.trim() || null }
-          : {}),
-        ...(dto.price !== undefined
-          ? { price: new Prisma.Decimal(dto.price) }
-          : {}),
-        ...(dto.stock !== undefined ? { stock: dto.stock } : {}),
-        ...(dto.status !== undefined ? { status: dto.status } : {}),
-        ...(dto.compareAtPrice !== undefined
-          ? {
-              compareAtPrice:
-                dto.compareAtPrice === null
-                  ? null
-                  : new Prisma.Decimal(dto.compareAtPrice),
-            }
-          : {}),
-        ...(dto.unitLabel !== undefined
-          ? { unitLabel: dto.unitLabel.trim() || 'piece' }
-          : {}),
-        ...(dto.isFeatured !== undefined ? { isFeatured: dto.isFeatured } : {}),
-      },
-      include: PRODUCT_INCLUDE,
+      return tx.shopProduct.update({
+        where: { id: productId },
+        data: {
+          ...(dto.name !== undefined
+            ? {
+                name: dto.name.trim(),
+                slug: await this.uniqueProductSlug(dto.name, productId),
+              }
+            : {}),
+          ...(dto.categoryId !== undefined
+            ? { categoryId: dto.categoryId }
+            : {}),
+          ...(dto.sku !== undefined ? { sku: dto.sku?.trim() || null } : {}),
+          ...(dto.description !== undefined
+            ? { description: dto.description?.trim() || null }
+            : {}),
+          ...(dto.price !== undefined
+            ? { price: new Prisma.Decimal(dto.price) }
+            : {}),
+          ...(dto.stock !== undefined ? { stock: dto.stock } : {}),
+          ...(dto.status !== undefined ? { status: dto.status } : {}),
+          ...(dto.compareAtPrice !== undefined
+            ? {
+                compareAtPrice:
+                  dto.compareAtPrice === null
+                    ? null
+                    : new Prisma.Decimal(dto.compareAtPrice),
+              }
+            : {}),
+          ...(dto.unitLabel !== undefined
+            ? { unitLabel: dto.unitLabel.trim() || 'piece' }
+            : {}),
+          ...(dto.isFeatured !== undefined
+            ? { isFeatured: dto.isFeatured }
+            : {}),
+        },
+        include: PRODUCT_INCLUDE,
+      });
     });
     await this.activity.record(actor, {
       action: 'PRODUCT_UPDATED',
@@ -365,7 +376,12 @@ export class ShopService {
     const dec = (n: number | null | undefined) =>
       n === undefined || n === null ? null : new Prisma.Decimal(n);
 
+    if (clean.reduce((sum, variant) => sum + variant.stock, 0) > 2_147_483_647)
+      throw new BadRequestException(
+        'Combined variant stock exceeds supported range',
+      );
     await this.prisma.$transaction(async (tx) => {
+      await lockShopProducts(tx, [productId]);
       await tx.shopProductVariant.deleteMany({
         where: { productId, id: { notIn: keepIds } },
       });

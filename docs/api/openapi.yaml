@@ -16329,6 +16329,8 @@ paths:
           required: false
           in: query
           schema:
+            minimum: 1
+            maximum: 1000000
             default: 1
             type: number
       responses:
@@ -16380,6 +16382,8 @@ paths:
           required: false
           in: query
           schema:
+            minimum: 1
+            maximum: 1000000
             default: 1
             type: number
       responses:
@@ -16425,7 +16429,7 @@ paths:
         - Admin Shop Operations
   /admin/shop/orders/{id}/status:
     post:
-      description: Steps may be skipped. DELIVERED marks Cash on Delivery as paid and adds the items to the merchant’s Purchases (From Shop).
+      description: Steps may be skipped. DELIVERED marks Cash on Delivery as paid and adds the items to the merchant’s Purchases (From Shop). Purchase costs allocate the paid total including discount and delivery; Expenses convert to the store base currency using real FX. Missing rates return 503 with no delivery or ledger changes.
       operationId: ShopStorefrontAdmin_advance
       parameters:
         - name: id
@@ -17302,6 +17306,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: pageSize
@@ -17803,7 +17808,7 @@ paths:
         - Zomaal Shop
   /shop/checkout/preview:
     post:
-      description: Safe to call on every change (promo code typed, address switched). Nothing is reserved until POST /shop/orders.
+      description: Safe to call on every change (promo code typed, address switched). Nothing is reserved until POST /shop/orders. Computed amounts outside the supported monetary range return 400.
       operationId: Shop_preview
       parameters: []
       requestBody:
@@ -33103,8 +33108,9 @@ components:
           type: string
           example: Casablanca
         district:
-          type: string
+          type: object
           example: Maarif
+          nullable: true
         address:
           type: string
           example: 12 Rue Abou Bakr, Apt 4
@@ -33137,8 +33143,9 @@ components:
           type: string
           example: Casablanca
         district:
-          type: string
+          type: object
           example: Maarif
+          nullable: true
         address:
           type: string
           example: 12 Rue Abou Bakr, Apt 4

@@ -37,3 +37,7 @@ Answer:
 Can Starter users see the shop but not buy, or is it hidden entirely?
 Assumption: hidden, with an upgrade prompt.
 Answer:
+
+## Shop accounting and concurrency fixes — 21 October 2026
+
+Implementation covers the nine live findings; see `../final-test/zomaal-shop-my-orders/fix-verification-2026-10-21.md` for rollout status. Delivered From Shop costs allocate the paid total (discount and delivery included), preserve source currency, and convert Expense costs into the store base currency using real FX. Missing rates fail delivery atomically with503. Cart/checkout/address operations serialize per store; catalog stock uses parent-first sorted locks. No migration or historical bulk accounting rewrite is performed.

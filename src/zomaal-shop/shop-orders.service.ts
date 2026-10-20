@@ -14,6 +14,10 @@ import {
   ShopPaymentStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CurrencyService } from '../currency/currency.service';
+import { assertPersistedMoney } from '../common/persisted-money';
+import { lockShopOrder } from './shop-lock.util';
+import { allocateShopCosts } from './shop-cost-allocation.util';
 import { PackagingService } from '../warehouse/packaging.service';
 import type { ListShopOrdersDto, ShopOrderListTab } from './dto/shop.dto';
 import { money, orderNumberLabel } from './shop-pricing.util';
@@ -74,6 +78,7 @@ export class ShopOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly packaging: PackagingService,
+    private readonly currency: CurrencyService,
   ) {}
 
   // ---- Merchant reads ----
@@ -165,6 +170,7 @@ export class ShopOrdersService {
     allowedFrom: ShopOrderStatus[],
   ) {
     await this.prisma.$transaction(async (tx) => {
+      await lockShopOrder(tx, orderId);
       const flipped = await tx.shopOrder.updateMany({
         where: { id: orderId, status: { in: allowedFrom } },
         data: {
@@ -216,8 +222,33 @@ export class ShopOrdersService {
     }
     const allowedFrom = FORWARD.slice(0, FORWARD.indexOf(to));
     const now = new Date();
+    const settlement =
+      to === ShopOrderStatus.DELIVERED
+        ? await this.prisma.shopOrder.findUniqueOrThrow({
+            where: { id: orderId },
+            include: { store: { select: { baseCurrency: true } } },
+          })
+        : null;
+    const rate = settlement
+      ? await this.currency.convertAmount(
+          1,
+          settlement.currency,
+          settlement.store.baseCurrency,
+        )
+      : null;
 
     await this.prisma.$transaction(async (tx) => {
+      await lockShopOrder(tx, orderId);
+      if (settlement) {
+        // Prevent changing the store currency between FX lookup and posting.
+        const [store] = await tx.$queryRaw<
+          { baseCurrency: string }[]
+        >`SELECT "baseCurrency" FROM "Store" WHERE id = ${settlement.storeId} FOR UPDATE`;
+        if (!store || store.baseCurrency !== settlement.store.baseCurrency)
+          throw new ConflictException(
+            'Store currency changed. Retry delivery.',
+          );
+      }
       const current = await tx.shopOrder.findUnique({
         where: { id: orderId },
         select: {
@@ -261,7 +292,13 @@ export class ShopOrdersService {
       }
 
       if (to === ShopOrderStatus.DELIVERED)
-        await this.recordPurchases(tx, orderId, now);
+        await this.recordPurchases(
+          tx,
+          orderId,
+          now,
+          rate!,
+          settlement!.store.baseCurrency,
+        );
     });
 
     // Packaging ownership is credited after the order txn commits so each
@@ -276,11 +313,21 @@ export class ShopOrdersService {
   // Delivered goods become "From Shop" entries in the merchant's Purchases
   // list, each with its "Purchase costs" expense. Idempotent: one purchase
   // per order item (unique shopOrderItemId).
-  private async recordPurchases(tx: Tx, orderId: string, deliveredAt: Date) {
+  private async recordPurchases(
+    tx: Tx,
+    orderId: string,
+    deliveredAt: Date,
+    rate: Prisma.Decimal,
+    baseCurrency: string,
+  ) {
     const order = await tx.shopOrder.findUniqueOrThrow({
       where: { id: orderId },
       include: { items: true },
     });
+    const purchaseCosts = allocateShopCosts(order.items, order.total);
+    const convertedTotal = order.total.times(rate).toDecimalPlaces(2);
+    assertPersistedMoney(convertedTotal, 'Converted purchase cost');
+    const expenseCosts = allocateShopCosts(order.items, convertedTotal);
     const recorded = new Set(
       (
         await tx.merchantPurchase.findMany({
@@ -299,10 +346,10 @@ export class ShopOrdersService {
       const expense = await createPurchaseExpense(tx, {
         storeId: order.storeId,
         productName: item.productName,
-        amount: item.lineTotal,
+        amount: expenseCosts.get(item.id)!,
         paymentMethod: shopPaymentToExpense(order.paymentMethod),
         spentAt: deliveredAt,
-        notes,
+        notes: `${notes}\nAcquisition cost ${purchaseCosts.get(item.id)!.toFixed(2)} ${order.currency}; expense ${expenseCosts.get(item.id)!.toFixed(2)} ${baseCurrency}; FX ${rate.toString()} ${baseCurrency}/${order.currency}`,
         createdByUserId: order.placedByUserId,
       });
       await tx.merchantPurchase.create({
@@ -315,8 +362,11 @@ export class ShopOrdersService {
           unitLabel: item.unitLabel,
           imageUrl: item.imageUrl,
           quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalCost: item.lineTotal,
+          unitPrice: purchaseCosts
+            .get(item.id)!
+            .dividedBy(item.quantity)
+            .toDecimalPlaces(4),
+          totalCost: purchaseCosts.get(item.id)!,
           currency: order.currency,
           purchaseDate: deliveredAt,
           notes,
@@ -404,9 +454,9 @@ export class ShopOrdersService {
       if (tab === 'PROCESSING') {
         return { in: [ShopOrderStatus.PENDING, ShopOrderStatus.CONFIRMED] };
       }
-      return tab as ShopOrderStatus;
+      return tab;
     }
-    return status;
+    return tab === 'ALL' ? undefined : status;
   }
 
   private listTabForStatus(status: ShopOrderStatus): ShopOrderListTab {

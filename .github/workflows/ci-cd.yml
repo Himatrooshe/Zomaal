@@ -192,6 +192,11 @@ jobs:
           CUSTOMERS_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
         run: npm run test:e2e -- --runInBand customers-risk.postgres
 
+      - name: Verify Shop accounting, stock contention and checkout in PostgreSQL
+        env:
+          SHOP_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run test:e2e -- --runInBand shop-workflow.postgres
+
       - name: Build
         run: npm run build
 
