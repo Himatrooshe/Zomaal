@@ -1,0 +1,2729 @@
+{
+  "environment": "production Cloud Run API; fresh disposable synthetic QA store",
+  "deployment": {
+    "commit": "639a58b9add625e3143e2e8a323fe3b193edf311",
+    "revision": "zomaal-backend-00064-jbb",
+    "trafficPercent": 100,
+    "health": "Hello Zomaal!",
+    "ciRun": "https://github.com/Himatrooshe/Zomaal/actions/runs/39435910081"
+  },
+  "summary": {
+    "observations": 362,
+    "passed": 362,
+    "failed": 0,
+    "note": "Requests, assertions, setup and cleanup observations, not 362 unique business scenarios. One obsolete exclusive-offset expectation was corrected and both boundary variants were explicitly replayed."
+  },
+  "cleanup": {
+    "temporaryStoreDeleted": true,
+    "cloudImagesRemoved": 2,
+    "originalAccountRetained": true,
+    "originalExpensesPurchasesHomePreserved": true,
+    "temporaryStaffDeactivatedAndDeletionScheduled": true
+  },
+  "providerCoverage": {
+    "existingOrdersChecked": 4,
+    "nonzeroLiveCourierCostsAvailable": false,
+    "adSpend": {
+      "currency": "BDT",
+      "spend": "0.00",
+      "accountCount": 0,
+      "unconvertedCount": 0
+    }
+  },
+  "checks": [
+    {
+      "name": "read original store list",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original Home baseline",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original Expenses baseline",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original Purchases baseline",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create isolated Expenses QA store",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "empty Expenses list",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "empty list has zero total and amount",
+      "pass": true
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "empty summary has all five zero groups",
+      "pass": true
+    },
+    {
+      "name": "empty ad-spend breakdown",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "empty six-month trend",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "empty trend zero filled",
+      "pass": true
+    },
+    {
+      "name": "read seeded categories",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "seeded categories cover all groups",
+      "pass": true
+    },
+    {
+      "name": "create custom category",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create second custom category",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "custom category defaults to OTHER",
+      "pass": true
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create CASH expense",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "manual expense response contract",
+      "pass": true
+    },
+    {
+      "name": "create BANK expense",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "manual totals use exact decimal sum",
+      "pass": true
+    },
+    {
+      "name": "list two expenses",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "list totalAmount sums all matching rows",
+      "pass": true
+    },
+    {
+      "name": "page one limit one",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "page two limit one",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "pagination returns distinct rows with global matching amount",
+      "pass": true
+    },
+    {
+      "name": "empty page beyond end",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "beyond page retains count and sum",
+      "pass": true
+    },
+    {
+      "name": "case-insensitive title search",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "title search matches correct item",
+      "pass": true
+    },
+    {
+      "name": "unmatched title search",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "unmatched search empty",
+      "pass": true
+    },
+    {
+      "name": "category filter",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "category filter includes two",
+      "pass": true
+    },
+    {
+      "name": "OTHER group filter",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "OTHER group includes manual expenses",
+      "pass": true
+    },
+    {
+      "name": "ADS list is empty by design",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "ad metrics are not synthetic expense rows",
+      "pass": true
+    },
+    {
+      "name": "edit manual expense",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "manual update persists and clears notes",
+      "pass": true
+    },
+    {
+      "name": "read expense details",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "detail agrees with update",
+      "pass": true
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "updated totals recomputed",
+      "pass": true
+    },
+    {
+      "name": "QA Home with manual expenses",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "Home includes manual expense total",
+      "pass": true
+    },
+    {
+      "name": "Home profit deducts manual operating costs",
+      "pass": true
+    },
+    {
+      "name": "category in use cannot be deleted",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "delete manual expense",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "name": "deleted expense hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "repeated deletion returns 404",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "delete reverses summary",
+      "pass": true
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create date-boundary start",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create date-boundary end",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create date-boundary next",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create date-boundary lastmonth",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "inclusive date-only filter",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "date-only includes start and last millisecond but excludes next day",
+      "pass": true
+    },
+    {
+      "name": "same date summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "date summary agrees with list",
+      "pass": true
+    },
+    {
+      "name": "explicit dateTo timestamp boundary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "documented inclusive timestamp includes row at dateTo",
+      "pass": true,
+      "total": 2,
+      "totalAmount": "3.33"
+    },
+    {
+      "name": "offset dates map to same UTC interval",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "offset timestamp includes next midnight under fixed inclusive semantics",
+      "pass": true,
+      "total": 3,
+      "totalAmount": "7.77",
+      "harnessCorrection": "Old assertion expected an exclusive timestamp upper bound. Fixed API includes exact endpoint. Replayed inclusive and exact-full-day offset ranges to verify both."
+    },
+    {
+      "name": "reject reversed date range /expenses",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject reversed date range /expenses/summary",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject reversed date range /expenses/ad-spend",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "two-month trend",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "trend monthly buckets and percent exact for fixture",
+      "pass": true
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "exact duplicate category denied",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "rename duplicate category denied",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "edit custom category name icon color",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "custom category edit persisted",
+      "pass": true
+    },
+    {
+      "name": "cannot create custom SHIPPING category",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot move manual category into SHIPPING",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot delete system SHIPPING category",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot move system SHIPPING category into OTHER",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot manually enter automatic SHIPPING cost",
+      "pass": true,
+      "http": 409,
+      "expected": 409,
+      "message": "Shipping and advertising costs are managed by their source modules"
+    },
+    {
+      "name": "cannot move manual expense into automatic SHIPPING",
+      "pass": true,
+      "http": 409,
+      "expected": 409,
+      "message": "Shipping and advertising costs are managed by their source modules"
+    },
+    {
+      "name": "restore main category after group probe",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cannot create custom ADS category",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot move manual category into ADS",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot delete system ADS category",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot move system ADS category into OTHER",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot manually enter automatic ADS cost",
+      "pass": true,
+      "http": 409,
+      "expected": 409,
+      "message": "Shipping and advertising costs are managed by their source modules"
+    },
+    {
+      "name": "cannot move manual expense into automatic ADS",
+      "pass": true,
+      "http": 409,
+      "expected": 409,
+      "message": "Shipping and advertising costs are managed by their source modules"
+    },
+    {
+      "name": "restore main category after group probe",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cannot create custom SALARY category",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot move manual category into SALARY",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot delete system SALARY category",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot move system SALARY category into OTHER",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot manually enter automatic SALARY cost",
+      "pass": true,
+      "http": 409,
+      "expected": 409,
+      "message": "Salary expenses are recorded from Staff Salary, not created directly here."
+    },
+    {
+      "name": "cannot move manual expense into automatic SALARY",
+      "pass": true,
+      "http": 409,
+      "expected": 409,
+      "message": "Salary expenses are recorded from Staff Salary, not created directly here."
+    },
+    {
+      "name": "restore main category after group probe",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cannot create custom PURCHASES category",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot move manual category into PURCHASES",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot delete system PURCHASES category",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot move system PURCHASES category into OTHER",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "cannot manually enter automatic PURCHASES cost",
+      "pass": true,
+      "http": 409,
+      "expected": 409,
+      "message": "Purchase costs are recorded from Purchases, not created directly here."
+    },
+    {
+      "name": "cannot move manual expense into automatic PURCHASES",
+      "pass": true,
+      "http": 409,
+      "expected": 409,
+      "message": "Purchase costs are recorded from Purchases, not created directly here."
+    },
+    {
+      "name": "restore main category after group probe",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "concurrent category creation has one winner and one conflict",
+      "pass": true,
+      "statuses": [
+        201,
+        409
+      ]
+    },
+    {
+      "name": "delete unused concurrent category",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create rejects missing title",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "title must be shorter than or equal to 120 characters",
+        "title should not be empty",
+        "title must be a string"
+      ]
+    },
+    {
+      "name": "create rejects blank title",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "title should not be empty"
+      ]
+    },
+    {
+      "name": "create rejects whitespace title",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "title should not be empty"
+      ]
+    },
+    {
+      "name": "create rejects long title",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "title must be shorter than or equal to 120 characters"
+      ]
+    },
+    {
+      "name": "create rejects zero amount",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "amount must be a positive amount greater than zero"
+      ]
+    },
+    {
+      "name": "create rejects negative amount",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "amount must have at most 16 integer digits and 2 decimal places",
+        "amount must be a positive amount greater than zero"
+      ]
+    },
+    {
+      "name": "create rejects numeric amount",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "amount must have at most 16 integer digits and 2 decimal places",
+        "amount must be a positive amount greater than zero",
+        "amount must be a number string"
+      ]
+    },
+    {
+      "name": "create rejects NaN",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "amount must have at most 16 integer digits and 2 decimal places",
+        "amount must be a positive amount greater than zero",
+        "amount must be a number string"
+      ]
+    },
+    {
+      "name": "create rejects Infinity",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "amount must have at most 16 integer digits and 2 decimal places",
+        "amount must be a positive amount greater than zero",
+        "amount must be a number string"
+      ]
+    },
+    {
+      "name": "create rejects scientific amount",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "amount must have at most 16 integer digits and 2 decimal places",
+        "amount must be a number string"
+      ]
+    },
+    {
+      "name": "create rejects comma amount",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "amount must have at most 16 integer digits and 2 decimal places",
+        "amount must be a positive amount greater than zero",
+        "amount must be a number string"
+      ]
+    },
+    {
+      "name": "create rejects money storage overflow",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "amount must have at most 16 integer digits and 2 decimal places"
+      ]
+    },
+    {
+      "name": "create rejects excess fractional precision",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "amount must have at most 16 integer digits and 2 decimal places"
+      ]
+    },
+    {
+      "name": "create rejects fraction smaller than display precision",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "amount must have at most 16 integer digits and 2 decimal places"
+      ]
+    },
+    {
+      "name": "create rejects invalid method",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "paymentMethod must be one of the following values: CASH, BANK"
+      ]
+    },
+    {
+      "name": "create rejects invalid date",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "spentAt must be a real ISO calendar date or a timestamp with an explicit timezone"
+      ]
+    },
+    {
+      "name": "create rejects impossible date",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "spentAt must be a real ISO calendar date or a timestamp with an explicit timezone"
+      ]
+    },
+    {
+      "name": "create rejects unknown category",
+      "pass": true,
+      "http": 404,
+      "expected": 404,
+      "message": "Expense category not found"
+    },
+    {
+      "name": "create rejects invalid category UUID",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "categoryId must be a UUID"
+      ]
+    },
+    {
+      "name": "create rejects long notes",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "notes must be shorter than or equal to 500 characters"
+      ]
+    },
+    {
+      "name": "create rejects unknown field",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "property unexpected should not exist"
+      ]
+    },
+    {
+      "name": "create rejects unknown receipt",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": "Receipt not found, already used, or expired. Upload it again."
+    },
+    {
+      "name": "create rejects invalid receipt UUID",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "receiptAssetId must be a UUID"
+      ]
+    },
+    {
+      "name": "create rejects invalid receipt URL",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "receiptUrl must be a URL address"
+      ]
+    },
+    {
+      "name": "create rejects javascript receipt URL",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "receiptUrl must be a URL address"
+      ]
+    },
+    {
+      "name": "PATCH rejects null required title",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "title must be shorter than or equal to 120 characters",
+        "title should not be empty",
+        "title must be a string"
+      ]
+    },
+    {
+      "name": "PATCH rejects null required amount",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "amount must have at most 16 integer digits and 2 decimal places",
+        "amount must be a positive amount greater than zero",
+        "amount must be a number string"
+      ]
+    },
+    {
+      "name": "PATCH rejects null required paymentMethod",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "paymentMethod must be one of the following values: CASH, BANK"
+      ]
+    },
+    {
+      "name": "PATCH rejects null required categoryId",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "categoryId must be a UUID"
+      ]
+    },
+    {
+      "name": "PATCH rejects null required spentAt",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "spentAt must be a real ISO calendar date or a timestamp with an explicit timezone"
+      ]
+    },
+    {
+      "name": "category rejects empty name",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "name should not be empty"
+      ]
+    },
+    {
+      "name": "category rejects whitespace name",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "name should not be empty"
+      ]
+    },
+    {
+      "name": "category rejects long name",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "name must be shorter than or equal to 80 characters"
+      ]
+    },
+    {
+      "name": "category rejects unknown property",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "property bad should not exist"
+      ]
+    },
+    {
+      "name": "category rejects bad group",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "group must be one of the following values: SHIPPING, ADS, SALARY, PURCHASES, OTHER"
+      ]
+    },
+    {
+      "name": "category rejects long icon",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "icon must be shorter than or equal to 60 characters"
+      ]
+    },
+    {
+      "name": "category rejects long color",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "color must be shorter than or equal to 20 characters"
+      ]
+    },
+    {
+      "name": "category PATCH rejects required null name",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "name must be shorter than or equal to 80 characters",
+        "name should not be empty",
+        "name must be a string"
+      ]
+    },
+    {
+      "name": "category PATCH rejects required null group",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "group must be one of the following values: SHIPPING, ADS, SALARY, PURCHASES, OTHER"
+      ]
+    },
+    {
+      "name": "reject invalid list query page=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "page must not be less than 1"
+      ]
+    },
+    {
+      "name": "reject invalid list query page=-1",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "page must not be greater than 1000000",
+        "page must not be less than 1",
+        "page must be an integer number"
+      ]
+    },
+    {
+      "name": "reject invalid list query page=abc",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "page must not be greater than 1000000",
+        "page must not be less than 1",
+        "page must be an integer number"
+      ]
+    },
+    {
+      "name": "reject invalid list query page=1.5",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "page must not be greater than 1000000",
+        "page must not be less than 1",
+        "page must be an integer number"
+      ]
+    },
+    {
+      "name": "reject invalid list query page=1junk",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "page must not be greater than 1000000",
+        "page must not be less than 1",
+        "page must be an integer number"
+      ]
+    },
+    {
+      "name": "reject invalid list query page=999999999999999999999999",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "page must not be greater than 1000000"
+      ]
+    },
+    {
+      "name": "reject invalid list query limit=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "limit must not be less than 1"
+      ]
+    },
+    {
+      "name": "reject invalid list query limit=101",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "limit must not be greater than 100"
+      ]
+    },
+    {
+      "name": "reject invalid list query limit=1.5",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "limit must not be greater than 100",
+        "limit must not be less than 1",
+        "limit must be an integer number"
+      ]
+    },
+    {
+      "name": "reject invalid list query limit=2junk",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "limit must not be greater than 100",
+        "limit must not be less than 1",
+        "limit must be an integer number"
+      ]
+    },
+    {
+      "name": "reject invalid list query group=BAD",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "group must be one of the following values: SHIPPING, ADS, SALARY, PURCHASES, OTHER"
+      ]
+    },
+    {
+      "name": "reject invalid list query categoryId=bad",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "categoryId must be a UUID"
+      ]
+    },
+    {
+      "name": "reject invalid list query dateFrom=no",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "dateFrom must be a real ISO calendar date or a timestamp with an explicit timezone"
+      ]
+    },
+    {
+      "name": "reject invalid list query dateTo=no",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "dateTo must be a real ISO calendar date or a timestamp with an explicit timezone"
+      ]
+    },
+    {
+      "name": "reject invalid list query unknown=true",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "property unknown should not exist"
+      ]
+    },
+    {
+      "name": "reject invalid trend query months=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "months must not be less than 1"
+      ]
+    },
+    {
+      "name": "reject invalid trend query months=25",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "months must not be greater than 24"
+      ]
+    },
+    {
+      "name": "reject invalid trend query months=abc",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "months must not be greater than 24",
+        "months must not be less than 1",
+        "months must be an integer number"
+      ]
+    },
+    {
+      "name": "reject invalid trend query months=1.5",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "months must not be greater than 24",
+        "months must not be less than 1",
+        "months must be an integer number"
+      ]
+    },
+    {
+      "name": "reject invalid trend query months=2junk",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": [
+        "months must not be greater than 24",
+        "months must not be less than 1",
+        "months must be an integer number"
+      ]
+    },
+    {
+      "name": "bad category UUID on PATCH rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "bad UUID /expenses/bad",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "bad UUID /expenses/receipts/bad",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "unknown detail returns 404",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "unknown delete returns 404",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "upload synthetic private receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "temporary receipt has future expiration",
+      "pass": true
+    },
+    {
+      "name": "temporary private receipt exact image bytes",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create expense with uploaded receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "uploaded receipt overrides external URL",
+      "pass": true
+    },
+    {
+      "name": "attached receipt readable",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "consumed receipt cannot attach to second expense",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": "Receipt not found, already used, or expired. Upload it again."
+    },
+    {
+      "name": "consumed-upload failure does not create expense",
+      "pass": true
+    },
+    {
+      "name": "receipt PATCH replay succeeds",
+      "pass": true,
+      "http": 200,
+      "expected": 200,
+      "createdId": "a4b1c330-8f1e-4180-a942-ebba9dc1aaec"
+    },
+    {
+      "name": "replay preserves attached receipt",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "upload synthetic private receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "replace existing expense receipt",
+      "pass": true,
+      "http": 200,
+      "expected": 200,
+      "createdId": "a4b1c330-8f1e-4180-a942-ebba9dc1aaec"
+    },
+    {
+      "name": "current expense receipt remains readable after replace attempt",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read receipt expense before invalid replacement",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "invalid receipt replacement rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "read receipt expense after invalid replacement",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "invalid receipt replacement rolls back metadata and reference",
+      "pass": true
+    },
+    {
+      "name": "upload synthetic private receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "concurrent receipt consumption creates exactly one expense",
+      "pass": true,
+      "statuses": [
+        201,
+        400
+      ]
+    },
+    {
+      "name": "receipt upload requires file",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "corrupt receipt rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "receipt above 5 MiB rejected",
+      "pass": true,
+      "http": 413
+    },
+    {
+      "name": "unsupported PDF receipt rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "delete receipt expense",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "name": "deletion removes attached receipt content",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "upload synthetic private receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "list before identical request retry",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "list after identical request retry",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "same idempotency header prevents duplicate manual costs",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ],
+      "rowsCreated": 1,
+      "totalAmount": "1.23"
+    },
+    {
+      "name": "remove retry probe expense",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create synthetic purchased packaging",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create purchase generating expense",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "read generated purchase expense",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "purchase source and read-only flags correct",
+      "pass": true
+    },
+    {
+      "name": "purchase expense cannot be edited here",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "purchase expense cannot be deleted here",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "purchase expense counted exactly once",
+      "pass": true
+    },
+    {
+      "name": "edit purchase updates source expense",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read expense after purchase edit",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "purchase edit updates linked expense amount",
+      "pass": true
+    },
+    {
+      "name": "delete purchase reverses expense",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "deleted source expense hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "purchase removal restores expense summary",
+      "pass": true
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create disposable expense viewer",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "viewer can read /expenses",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "viewer can read /expenses/summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "viewer can read /expenses/trend",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "viewer can read /expenses/categories",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "viewer can read /expenses/ad-spend",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "viewer can read /expenses/09f3e081-5870-4bdb-aed7-72816408f3f1",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "viewer cannot mutate POST /expenses",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "viewer cannot mutate PATCH /expenses/09f3e081-5870-4bdb-aed7-72816408f3f1",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "viewer cannot mutate DELETE /expenses/09f3e081-5870-4bdb-aed7-72816408f3f1",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "viewer cannot mutate POST /expenses/categories",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "viewer cannot mutate PATCH /expenses/categories/44c311b9-c53b-4a0a-b359-94aec5ea7d98",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "viewer cannot mutate DELETE /expenses/categories/44c311b9-c53b-4a0a-b359-94aec5ea7d98",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "viewer cannot upload receipt",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "expense viewer can read own store receipt",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "schedule disposable staff deletion",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "deactivate disposable staff",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read original category IDs for denied attachment probe",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "foreign expense detail hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign expense edit hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign expense deletion hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign category edit hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign category deletion hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign receipt read hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign category cannot be used to create expense",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign receipt cannot be attached",
+      "pass": true,
+      "http": 400,
+      "expected": 400,
+      "message": "Receipt not found, already used, or expired. Upload it again."
+    },
+    {
+      "name": "missing token denied /expenses",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "missing token denied /expenses/categories",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "missing token denied /expenses/summary",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "missing token denied /expenses/trend",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "missing token denied /expenses/ad-spend",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "missing token denied /expenses/receipts/b7d1724c-83da-4676-a0dc-6b2e6724ed93",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "Home before synthetic salary records",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "record synthetic paid automatic salary",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "paid automatic salary creates its expense",
+      "pass": true
+    },
+    {
+      "name": "read automatic salary expense",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "salary source flags and bank method mapping",
+      "pass": true
+    },
+    {
+      "name": "salary-generated expense cannot be edited",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "salary-generated expense cannot be deleted",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "retry automatic salary expense linking",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "automatic salary expense retry returns same source expense",
+      "pass": true
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "paid automatic salary increments total once",
+      "pass": true
+    },
+    {
+      "name": "create pending manual salary record",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "pending salary is not yet an expense",
+      "pass": true
+    },
+    {
+      "name": "concurrent manual salary recording creates one expense",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ]
+    },
+    {
+      "name": "salary group expense list",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "salary total equals two confirmed salaries once",
+      "pass": true
+    },
+    {
+      "name": "salary-linked receipt is readable from expense preview",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "Home after synthetic salary records",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "salary expenses reach Home expenses and profit exactly once",
+      "pass": true
+    },
+    {
+      "name": "bonus can be entered under Other",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "bonus remains manual OTHER and not salary-generated",
+      "pass": true
+    },
+    {
+      "name": "remove synthetic manual bonus",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read existing original orders for shipping-cost evidence",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "existing order financial summary readable",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "existing order financial summary readable",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "existing order financial summary readable",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "existing order financial summary readable",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read actual original ad-spend aggregation",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "ad-spend response exposes currency and unknown-conversion list",
+      "pass": true
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "UTC month baseline before phone-timezone boundary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create phone-local month-boundary expense",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "monthly chart after local October boundary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "client phone-timezone October expense stays in October trend",
+      "pass": true,
+      "kind": "CLIENT_REQUIREMENT",
+      "phoneTimezone": "Asia/Dhaka",
+      "localSpentAt": "2026-10-01T01:00:00+06:00",
+      "storedSpentAt": "2026-09-30T19:00:00.000Z",
+      "septemberBefore": "8.88",
+      "septemberAfter": "8.88"
+    },
+    {
+      "name": "client phone timezone can be supplied to monthly chart",
+      "pass": true,
+      "kind": "CLIENT_REQUIREMENT",
+      "http": 200
+    },
+    {
+      "name": "remove phone-timezone probe",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create using body retry key",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "replay body retry key",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "body retry returns same live expense",
+      "pass": true
+    },
+    {
+      "name": "changed retry payload conflicts",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "delete key-protected expense",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "name": "deleted expense retry cannot recreate charge",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "mismatched header and body keys rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "short retry header rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "date-only entry in Asia/Dhaka",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "date-only entry respects device offset Asia/Dhaka",
+      "pass": true,
+      "spentAt": "2026-09-30T18:00:00.000Z"
+    },
+    {
+      "name": "phone-local day filter Asia/Dhaka",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "phone-local day filter contains created expense Asia/Dhaka",
+      "pass": true
+    },
+    {
+      "name": "remove phone-date entry Asia/Dhaka",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "name": "date-only entry in America/New_York",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "date-only entry respects device offset America/New_York",
+      "pass": true,
+      "spentAt": "2026-10-01T04:00:00.000Z"
+    },
+    {
+      "name": "phone-local day filter America/New_York",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "phone-local day filter contains created expense America/New_York",
+      "pass": true
+    },
+    {
+      "name": "remove phone-date entry America/New_York",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "Home consistency after fixes",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "shipping conversion status is exposed by Expenses and Home",
+      "pass": true
+    },
+    {
+      "name": "concurrent receipt replacement fixture",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "upload synthetic private receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "upload synthetic private receipt",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "simultaneous receipt replacements both complete without 500",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ]
+    },
+    {
+      "name": "read final concurrent receipt",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "final concurrent receipt remains readable",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remove concurrent receipt fixture",
+      "pass": true,
+      "http": 204
+    },
+    {
+      "name": "deleted concurrent receipt no longer readable",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "explicit offset upper timestamp includes exact boundary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "offset upper boundary follows inclusive timestamp contract",
+      "pass": true,
+      "total": 3,
+      "totalAmount": "7.77"
+    },
+    {
+      "name": "offset full-day endpoint excludes next midnight",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "offset range for exactly one UTC day returns two boundary expenses",
+      "pass": true,
+      "total": 2,
+      "totalAmount": "3.33"
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "delete only disposable Expenses QA store",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original store set after cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original store set restored",
+      "pass": true
+    },
+    {
+      "name": "original Expenses after cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original expense ledger preserved",
+      "pass": true
+    },
+    {
+      "name": "read Expenses summary",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original expense summary preserved",
+      "pass": true
+    },
+    {
+      "name": "original Purchases after cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original purchases preserved",
+      "pass": true
+    },
+    {
+      "name": "original Home after cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original Home counts preserved",
+      "pass": true
+    },
+    {
+      "name": "select QA store context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "remaining synthetic cloud receipt images removed",
+      "pass": true,
+      "objectsRemoved": 2
+    },
+    {
+      "name": "original account retained and temporary staff deactivated with deletion scheduled",
+      "pass": true
+    }
+  ],
+  "selectedResponses": [
+    {
+      "name": "empty Expenses list",
+      "http": 200,
+      "data": {
+        "expenses": [],
+        "total": 0,
+        "totalAmount": "0.00",
+        "page": 1,
+        "limit": 20
+      }
+    },
+    {
+      "name": "empty ad-spend breakdown",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "spend": "0.00",
+        "results": 0,
+        "costPerResult": null,
+        "byPlatform": [],
+        "accounts": [],
+        "unconverted": [],
+        "dataUpdatedAt": null
+      }
+    },
+    {
+      "name": "empty six-month trend",
+      "http": 200,
+      "data": {
+        "points": [
+          {
+            "month": "2026-05",
+            "total": "0.00"
+          },
+          {
+            "month": "2026-06",
+            "total": "0.00"
+          },
+          {
+            "month": "2026-07",
+            "total": "0.00"
+          },
+          {
+            "month": "2026-08",
+            "total": "0.00"
+          },
+          {
+            "month": "2026-09",
+            "total": "0.00"
+          },
+          {
+            "month": "2026-10",
+            "total": "0.00"
+          }
+        ],
+        "trend": {
+          "changePercent": 0,
+          "direction": "flat"
+        },
+        "timezone": "UTC",
+        "unconvertedShippingCosts": [],
+        "unconvertedAdSpend": []
+      }
+    },
+    {
+      "name": "edit manual expense",
+      "http": 200,
+      "data": {
+        "id": "09f3e081-5870-4bdb-aed7-72816408f3f1",
+        "title": "[QA EXPENSE] Edited rent",
+        "amount": "15.35",
+        "paymentMethod": "BANK",
+        "spentAt": "2026-10-19T12:00:00.000Z",
+        "notes": null,
+        "receiptUrl": null,
+        "category": {
+          "id": "f7dbb734-d5a4-483d-817e-0fb758f45fb0",
+          "name": "[QA EXPENSE] Other",
+          "group": "OTHER",
+          "icon": null,
+          "color": null,
+          "isSystem": false
+        },
+        "staffMemberId": null,
+        "salaryPaymentId": null,
+        "isSalaryGenerated": false,
+        "purchaseId": null,
+        "isPurchaseGenerated": false,
+        "createdAt": "2026-10-20T14:49:45.680Z"
+      }
+    },
+    {
+      "name": "QA Home with manual expenses",
+      "http": 200,
+      "data": {
+        "baseCurrency": "MAD",
+        "revenue": {
+          "period": {
+            "from": "2026-10-01",
+            "to": "2026-10-20",
+            "timezone": "UTC"
+          },
+          "totalsByCurrency": [],
+          "byPlatform": [],
+          "dataFreshAsOf": null
+        },
+        "orders": {
+          "total": 0,
+          "inPeriod": 0,
+          "open": 0,
+          "unfulfilled": 0,
+          "readyToDispatch": 0,
+          "dispatched": 0,
+          "cancelled": 0,
+          "refunded": 0
+        },
+        "catalog": {
+          "connectedProducts": 0,
+          "connectedCustomers": 0,
+          "warehouseProducts": 0,
+          "activeWarehouseProducts": 0,
+          "complete": false,
+          "metricsFreshAsOf": null
+        },
+        "shipping": {
+          "connectedProviders": 4,
+          "totalDispatches": 0,
+          "pending": 0,
+          "dispatched": 0,
+          "failed": 0
+        },
+        "profit": {
+          "value": "-35.4500",
+          "orderProfit": "0.0000",
+          "adSpend": "0.0000",
+          "operatingExpenses": "35.4500",
+          "unconvertedCurrencies": []
+        },
+        "lostOrders": {
+          "orders": 0,
+          "value": "0.0000"
+        },
+        "ads": {
+          "spend": "0.00",
+          "results": 0,
+          "costPerResult": null,
+          "unconverted": [],
+          "dataUpdatedAt": null
+        },
+        "expenses": {
+          "total": "35.45",
+          "unconvertedShippingCosts": [],
+          "avgPerOrder": null
+        },
+        "connections": [],
+        "recentOrders": []
+      }
+    },
+    {
+      "name": "two-month trend",
+      "http": 200,
+      "data": {
+        "points": [
+          {
+            "month": "2026-09",
+            "total": "8.88"
+          },
+          {
+            "month": "2026-10",
+            "total": "23.12"
+          }
+        ],
+        "trend": {
+          "changePercent": 160.36,
+          "direction": "up"
+        },
+        "timezone": "UTC",
+        "unconvertedShippingCosts": [],
+        "unconvertedAdSpend": []
+      }
+    },
+    {
+      "name": "create rejects money storage overflow",
+      "http": 400,
+      "data": {
+        "message": [
+          "amount must have at most 16 integer digits and 2 decimal places"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "create rejects excess fractional precision",
+      "http": 400,
+      "data": {
+        "message": [
+          "amount must have at most 16 integer digits and 2 decimal places"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "create rejects fraction smaller than display precision",
+      "http": 400,
+      "data": {
+        "message": [
+          "amount must have at most 16 integer digits and 2 decimal places"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "PATCH rejects null required title",
+      "http": 400,
+      "data": {
+        "message": [
+          "title must be shorter than or equal to 120 characters",
+          "title should not be empty",
+          "title must be a string"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "PATCH rejects null required amount",
+      "http": 400,
+      "data": {
+        "message": [
+          "amount must have at most 16 integer digits and 2 decimal places",
+          "amount must be a positive amount greater than zero",
+          "amount must be a number string"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "PATCH rejects null required paymentMethod",
+      "http": 400,
+      "data": {
+        "message": [
+          "paymentMethod must be one of the following values: CASH, BANK"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "PATCH rejects null required categoryId",
+      "http": 400,
+      "data": {
+        "message": [
+          "categoryId must be a UUID"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "PATCH rejects null required spentAt",
+      "http": 400,
+      "data": {
+        "message": [
+          "spentAt must be a real ISO calendar date or a timestamp with an explicit timezone"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "replace existing expense receipt",
+      "http": 200,
+      "data": {
+        "id": "a4b1c330-8f1e-4180-a942-ebba9dc1aaec",
+        "title": "[QA EXPENSE] Receipt",
+        "amount": "3.25",
+        "paymentMethod": "CASH",
+        "spentAt": "2026-10-19T12:00:00.000Z",
+        "notes": null,
+        "receiptUrl": "/expenses/receipts/579fceda-f3d3-4121-90f2-b1252f5d89c2",
+        "category": {
+          "id": "44c311b9-c53b-4a0a-b359-94aec5ea7d98",
+          "name": "[QA EXPENSE] Supplies",
+          "group": "OTHER",
+          "icon": "box",
+          "color": "#112233",
+          "isSystem": false
+        },
+        "staffMemberId": null,
+        "salaryPaymentId": null,
+        "isSalaryGenerated": false,
+        "purchaseId": null,
+        "isPurchaseGenerated": false,
+        "createdAt": "2026-10-20T14:50:38.891Z"
+      }
+    },
+    {
+      "name": "read automatic salary expense",
+      "http": 200,
+      "data": {
+        "id": "4823cd8f-e7d1-4813-88d5-079e21703135",
+        "title": "Salary \u2014 [QA EXPENSE] Viewer",
+        "amount": "4.50",
+        "paymentMethod": "BANK",
+        "spentAt": "2026-10-20T14:51:19.297Z",
+        "notes": "Synthetic QA record only; no money transfer",
+        "receiptUrl": null,
+        "category": {
+          "id": "cf1acbd1-dc7f-4f5c-931e-def5a60da98c",
+          "name": "Salaries",
+          "group": "SALARY",
+          "icon": null,
+          "color": null,
+          "isSystem": true
+        },
+        "staffMemberId": "efeb2abc-a76f-4033-aba4-c2da049cdd23",
+        "salaryPaymentId": "fd6be4e3-0f80-49db-b026-3beaa81d698f",
+        "isSalaryGenerated": true,
+        "purchaseId": null,
+        "isPurchaseGenerated": false,
+        "createdAt": "2026-10-20T14:51:19.318Z"
+      }
+    },
+    {
+      "name": "salary group expense list",
+      "http": 200,
+      "data": {
+        "expenses": [
+          {
+            "id": "42310d7a-8a91-4cc0-9dd8-5864b0b76bbd",
+            "title": "Salary \u2014 [QA EXPENSE] Viewer",
+            "amount": "6.75",
+            "paymentMethod": "CASH",
+            "spentAt": "2026-10-20T14:51:22.046Z",
+            "notes": "Synthetic QA salary record only",
+            "receiptUrl": "/expenses/receipts/b7d1724c-83da-4676-a0dc-6b2e6724ed93",
+            "category": {
+              "id": "cf1acbd1-dc7f-4f5c-931e-def5a60da98c",
+              "name": "Salaries",
+              "group": "SALARY",
+              "icon": null,
+              "color": null,
+              "isSystem": true
+            },
+            "staffMemberId": "efeb2abc-a76f-4033-aba4-c2da049cdd23",
+            "salaryPaymentId": "7840a6fa-3932-451c-982f-8284cfe5261a",
+            "isSalaryGenerated": true,
+            "purchaseId": null,
+            "isPurchaseGenerated": false,
+            "createdAt": "2026-10-20T14:51:22.065Z"
+          },
+          {
+            "id": "4823cd8f-e7d1-4813-88d5-079e21703135",
+            "title": "Salary \u2014 [QA EXPENSE] Viewer",
+            "amount": "4.50",
+            "paymentMethod": "BANK",
+            "spentAt": "2026-10-20T14:51:19.297Z",
+            "notes": "Synthetic QA record only; no money transfer",
+            "receiptUrl": null,
+            "category": {
+              "id": "cf1acbd1-dc7f-4f5c-931e-def5a60da98c",
+              "name": "Salaries",
+              "group": "SALARY",
+              "icon": null,
+              "color": null,
+              "isSystem": true
+            },
+            "staffMemberId": "efeb2abc-a76f-4033-aba4-c2da049cdd23",
+            "salaryPaymentId": "fd6be4e3-0f80-49db-b026-3beaa81d698f",
+            "isSalaryGenerated": true,
+            "purchaseId": null,
+            "isPurchaseGenerated": false,
+            "createdAt": "2026-10-20T14:51:19.318Z"
+          }
+        ],
+        "total": 2,
+        "totalAmount": "11.25",
+        "page": 1,
+        "limit": 20
+      }
+    },
+    {
+      "name": "Home after synthetic salary records",
+      "http": 200,
+      "data": {
+        "baseCurrency": "MAD",
+        "revenue": {
+          "period": {
+            "from": "2026-10-01",
+            "to": "2026-10-20",
+            "timezone": "UTC"
+          },
+          "totalsByCurrency": [],
+          "byPlatform": [],
+          "dataFreshAsOf": null
+        },
+        "orders": {
+          "total": 0,
+          "inPeriod": 0,
+          "open": 0,
+          "unfulfilled": 0,
+          "readyToDispatch": 0,
+          "dispatched": 0,
+          "cancelled": 0,
+          "refunded": 0
+        },
+        "catalog": {
+          "connectedProducts": 0,
+          "connectedCustomers": 0,
+          "warehouseProducts": 0,
+          "activeWarehouseProducts": 0,
+          "complete": false,
+          "metricsFreshAsOf": null
+        },
+        "shipping": {
+          "connectedProviders": 4,
+          "totalDispatches": 0,
+          "pending": 0,
+          "dispatched": 0,
+          "failed": 0
+        },
+        "profit": {
+          "value": "-44.6200",
+          "orderProfit": "0.0000",
+          "adSpend": "0.0000",
+          "operatingExpenses": "44.6200",
+          "unconvertedCurrencies": []
+        },
+        "lostOrders": {
+          "orders": 0,
+          "value": "0.0000"
+        },
+        "ads": {
+          "spend": "0.00",
+          "results": 0,
+          "costPerResult": null,
+          "unconverted": [],
+          "dataUpdatedAt": null
+        },
+        "expenses": {
+          "total": "44.62",
+          "unconvertedShippingCosts": [],
+          "avgPerOrder": null
+        },
+        "connections": [],
+        "recentOrders": []
+      }
+    },
+    {
+      "name": "monthly chart after local October boundary",
+      "http": 200,
+      "data": {
+        "points": [
+          {
+            "month": "2026-09",
+            "total": "8.88"
+          },
+          {
+            "month": "2026-10",
+            "total": "45.12"
+          }
+        ],
+        "trend": {
+          "changePercent": 408.11,
+          "direction": "up"
+        },
+        "timezone": "Asia/Dhaka",
+        "unconvertedShippingCosts": [],
+        "unconvertedAdSpend": []
+      }
+    },
+    {
+      "name": "explicit offset upper timestamp includes exact boundary",
+      "http": 200,
+      "data": {
+        "expenses": [
+          {
+            "id": "2ff6ddb8-7bb0-41bf-b42b-a57342e74e75",
+            "title": "[QA EXPENSE] Boundary next",
+            "amount": "4.44",
+            "paymentMethod": "CASH",
+            "spentAt": "2026-10-19T00:00:00.000Z",
+            "notes": null,
+            "receiptUrl": null,
+            "category": {
+              "id": "44c311b9-c53b-4a0a-b359-94aec5ea7d98",
+              "name": "[QA EXPENSE] Supplies",
+              "group": "OTHER",
+              "icon": "box",
+              "color": "#112233",
+              "isSystem": false
+            },
+            "staffMemberId": null,
+            "salaryPaymentId": null,
+            "isSalaryGenerated": false,
+            "purchaseId": null,
+            "isPurchaseGenerated": false,
+            "createdAt": "2026-10-20T14:49:56.175Z"
+          },
+          {
+            "id": "70796d8d-974e-4d4d-aec2-6f2796af2c7b",
+            "title": "[QA EXPENSE] Boundary end",
+            "amount": "2.22",
+            "paymentMethod": "CASH",
+            "spentAt": "2026-10-18T23:59:59.999Z",
+            "notes": null,
+            "receiptUrl": null,
+            "category": {
+              "id": "44c311b9-c53b-4a0a-b359-94aec5ea7d98",
+              "name": "[QA EXPENSE] Supplies",
+              "group": "OTHER",
+              "icon": "box",
+              "color": "#112233",
+              "isSystem": false
+            },
+            "staffMemberId": null,
+            "salaryPaymentId": null,
+            "isSalaryGenerated": false,
+            "purchaseId": null,
+            "isPurchaseGenerated": false,
+            "createdAt": "2026-10-20T14:49:55.782Z"
+          },
+          {
+            "id": "bf528257-239e-4af0-95b3-65be54dbcfc2",
+            "title": "[QA EXPENSE] Boundary start",
+            "amount": "1.11",
+            "paymentMethod": "CASH",
+            "spentAt": "2026-10-18T00:00:00.000Z",
+            "notes": null,
+            "receiptUrl": null,
+            "category": {
+              "id": "44c311b9-c53b-4a0a-b359-94aec5ea7d98",
+              "name": "[QA EXPENSE] Supplies",
+              "group": "OTHER",
+              "icon": "box",
+              "color": "#112233",
+              "isSystem": false
+            },
+            "staffMemberId": null,
+            "salaryPaymentId": null,
+            "isSalaryGenerated": false,
+            "purchaseId": null,
+            "isPurchaseGenerated": false,
+            "createdAt": "2026-10-20T14:49:55.371Z"
+          }
+        ],
+        "total": 3,
+        "totalAmount": "7.77",
+        "page": 1,
+        "limit": 20
+      }
+    },
+    {
+      "name": "offset full-day endpoint excludes next midnight",
+      "http": 200,
+      "data": {
+        "expenses": [
+          {
+            "id": "70796d8d-974e-4d4d-aec2-6f2796af2c7b",
+            "title": "[QA EXPENSE] Boundary end",
+            "amount": "2.22",
+            "paymentMethod": "CASH",
+            "spentAt": "2026-10-18T23:59:59.999Z",
+            "notes": null,
+            "receiptUrl": null,
+            "category": {
+              "id": "44c311b9-c53b-4a0a-b359-94aec5ea7d98",
+              "name": "[QA EXPENSE] Supplies",
+              "group": "OTHER",
+              "icon": "box",
+              "color": "#112233",
+              "isSystem": false
+            },
+            "staffMemberId": null,
+            "salaryPaymentId": null,
+            "isSalaryGenerated": false,
+            "purchaseId": null,
+            "isPurchaseGenerated": false,
+            "createdAt": "2026-10-20T14:49:55.782Z"
+          },
+          {
+            "id": "bf528257-239e-4af0-95b3-65be54dbcfc2",
+            "title": "[QA EXPENSE] Boundary start",
+            "amount": "1.11",
+            "paymentMethod": "CASH",
+            "spentAt": "2026-10-18T00:00:00.000Z",
+            "notes": null,
+            "receiptUrl": null,
+            "category": {
+              "id": "44c311b9-c53b-4a0a-b359-94aec5ea7d98",
+              "name": "[QA EXPENSE] Supplies",
+              "group": "OTHER",
+              "icon": "box",
+              "color": "#112233",
+              "isSystem": false
+            },
+            "staffMemberId": null,
+            "salaryPaymentId": null,
+            "isSalaryGenerated": false,
+            "purchaseId": null,
+            "isPurchaseGenerated": false,
+            "createdAt": "2026-10-20T14:49:55.371Z"
+          }
+        ],
+        "total": 2,
+        "totalAmount": "3.33",
+        "page": 1,
+        "limit": 20
+      }
+    }
+  ]
+}

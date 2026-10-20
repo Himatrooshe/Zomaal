@@ -62,3 +62,8 @@ Answer: Client decision pending. CASH and BANK are the current temporary support
 ## Production audit — 20 October 2026
 
 Original client answers above were read directly from the shared Google Doc. Expenses live audit: **345 observations, 313 passed, 32 failed assertions** across ten live finding groups. A separate code review confirms missing courier-cost aggregation, without nonzero live courier fees to reproduce its amount. See [results and actual responses](../final-test/expenses/live-server-test-results-2026-10-20.md). No application fixes or deployment occurred in this audit. Existing Cash/Bank support is temporary while the client decides other payment methods; the chart currently uses UTC although the client requested the phone timezone.
+
+
+## Deployed fix verification — 20 October 2026
+
+Commit `639a58b`, serving revision `zomaal-backend-00064-jbb`: **362/362 live observations passed** after CI/CD. Receipt lifecycle, validation, manual source-group guards, durable retry keys and phone-timezone support are implemented. Courier costs now aggregate from signed order financial events into Expenses/Home expense totals without a second profit deduction; missing conversion rates are exposed. All ten original API/requirements finding groups passed live retesting. Positive courier-fee/FX scenarios passed PostgreSQL tests; actual nonzero courier/ad-provider acceptance still needs real source data. See [fix verification](../final-test/expenses/fix-verification-2026-10-20.md). Prior audit status above is historical.

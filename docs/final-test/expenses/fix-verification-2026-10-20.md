@@ -28,7 +28,53 @@ Historical manually entered ADS/SHIPPING expenses remain recorded. There is no r
 
 ## Deployment and live retest
 
-Pending CI/CD and the deployed regression run.
+**CI/CD and deployed live retest passed.**
+
+- Fix commit `639a58b9add625e3143e2e8a323fe3b193edf311` merged to `main`.
+- [CI/CD run](https://github.com/Himatrooshe/Zomaal/actions/runs/39435910081): Test and build and Deploy production both completed successfully.
+- Serving revision `zomaal-backend-00064-jbb`, 100% traffic; ready revision commit checked, health `Hello Zomaal!`.
+- **362 recorded live observations: 362 passed, zero failed.** These include requests, assertions, setup and cleanup, not 362 unique business scenarios. [Sanitized evidence and selected responses](./live-fix-retest-results-2026-10-20.json).
+- All ten reproduced API/requirements finding groups passed their live retests. Courier aggregation (EXP-11) is implemented and verified with positive, reversed and foreign-currency ledger data in PostgreSQL; production positive-fee acceptance remains limited by the available real dataset.
+- Temporary store/expense/category/purchase/packaging/salary fixtures were deleted, two remaining cloud receipt objects removed, and disposable staff deactivated with account deletion scheduled. Original account, store list, expense ledger/summary, Purchases and Home counts were preserved.
+
+### Actual live regression outcomes
+
+| Finding | Retest outcome |
+|---|---|
+| EXP-01 receipt replacement | Fresh replacement returned 200; simultaneous replacements both returned 200 and the final private image remained readable. |
+| EXP-02 receipt replay | Repeating the current attached receipt returned 200. |
+| EXP-03 money bounds/precision | Oversized and too-precise positive amounts returned 400; zero/negative and invalid formats also rejected. |
+| EXP-04 null PATCH | Required expense and category fields returned 400; nullable notes clearing still worked. |
+| EXP-05 source-group protection | Manual creation and reassignment into all four system-managed groups returned 409. |
+| EXP-06 retry safety | Two identical header-key submissions created one row, total `1.23`. Body-key retry returned the same expense. Changed payload and deleted-expense retry returned 409; malformed/mismatched keys returned 400. |
+| EXP-07 calendar and bounds | Impossible dates returned 400. UTC and offset timestamp endpoints included the exact endpoint; full-day filtering excluded the next midnight when that midnight was outside the requested interval. |
+| EXP-08 query integers | Fractional, junk-suffixed and excessive page/limit/month values returned 400. |
+| EXP-09 names | Whitespace-only expense/category names returned 400. |
+| EXP-10 phone timezone | The local October fixture stayed in October when `timezone=Asia/Dhaka` was supplied; September remained `8.88`. Date-only entry and local-day filtering also passed for Dhaka and New York. |
+
+Normal CRUD, summaries, chart totals, Purchases and Salary links, Home profit effects, viewer restrictions and cross-store isolation passed again on the deployed revision.
+
+### Harness correction
+
+One old offset test expected the previous exclusive timestamp end. Its request ended exactly at the next midnight, which the corrected inclusive API properly included. The request was replayed and returned three rows totaling `7.77`; an endpoint one millisecond earlier returned the two full-day rows totaling `3.33`. The outdated assertion is annotated in the evidence. No product defect was suppressed or changed to obtain this result.
+
+### Selected actual responses
+
+Receipt replacement and current-receipt replay: **HTTP 200**.
+
+Identical creation retries:
+
+```json
+{ "statuses": [201, 201], "rowsCreated": 1, "totalAmount": "1.23" }
+```
+
+Oversized amount:
+
+```json
+{ "message": ["amount must have at most 16 integer digits and 2 decimal places"] }
+```
+
+Changed payload or deleted-expense replay: **HTTP 409**.
 
 ## External acceptance limits
 

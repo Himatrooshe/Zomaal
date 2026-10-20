@@ -45,3 +45,15 @@ Test manual/system group rules, receipts, trend/date boundaries, ad spend, and c
 - Actual nonzero courier/ads data and natural receipt expiry remain unverified live. Do not render missing conversion data as zero or fabricate a courier charge to demonstrate the screen.
 - Client answers: automatic salary cannot be entered again manually; bonuses use OTHER; courier API supplies shipping costs; no automatic monthly recurrence. Additional payment methods await the client; CASH/BANK are temporary current options.
 - Original account and ledgers preserved; temporary test records/store and two remaining cloud receipt images removed.
+
+
+## Deployed live fix retest — 20 October 2026
+
+Fix `639a58b`, revision `zomaal-backend-00064-jbb`: **362/362 production observations passed**. [Actual outcomes, responses, cleanup and limits](./fix-verification-2026-10-20.md). All ten initial API/requirements finding groups passed retesting. The audit section above is historical.
+
+- Run creation retries with a stable key. Verify same-key identical data creates one charge, changed payload conflicts, deletion cannot be undone by a delayed retry, and body/header key mismatch is rejected.
+- Send the device timezone for date-only create/edit, date filters and chart queries. Both UTC and offset timestamp ends are inclusive. Date-only ends include the full local calendar day.
+- Receipt replacement/replay/clear and concurrent replacement now succeed; invalid or foreign replacement preserves the current receipt.
+- Courier ledger fees feed Expenses and Home expense totals without a second profit deduction. Missing FX remains explicit. Actual positive courier billing and populated ad-provider data need separate real-provider acceptance; local ledger fixtures are not live courier bills.
+- Full local checks: 1,184 units and 198 PostgreSQL tests passed. Repo-wide lint retains existing failures; scoped implementation/new-regression lint passed.
+- [Published OpenAPI on main](https://github.com/Himatrooshe/Zomaal/blob/main/docs/api/openapi.yaml) contains the new retry/timezone and conversion-status contract.

@@ -1,10 +1,14 @@
 # Expenses
 
-- [Live audit and findings — 20 October 2026](./live-server-test-results-2026-10-20.md)
-- [Sanitized live evidence and responses](./live-server-results-2026-10-20.json)
+- [Deployed fix verification](./fix-verification-2026-10-20.md)
+- [Live retest evidence and responses](./live-fix-retest-results-2026-10-20.json)
 - [Frontend developer guide](./frontend-developer.md)
 - [QA tester guide](./qa-tester.md)
 - [Confirmed client requirements](../../module-context/09-expenses.md)
-- [OpenAPI](../../api/openapi.yaml)
+- [Published OpenAPI](https://github.com/Himatrooshe/Zomaal/blob/main/docs/api/openapi.yaml)
 
-**Not ready for final signoff.** 345 production observations: 313 passed and 32 failed assertions across ten live finding groups. An additional missing courier-cost integration is confirmed from code, but nonzero live provider fees were unavailable. Receipt replacement, money/null validation, automatic-group guards, retry safety, date/query/name validation and phone-timezone alignment need fixes. No application changes or deployments were made during this audit.
+## Current status — 20 October 2026
+
+Fix `639a58b` deployed as revision `zomaal-backend-00064-jbb`. **362/362 live observations passed.** All ten reproduced finding groups passed live retesting; courier-cost aggregation is implemented and passed PostgreSQL tests. Real nonzero courier billing and populated ad-account acceptance remain unverified live because the retained account has zero courier fees and no ad accounts.
+
+The [initial audit](./live-server-test-results-2026-10-20.md) and [original evidence](./live-server-results-2026-10-20.json) describe the pre-fix revision. Original QA data/account preserved; temporary fixtures and cloud receipt images cleaned.
