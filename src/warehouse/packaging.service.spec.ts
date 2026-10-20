@@ -35,6 +35,7 @@ function materialRow(overrides: Record<string, unknown> = {}) {
 
 function buildPrisma(overrides: Record<string, unknown> = {}) {
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     packagingMaterial: {
       create: jest.fn().mockResolvedValue({ id: MATERIAL_ID }),
       update: jest.fn().mockResolvedValue({}),
@@ -44,6 +45,7 @@ function buildPrisma(overrides: Record<string, unknown> = {}) {
     },
     inventoryItem: { create: jest.fn().mockResolvedValue({ id: 'item-1' }) },
     mediaAsset: {
+      findUnique: jest.fn().mockResolvedValue(null),
       findFirst: jest.fn().mockResolvedValue({
         id: UPLOAD_ID,
         objectName: 'stores/store-1/media/new.webp',
@@ -388,7 +390,7 @@ describe('PackagingService', () => {
 
     it('replaces the photo and deletes the old one', async () => {
       const { prisma, tx } = buildPrisma();
-      prisma.mediaAsset.findUnique.mockResolvedValue({ id: 'old-asset' });
+      tx.mediaAsset.findUnique.mockResolvedValue({ id: 'old-asset' });
       const media = {
         deleteAttachedAsset: jest.fn().mockResolvedValue(undefined),
       };
@@ -407,7 +409,7 @@ describe('PackagingService', () => {
 
     it('removes the photo with null', async () => {
       const { prisma, tx } = buildPrisma();
-      prisma.mediaAsset.findUnique.mockResolvedValue({ id: 'old-asset' });
+      tx.mediaAsset.findUnique.mockResolvedValue({ id: 'old-asset' });
       const media = {
         deleteAttachedAsset: jest.fn().mockResolvedValue(undefined),
       };

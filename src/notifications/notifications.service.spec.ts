@@ -295,6 +295,7 @@ describe('NotificationsService', () => {
           skip: 20,
           take: 20,
           include: {
+            packagingOwnerAlert: true,
             reads: { where: { userId: 'owner-1' }, select: { readAt: true } },
           },
         }),

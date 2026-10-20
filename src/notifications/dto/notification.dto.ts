@@ -78,6 +78,17 @@ export class RegisterPushDeviceDto {
 }
 
 export class NotificationResponseDto {
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Packaging owner WhatsApp delivery status. BLOCKED includes the missing client prerequisite; SENT means provider acceptance.',
+  })
+  ownerWhatsApp?: {
+    status: string;
+    lastErrorCode: string | null;
+    sentAt: string | null;
+  } | null;
+
   @ApiProperty({ format: 'uuid' })
   id!: string;
 

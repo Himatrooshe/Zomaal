@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { PackagingOwnerAlertService } from './packaging-owner-alert.service';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import {
   EcommerceConnectionStatus,
   Prisma,
@@ -70,6 +71,7 @@ export class NotificationEvaluatorService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly currency: CurrencyService,
+    @Optional() private readonly ownerAlerts?: PackagingOwnerAlertService,
   ) {}
 
   async runAll(now: Date = new Date()): Promise<EvaluationSummary> {
@@ -106,6 +108,7 @@ export class NotificationEvaluatorService {
       }
       cursor = stores[stores.length - 1].id;
     }
+    await this.ownerAlerts?.dispatchDue();
     return summary;
   }
 
@@ -131,6 +134,7 @@ export class NotificationEvaluatorService {
       raised += r.raised;
       resolved += r.resolved;
     }
+    await this.ownerAlerts?.syncStore(store.id);
     return { raised, resolved };
   }
 

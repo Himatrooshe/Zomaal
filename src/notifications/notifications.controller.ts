@@ -1,3 +1,5 @@
+import { NotificationEvaluatorService } from './notification-evaluator.service';
+import { PackagingOwnerAlertService } from './packaging-owner-alert.service';
 import {
   Body,
   Controller,
@@ -53,7 +55,31 @@ export class NotificationsController {
   constructor(
     private readonly notifications: NotificationsService,
     private readonly storeAccess: StoreAccessService,
+    private readonly evaluator: NotificationEvaluatorService,
+    private readonly ownerAlerts: PackagingOwnerAlertService,
   ) {}
+
+  @Post('evaluate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Owner: refresh notifications for the active store and process its pending inventory alerts',
+  })
+  async evaluate(@CurrentUser() user: JwtPayload) {
+    const access = await this.storeAccess.requireOwner(user.userId);
+    const result = await this.evaluator.evaluateStore(
+      {
+        id: access.storeId,
+        userId: user.userId,
+        baseCurrency: access.baseCurrency,
+      },
+      new Date(),
+    );
+    return {
+      ...result,
+      ownerWhatsApp: await this.ownerAlerts.dispatchDue(access.storeId),
+    };
+  }
 
   @Get()
   @ApiOperation({

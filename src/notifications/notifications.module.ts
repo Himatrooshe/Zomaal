@@ -1,3 +1,6 @@
+import { PackagingOwnerAlertService } from './packaging-owner-alert.service';
+import { MetaWhatsAppApiService } from '../whatsapp/meta-whatsapp-api.service';
+import { WhatsAppTokenEncryptionService } from '../whatsapp/whatsapp-token-encryption.service';
 import { Module } from '@nestjs/common';
 import { CurrencyModule } from '../currency/currency.module';
 import { NotificationsController } from './notifications.controller';
@@ -11,6 +14,9 @@ import { PushService } from './push.service';
   imports: [CurrencyModule],
   controllers: [NotificationsController, NotificationsSchedulerController],
   providers: [
+    PackagingOwnerAlertService,
+    MetaWhatsAppApiService,
+    WhatsAppTokenEncryptionService,
     NotificationsService,
     NotificationEvaluatorService,
     PushService,

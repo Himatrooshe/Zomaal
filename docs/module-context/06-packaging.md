@@ -32,10 +32,10 @@ Packaging comes from two places (`source` on every response):
 - **Units:** `PIECES`, `ROLLS`, `METERS`, `SHEETS`. Stock is whole numbers in that unit.
 - **Stock status:** `OUT_OF_STOCK` when available ≤ 0, `LOW_STOCK` when available ≤ `minimumLevel`.
 - **Used on delivery:** unchanged. Product packaging × units sold is deducted when the order is delivered
-  (`PACKAGING_CONSUMED` in the history). So today it's per unit, not "1 per order" (see Q6.1).
+  (`PACKAGING_CONSUMED` in the history). The client Q6.1 answer confirms this per-unit rule.
 - **Alert:** when `lowStockAlert` is on, the existing `LOW_STOCK` / `OUT_OF_STOCK` notifications cover
   packaging too (`entityType: PACKAGING_MATERIAL`, owner + staff with `products.view`). In-app and push
-  only. WhatsApp will come once WhatsApp automation is live (Q6.3).
+  only. The owner WhatsApp low-stock trigger is not yet wired (Q6.3). The 20 October live audit also found that the notification evaluator is disabled in production, so the implemented in-app alert logic is not currently being scheduled.
 - **Cost:** the last price paid for that packaging in Purchases (tab 7). SHOP packaging with no purchase
   yet falls back to the Shop catalog price; MANUAL packaging never purchased counts as 0 (Q6.2).
 - **Buying more:** record it in Purchases. With "Add to stock" on, the stock goes up there.
@@ -45,23 +45,27 @@ Packaging comes from two places (`source` on every response):
 **Q6.1 — Per order or per unit?**
 If an order has 3 of the same product, deduct 1 box or 3?
 Assumption: follow the quantity set on the product link. "1 per order" means 1 per order, regardless of quantity.
-Answer:
+Answer: The client confirms: deduct 3 boxes for 3 product units. Consumption is per delivered unit.
 
 **Q6.2 — Packaging cost**
 Figma has no price field on packaging. Should packaging cost count in order profit?
 Assumption: yes. The cost comes from Purchases (tab 7) as the average cost.
-Answer:
+Answer: Yes, packaging cost must also be deducted. The answer does not explicitly settle average versus last paid cost.
 
 **Q6.3 — Where does the low-stock WhatsApp alert go?**
 To the owner's phone? Does it use the WhatsApp automation balance (tab 15)? Should it also show in Notifications (tab 16)?
 Assumption: owner phone, not charged to the balance, and also shown in Notifications.
-Answer:
+Answer: Owner phone and notification. An owner WhatsApp trigger is still missing; client/provider Meta prerequisites also remain relevant.
 
 **Q6.4 — Restock from Zomaal Shop**
 When the merchant buys boxes from Zomaal Shop, should packaging stock increase automatically on delivery?
 Assumption: yes, if the shop item is linked to a packaging material.
-Answer:
+Answer: Yes, delivered Shop purchases automatically increase packaging stock.
 
 ## Supplier names for Purchases
 
 Packaging create/edit and read responses support `supplierNames`, matching warehouse products: at most 50 unique trimmed names, 1–120 characters each. Empty array clears the list; null is rejected. Purchase product-options returns the list and a recorded purchase retains its supplier/invoice snapshot independently of later catalog edits.
+
+## Live audit — 20 October 2026
+
+Client answers above were checked against the original Google Doc Q6.1–Q6.4. Five runtime/configuration/requirements findings remain open; see [Packaging live audit](../final-test/packaging/live-server-test-results-2026-10-20.md). Delivery, Shop replenishment and alert evaluator logic passed separate local PostgreSQL checks; they must not be described as live courier or message-delivery acceptance.

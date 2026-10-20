@@ -18236,6 +18236,24 @@ paths:
       summary: About this App + Privacy Policy links
       tags:
         - App
+  /notifications/evaluate:
+    post:
+      operationId: Notifications_evaluate
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        '401':
+          description: Missing or invalid Zomaal access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: 'Owner: refresh notifications for the active store and process its pending inventory alerts'
+      tags:
+        - Notifications
   /notifications:
     get:
       description: Newest first. Staff only receive alerts for modules their role can view; salary and integration alerts are owner-only.
@@ -33152,6 +33170,10 @@ components:
     NotificationResponseDto:
       type: object
       properties:
+        ownerWhatsApp:
+          type: object
+          nullable: true
+          description: Packaging owner WhatsApp delivery status. BLOCKED includes the missing client prerequisite; SENT means provider acceptance.
         id:
           type: string
           format: uuid

@@ -1,10 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { InventoryBucket } from '@prisma/client';
+import { Transform } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -26,6 +28,8 @@ export class AdjustInventoryDto {
     example: 10,
   })
   @IsInt()
+  @Min(-2147483648)
+  @Max(2147483647)
   @NotEquals(0)
   quantityDelta: number;
 
@@ -34,6 +38,9 @@ export class AdjustInventoryDto {
     maxLength: 500,
     example: 'Received ten units from supplier',
   })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(3)
   @MaxLength(500)
@@ -72,9 +79,13 @@ export class SetInventoryOnHandDto {
   })
   @IsInt()
   @Min(0)
+  @Max(2147483647)
   quantity: number;
 
   @ApiProperty({ minLength: 3, maxLength: 500, example: 'Manual stock count' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(3)
   @MaxLength(500)

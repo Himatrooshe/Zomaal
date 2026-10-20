@@ -1,0 +1,77 @@
+{
+  "environment": "dedicated local PostgreSQL; not production",
+  "results": [
+    {
+      "name": "Shop delivery duplicate credits stock once",
+      "pass": true
+    },
+    {
+      "name": "new Shop delivery reactivates archived material and adds stock",
+      "pass": true
+    },
+    {
+      "name": "concurrent duplicate Shop delivery credits once",
+      "pass": true
+    },
+    {
+      "name": "Shop catalog fields protected name",
+      "pass": true
+    },
+    {
+      "name": "Shop catalog fields protected sku",
+      "pass": true
+    },
+    {
+      "name": "Shop catalog fields protected imageUploadId",
+      "pass": true
+    },
+    {
+      "name": "dispatch reservation does not consume packaging",
+      "pass": true
+    },
+    {
+      "name": "three delivered product units consume three boxes",
+      "pass": true,
+      "onHand": 17
+    },
+    {
+      "name": "packaging cost reduces delivered profit",
+      "pass": true,
+      "packagingCost": "6.00",
+      "productCost": "60.00",
+      "netProfit": "234.00"
+    },
+    {
+      "name": "duplicate delivery never consumes packaging twice",
+      "pass": true
+    },
+    {
+      "name": "one packaging consumption journal entry per order line",
+      "pass": true
+    },
+    {
+      "name": "per-unit multiplier and duplicate sync consume four boxes once",
+      "pass": true
+    },
+    {
+      "name": "minimum equality raises packaging low-stock candidate",
+      "pass": true
+    },
+    {
+      "name": "repeat low-stock evaluation deduplicates active notification",
+      "pass": true
+    },
+    {
+      "name": "alert toggle off excludes material",
+      "pass": true
+    },
+    {
+      "name": "toggle off resolves existing low-stock notification",
+      "pass": true
+    },
+    {
+      "name": "zero stock raises OUT_OF_STOCK only",
+      "pass": true
+    }
+  ]
+}

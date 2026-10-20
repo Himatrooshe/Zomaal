@@ -51,6 +51,13 @@ export function availableQuantity(balance: BalanceQuantities): number {
 }
 
 export function validateBalance(balance: BalanceQuantities) {
+  for (const field of ['onHand', 'reserved', 'damaged', 'incoming'] as const) {
+    if (!Number.isInteger(balance[field]) || balance[field] > 2147483647) {
+      throw new BadRequestException(
+        'Inventory quantities must be integers no greater than 2147483647',
+      );
+    }
+  }
   if (
     balance.onHand < 0 ||
     balance.reserved < 0 ||

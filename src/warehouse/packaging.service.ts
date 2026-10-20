@@ -178,11 +178,14 @@ export class PackagingService {
       );
     }
 
-    const previousImage = await this.prisma.mediaAsset.findUnique({
-      where: { packagingMaterialId: id },
-      select: { id: true },
-    });
-    await this.prisma.$transaction(async (tx) => {
+    const previousImage = await this.prisma.$transaction(async (tx) => {
+      // Serialize replacements on this material before reading its attachment.
+      // The update also takes this lock for metadata-only requests.
+      await tx.$queryRaw`SELECT id FROM "PackagingMaterial" WHERE id = ${id} FOR UPDATE`;
+      const currentImage = await tx.mediaAsset.findUnique({
+        where: { packagingMaterialId: id },
+        select: { id: true },
+      });
       await tx.packagingMaterial.update({
         where: { id },
         data: {
@@ -195,9 +198,11 @@ export class PackagingService {
         },
       });
       if (dto.imageUploadId === undefined) return;
-      if (previousImage) {
+      // A replay of the currently attached upload is already complete.
+      if (dto.imageUploadId && currentImage?.id === dto.imageUploadId) return;
+      if (currentImage) {
         await tx.mediaAsset.update({
-          where: { id: previousImage.id },
+          where: { id: currentImage.id },
           data: { packagingMaterialId: null },
         });
       }
@@ -209,6 +214,7 @@ export class PackagingService {
           data: { imageObjectName: null },
         });
       }
+      return currentImage;
     });
 
     if (dto.imageUploadId !== undefined && previousImage) {

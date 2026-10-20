@@ -1,0 +1,1134 @@
+{
+  "module": "Packaging",
+  "date": "2026-10-20",
+  "environment": "production",
+  "revision": "zomaal-backend-00062-gmt",
+  "deployedCommit": "54e104890b51d4a42e9fa5516ab5236279c4b373",
+  "status": "OPEN_FINDINGS",
+  "openFindings": [
+    "PKG-01",
+    "PKG-02",
+    "PKG-03",
+    "PKG-04",
+    "PKG-05"
+  ],
+  "observations": {
+    "total": 181,
+    "passed": 174,
+    "failed": 7,
+    "note": "Includes HTTP requests, assertions, setup and cleanup; not distinct business-scenario counts. WhatsApp gap is a source/requirements finding, not an executed send test."
+  },
+  "checks": [
+    {
+      "name": "original stores",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original Home baseline",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original packaging baseline",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original purchases baseline",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create isolated packaging QA store",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "empty packaging list",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "empty list is an array",
+      "pass": true
+    },
+    {
+      "name": "upload synthetic PACKAGING image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "main box",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "defaults and trimmed packaging fields",
+      "pass": true
+    },
+    {
+      "name": "ROLLS",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "METERS",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "SHEETS",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create zero-stock defaults",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "default unit stock and alert settings",
+      "pass": true
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "private packaging photo preview",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "opening stock journal",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "opening balance recorded once",
+      "pass": true
+    },
+    {
+      "name": "list materials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "all unit types listed",
+      "pass": true
+    },
+    {
+      "name": "search SKU case insensitive",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "SKU search finds main only",
+      "pass": true
+    },
+    {
+      "name": "empty search",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "unmatched search empty",
+      "pass": true
+    },
+    {
+      "name": "SHOP source filter",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "manual stock excluded from shop filter",
+      "pass": true
+    },
+    {
+      "name": "MANUAL source filter",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "manual filter lists owned materials",
+      "pass": true
+    },
+    {
+      "name": "edit name SKU unit threshold and toggle",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read metadata changes",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "metadata edits persist without changing stock",
+      "pass": true
+    },
+    {
+      "name": "metadata edit retains photo",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "restore main alert settings",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "set stock to threshold",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "retry same stock update",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "stock retry returns same movement",
+      "pass": true
+    },
+    {
+      "name": "threshold stock status",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "threshold equality is LOW_STOCK",
+      "pass": true
+    },
+    {
+      "name": "LOW_STOCK filter",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "low filter includes threshold item",
+      "pass": true
+    },
+    {
+      "name": "OUT_OF_STOCK filter",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "out filter contains zero stock",
+      "pass": true
+    },
+    {
+      "name": "adjust QA RESERVED",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "adjust QA DAMAGED",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "available excludes reserved and damaged",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "availability correctly subtracts unusable stock",
+      "pass": true
+    },
+    {
+      "name": "cannot set stock below reserved plus damaged",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "cannot over-reserve packaging",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "read after concurrent restock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "concurrent restocks preserve sum",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ],
+      "onHand": 15
+    },
+    {
+      "name": "read after concurrent duplicate",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "duplicate concurrent restock applied once",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ],
+      "onHand": 19
+    },
+    {
+      "name": "release QA RESERVED",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "release QA DAMAGED",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "purchase packaging stock",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "stock after purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "purchase restock adds five units",
+      "pass": true
+    },
+    {
+      "name": "remove synthetic purchase",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read after purchase reversal",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "purchase reversal restores stock",
+      "pass": true
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "upload synthetic PACKAGING image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "replace packaging image",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "replacement image loads",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "old media row removed",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "same successful image replacement retry is idempotent",
+      "pass": false,
+      "http": 400,
+      "message": "Image <qa-id> cannot be attached as PACKAGING"
+    },
+    {
+      "name": "upload synthetic PRODUCT_MAIN image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "wrong image purpose rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "failed replacement preserves current image",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "unknown image rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "clear packaging image",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cleared image returns 404",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "read cleared image",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cleared image URL null",
+      "pass": true
+    },
+    {
+      "name": "image race",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "upload synthetic PACKAGING image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "attach initial race image",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "upload synthetic PACKAGING image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "upload synthetic PACKAGING image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "concurrent image replacement never returns 500",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ],
+      "messages": [
+        null,
+        null
+      ]
+    },
+    {
+      "name": "photo still readable after race",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "blank name rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "null name rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "bad unit rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "negative opening rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "fraction stock rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "opening above max rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "negative threshold rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "wrong toggle type rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "unknown property rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "duplicate suppliers rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "PATCH null name rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "PATCH blank name rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "PATCH null unit rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "PATCH null threshold rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "PATCH null toggle rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "PATCH null supplier list rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "PATCH write opening stock in edit rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "PATCH unknown property rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "stock before overflow probes",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "set overflow returns validation error",
+      "pass": false,
+      "http": 500,
+      "message": "Internal server error"
+    },
+    {
+      "name": "adjust overflow returns validation error",
+      "pass": false,
+      "http": 500,
+      "message": "Internal server error"
+    },
+    {
+      "name": "stock after overflow probes",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "overflow probes do not alter stock",
+      "pass": true
+    },
+    {
+      "name": "invalid filter status rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "invalid source rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "bad material UUID rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "unknown packaging 404",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "no token packaging denied",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "foreign packaging detail hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign packaging edit hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign packaging archive hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign packaging image hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "foreign inventory hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create product category",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "upload synthetic PRODUCT_MAIN image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create product linked to packaging",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "packaging product usage details",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "usage shows product and per-unit quantity",
+      "pass": true
+    },
+    {
+      "name": "cannot archive packaging used by product",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "clear product packaging link",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "usage after unlink",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "unlink clears usage",
+      "pass": true
+    },
+    {
+      "name": "archive fixture",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "archive unused material",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "archived detail hidden",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "repeat archive 404",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "list after archive",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "archive hides material",
+      "pass": true
+    },
+    {
+      "name": "archived inventory journal retained",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "archived opening movement retained",
+      "pass": true
+    },
+    {
+      "name": "product version for bad link",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cannot link archived material",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "set exactly minimum for alert",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "live low-stock notification list",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "low-stock alert reaches live in-app feed",
+      "pass": false,
+      "inventoryAlerts": 0
+    },
+    {
+      "name": "production notification evaluator is enabled",
+      "pass": false,
+      "http": 503,
+      "message": "Scheduled notification evaluation is not enabled"
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create packaging viewer staff",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "staff with view permission can list",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "staff can read item",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "staff cannot create material",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "staff cannot edit",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "staff cannot archive",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "staff cannot change stock",
+      "pass": true,
+      "http": 403
+    },
+    {
+      "name": "schedule disposable staff deletion",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "deactivate disposable staff",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "balance before computed overflow",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "valid-sized delta with overflowing result is rejected with 400",
+      "pass": false,
+      "http": 500,
+      "message": "Internal server error"
+    },
+    {
+      "name": "balance after computed overflow",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "computed overflow leaves balance intact",
+      "pass": true
+    },
+    {
+      "name": "whitespace-only stock journal reason rejected",
+      "pass": false,
+      "http": 201,
+      "storedReason": ""
+    },
+    {
+      "name": "invalid stock bucket rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "negative absolute stock rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "packaging image file required",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "corrupt image rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "delete only temporary packaging QA store",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "stores after cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original store set restored",
+      "pass": true
+    },
+    {
+      "name": "original packaging after cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original packaging unchanged",
+      "pass": true
+    },
+    {
+      "name": "original purchases after cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original purchases unchanged",
+      "pass": true
+    },
+    {
+      "name": "original Home after cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original Home counts preserved",
+      "pass": true
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    }
+  ],
+  "selectedApiResponses": [
+    {
+      "name": "opening stock journal",
+      "http": 200,
+      "data": [
+        {
+          "id": "<qa-id>",
+          "type": "OPENING_BALANCE",
+          "bucket": "ON_HAND",
+          "quantityDelta": 15,
+          "resultingQuantity": 15,
+          "reason": "Initial stock entered when the packaging was added",
+          "referenceType": null,
+          "referenceId": null,
+          "idempotencyKey": "opening:<qa-id>",
+          "createdAt": "2026-10-20T11:31:07.905Z",
+          "inventoryItemId": "<qa-id>",
+          "locationId": "<qa-id>",
+          "location": {
+            "id": "<qa-id>",
+            "name": "Main Warehouse"
+          }
+        }
+      ]
+    },
+    {
+      "name": "edit name SKU unit threshold and toggle",
+      "http": 200,
+      "data": {
+        "id": "<qa-id>",
+        "source": "MANUAL",
+        "zomaalShopVariantId": null,
+        "name": "[QA PACKAGING] Edited box",
+        "supplierNames": [
+          "QA Supplier"
+        ],
+        "sku": null,
+        "unit": "SHEETS",
+        "imageUrl": "/warehouse/packaging/<qa-id>/image",
+        "inventoryItemId": "<qa-id>",
+        "onHand": 15,
+        "available": 15,
+        "minimumLevel": 12,
+        "lowStockAlert": false,
+        "stockStatus": "IN_STOCK",
+        "usedInProducts": 0,
+        "createdAt": "2026-10-20T11:31:07.881Z",
+        "updatedAt": "2026-10-20T11:31:34.876Z",
+        "reserved": 0,
+        "damaged": 0,
+        "products": []
+      }
+    },
+    {
+      "name": "set stock to threshold",
+      "http": 200,
+      "data": {
+        "id": "<qa-id>",
+        "type": "MANUAL_ADJUSTMENT",
+        "bucket": "ON_HAND",
+        "quantityDelta": -5,
+        "resultingQuantity": 10,
+        "reason": "QA packaging threshold equality",
+        "referenceType": "ABSOLUTE_STOCK_UPDATE",
+        "referenceId": null,
+        "idempotencyKey": "qa-packaging-<qa-id>-threshold",
+        "createdAt": "2026-10-20T11:31:36.496Z",
+        "inventoryItemId": "<qa-id>",
+        "locationId": "<qa-id>"
+      }
+    },
+    {
+      "name": "threshold stock status",
+      "http": 200,
+      "data": {
+        "id": "<qa-id>",
+        "source": "MANUAL",
+        "zomaalShopVariantId": null,
+        "name": "[QA PACKAGING] Edited box",
+        "supplierNames": [
+          "QA Supplier"
+        ],
+        "sku": null,
+        "unit": "PIECES",
+        "imageUrl": "/warehouse/packaging/<qa-id>/image",
+        "inventoryItemId": "<qa-id>",
+        "onHand": 10,
+        "available": 10,
+        "minimumLevel": 10,
+        "lowStockAlert": true,
+        "stockStatus": "LOW_STOCK",
+        "usedInProducts": 0,
+        "createdAt": "2026-10-20T11:31:07.881Z",
+        "updatedAt": "2026-10-20T11:31:36.105Z",
+        "reserved": 0,
+        "damaged": 0,
+        "products": []
+      }
+    },
+    {
+      "name": "available excludes reserved and damaged",
+      "http": 200,
+      "data": {
+        "id": "<qa-id>",
+        "source": "MANUAL",
+        "zomaalShopVariantId": null,
+        "name": "[QA PACKAGING] Edited box",
+        "supplierNames": [
+          "QA Supplier"
+        ],
+        "sku": null,
+        "unit": "PIECES",
+        "imageUrl": "/warehouse/packaging/<qa-id>/image",
+        "inventoryItemId": "<qa-id>",
+        "onHand": 10,
+        "available": 5,
+        "minimumLevel": 10,
+        "lowStockAlert": true,
+        "stockStatus": "LOW_STOCK",
+        "usedInProducts": 0,
+        "createdAt": "2026-10-20T11:31:07.881Z",
+        "updatedAt": "2026-10-20T11:31:36.105Z",
+        "reserved": 3,
+        "damaged": 2,
+        "products": []
+      }
+    },
+    {
+      "name": "packaging product usage details",
+      "http": 200,
+      "data": {
+        "id": "<qa-id>",
+        "source": "MANUAL",
+        "zomaalShopVariantId": null,
+        "name": "[QA PACKAGING] Edited box",
+        "supplierNames": [
+          "QA Supplier"
+        ],
+        "sku": null,
+        "unit": "PIECES",
+        "imageUrl": null,
+        "inventoryItemId": "<qa-id>",
+        "onHand": 19,
+        "available": 19,
+        "minimumLevel": 10,
+        "lowStockAlert": true,
+        "stockStatus": "IN_STOCK",
+        "usedInProducts": 1,
+        "createdAt": "2026-10-20T11:31:07.881Z",
+        "updatedAt": "2026-10-20T11:32:00.965Z",
+        "reserved": 0,
+        "damaged": 0,
+        "products": [
+          {
+            "productId": "<qa-id>",
+            "productName": "[QA PACKAGING] Product",
+            "variantId": null,
+            "variantTitle": null,
+            "quantityPerUnit": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "live low-stock notification list",
+      "http": 200,
+      "data": {
+        "items": [],
+        "unreadCount": 0,
+        "pagination": {
+          "total": 0,
+          "page": 1,
+          "limit": 100,
+          "totalPages": 0
+        }
+      }
+    }
+  ],
+  "notificationSchedulerProbe": {
+    "http": 503,
+    "data": {
+      "message": "Scheduled notification evaluation is not enabled",
+      "error": "Service Unavailable",
+      "statusCode": 503
+    }
+  },
+  "configurationEvidence": {
+    "notificationSchedulerVariablesPresent": false,
+    "usCentral1SchedulerJobs": [
+      "zomaal-ads-google-sync",
+      "zomaal-ads-meta-sync",
+      "zomaal-ads-tiktok-sync"
+    ],
+    "regionScope": "us-central1 only; the live guard response confirms this revision is disabled regardless of jobs elsewhere"
+  },
+  "localEvidence": {
+    "unitTestsPassed": 66,
+    "unitSuitesPassed": 6,
+    "postgresqlServiceChecksPassed": 17,
+    "postgresqlEnvironment": "dedicated local database; compiled production services; no production delivery event created"
+  },
+  "cleanup": {
+    "temporaryStoreDeleted": true,
+    "materialsRemoved": 7,
+    "temporaryPurchasesRemoved": true,
+    "testCloudObjectsRemoved": 3,
+    "disposableStaffDeactivated": true,
+    "disposableStaffDeletionScheduled": true,
+    "originalStoreSetAndActiveStoreRestored": true,
+    "originalPackagingPreserved": true,
+    "originalPurchasesPreserved": true,
+    "originalHomeCountsPreserved": true
+  }
+}

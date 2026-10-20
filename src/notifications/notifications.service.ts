@@ -38,7 +38,7 @@ export interface RaiseNotificationInput {
 }
 
 type NotificationRow = Prisma.NotificationGetPayload<{
-  include: { reads: { select: { readAt: true } } };
+  include: { reads: { select: { readAt: true } }; packagingOwnerAlert: true };
 }>;
 
 @Injectable()
@@ -148,6 +148,7 @@ export class NotificationsService {
       this.prisma.notification.findMany({
         where,
         include: {
+          packagingOwnerAlert: true,
           reads: { where: { userId: access.userId }, select: { readAt: true } },
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -341,6 +342,13 @@ function toResponse(row: NotificationRow): NotificationResponseDto {
     message: row.message,
     entityType: row.entityType,
     entityId: row.entityId,
+    ownerWhatsApp: row.packagingOwnerAlert
+      ? {
+          status: row.packagingOwnerAlert.status,
+          lastErrorCode: row.packagingOwnerAlert.lastErrorCode,
+          sentAt: row.packagingOwnerAlert.sentAt?.toISOString() ?? null,
+        }
+      : null,
     metadata: (row.metadata as Record<string, unknown> | null) ?? null,
     resolvedAt: row.resolvedAt?.toISOString() ?? null,
     isRead: readAt !== null,

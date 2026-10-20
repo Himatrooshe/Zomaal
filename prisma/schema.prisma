@@ -2359,7 +2359,8 @@ model Notification {
   storeId String
   store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
-  reads NotificationRead[]
+  reads               NotificationRead[]
+  packagingOwnerAlert PackagingOwnerAlert?
 
   @@unique([storeId, dedupeKey])
   @@index([storeId, createdAt])
@@ -2656,4 +2657,22 @@ model WhatsAppPricing {
   pricePerMessage  Decimal  @db.Decimal(20, 4)
   updatedByAdminId String?
   updatedAt        DateTime @updatedAt
+}
+
+// One durable owner delivery per notification cycle, independent of paid
+// customer courier messages. UNKNOWN is never automatically resent.
+model PackagingOwnerAlert {
+  id                String       @id @default(uuid())
+  notificationId    String       @unique
+  notification      Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  status            String       @default("PENDING")
+  attempts          Int          @default(0)
+  nextAttemptAt     DateTime     @default(now())
+  providerMessageId String?      @unique
+  lastErrorCode     String?
+  sentAt            DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([status, nextAttemptAt])
 }
