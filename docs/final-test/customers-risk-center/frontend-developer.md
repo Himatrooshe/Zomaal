@@ -1,6 +1,6 @@
 # Customers & Risk Center — frontend handoff
 
-**Status: seven audit findings fixed in code; deployment/live retest pending.** See [report and actual failures](live-server-test-results-2026-10-21.md).
+**Status: deployed on revision`zomaal-backend-00066-bbg`; 342/342 live observations passed.** See [report and actual failures](live-server-test-results-2026-10-21.md).
 
 ## APIs
 
@@ -18,9 +18,9 @@ customers.view gates Customers/details/duplicate listing. customers.blacklist ga
 
 Blacklist is warning-only under current assumptions; orders are still accepted. Do not tell users an order was auto-cancelled or shipping blocked solely by the blacklist. Platform duplicate cancellation can return platformCancelRequired:true; display the instruction to cancel on that platform. Manual duplicate cancellation returns false.
 
-## Known blockers from this audit
+## Historical findings — fixed by0e7d246
 
-Phone formatting can split identity and bypass warning; matching titles can falsely group distinct products; cancelled duplicate history shows an incorrect badge; simultaneous cancellations can remove every member; malformed numeric queries are coerced and some overflow/null settings return500. Client-side input validation helps UX but backend fixes/retest are required.
+The initial audit found split phone identities and missing warnings, same-title false duplicates, incorrect cancellation badges, all-member cancellation races, coerced numeric queries and overflow/null settings500. These failures were fixed and passed deployed retesting. Client-side validation remains useful for UX.
 
 All data used in this audit was synthetic and removed. Client decisions are in `docs/module-context/11-customers-risk.md`, including retrospective re-evaluation when settings are lowered, which is currently undefined.
 
@@ -32,4 +32,4 @@ Known warehouse/platform identities take precedence over a title match. Keep/can
 
 Send integer numeric settings with values0–100000. Omit unchanged settings; do not sendnull. Use digit-only pagination within page1–1000000,limit1–100,days1–90. All invalid values now return400 instead of truncation/database500.
 
-See [fix verification](fix-verification-2026-10-21.md) for deployed status. The original Known blockers section above records historical audit failures; final verification supersedes it when deployment is complete.
+See [fix verification](fix-verification-2026-10-21.md) for deployed status. The historical findings above are resolved; final verification records the deployed evidence.

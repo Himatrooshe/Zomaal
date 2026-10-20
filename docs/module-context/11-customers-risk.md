@@ -94,3 +94,7 @@ Duplicate keep/cancel and dispatch claiming now share a short store-scoped datab
 Pagination accepts digit-only page1–1,000,000 and limit1–100; duplicate days1–90. Required settings rejectnull and all risk limits are integer0–100,000. Invalid input returns400. Lowering thresholds remains prospective until another risk event; retrospective policy still needs the client decision noted above.
 
 The additive migration creates only a store+phone-digits expression index (Prisma does not model expression indexes). No customer/order/risk rows are migrated or removed. The previous app remains compatible with the extra index. See the final-test verification for actual rollout status.
+
+## Deployed fix verification — 2026-10-21
+
+Application`0e7d246`, serving revision`zomaal-backend-00066-bbg`: **342/342 live observations passed** after successful CI/CD. All seven initial finding groups passed retesting. Original account/business snapshots preserved and disposable data/media cleaned. A read-only production check confirmed the lookup index and migration are applied. [Full verification](../final-test/customers-risk-center/fix-verification-2026-10-21.md).
