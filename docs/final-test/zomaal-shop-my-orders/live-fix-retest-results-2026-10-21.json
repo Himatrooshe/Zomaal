@@ -1,0 +1,5344 @@
+{
+  "metadata": {
+    "api": "https://zomaal-backend-563898960389.us-central1.run.app",
+    "revision": "zomaal-backend-00068-vbx",
+    "appCommit": "2b31110ed4ad68a2624b13dd11e989bd658efc4d",
+    "fixCommit": "2263e76b986b4c4f1424b6efa09fdfb75f936ea7",
+    "ciRun": "https://github.com/Himatrooshe/Zomaal/actions/runs/39490420113",
+    "ciJobs": {
+      "Test and build": "success",
+      "Deploy production": "success"
+    },
+    "cloudBuild": "6e9c55c6-c0af-419c-b2ea-2f70d195f8f3",
+    "cloudBuildStatus": "SUCCESS",
+    "capturedAtUtc": "2026-10-20T20:32:25.428295+00:00",
+    "counts": {
+      "total": 362,
+      "passed": 362,
+      "failed": 0
+    },
+    "cleaned": true,
+    "temporaryStoresDeleted": 2,
+    "temporaryCatalogProductsDeleted": 4,
+    "temporaryPromosDeleted": 9,
+    "syntheticShopOrdersRemoved": 9,
+    "syntheticStaff": "deactivated; scheduled normal 30-day deletion; temporary membership removed",
+    "mediaUploaded": false,
+    "originalStoreSetPreserved": true,
+    "originalActiveStoreRestored": true
+  },
+  "checks": [
+    {
+      "name": "original stores",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original snapshot /shop/home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original snapshot /shop/cart",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original snapshot /shop/addresses",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original snapshot /shop/favorites",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original snapshot /shop/orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original snapshot /purchases",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original snapshot /expenses/summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create isolated Shop store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "read existing global Shop settings",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create temporary catalog category",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create isolated catalog Simple",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create isolated catalog Variants",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create isolated catalog Sort lower sale",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create isolated catalog Sort higher sale",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "add size/color options",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "initial /shop/home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "initial /shop/categories",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "initial /shop/products",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "initial /shop/products/popular",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "initial /shop/favorites",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "initial /shop/cart",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "initial /shop/addresses",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "initial /shop/orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "variant product detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "variant choices expose size/color stock",
+      "pass": true
+    },
+    {
+      "name": "first address",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "first address forced default",
+      "pass": true
+    },
+    {
+      "name": "second address",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "second address not default",
+      "pass": true
+    },
+    {
+      "name": "switch default address",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "verify one default",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "exactly one selected default",
+      "pass": true
+    },
+    {
+      "name": "delete default address",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "default promoted",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "remaining address becomes default",
+      "pass": true
+    },
+    {
+      "name": "favorite idempotent add",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "favorite idempotent add",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "favorites list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "one favorite despite repeated add",
+      "pass": true
+    },
+    {
+      "name": "simple cart add",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "simple cart merges",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "same product one line and exact price",
+      "pass": true
+    },
+    {
+      "name": "variant choice required",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "variant cart add",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "two cart lines proper total",
+      "pass": true
+    },
+    {
+      "name": "checkout preview",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "COD available online explicit unavailable",
+      "pass": true
+    },
+    {
+      "name": "ONLINE unavailable no order",
+      "pass": true,
+      "http": 422,
+      "expected": 422
+    },
+    {
+      "name": "unknown promo blocks submit",
+      "pass": true,
+      "http": 422,
+      "expected": 422
+    },
+    {
+      "name": "double checkout creates exactly one order",
+      "pass": true,
+      "statuses": [
+        201,
+        400
+      ]
+    },
+    {
+      "name": "order snapshots total address and items",
+      "pass": true
+    },
+    {
+      "name": "claimed cart empty",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "cart empty after order",
+      "pass": true
+    },
+    {
+      "name": "reserved product stocks",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "simple stock reserved exactly5",
+      "pass": true
+    },
+    {
+      "name": "simultaneous cancel only one succeeds",
+      "pass": true,
+      "statuses": [
+        200,
+        409
+      ]
+    },
+    {
+      "name": "restocked product",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "simple stock restored once",
+      "pass": true
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "clear cart for lifecycle",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "cart for fulfillment",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "place fulfillment order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "admin advance CONFIRMED",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "merchant sees CONFIRMED",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "status persisted CONFIRMED",
+      "pass": true
+    },
+    {
+      "name": "merchant cannot cancel confirmed",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "admin advance SHIPPED",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "merchant sees SHIPPED",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "status persisted SHIPPED",
+      "pass": true
+    },
+    {
+      "name": "admin advance DELIVERED",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "merchant sees DELIVERED",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "status persisted DELIVERED",
+      "pass": true
+    },
+    {
+      "name": "COD marked paid and timeline complete",
+      "pass": true
+    },
+    {
+      "name": "repeat deliver conflict",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "delivered From Shop purchases",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delivered cannot cancel",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "My Orders tab ALL",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "My Orders tab PROCESSING",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "My Orders tab SHIPPED",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "My Orders tab DELIVERED",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "My Orders tab CANCELLED",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "ALL must override exact status",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "ALL tab ignores supplied status per contract",
+      "pass": true
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "catalog numeric/query contract page=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "catalog numeric/query contract page=-1",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "catalog numeric/query contract page=abc",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "catalog numeric/query contract page=1.5",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "catalog numeric/query contract page=1junk",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "catalog numeric/query contract page=999999999999999999999",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "catalog numeric/query contract page=1e2",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "catalog numeric/query contract page=0x10",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "catalog numeric/query contract pageSize=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "catalog numeric/query contract pageSize=51",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "catalog numeric/query contract pageSize=1.5",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "catalog numeric/query contract unknown=true",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "catalog numeric/query contract sort=bad",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "catalog numeric/query contract categoryId=bad",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid cart {\"quantity\":0}",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid cart {\"quantity\":-1}",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid cart {\"quantity\":1.5}",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid cart {\"quantity\":10001}",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid cart {\"quantity\":\"2\"}",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid cart {\"quantity\":null}",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid cart {\"quantity\":1,\"productId\":\"bad\"}",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid cart {\"quantity\":1,\"unknown\":true}",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "address rejects whitespace label",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "address rejects whitespace fullName",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "address rejects whitespace country",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "address rejects whitespace city",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "address rejects whitespace address",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "address PATCH rejects null label",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "address PATCH rejects null fullName",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "address PATCH rejects null phone",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "address PATCH rejects null country",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "address PATCH rejects null city",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "address PATCH rejects null address",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "address PATCH rejects null isDefault",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid or unknown resource /shop/products/bad",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid or unknown resource /shop/orders/bad",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid or unknown resource /shop/orders/967d8245-7920-4492-bbcf-ec29f3568d81",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "anonymous denied /shop/home",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "anonymous denied /shop/cart",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "anonymous denied /shop/orders",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "anonymous denied /admin/shop/orders",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "merchant cannot administer /admin/shop/orders",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "merchant cannot administer /admin/shop/products",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "merchant cannot administer /admin/shop/settings",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "repair QA address after null probes",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "clear cart before promo cases",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "cart for promo cases",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create isolated promo HALF",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "preview promo HALF",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "promo calculation HALF",
+      "pass": true
+    },
+    {
+      "name": "create isolated promo MIN",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "preview promo MIN",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "promo rejected MIN",
+      "pass": true
+    },
+    {
+      "name": "create isolated promo EXPIRED",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "preview promo EXPIRED",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "promo rejected EXPIRED",
+      "pass": true
+    },
+    {
+      "name": "create isolated promo FUTURE",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "preview promo FUTURE",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "promo rejected FUTURE",
+      "pass": true
+    },
+    {
+      "name": "create isolated promo INACTIVE",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "preview promo INACTIVE",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "promo rejected INACTIVE",
+      "pass": true
+    },
+    {
+      "name": "create isolated promo CAP",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "preview promo CAP",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "promo calculation CAP",
+      "pass": true
+    },
+    {
+      "name": "create isolated promo LARGE",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "preview promo LARGE",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "promo calculation LARGE",
+      "pass": true
+    },
+    {
+      "name": "discounted checkout",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "discounted total 12.50",
+      "pass": true
+    },
+    {
+      "name": "deliver discounted fixture",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "discounted From Shop ledger",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "discounted expenses summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "From Shop costs reflect actual amount paid",
+      "pass": true,
+      "actual": "37.50",
+      "expected": "37.50"
+    },
+    {
+      "name": "delivered packaging credit",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delivered packaging credited quantity4",
+      "pass": true
+    },
+    {
+      "name": "purchase records exactly once and quantity4",
+      "pass": true
+    },
+    {
+      "name": "reset cart before parallel existing-add 0",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "seed existing cart line 0",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "read parallel add cart 0",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent cart increments not lost 0",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ],
+      "quantity": 3
+    },
+    {
+      "name": "reset cart before parallel existing-add 1",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "seed existing cart line 1",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "read parallel add cart 1",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent cart increments not lost 1",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ],
+      "quantity": 3
+    },
+    {
+      "name": "reset cart before parallel existing-add 2",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "seed existing cart line 2",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "read parallel add cart 2",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent cart increments not lost 2",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ],
+      "quantity": 3
+    },
+    {
+      "name": "reset cart before parallel existing-add 3",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "seed existing cart line 3",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "read parallel add cart 3",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent cart increments not lost 3",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ],
+      "quantity": 3
+    },
+    {
+      "name": "reset for parallel new cart line",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read parallel new cart",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent initial add merges without500",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ],
+      "lines": 1,
+      "quantities": [
+        2
+      ]
+    },
+    {
+      "name": "addresses before race",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "remove test address for race",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read address race result",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent first addresses leave exactly one default",
+      "pass": true,
+      "defaults": 1,
+      "statuses": [
+        201,
+        201
+      ]
+    },
+    {
+      "name": "create Shop viewer staff",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "viewer can read /shop/home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "viewer can read /shop/orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "viewer can read /shop/favorites",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "viewer cannot purchase /shop/cart",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "viewer cannot purchase /shop/addresses",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "viewer cannot checkout",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "revoke Shop view",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "old viewer token denied after revoke",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "create isolated second Shop store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "store isolation GET /shop/orders/99f084ba-7a75-4c86-a4a8-88083bc77d4e",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "store isolation POST /shop/orders/99f084ba-7a75-4c86-a4a8-88083bc77d4e/cancel",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "store isolation PATCH /shop/addresses/430b28fb-6d90-4053-87ca-ef1cfab3e083",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "store isolation DELETE /shop/addresses/430b28fb-6d90-4053-87ca-ef1cfab3e083",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "store isolation PATCH /shop/cart/items/8a59ef20-24c3-49b0-bcb3-567e37e49931",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "store isolation DELETE /shop/cart/items/8a59ef20-24c3-49b0-bcb3-567e37e49931",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "foreign checkout address rejected",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "other cart",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "separate cart is empty",
+      "pass": true
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "clear for merged quantity cap",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "increase fixture stock for quantity cap",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "cart maximum line qty",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "merged quantity cannot exceed documented10000",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "grant fixture staff Shop purchase",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "clear primary cart",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "address race reset list 0",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "address race reset deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "address race reset deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent first addresses burst 0",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "burst first addresses have one default 0",
+      "pass": true,
+      "defaults": 1,
+      "statuses": [
+        201,
+        201,
+        201,
+        201,
+        201,
+        201
+      ]
+    },
+    {
+      "name": "address race reset list 1",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "address race reset deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "address race reset deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "address race reset deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "address race reset deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "address race reset deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "address race reset deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent first addresses burst 1",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "burst first addresses have one default 1",
+      "pass": true,
+      "defaults": 1,
+      "statuses": [
+        201,
+        201,
+        201,
+        201,
+        201,
+        201
+      ]
+    },
+    {
+      "name": "set simple stock one for contention",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "primary cart last unit",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "second store address",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "second store cart last unit",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "cross-store last unit only one succeeds",
+      "pass": true,
+      "statuses": [
+        409,
+        201
+      ]
+    },
+    {
+      "name": "stock after contention",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "last unit stock never negative",
+      "pass": true
+    },
+    {
+      "name": "clear second remaining cart",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "clear first remaining cart",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "current variant stock",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "first store variant cart",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "second store variant cart",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "both stocked variants can order concurrently",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ]
+    },
+    {
+      "name": "parent variant stock after parallel orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "parent stock equals actual variants sum",
+      "pass": true,
+      "stock": 88,
+      "variantSum": 88
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "clear for unavailable checks",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "restore simple test stock",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "stock-change cart seed",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "reduce catalog stock",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "cart detects changed stock",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "insufficient stock blocks checkout",
+      "pass": true
+    },
+    {
+      "name": "cannot order insufficient stock",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "lower quantity repairs line",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "lowered qty clears stock problem",
+      "pass": true
+    },
+    {
+      "name": "deactivate fixture product",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "cart retains unavailable line",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "draft item flagged unavailable",
+      "pass": true
+    },
+    {
+      "name": "draft product hidden",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "draft cannot add to cart",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "restore fixture active",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "admin numeric query contract page=999999999999999999999",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "admin numeric query contract search=999999999999999999999",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "admin product numeric contract stock",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "admin product numeric contract price",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "parallel catalog rename avoids connection starvation",
+      "pass": true,
+      "statuses": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ]
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "clear cart before money boundary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "prepare valid large-price catalog fixture",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "cart large computed amount",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "preview oversized computed order",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject oversized computed order cleanly",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject Decimal20-4 catalog overflow",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "clear oversized cart",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create full-discount promo",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "free order cart",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "fully discounted order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "full discount order total zero",
+      "pass": true
+    },
+    {
+      "name": "deliver zero acquisition-cost fixture",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "zero-cost delivery physical stock",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "free delivery still credits packaging quantity",
+      "pass": true
+    },
+    {
+      "name": "zero-cost purchase ledger",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "zero-cost expense ledger",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "full discount does not inflate purchase or expense costs",
+      "pass": true
+    },
+    {
+      "name": "create one-use promo for rollback",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "promo retry cart 0",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "promo checkout 0",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "used promo preview 0",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "one-use promo exhausted 0",
+      "pass": true
+    },
+    {
+      "name": "cancel restores promo use 0",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "promo list after cancel 0",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "promo usedCount restored 0",
+      "pass": true
+    },
+    {
+      "name": "promo retry cart 1",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "promo checkout 1",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "used promo preview 1",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "one-use promo exhausted 1",
+      "pass": true
+    },
+    {
+      "name": "cancel restores promo use 1",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "promo list after cancel 1",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "promo usedCount restored 1",
+      "pass": true
+    },
+    {
+      "name": "COD restriction threshold preview",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "3 merchant cancellations restrict COD",
+      "pass": true
+    },
+    {
+      "name": "cart remains editable when COD restricted",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "restricted COD submission forbidden",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "set isolated other store currency BDT",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "other store pending fixture orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "foreign currency order details",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deliver MAD purchase to BDT store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "foreign currency purchases",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "foreign currency expense summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "converted expense with FX snapshot",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "actual FX snapshot arithmetic matches posted expense",
+      "pass": true,
+      "rate": "12.626235591302548804",
+      "sourceAmount": "30.00",
+      "expenseAmount": "378.79"
+    },
+    {
+      "name": "foreign currency purchase not copied as base amount",
+      "pass": true,
+      "expenseTotal": "378.79",
+      "purchaseTotal": "30.00",
+      "expenseCurrency": "BDT",
+      "purchaseCurrency": "MAD"
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "schedule test staff deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deactivate test staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "cleanup cancel fixture order",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "cleanup cancel fixture order",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolation Shop store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete disposable Shop store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated catalog product",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated catalog product",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated catalog product",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated catalog product",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated promo",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated promo",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated promo",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated promo",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated promo",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated promo",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated promo",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated promo",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated promo",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated catalog category",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "post cleanup snapshot /shop/home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original data unchanged /shop/home",
+      "pass": true
+    },
+    {
+      "name": "post cleanup snapshot /shop/cart",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original data unchanged /shop/cart",
+      "pass": true
+    },
+    {
+      "name": "post cleanup snapshot /shop/addresses",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original data unchanged /shop/addresses",
+      "pass": true
+    },
+    {
+      "name": "post cleanup snapshot /shop/favorites",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original data unchanged /shop/favorites",
+      "pass": true
+    },
+    {
+      "name": "post cleanup snapshot /shop/orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original data unchanged /shop/orders",
+      "pass": true
+    },
+    {
+      "name": "post cleanup snapshot /purchases",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original data unchanged /purchases",
+      "pass": true
+    },
+    {
+      "name": "post cleanup snapshot /expenses/summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original data unchanged /expenses/summary",
+      "pass": true
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store set after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store set preserved",
+      "pass": true
+    },
+    {
+      "name": "original active store restored",
+      "pass": true
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    }
+  ],
+  "responses": [
+    {
+      "name": "read existing global Shop settings",
+      "path": "/admin/shop/settings",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "deliveryFee": "0.00",
+        "freeDeliveryMinSubtotal": null,
+        "codEnabled": true,
+        "onlinePaymentAvailable": false,
+        "codCancellationLimit": 3,
+        "codCancellationWindowDays": 90,
+        "updatedAt": "2026-09-21T18:26:28.952Z"
+      }
+    },
+    {
+      "name": "add size/color options",
+      "path": "/admin/shop/products/e1b59291-791c-4452-9beb-ecb93a57a9fc/variants",
+      "http": 200,
+      "data": {
+        "id": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+        "name": "[QA SHOP] Variants c31dd016",
+        "slug": "qa-shop-variants-c31dd016",
+        "sku": "QA-c31dd016-1",
+        "description": null,
+        "price": "20.00",
+        "compareAtPrice": "25.00",
+        "unitLabel": "piece",
+        "isFeatured": false,
+        "stock": 90,
+        "lowStock": false,
+        "status": "ACTIVE",
+        "category": {
+          "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+          "name": "[QA SHOP] c31dd016"
+        },
+        "variants": [
+          {
+            "id": "09a714ec-5aba-4ef9-a09a-e00214b3b3e4",
+            "size": "M",
+            "color": "Black",
+            "colorHex": null,
+            "sku": null,
+            "price": "25.00",
+            "compareAtPrice": null,
+            "stock": 40,
+            "isActive": true
+          },
+          {
+            "id": "358c06b0-a7d6-43df-b4cc-d2b932663a14",
+            "size": "L",
+            "color": "Blue",
+            "colorHex": null,
+            "sku": null,
+            "price": "30.00",
+            "compareAtPrice": null,
+            "stock": 50,
+            "isActive": true
+          }
+        ],
+        "specs": [],
+        "images": [],
+        "imageUrl": null,
+        "createdAt": "2026-10-20T20:28:58.593Z",
+        "updatedAt": "2026-10-20T20:28:59.759Z"
+      }
+    },
+    {
+      "name": "initial /shop/home",
+      "path": "/shop/home",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "banners": [],
+        "categories": [
+          {
+            "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+            "name": "[QA SHOP] c31dd016",
+            "productCount": 4,
+            "imageUrl": null
+          }
+        ],
+        "popular": [
+          {
+            "id": "ba6abee4-92fb-4c74-9166-dd0301496d5e",
+            "name": "[QA SHOP] Sort higher sale c31dd016",
+            "category": {
+              "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+              "name": "[QA SHOP] c31dd016"
+            },
+            "price": "20.00",
+            "compareAtPrice": "25.00",
+            "priceFrom": false,
+            "currency": "MAD",
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "inStock": true,
+            "hasVariants": false,
+            "isFavorite": false
+          },
+          {
+            "id": "f11aabaf-134f-42c5-8a3e-19d619b1e2a2",
+            "name": "[QA SHOP] Sort lower sale c31dd016",
+            "category": {
+              "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+              "name": "[QA SHOP] c31dd016"
+            },
+            "price": "10.00",
+            "compareAtPrice": "15.00",
+            "priceFrom": false,
+            "currency": "MAD",
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "inStock": true,
+            "hasVariants": false,
+            "isFavorite": false
+          },
+          {
+            "id": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+            "name": "[QA SHOP] Variants c31dd016",
+            "category": {
+              "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+              "name": "[QA SHOP] c31dd016"
+            },
+            "price": "25.00",
+            "compareAtPrice": null,
+            "priceFrom": true,
+            "currency": "MAD",
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "inStock": true,
+            "hasVariants": true,
+            "isFavorite": false
+          },
+          {
+            "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+            "name": "[QA SHOP] Simple c31dd016",
+            "category": {
+              "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+              "name": "[QA SHOP] c31dd016"
+            },
+            "price": "12.50",
+            "compareAtPrice": "17.50",
+            "priceFrom": false,
+            "currency": "MAD",
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "inStock": true,
+            "hasVariants": false,
+            "isFavorite": false
+          }
+        ],
+        "cartItemCount": 0,
+        "favoritesCount": 0
+      }
+    },
+    {
+      "name": "initial /shop/categories",
+      "path": "/shop/categories",
+      "http": 200,
+      "data": [
+        {
+          "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+          "name": "[QA SHOP] c31dd016",
+          "productCount": 4,
+          "imageUrl": null
+        }
+      ]
+    },
+    {
+      "name": "initial /shop/products",
+      "path": "/shop/products",
+      "http": 200,
+      "data": {
+        "items": [
+          {
+            "id": "ba6abee4-92fb-4c74-9166-dd0301496d5e",
+            "name": "[QA SHOP] Sort higher sale c31dd016",
+            "category": {
+              "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+              "name": "[QA SHOP] c31dd016"
+            },
+            "price": "20.00",
+            "compareAtPrice": "25.00",
+            "priceFrom": false,
+            "currency": "MAD",
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "inStock": true,
+            "hasVariants": false,
+            "isFavorite": false
+          },
+          {
+            "id": "f11aabaf-134f-42c5-8a3e-19d619b1e2a2",
+            "name": "[QA SHOP] Sort lower sale c31dd016",
+            "category": {
+              "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+              "name": "[QA SHOP] c31dd016"
+            },
+            "price": "10.00",
+            "compareAtPrice": "15.00",
+            "priceFrom": false,
+            "currency": "MAD",
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "inStock": true,
+            "hasVariants": false,
+            "isFavorite": false
+          },
+          {
+            "id": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+            "name": "[QA SHOP] Variants c31dd016",
+            "category": {
+              "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+              "name": "[QA SHOP] c31dd016"
+            },
+            "price": "25.00",
+            "compareAtPrice": null,
+            "priceFrom": true,
+            "currency": "MAD",
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "inStock": true,
+            "hasVariants": true,
+            "isFavorite": false
+          },
+          {
+            "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+            "name": "[QA SHOP] Simple c31dd016",
+            "category": {
+              "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+              "name": "[QA SHOP] c31dd016"
+            },
+            "price": "12.50",
+            "compareAtPrice": "17.50",
+            "priceFrom": false,
+            "currency": "MAD",
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "inStock": true,
+            "hasVariants": false,
+            "isFavorite": false
+          }
+        ],
+        "page": 1,
+        "pageSize": 20,
+        "total": 4,
+        "hasMore": false
+      }
+    },
+    {
+      "name": "initial /shop/products/popular",
+      "path": "/shop/products/popular",
+      "http": 200,
+      "data": [
+        {
+          "id": "ba6abee4-92fb-4c74-9166-dd0301496d5e",
+          "name": "[QA SHOP] Sort higher sale c31dd016",
+          "category": {
+            "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+            "name": "[QA SHOP] c31dd016"
+          },
+          "price": "20.00",
+          "compareAtPrice": "25.00",
+          "priceFrom": false,
+          "currency": "MAD",
+          "unitLabel": "piece",
+          "imageUrl": null,
+          "inStock": true,
+          "hasVariants": false,
+          "isFavorite": false
+        },
+        {
+          "id": "f11aabaf-134f-42c5-8a3e-19d619b1e2a2",
+          "name": "[QA SHOP] Sort lower sale c31dd016",
+          "category": {
+            "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+            "name": "[QA SHOP] c31dd016"
+          },
+          "price": "10.00",
+          "compareAtPrice": "15.00",
+          "priceFrom": false,
+          "currency": "MAD",
+          "unitLabel": "piece",
+          "imageUrl": null,
+          "inStock": true,
+          "hasVariants": false,
+          "isFavorite": false
+        },
+        {
+          "id": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+          "name": "[QA SHOP] Variants c31dd016",
+          "category": {
+            "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+            "name": "[QA SHOP] c31dd016"
+          },
+          "price": "25.00",
+          "compareAtPrice": null,
+          "priceFrom": true,
+          "currency": "MAD",
+          "unitLabel": "piece",
+          "imageUrl": null,
+          "inStock": true,
+          "hasVariants": true,
+          "isFavorite": false
+        },
+        {
+          "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+          "name": "[QA SHOP] Simple c31dd016",
+          "category": {
+            "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+            "name": "[QA SHOP] c31dd016"
+          },
+          "price": "12.50",
+          "compareAtPrice": "17.50",
+          "priceFrom": false,
+          "currency": "MAD",
+          "unitLabel": "piece",
+          "imageUrl": null,
+          "inStock": true,
+          "hasVariants": false,
+          "isFavorite": false
+        }
+      ]
+    },
+    {
+      "name": "initial /shop/favorites",
+      "path": "/shop/favorites",
+      "http": 200,
+      "data": []
+    },
+    {
+      "name": "initial /shop/cart",
+      "path": "/shop/cart",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "items": [],
+        "itemCount": 0,
+        "subtotal": "0.00",
+        "deliveryFee": "0.00",
+        "freeDeliveryMinSubtotal": null,
+        "total": "0.00",
+        "hasProblems": false,
+        "canCheckout": false
+      }
+    },
+    {
+      "name": "initial /shop/addresses",
+      "path": "/shop/addresses",
+      "http": 200,
+      "data": []
+    },
+    {
+      "name": "initial /shop/orders",
+      "path": "/shop/orders",
+      "http": 200,
+      "data": []
+    },
+    {
+      "name": "variant product detail",
+      "path": "/shop/products/e1b59291-791c-4452-9beb-ecb93a57a9fc",
+      "http": 200,
+      "data": {
+        "id": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+        "name": "[QA SHOP] Variants c31dd016",
+        "description": null,
+        "category": {
+          "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+          "name": "[QA SHOP] c31dd016"
+        },
+        "currency": "MAD",
+        "unitLabel": "piece",
+        "price": "20.00",
+        "compareAtPrice": "25.00",
+        "stock": 90,
+        "inStock": true,
+        "images": [],
+        "imageUrl": null,
+        "hasVariants": true,
+        "sizes": [
+          "M",
+          "L"
+        ],
+        "colors": [
+          {
+            "name": "Black",
+            "hex": null
+          },
+          {
+            "name": "Blue",
+            "hex": null
+          }
+        ],
+        "variants": [
+          {
+            "id": "09a714ec-5aba-4ef9-a09a-e00214b3b3e4",
+            "label": "M \u00b7 Black",
+            "size": "M",
+            "color": "Black",
+            "colorHex": null,
+            "price": "25.00",
+            "compareAtPrice": null,
+            "stock": 40,
+            "inStock": true
+          },
+          {
+            "id": "358c06b0-a7d6-43df-b4cc-d2b932663a14",
+            "label": "L \u00b7 Blue",
+            "size": "L",
+            "color": "Blue",
+            "colorHex": null,
+            "price": "30.00",
+            "compareAtPrice": null,
+            "stock": 50,
+            "inStock": true
+          }
+        ],
+        "specifications": [],
+        "isFavorite": false,
+        "quantityInCart": 0
+      }
+    },
+    {
+      "name": "checkout preview",
+      "path": "/shop/checkout/preview",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "items": [
+          {
+            "id": "09e1232f-397e-4c64-8ec2-f6bda747eddc",
+            "product": {
+              "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+              "name": "[QA SHOP] Simple c31dd016",
+              "unitLabel": "piece",
+              "imageUrl": null
+            },
+            "variant": null,
+            "unitPrice": "12.50",
+            "compareAtPrice": "17.50",
+            "quantity": 5,
+            "lineTotal": "62.50",
+            "compareAtLineTotal": "87.50",
+            "currency": "MAD",
+            "stock": 10000,
+            "problem": null
+          },
+          {
+            "id": "cf944be3-e7d6-460e-88ab-73082cc91e26",
+            "product": {
+              "id": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+              "name": "[QA SHOP] Variants c31dd016",
+              "unitLabel": "piece",
+              "imageUrl": null
+            },
+            "variant": {
+              "id": "09a714ec-5aba-4ef9-a09a-e00214b3b3e4",
+              "label": "M \u00b7 Black"
+            },
+            "unitPrice": "25.00",
+            "compareAtPrice": null,
+            "quantity": 2,
+            "lineTotal": "50.00",
+            "compareAtLineTotal": null,
+            "currency": "MAD",
+            "stock": 40,
+            "problem": null
+          }
+        ],
+        "address": {
+          "id": "ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "isDefault": true,
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "pricing": {
+          "subtotal": "112.50",
+          "discount": "0.00",
+          "deliveryFee": "0.00",
+          "total": "112.50"
+        },
+        "promo": null,
+        "paymentMethods": [
+          {
+            "method": "COD",
+            "available": true,
+            "reason": null
+          },
+          {
+            "method": "ONLINE",
+            "available": false,
+            "reason": "Online payment is not available yet. Please use Cash on Delivery."
+          }
+        ],
+        "codRestriction": {
+          "cancellations": 0,
+          "limit": 3,
+          "windowDays": 90,
+          "restricted": false
+        },
+        "canPlaceOrder": true,
+        "blockers": []
+      }
+    },
+    {
+      "name": "double checkout",
+      "results": [
+        {
+          "http": 201,
+          "data": {
+            "id": "ebec587d-a48e-4ddd-bfbc-e837c37bd760",
+            "number": "ZS-9",
+            "status": "PENDING",
+            "listTab": "PROCESSING",
+            "lastUpdate": "Order placed",
+            "paymentMethod": "COD",
+            "paymentStatus": "UNPAID",
+            "currency": "MAD",
+            "subtotal": "112.50",
+            "discount": "0.00",
+            "deliveryFee": "0.00",
+            "total": "112.50",
+            "promoCode": null,
+            "itemCount": 7,
+            "items": [
+              {
+                "id": "ef367cbe-5de4-4eba-a497-c4093c90a93a",
+                "productId": "692358d5-910e-4546-89d6-1a569e31df7e",
+                "variantId": null,
+                "productName": "[QA SHOP] Simple c31dd016",
+                "variantLabel": null,
+                "unitLabel": "piece",
+                "imageUrl": null,
+                "unitPrice": "12.50",
+                "quantity": 5,
+                "lineTotal": "62.50"
+              },
+              {
+                "id": "8dad4cba-3de2-40f2-959c-10c7fecc4897",
+                "productId": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+                "variantId": "09a714ec-5aba-4ef9-a09a-e00214b3b3e4",
+                "productName": "[QA SHOP] Variants c31dd016",
+                "variantLabel": "M \u00b7 Black",
+                "unitLabel": "piece",
+                "imageUrl": null,
+                "unitPrice": "25.00",
+                "quantity": 2,
+                "lineTotal": "50.00"
+              }
+            ],
+            "shippingAddress": {
+              "label": "Home",
+              "fullName": "QA Shop Synthetic",
+              "phone": "+212600000301",
+              "country": "Morocco",
+              "city": "Casablanca",
+              "district": null,
+              "address": "SYNTHETIC API QA DO NOT SHIP",
+              "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+            },
+            "note": null,
+            "trackingNumber": null,
+            "statusSteps": [
+              {
+                "key": "PLACED",
+                "title": "Order Placed",
+                "at": "2026-10-20T20:29:11.547Z",
+                "completed": true,
+                "current": true
+              },
+              {
+                "key": "CONFIRMED",
+                "title": "Order Confirm",
+                "at": null,
+                "completed": false,
+                "current": false
+              },
+              {
+                "key": "SHIPPED",
+                "title": "Shipped",
+                "at": null,
+                "completed": false,
+                "current": false,
+                "trackingNumber": null
+              },
+              {
+                "key": "OUT_FOR_DELIVERY",
+                "title": "Out for delivery",
+                "at": null,
+                "completed": false,
+                "current": false
+              },
+              {
+                "key": "DELIVERED",
+                "title": "Delivered",
+                "at": null,
+                "completed": false,
+                "current": false
+              }
+            ],
+            "timeline": {
+              "placedAt": "2026-10-20T20:29:11.547Z",
+              "confirmedAt": null,
+              "shippedAt": null,
+              "deliveredAt": null,
+              "cancelledAt": null
+            },
+            "cancelledBy": null,
+            "cancelReason": null,
+            "createdAt": "2026-10-20T20:29:11.547Z",
+            "updatedAt": "2026-10-20T20:29:11.547Z",
+            "canCancel": true
+          }
+        },
+        {
+          "http": 400,
+          "data": {
+            "message": "Your cart is empty.",
+            "error": "Bad Request",
+            "statusCode": 400
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin advance CONFIRMED",
+      "path": "/admin/shop/orders/1389b826-3bf9-42da-8a62-ed8f8c960c0e/status",
+      "http": 200,
+      "data": {
+        "id": "1389b826-3bf9-42da-8a62-ed8f8c960c0e",
+        "number": "ZS-10",
+        "status": "CONFIRMED",
+        "listTab": "PROCESSING",
+        "lastUpdate": "Order confirmed",
+        "paymentMethod": "COD",
+        "paymentStatus": "UNPAID",
+        "currency": "MAD",
+        "subtotal": "25.00",
+        "discount": "0.00",
+        "deliveryFee": "0.00",
+        "total": "25.00",
+        "promoCode": null,
+        "itemCount": 2,
+        "items": [
+          {
+            "id": "cf85bf78-bf79-41ff-bc52-6753d436e5bc",
+            "productId": "692358d5-910e-4546-89d6-1a569e31df7e",
+            "variantId": null,
+            "productName": "[QA SHOP] Simple c31dd016",
+            "variantLabel": null,
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "unitPrice": "12.50",
+            "quantity": 2,
+            "lineTotal": "25.00"
+          }
+        ],
+        "shippingAddress": {
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "note": null,
+        "trackingNumber": null,
+        "statusSteps": [
+          {
+            "key": "PLACED",
+            "title": "Order Placed",
+            "at": "2026-10-20T20:29:17.529Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "CONFIRMED",
+            "title": "Order Confirm",
+            "at": "2026-10-20T20:29:17.836Z",
+            "completed": true,
+            "current": true
+          },
+          {
+            "key": "SHIPPED",
+            "title": "Shipped",
+            "at": null,
+            "completed": false,
+            "current": false,
+            "trackingNumber": null
+          },
+          {
+            "key": "OUT_FOR_DELIVERY",
+            "title": "Out for delivery",
+            "at": null,
+            "completed": false,
+            "current": false
+          },
+          {
+            "key": "DELIVERED",
+            "title": "Delivered",
+            "at": null,
+            "completed": false,
+            "current": false
+          }
+        ],
+        "timeline": {
+          "placedAt": "2026-10-20T20:29:17.529Z",
+          "confirmedAt": "2026-10-20T20:29:17.836Z",
+          "shippedAt": null,
+          "deliveredAt": null,
+          "cancelledAt": null
+        },
+        "cancelledBy": null,
+        "cancelReason": null,
+        "createdAt": "2026-10-20T20:29:17.529Z",
+        "updatedAt": "2026-10-20T20:29:17.852Z",
+        "adminNote": null,
+        "canCancel": true,
+        "nextStatuses": [
+          "SHIPPED",
+          "DELIVERED"
+        ],
+        "merchant": {
+          "userId": "6bee41d3-ef91-4e63-ac05-fc1f97bf4c44",
+          "storeId": "18bce03a-dbae-468b-9498-abdbc16688be",
+          "businessName": "[QA TEMP SHOP] c31dd016-c43d-4ad6-b522-cb6e2fe8d27e",
+          "ownerName": "QA Shop",
+          "phone": "[original QA owner phone]"
+        }
+      }
+    },
+    {
+      "name": "admin advance SHIPPED",
+      "path": "/admin/shop/orders/1389b826-3bf9-42da-8a62-ed8f8c960c0e/status",
+      "http": 200,
+      "data": {
+        "id": "1389b826-3bf9-42da-8a62-ed8f8c960c0e",
+        "number": "ZS-10",
+        "status": "SHIPPED",
+        "listTab": "SHIPPED",
+        "lastUpdate": "Out for delivery",
+        "paymentMethod": "COD",
+        "paymentStatus": "UNPAID",
+        "currency": "MAD",
+        "subtotal": "25.00",
+        "discount": "0.00",
+        "deliveryFee": "0.00",
+        "total": "25.00",
+        "promoCode": null,
+        "itemCount": 2,
+        "items": [
+          {
+            "id": "cf85bf78-bf79-41ff-bc52-6753d436e5bc",
+            "productId": "692358d5-910e-4546-89d6-1a569e31df7e",
+            "variantId": null,
+            "productName": "[QA SHOP] Simple c31dd016",
+            "variantLabel": null,
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "unitPrice": "12.50",
+            "quantity": 2,
+            "lineTotal": "25.00"
+          }
+        ],
+        "shippingAddress": {
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "note": null,
+        "trackingNumber": "QA-NOT-A-REAL-SHIPMENT",
+        "statusSteps": [
+          {
+            "key": "PLACED",
+            "title": "Order Placed",
+            "at": "2026-10-20T20:29:17.529Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "CONFIRMED",
+            "title": "Order Confirm",
+            "at": "2026-10-20T20:29:17.836Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "SHIPPED",
+            "title": "Shipped",
+            "at": "2026-10-20T20:29:18.812Z",
+            "completed": true,
+            "current": false,
+            "trackingNumber": "QA-NOT-A-REAL-SHIPMENT"
+          },
+          {
+            "key": "OUT_FOR_DELIVERY",
+            "title": "Out for delivery",
+            "at": null,
+            "completed": false,
+            "current": true
+          },
+          {
+            "key": "DELIVERED",
+            "title": "Delivered",
+            "at": null,
+            "completed": false,
+            "current": false
+          }
+        ],
+        "timeline": {
+          "placedAt": "2026-10-20T20:29:17.529Z",
+          "confirmedAt": "2026-10-20T20:29:17.836Z",
+          "shippedAt": "2026-10-20T20:29:18.812Z",
+          "deliveredAt": null,
+          "cancelledAt": null
+        },
+        "cancelledBy": null,
+        "cancelReason": null,
+        "createdAt": "2026-10-20T20:29:17.529Z",
+        "updatedAt": "2026-10-20T20:29:18.826Z",
+        "adminNote": null,
+        "canCancel": true,
+        "nextStatuses": [
+          "DELIVERED"
+        ],
+        "merchant": {
+          "userId": "6bee41d3-ef91-4e63-ac05-fc1f97bf4c44",
+          "storeId": "18bce03a-dbae-468b-9498-abdbc16688be",
+          "businessName": "[QA TEMP SHOP] c31dd016-c43d-4ad6-b522-cb6e2fe8d27e",
+          "ownerName": "QA Shop",
+          "phone": "[original QA owner phone]"
+        }
+      }
+    },
+    {
+      "name": "admin advance DELIVERED",
+      "path": "/admin/shop/orders/1389b826-3bf9-42da-8a62-ed8f8c960c0e/status",
+      "http": 200,
+      "data": {
+        "id": "1389b826-3bf9-42da-8a62-ed8f8c960c0e",
+        "number": "ZS-10",
+        "status": "DELIVERED",
+        "listTab": "DELIVERED",
+        "lastUpdate": "Delivered",
+        "paymentMethod": "COD",
+        "paymentStatus": "PAID",
+        "currency": "MAD",
+        "subtotal": "25.00",
+        "discount": "0.00",
+        "deliveryFee": "0.00",
+        "total": "25.00",
+        "promoCode": null,
+        "itemCount": 2,
+        "items": [
+          {
+            "id": "cf85bf78-bf79-41ff-bc52-6753d436e5bc",
+            "productId": "692358d5-910e-4546-89d6-1a569e31df7e",
+            "variantId": null,
+            "productName": "[QA SHOP] Simple c31dd016",
+            "variantLabel": null,
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "unitPrice": "12.50",
+            "quantity": 2,
+            "lineTotal": "25.00"
+          }
+        ],
+        "shippingAddress": {
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "note": null,
+        "trackingNumber": "QA-NOT-A-REAL-SHIPMENT",
+        "statusSteps": [
+          {
+            "key": "PLACED",
+            "title": "Order Placed",
+            "at": "2026-10-20T20:29:17.529Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "CONFIRMED",
+            "title": "Order Confirm",
+            "at": "2026-10-20T20:29:17.836Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "SHIPPED",
+            "title": "Shipped",
+            "at": "2026-10-20T20:29:18.812Z",
+            "completed": true,
+            "current": false,
+            "trackingNumber": "QA-NOT-A-REAL-SHIPMENT"
+          },
+          {
+            "key": "OUT_FOR_DELIVERY",
+            "title": "Out for delivery",
+            "at": "2026-10-20T20:29:19.536Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "DELIVERED",
+            "title": "Delivered",
+            "at": "2026-10-20T20:29:19.536Z",
+            "completed": true,
+            "current": true
+          }
+        ],
+        "timeline": {
+          "placedAt": "2026-10-20T20:29:17.529Z",
+          "confirmedAt": "2026-10-20T20:29:17.836Z",
+          "shippedAt": "2026-10-20T20:29:18.812Z",
+          "deliveredAt": "2026-10-20T20:29:19.536Z",
+          "cancelledAt": null
+        },
+        "cancelledBy": null,
+        "cancelReason": null,
+        "createdAt": "2026-10-20T20:29:17.529Z",
+        "updatedAt": "2026-10-20T20:29:19.561Z",
+        "adminNote": null,
+        "canCancel": false,
+        "nextStatuses": [],
+        "merchant": {
+          "userId": "6bee41d3-ef91-4e63-ac05-fc1f97bf4c44",
+          "storeId": "18bce03a-dbae-468b-9498-abdbc16688be",
+          "businessName": "[QA TEMP SHOP] c31dd016-c43d-4ad6-b522-cb6e2fe8d27e",
+          "ownerName": "QA Shop",
+          "phone": "[original QA owner phone]"
+        }
+      }
+    },
+    {
+      "name": "delivered From Shop purchases",
+      "path": "/purchases?tab=FROM_SHOP",
+      "http": 200,
+      "data": {
+        "summary": {
+          "totalSpent": "25.00",
+          "currency": "MAD",
+          "totalSpentByCurrency": [
+            {
+              "currency": "MAD",
+              "amount": "25.00"
+            }
+          ],
+          "totalItems": 2,
+          "purchaseCount": 1,
+          "productCount": 1
+        },
+        "items": [
+          {
+            "key": "s_692358d5-910e-4546-89d6-1a569e31df7e~MAD",
+            "source": "SHOP",
+            "sourceLabel": "From Shop",
+            "itemType": "PACKAGING",
+            "productName": "[QA SHOP] Simple c31dd016",
+            "imageUrl": null,
+            "unitLabel": "piece",
+            "totalQuantity": 2,
+            "quantityLabel": "2 piece",
+            "totalCost": "25.00",
+            "currency": "MAD",
+            "lastUnitPrice": "12.50",
+            "lastBoxPrice": "12.50",
+            "lastPurchaseDate": "2026-10-20T20:29:19.536Z",
+            "purchaseCount": 1,
+            "editable": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "My Orders tab ALL",
+      "path": "/shop/orders?tab=ALL",
+      "http": 200,
+      "data": [
+        {
+          "id": "1389b826-3bf9-42da-8a62-ed8f8c960c0e",
+          "number": "ZS-10",
+          "status": "DELIVERED",
+          "listTab": "DELIVERED",
+          "lastUpdate": "Delivered",
+          "paymentMethod": "COD",
+          "paymentStatus": "PAID",
+          "currency": "MAD",
+          "total": "25.00",
+          "itemCount": 2,
+          "preview": [
+            {
+              "productName": "[QA SHOP] Simple c31dd016",
+              "imageUrl": null
+            }
+          ],
+          "trackingNumber": "QA-NOT-A-REAL-SHIPMENT",
+          "canCancel": false,
+          "createdAt": "2026-10-20T20:29:17.529Z"
+        },
+        {
+          "id": "ebec587d-a48e-4ddd-bfbc-e837c37bd760",
+          "number": "ZS-9",
+          "status": "CANCELLED",
+          "listTab": "CANCELLED",
+          "lastUpdate": "Cancelled",
+          "paymentMethod": "COD",
+          "paymentStatus": "UNPAID",
+          "currency": "MAD",
+          "total": "112.50",
+          "itemCount": 7,
+          "preview": [
+            {
+              "productName": "[QA SHOP] Simple c31dd016",
+              "imageUrl": null
+            },
+            {
+              "productName": "[QA SHOP] Variants c31dd016",
+              "imageUrl": null
+            }
+          ],
+          "trackingNumber": null,
+          "canCancel": false,
+          "createdAt": "2026-10-20T20:29:11.547Z"
+        }
+      ]
+    },
+    {
+      "name": "My Orders tab PROCESSING",
+      "path": "/shop/orders?tab=PROCESSING",
+      "http": 200,
+      "data": []
+    },
+    {
+      "name": "My Orders tab SHIPPED",
+      "path": "/shop/orders?tab=SHIPPED",
+      "http": 200,
+      "data": []
+    },
+    {
+      "name": "My Orders tab DELIVERED",
+      "path": "/shop/orders?tab=DELIVERED",
+      "http": 200,
+      "data": [
+        {
+          "id": "1389b826-3bf9-42da-8a62-ed8f8c960c0e",
+          "number": "ZS-10",
+          "status": "DELIVERED",
+          "listTab": "DELIVERED",
+          "lastUpdate": "Delivered",
+          "paymentMethod": "COD",
+          "paymentStatus": "PAID",
+          "currency": "MAD",
+          "total": "25.00",
+          "itemCount": 2,
+          "preview": [
+            {
+              "productName": "[QA SHOP] Simple c31dd016",
+              "imageUrl": null
+            }
+          ],
+          "trackingNumber": "QA-NOT-A-REAL-SHIPMENT",
+          "canCancel": false,
+          "createdAt": "2026-10-20T20:29:17.529Z"
+        }
+      ]
+    },
+    {
+      "name": "My Orders tab CANCELLED",
+      "path": "/shop/orders?tab=CANCELLED",
+      "http": 200,
+      "data": [
+        {
+          "id": "ebec587d-a48e-4ddd-bfbc-e837c37bd760",
+          "number": "ZS-9",
+          "status": "CANCELLED",
+          "listTab": "CANCELLED",
+          "lastUpdate": "Cancelled",
+          "paymentMethod": "COD",
+          "paymentStatus": "UNPAID",
+          "currency": "MAD",
+          "total": "112.50",
+          "itemCount": 7,
+          "preview": [
+            {
+              "productName": "[QA SHOP] Simple c31dd016",
+              "imageUrl": null
+            },
+            {
+              "productName": "[QA SHOP] Variants c31dd016",
+              "imageUrl": null
+            }
+          ],
+          "trackingNumber": null,
+          "canCancel": false,
+          "createdAt": "2026-10-20T20:29:11.547Z"
+        }
+      ]
+    },
+    {
+      "name": "address PATCH rejects null label",
+      "path": "/shop/addresses/ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+      "http": 400,
+      "data": {
+        "message": [
+          "label must be shorter than or equal to 40 characters",
+          "label must be longer than or equal to 1 characters",
+          "label must be a string"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "address PATCH rejects null fullName",
+      "path": "/shop/addresses/ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+      "http": 400,
+      "data": {
+        "message": [
+          "fullName must be shorter than or equal to 120 characters",
+          "fullName must be longer than or equal to 1 characters",
+          "fullName must be a string"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "address PATCH rejects null phone",
+      "path": "/shop/addresses/ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+      "http": 400,
+      "data": {
+        "message": [
+          "phone must be shorter than or equal to 30 characters",
+          "phone must be longer than or equal to 6 characters",
+          "phone must be a string"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "address PATCH rejects null country",
+      "path": "/shop/addresses/ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+      "http": 400,
+      "data": {
+        "message": [
+          "country must be shorter than or equal to 80 characters",
+          "country must be longer than or equal to 1 characters",
+          "country must be a string"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "address PATCH rejects null city",
+      "path": "/shop/addresses/ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+      "http": 400,
+      "data": {
+        "message": [
+          "city must be shorter than or equal to 80 characters",
+          "city must be longer than or equal to 1 characters",
+          "city must be a string"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "address PATCH rejects null address",
+      "path": "/shop/addresses/ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+      "http": 400,
+      "data": {
+        "message": [
+          "address must be shorter than or equal to 300 characters",
+          "address must be longer than or equal to 3 characters",
+          "address must be a string"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "address PATCH rejects null isDefault",
+      "path": "/shop/addresses/ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+      "http": 400,
+      "data": {
+        "message": [
+          "isDefault must be a boolean value"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "preview promo HALF",
+      "path": "/shop/checkout/preview",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "items": [
+          {
+            "id": "6f63c96d-2c20-4607-bce7-a4be1126792c",
+            "product": {
+              "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+              "name": "[QA SHOP] Simple c31dd016",
+              "unitLabel": "piece",
+              "imageUrl": null
+            },
+            "variant": null,
+            "unitPrice": "12.50",
+            "compareAtPrice": "17.50",
+            "quantity": 2,
+            "lineTotal": "25.00",
+            "compareAtLineTotal": "35.00",
+            "currency": "MAD",
+            "stock": 9998,
+            "problem": null
+          }
+        ],
+        "address": {
+          "id": "ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "isDefault": true,
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "pricing": {
+          "subtotal": "25.00",
+          "discount": "12.50",
+          "deliveryFee": "0.00",
+          "total": "12.50"
+        },
+        "promo": {
+          "code": "QA_C31DD016_HALF",
+          "applied": true,
+          "rejection": null,
+          "message": null
+        },
+        "paymentMethods": [
+          {
+            "method": "COD",
+            "available": true,
+            "reason": null
+          },
+          {
+            "method": "ONLINE",
+            "available": false,
+            "reason": "Online payment is not available yet. Please use Cash on Delivery."
+          }
+        ],
+        "codRestriction": {
+          "cancellations": 1,
+          "limit": 3,
+          "windowDays": 90,
+          "restricted": false
+        },
+        "canPlaceOrder": true,
+        "blockers": []
+      }
+    },
+    {
+      "name": "preview promo MIN",
+      "path": "/shop/checkout/preview",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "items": [
+          {
+            "id": "6f63c96d-2c20-4607-bce7-a4be1126792c",
+            "product": {
+              "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+              "name": "[QA SHOP] Simple c31dd016",
+              "unitLabel": "piece",
+              "imageUrl": null
+            },
+            "variant": null,
+            "unitPrice": "12.50",
+            "compareAtPrice": "17.50",
+            "quantity": 2,
+            "lineTotal": "25.00",
+            "compareAtLineTotal": "35.00",
+            "currency": "MAD",
+            "stock": 9998,
+            "problem": null
+          }
+        ],
+        "address": {
+          "id": "ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "isDefault": true,
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "pricing": {
+          "subtotal": "25.00",
+          "discount": "0.00",
+          "deliveryFee": "0.00",
+          "total": "25.00"
+        },
+        "promo": {
+          "code": "QA_C31DD016_MIN",
+          "applied": false,
+          "rejection": "MIN_SUBTOTAL_NOT_MET",
+          "message": "This promo code needs a subtotal of at least 100.00."
+        },
+        "paymentMethods": [
+          {
+            "method": "COD",
+            "available": true,
+            "reason": null
+          },
+          {
+            "method": "ONLINE",
+            "available": false,
+            "reason": "Online payment is not available yet. Please use Cash on Delivery."
+          }
+        ],
+        "codRestriction": {
+          "cancellations": 1,
+          "limit": 3,
+          "windowDays": 90,
+          "restricted": false
+        },
+        "canPlaceOrder": true,
+        "blockers": []
+      }
+    },
+    {
+      "name": "preview promo EXPIRED",
+      "path": "/shop/checkout/preview",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "items": [
+          {
+            "id": "6f63c96d-2c20-4607-bce7-a4be1126792c",
+            "product": {
+              "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+              "name": "[QA SHOP] Simple c31dd016",
+              "unitLabel": "piece",
+              "imageUrl": null
+            },
+            "variant": null,
+            "unitPrice": "12.50",
+            "compareAtPrice": "17.50",
+            "quantity": 2,
+            "lineTotal": "25.00",
+            "compareAtLineTotal": "35.00",
+            "currency": "MAD",
+            "stock": 9998,
+            "problem": null
+          }
+        ],
+        "address": {
+          "id": "ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "isDefault": true,
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "pricing": {
+          "subtotal": "25.00",
+          "discount": "0.00",
+          "deliveryFee": "0.00",
+          "total": "25.00"
+        },
+        "promo": {
+          "code": "QA_C31DD016_EXPIRED",
+          "applied": false,
+          "rejection": "EXPIRED",
+          "message": "This promo code has expired."
+        },
+        "paymentMethods": [
+          {
+            "method": "COD",
+            "available": true,
+            "reason": null
+          },
+          {
+            "method": "ONLINE",
+            "available": false,
+            "reason": "Online payment is not available yet. Please use Cash on Delivery."
+          }
+        ],
+        "codRestriction": {
+          "cancellations": 1,
+          "limit": 3,
+          "windowDays": 90,
+          "restricted": false
+        },
+        "canPlaceOrder": true,
+        "blockers": []
+      }
+    },
+    {
+      "name": "preview promo FUTURE",
+      "path": "/shop/checkout/preview",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "items": [
+          {
+            "id": "6f63c96d-2c20-4607-bce7-a4be1126792c",
+            "product": {
+              "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+              "name": "[QA SHOP] Simple c31dd016",
+              "unitLabel": "piece",
+              "imageUrl": null
+            },
+            "variant": null,
+            "unitPrice": "12.50",
+            "compareAtPrice": "17.50",
+            "quantity": 2,
+            "lineTotal": "25.00",
+            "compareAtLineTotal": "35.00",
+            "currency": "MAD",
+            "stock": 9998,
+            "problem": null
+          }
+        ],
+        "address": {
+          "id": "ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "isDefault": true,
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "pricing": {
+          "subtotal": "25.00",
+          "discount": "0.00",
+          "deliveryFee": "0.00",
+          "total": "25.00"
+        },
+        "promo": {
+          "code": "QA_C31DD016_FUTURE",
+          "applied": false,
+          "rejection": "NOT_STARTED",
+          "message": "This promo code is not active yet."
+        },
+        "paymentMethods": [
+          {
+            "method": "COD",
+            "available": true,
+            "reason": null
+          },
+          {
+            "method": "ONLINE",
+            "available": false,
+            "reason": "Online payment is not available yet. Please use Cash on Delivery."
+          }
+        ],
+        "codRestriction": {
+          "cancellations": 1,
+          "limit": 3,
+          "windowDays": 90,
+          "restricted": false
+        },
+        "canPlaceOrder": true,
+        "blockers": []
+      }
+    },
+    {
+      "name": "preview promo INACTIVE",
+      "path": "/shop/checkout/preview",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "items": [
+          {
+            "id": "6f63c96d-2c20-4607-bce7-a4be1126792c",
+            "product": {
+              "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+              "name": "[QA SHOP] Simple c31dd016",
+              "unitLabel": "piece",
+              "imageUrl": null
+            },
+            "variant": null,
+            "unitPrice": "12.50",
+            "compareAtPrice": "17.50",
+            "quantity": 2,
+            "lineTotal": "25.00",
+            "compareAtLineTotal": "35.00",
+            "currency": "MAD",
+            "stock": 9998,
+            "problem": null
+          }
+        ],
+        "address": {
+          "id": "ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "isDefault": true,
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "pricing": {
+          "subtotal": "25.00",
+          "discount": "0.00",
+          "deliveryFee": "0.00",
+          "total": "25.00"
+        },
+        "promo": {
+          "code": "QA_C31DD016_INACTIVE",
+          "applied": false,
+          "rejection": "INACTIVE",
+          "message": "This promo code is no longer active."
+        },
+        "paymentMethods": [
+          {
+            "method": "COD",
+            "available": true,
+            "reason": null
+          },
+          {
+            "method": "ONLINE",
+            "available": false,
+            "reason": "Online payment is not available yet. Please use Cash on Delivery."
+          }
+        ],
+        "codRestriction": {
+          "cancellations": 1,
+          "limit": 3,
+          "windowDays": 90,
+          "restricted": false
+        },
+        "canPlaceOrder": true,
+        "blockers": []
+      }
+    },
+    {
+      "name": "preview promo CAP",
+      "path": "/shop/checkout/preview",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "items": [
+          {
+            "id": "6f63c96d-2c20-4607-bce7-a4be1126792c",
+            "product": {
+              "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+              "name": "[QA SHOP] Simple c31dd016",
+              "unitLabel": "piece",
+              "imageUrl": null
+            },
+            "variant": null,
+            "unitPrice": "12.50",
+            "compareAtPrice": "17.50",
+            "quantity": 2,
+            "lineTotal": "25.00",
+            "compareAtLineTotal": "35.00",
+            "currency": "MAD",
+            "stock": 9998,
+            "problem": null
+          }
+        ],
+        "address": {
+          "id": "ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "isDefault": true,
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "pricing": {
+          "subtotal": "25.00",
+          "discount": "3.00",
+          "deliveryFee": "0.00",
+          "total": "22.00"
+        },
+        "promo": {
+          "code": "QA_C31DD016_CAP",
+          "applied": true,
+          "rejection": null,
+          "message": null
+        },
+        "paymentMethods": [
+          {
+            "method": "COD",
+            "available": true,
+            "reason": null
+          },
+          {
+            "method": "ONLINE",
+            "available": false,
+            "reason": "Online payment is not available yet. Please use Cash on Delivery."
+          }
+        ],
+        "codRestriction": {
+          "cancellations": 1,
+          "limit": 3,
+          "windowDays": 90,
+          "restricted": false
+        },
+        "canPlaceOrder": true,
+        "blockers": []
+      }
+    },
+    {
+      "name": "preview promo LARGE",
+      "path": "/shop/checkout/preview",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "items": [
+          {
+            "id": "6f63c96d-2c20-4607-bce7-a4be1126792c",
+            "product": {
+              "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+              "name": "[QA SHOP] Simple c31dd016",
+              "unitLabel": "piece",
+              "imageUrl": null
+            },
+            "variant": null,
+            "unitPrice": "12.50",
+            "compareAtPrice": "17.50",
+            "quantity": 2,
+            "lineTotal": "25.00",
+            "compareAtLineTotal": "35.00",
+            "currency": "MAD",
+            "stock": 9998,
+            "problem": null
+          }
+        ],
+        "address": {
+          "id": "ee37f79e-d69e-4a37-9a0c-8b0c9e50bd8c",
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "isDefault": true,
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "pricing": {
+          "subtotal": "25.00",
+          "discount": "25.00",
+          "deliveryFee": "0.00",
+          "total": "0.00"
+        },
+        "promo": {
+          "code": "QA_C31DD016_LARGE",
+          "applied": true,
+          "rejection": null,
+          "message": null
+        },
+        "paymentMethods": [
+          {
+            "method": "COD",
+            "available": true,
+            "reason": null
+          },
+          {
+            "method": "ONLINE",
+            "available": false,
+            "reason": "Online payment is not available yet. Please use Cash on Delivery."
+          }
+        ],
+        "codRestriction": {
+          "cancellations": 1,
+          "limit": 3,
+          "windowDays": 90,
+          "restricted": false
+        },
+        "canPlaceOrder": true,
+        "blockers": []
+      }
+    },
+    {
+      "name": "deliver discounted fixture",
+      "path": "/admin/shop/orders/99f084ba-7a75-4c86-a4a8-88083bc77d4e/status",
+      "http": 200,
+      "data": {
+        "id": "99f084ba-7a75-4c86-a4a8-88083bc77d4e",
+        "number": "ZS-11",
+        "status": "DELIVERED",
+        "listTab": "DELIVERED",
+        "lastUpdate": "Delivered",
+        "paymentMethod": "COD",
+        "paymentStatus": "PAID",
+        "currency": "MAD",
+        "subtotal": "25.00",
+        "discount": "12.50",
+        "deliveryFee": "0.00",
+        "total": "12.50",
+        "promoCode": "QA_C31DD016_HALF",
+        "itemCount": 2,
+        "items": [
+          {
+            "id": "c92a464e-0fe4-4ddc-b174-7f1eb3c98731",
+            "productId": "692358d5-910e-4546-89d6-1a569e31df7e",
+            "variantId": null,
+            "productName": "[QA SHOP] Simple c31dd016",
+            "variantLabel": null,
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "unitPrice": "12.50",
+            "quantity": 2,
+            "lineTotal": "25.00"
+          }
+        ],
+        "shippingAddress": {
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "note": null,
+        "trackingNumber": null,
+        "statusSteps": [
+          {
+            "key": "PLACED",
+            "title": "Order Placed",
+            "at": "2026-10-20T20:29:50.062Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "CONFIRMED",
+            "title": "Order Confirm",
+            "at": "2026-10-20T20:29:50.356Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "SHIPPED",
+            "title": "Shipped",
+            "at": "2026-10-20T20:29:50.356Z",
+            "completed": true,
+            "current": false,
+            "trackingNumber": null
+          },
+          {
+            "key": "OUT_FOR_DELIVERY",
+            "title": "Out for delivery",
+            "at": "2026-10-20T20:29:50.356Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "DELIVERED",
+            "title": "Delivered",
+            "at": "2026-10-20T20:29:50.356Z",
+            "completed": true,
+            "current": true
+          }
+        ],
+        "timeline": {
+          "placedAt": "2026-10-20T20:29:50.062Z",
+          "confirmedAt": "2026-10-20T20:29:50.356Z",
+          "shippedAt": "2026-10-20T20:29:50.356Z",
+          "deliveredAt": "2026-10-20T20:29:50.356Z",
+          "cancelledAt": null
+        },
+        "cancelledBy": null,
+        "cancelReason": null,
+        "createdAt": "2026-10-20T20:29:50.062Z",
+        "updatedAt": "2026-10-20T20:29:50.382Z",
+        "adminNote": null,
+        "canCancel": false,
+        "nextStatuses": [],
+        "merchant": {
+          "userId": "6bee41d3-ef91-4e63-ac05-fc1f97bf4c44",
+          "storeId": "18bce03a-dbae-468b-9498-abdbc16688be",
+          "businessName": "[QA TEMP SHOP] c31dd016-c43d-4ad6-b522-cb6e2fe8d27e",
+          "ownerName": "QA Shop",
+          "phone": "[original QA owner phone]"
+        }
+      }
+    },
+    {
+      "name": "discounted From Shop ledger",
+      "path": "/purchases?tab=FROM_SHOP",
+      "http": 200,
+      "data": {
+        "summary": {
+          "totalSpent": "37.50",
+          "currency": "MAD",
+          "totalSpentByCurrency": [
+            {
+              "currency": "MAD",
+              "amount": "37.50"
+            }
+          ],
+          "totalItems": 4,
+          "purchaseCount": 2,
+          "productCount": 1
+        },
+        "items": [
+          {
+            "key": "s_692358d5-910e-4546-89d6-1a569e31df7e~MAD",
+            "source": "SHOP",
+            "sourceLabel": "From Shop",
+            "itemType": "PACKAGING",
+            "productName": "[QA SHOP] Simple c31dd016",
+            "imageUrl": null,
+            "unitLabel": "piece",
+            "totalQuantity": 4,
+            "quantityLabel": "4 piece",
+            "totalCost": "37.50",
+            "currency": "MAD",
+            "lastUnitPrice": "6.25",
+            "lastBoxPrice": "6.25",
+            "lastPurchaseDate": "2026-10-20T20:29:50.356Z",
+            "purchaseCount": 2,
+            "editable": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "discounted expenses summary",
+      "path": "/expenses/summary",
+      "http": 200,
+      "data": {
+        "totalAmount": "37.50",
+        "byGroup": [
+          {
+            "group": "SHIPPING",
+            "total": "0.00"
+          },
+          {
+            "group": "ADS",
+            "total": "0.00"
+          },
+          {
+            "group": "SALARY",
+            "total": "0.00"
+          },
+          {
+            "group": "PURCHASES",
+            "total": "37.50"
+          },
+          {
+            "group": "OTHER",
+            "total": "0.00"
+          }
+        ],
+        "unconvertedAdSpend": [],
+        "unconvertedShippingCosts": []
+      }
+    },
+    {
+      "name": "delivered packaging credit",
+      "path": "/warehouse/packaging",
+      "http": 200,
+      "data": [
+        {
+          "id": "ec7b32ca-68f6-4b40-b47c-9939cb69c44d",
+          "source": "SHOP",
+          "zomaalShopVariantId": "692358d5-910e-4546-89d6-1a569e31df7e",
+          "name": "[QA SHOP] Simple c31dd016",
+          "supplierNames": [],
+          "sku": "QA-c31dd016-0",
+          "unit": "PIECES",
+          "imageUrl": null,
+          "inventoryItemId": "276ab9a7-f01f-4183-bb94-34e757fe5f90",
+          "onHand": 4,
+          "available": 4,
+          "minimumLevel": 0,
+          "lowStockAlert": true,
+          "stockStatus": "IN_STOCK",
+          "usedInProducts": 0,
+          "createdAt": "2026-10-20T20:29:19.636Z",
+          "updatedAt": "2026-10-20T20:29:50.437Z"
+        }
+      ]
+    },
+    {
+      "name": "parallel initial add",
+      "results": [
+        {
+          "http": 201,
+          "data": {
+            "currency": "MAD",
+            "items": [
+              {
+                "id": "8a59ef20-24c3-49b0-bcb3-567e37e49931",
+                "product": {
+                  "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+                  "name": "[QA SHOP] Simple c31dd016",
+                  "unitLabel": "piece",
+                  "imageUrl": null
+                },
+                "variant": null,
+                "unitPrice": "12.50",
+                "compareAtPrice": "17.50",
+                "quantity": 1,
+                "lineTotal": "12.50",
+                "compareAtLineTotal": "17.50",
+                "currency": "MAD",
+                "stock": 9996,
+                "problem": null
+              }
+            ],
+            "itemCount": 1,
+            "subtotal": "12.50",
+            "deliveryFee": "0.00",
+            "freeDeliveryMinSubtotal": null,
+            "total": "12.50",
+            "hasProblems": false,
+            "canCheckout": true
+          }
+        },
+        {
+          "http": 201,
+          "data": {
+            "currency": "MAD",
+            "items": [
+              {
+                "id": "8a59ef20-24c3-49b0-bcb3-567e37e49931",
+                "product": {
+                  "id": "692358d5-910e-4546-89d6-1a569e31df7e",
+                  "name": "[QA SHOP] Simple c31dd016",
+                  "unitLabel": "piece",
+                  "imageUrl": null
+                },
+                "variant": null,
+                "unitPrice": "12.50",
+                "compareAtPrice": "17.50",
+                "quantity": 2,
+                "lineTotal": "25.00",
+                "compareAtLineTotal": "35.00",
+                "currency": "MAD",
+                "stock": 9996,
+                "problem": null
+              }
+            ],
+            "itemCount": 2,
+            "subtotal": "25.00",
+            "deliveryFee": "0.00",
+            "freeDeliveryMinSubtotal": null,
+            "total": "25.00",
+            "hasProblems": false,
+            "canCheckout": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "concurrent initial addresses",
+      "results": [
+        {
+          "http": 201,
+          "data": {
+            "id": "430b28fb-6d90-4053-87ca-ef1cfab3e083",
+            "label": "A",
+            "fullName": "QA Shop Synthetic",
+            "phone": "+212600000301",
+            "country": "Morocco",
+            "city": "Casablanca",
+            "district": null,
+            "address": "SYNTHETIC API QA DO NOT SHIP",
+            "isDefault": true,
+            "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+          }
+        },
+        {
+          "http": 201,
+          "data": {
+            "id": "2ce90072-d7ff-4e7b-a87a-cdbdbc9518b1",
+            "label": "B",
+            "fullName": "QA Shop Synthetic",
+            "phone": "+212600000301",
+            "country": "Morocco",
+            "city": "Casablanca",
+            "district": null,
+            "address": "SYNTHETIC API QA DO NOT SHIP",
+            "isDefault": false,
+            "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+          }
+        }
+      ]
+    },
+    {
+      "name": "merged line quantity cap",
+      "http": 400,
+      "data": {
+        "message": "You can order at most 10000 of one item at a time.",
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "last stock cross-store checkout",
+      "results": [
+        {
+          "http": 409,
+          "data": {
+            "message": "\"[QA SHOP] Simple c31dd016\" can't be ordered right now (out of stock). Update your cart and try again.",
+            "error": "Conflict",
+            "statusCode": 409
+          }
+        },
+        {
+          "http": 201,
+          "data": {
+            "id": "c46420a1-7daa-4e26-bc98-3e9d6ea24e3c",
+            "number": "ZS-12",
+            "status": "PENDING",
+            "listTab": "PROCESSING",
+            "lastUpdate": "Order placed",
+            "paymentMethod": "COD",
+            "paymentStatus": "UNPAID",
+            "currency": "MAD",
+            "subtotal": "12.50",
+            "discount": "0.00",
+            "deliveryFee": "0.00",
+            "total": "12.50",
+            "promoCode": null,
+            "itemCount": 1,
+            "items": [
+              {
+                "id": "a5a8cf80-7f95-4af8-b183-53736a78b027",
+                "productId": "692358d5-910e-4546-89d6-1a569e31df7e",
+                "variantId": null,
+                "productName": "[QA SHOP] Simple c31dd016",
+                "variantLabel": null,
+                "unitLabel": "piece",
+                "imageUrl": null,
+                "unitPrice": "12.50",
+                "quantity": 1,
+                "lineTotal": "12.50"
+              }
+            ],
+            "shippingAddress": {
+              "label": "Home",
+              "fullName": "QA Shop Synthetic",
+              "phone": "+212600000301",
+              "country": "Morocco",
+              "city": "Casablanca",
+              "district": null,
+              "address": "SYNTHETIC API QA DO NOT SHIP",
+              "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+            },
+            "note": null,
+            "trackingNumber": null,
+            "statusSteps": [
+              {
+                "key": "PLACED",
+                "title": "Order Placed",
+                "at": "2026-10-20T20:30:18.868Z",
+                "completed": true,
+                "current": true
+              },
+              {
+                "key": "CONFIRMED",
+                "title": "Order Confirm",
+                "at": null,
+                "completed": false,
+                "current": false
+              },
+              {
+                "key": "SHIPPED",
+                "title": "Shipped",
+                "at": null,
+                "completed": false,
+                "current": false,
+                "trackingNumber": null
+              },
+              {
+                "key": "OUT_FOR_DELIVERY",
+                "title": "Out for delivery",
+                "at": null,
+                "completed": false,
+                "current": false
+              },
+              {
+                "key": "DELIVERED",
+                "title": "Delivered",
+                "at": null,
+                "completed": false,
+                "current": false
+              }
+            ],
+            "timeline": {
+              "placedAt": "2026-10-20T20:30:18.868Z",
+              "confirmedAt": null,
+              "shippedAt": null,
+              "deliveredAt": null,
+              "cancelledAt": null
+            },
+            "cancelledBy": null,
+            "cancelReason": null,
+            "createdAt": "2026-10-20T20:30:18.868Z",
+            "updatedAt": "2026-10-20T20:30:18.868Z",
+            "canCancel": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "parallel different variant checkouts",
+      "results": [
+        {
+          "http": 201,
+          "data": {
+            "id": "b5cba120-3e0c-4c8c-9d10-5aba027a6951",
+            "number": "ZS-14",
+            "status": "PENDING",
+            "listTab": "PROCESSING",
+            "lastUpdate": "Order placed",
+            "paymentMethod": "COD",
+            "paymentStatus": "UNPAID",
+            "currency": "MAD",
+            "subtotal": "25.00",
+            "discount": "0.00",
+            "deliveryFee": "0.00",
+            "total": "25.00",
+            "promoCode": null,
+            "itemCount": 1,
+            "items": [
+              {
+                "id": "4eedb5ad-6e4c-44e3-a559-83b5e78425c6",
+                "productId": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+                "variantId": "09a714ec-5aba-4ef9-a09a-e00214b3b3e4",
+                "productName": "[QA SHOP] Variants c31dd016",
+                "variantLabel": "M \u00b7 Black",
+                "unitLabel": "piece",
+                "imageUrl": null,
+                "unitPrice": "25.00",
+                "quantity": 1,
+                "lineTotal": "25.00"
+              }
+            ],
+            "shippingAddress": {
+              "label": "Race 1-0",
+              "fullName": "QA Shop Synthetic",
+              "phone": "+212600000301",
+              "country": "Morocco",
+              "city": "Casablanca",
+              "district": null,
+              "address": "SYNTHETIC API QA DO NOT SHIP",
+              "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+            },
+            "note": null,
+            "trackingNumber": null,
+            "statusSteps": [
+              {
+                "key": "PLACED",
+                "title": "Order Placed",
+                "at": "2026-10-20T20:30:21.338Z",
+                "completed": true,
+                "current": true
+              },
+              {
+                "key": "CONFIRMED",
+                "title": "Order Confirm",
+                "at": null,
+                "completed": false,
+                "current": false
+              },
+              {
+                "key": "SHIPPED",
+                "title": "Shipped",
+                "at": null,
+                "completed": false,
+                "current": false,
+                "trackingNumber": null
+              },
+              {
+                "key": "OUT_FOR_DELIVERY",
+                "title": "Out for delivery",
+                "at": null,
+                "completed": false,
+                "current": false
+              },
+              {
+                "key": "DELIVERED",
+                "title": "Delivered",
+                "at": null,
+                "completed": false,
+                "current": false
+              }
+            ],
+            "timeline": {
+              "placedAt": "2026-10-20T20:30:21.338Z",
+              "confirmedAt": null,
+              "shippedAt": null,
+              "deliveredAt": null,
+              "cancelledAt": null
+            },
+            "cancelledBy": null,
+            "cancelReason": null,
+            "createdAt": "2026-10-20T20:30:21.338Z",
+            "updatedAt": "2026-10-20T20:30:21.338Z",
+            "canCancel": true
+          }
+        },
+        {
+          "http": 201,
+          "data": {
+            "id": "8ff2a0a7-e70c-49f7-87ec-dac9a2a9561f",
+            "number": "ZS-13",
+            "status": "PENDING",
+            "listTab": "PROCESSING",
+            "lastUpdate": "Order placed",
+            "paymentMethod": "COD",
+            "paymentStatus": "UNPAID",
+            "currency": "MAD",
+            "subtotal": "30.00",
+            "discount": "0.00",
+            "deliveryFee": "0.00",
+            "total": "30.00",
+            "promoCode": null,
+            "itemCount": 1,
+            "items": [
+              {
+                "id": "a049a3de-f7a5-4be3-afb1-db738b6f0779",
+                "productId": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+                "variantId": "358c06b0-a7d6-43df-b4cc-d2b932663a14",
+                "productName": "[QA SHOP] Variants c31dd016",
+                "variantLabel": "L \u00b7 Blue",
+                "unitLabel": "piece",
+                "imageUrl": null,
+                "unitPrice": "30.00",
+                "quantity": 1,
+                "lineTotal": "30.00"
+              }
+            ],
+            "shippingAddress": {
+              "label": "Home",
+              "fullName": "QA Shop Synthetic",
+              "phone": "+212600000301",
+              "country": "Morocco",
+              "city": "Casablanca",
+              "district": null,
+              "address": "SYNTHETIC API QA DO NOT SHIP",
+              "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+            },
+            "note": null,
+            "trackingNumber": null,
+            "statusSteps": [
+              {
+                "key": "PLACED",
+                "title": "Order Placed",
+                "at": "2026-10-20T20:30:21.289Z",
+                "completed": true,
+                "current": true
+              },
+              {
+                "key": "CONFIRMED",
+                "title": "Order Confirm",
+                "at": null,
+                "completed": false,
+                "current": false
+              },
+              {
+                "key": "SHIPPED",
+                "title": "Shipped",
+                "at": null,
+                "completed": false,
+                "current": false,
+                "trackingNumber": null
+              },
+              {
+                "key": "OUT_FOR_DELIVERY",
+                "title": "Out for delivery",
+                "at": null,
+                "completed": false,
+                "current": false
+              },
+              {
+                "key": "DELIVERED",
+                "title": "Delivered",
+                "at": null,
+                "completed": false,
+                "current": false
+              }
+            ],
+            "timeline": {
+              "placedAt": "2026-10-20T20:30:21.289Z",
+              "confirmedAt": null,
+              "shippedAt": null,
+              "deliveredAt": null,
+              "cancelledAt": null
+            },
+            "cancelledBy": null,
+            "cancelReason": null,
+            "createdAt": "2026-10-20T20:30:21.289Z",
+            "updatedAt": "2026-10-20T20:30:21.289Z",
+            "canCancel": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "parent variant stock after parallel orders",
+      "path": "/admin/shop/products/e1b59291-791c-4452-9beb-ecb93a57a9fc",
+      "http": 200,
+      "data": {
+        "id": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+        "name": "[QA SHOP] Variants c31dd016",
+        "slug": "qa-shop-variants-c31dd016",
+        "sku": "QA-c31dd016-1",
+        "description": null,
+        "price": "20.00",
+        "compareAtPrice": "25.00",
+        "unitLabel": "piece",
+        "isFeatured": false,
+        "stock": 88,
+        "lowStock": false,
+        "status": "ACTIVE",
+        "category": {
+          "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+          "name": "[QA SHOP] c31dd016"
+        },
+        "variants": [
+          {
+            "id": "09a714ec-5aba-4ef9-a09a-e00214b3b3e4",
+            "size": "M",
+            "color": "Black",
+            "colorHex": null,
+            "sku": null,
+            "price": "25.00",
+            "compareAtPrice": null,
+            "stock": 39,
+            "isActive": true
+          },
+          {
+            "id": "358c06b0-a7d6-43df-b4cc-d2b932663a14",
+            "size": "L",
+            "color": "Blue",
+            "colorHex": null,
+            "sku": null,
+            "price": "30.00",
+            "compareAtPrice": null,
+            "stock": 49,
+            "isActive": true
+          }
+        ],
+        "specs": [],
+        "images": [],
+        "imageUrl": null,
+        "createdAt": "2026-10-20T20:28:58.593Z",
+        "updatedAt": "2026-10-20T20:30:21.335Z"
+      }
+    },
+    {
+      "name": "admin product numeric contract stock",
+      "path": "/admin/shop/products/f11aabaf-134f-42c5-8a3e-19d619b1e2a2",
+      "http": 400,
+      "data": {
+        "message": [
+          "stock must not be greater than 2147483647"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "admin product numeric contract price",
+      "path": "/admin/shop/products/f11aabaf-134f-42c5-8a3e-19d619b1e2a2",
+      "http": 200,
+      "data": {
+        "id": "f11aabaf-134f-42c5-8a3e-19d619b1e2a2",
+        "name": "[QA SHOP] Sort lower sale c31dd016",
+        "slug": "qa-shop-sort-lower-sale-c31dd016",
+        "sku": "QA-c31dd016-2",
+        "description": null,
+        "price": "1000000000000.00",
+        "compareAtPrice": "15.00",
+        "unitLabel": "piece",
+        "isFeatured": false,
+        "stock": 10,
+        "lowStock": true,
+        "status": "ACTIVE",
+        "category": {
+          "id": "06b48e6e-e97c-42ef-a04c-44dd4fcb1e1b",
+          "name": "[QA SHOP] c31dd016"
+        },
+        "variants": [],
+        "specs": [],
+        "images": [],
+        "imageUrl": null,
+        "createdAt": "2026-10-20T20:28:59.103Z",
+        "updatedAt": "2026-10-20T20:30:26.808Z"
+      }
+    },
+    {
+      "name": "preview oversized computed order",
+      "path": "/shop/checkout/preview",
+      "http": 400,
+      "data": {
+        "message": "subtotal exceeds the supported monetary range",
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "reject oversized computed order cleanly",
+      "path": "/shop/orders",
+      "http": 400,
+      "data": {
+        "message": "subtotal exceeds the supported monetary range",
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "reject Decimal20-4 catalog overflow",
+      "path": "/admin/shop/products/f11aabaf-134f-42c5-8a3e-19d619b1e2a2",
+      "http": 400,
+      "data": {
+        "message": [
+          "price must not be greater than 9999999999999998"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "deliver zero acquisition-cost fixture",
+      "path": "/admin/shop/orders/8b27c83d-08c8-4484-9afd-f72362a6afff/status",
+      "http": 200,
+      "data": {
+        "id": "8b27c83d-08c8-4484-9afd-f72362a6afff",
+        "number": "ZS-15",
+        "status": "DELIVERED",
+        "listTab": "DELIVERED",
+        "lastUpdate": "Delivered",
+        "paymentMethod": "COD",
+        "paymentStatus": "PAID",
+        "currency": "MAD",
+        "subtotal": "12.50",
+        "discount": "12.50",
+        "deliveryFee": "0.00",
+        "total": "0.00",
+        "promoCode": "QA_C31DD016_FREE",
+        "itemCount": 1,
+        "items": [
+          {
+            "id": "2bf6d419-f7f7-4dd8-985c-f60812466966",
+            "productId": "692358d5-910e-4546-89d6-1a569e31df7e",
+            "variantId": null,
+            "productName": "[QA SHOP] Simple c31dd016",
+            "variantLabel": null,
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "unitPrice": "12.50",
+            "quantity": 1,
+            "lineTotal": "12.50"
+          }
+        ],
+        "shippingAddress": {
+          "label": "Race 1-0",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "note": null,
+        "trackingNumber": null,
+        "statusSteps": [
+          {
+            "key": "PLACED",
+            "title": "Order Placed",
+            "at": "2026-10-20T20:30:34.299Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "CONFIRMED",
+            "title": "Order Confirm",
+            "at": "2026-10-20T20:30:34.611Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "SHIPPED",
+            "title": "Shipped",
+            "at": "2026-10-20T20:30:34.611Z",
+            "completed": true,
+            "current": false,
+            "trackingNumber": null
+          },
+          {
+            "key": "OUT_FOR_DELIVERY",
+            "title": "Out for delivery",
+            "at": "2026-10-20T20:30:34.611Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "DELIVERED",
+            "title": "Delivered",
+            "at": "2026-10-20T20:30:34.611Z",
+            "completed": true,
+            "current": true
+          }
+        ],
+        "timeline": {
+          "placedAt": "2026-10-20T20:30:34.299Z",
+          "confirmedAt": "2026-10-20T20:30:34.611Z",
+          "shippedAt": "2026-10-20T20:30:34.611Z",
+          "deliveredAt": "2026-10-20T20:30:34.611Z",
+          "cancelledAt": null
+        },
+        "cancelledBy": null,
+        "cancelReason": null,
+        "createdAt": "2026-10-20T20:30:34.299Z",
+        "updatedAt": "2026-10-20T20:30:34.633Z",
+        "adminNote": null,
+        "canCancel": false,
+        "nextStatuses": [],
+        "merchant": {
+          "userId": "6bee41d3-ef91-4e63-ac05-fc1f97bf4c44",
+          "storeId": "18bce03a-dbae-468b-9498-abdbc16688be",
+          "businessName": "[QA TEMP SHOP] c31dd016-c43d-4ad6-b522-cb6e2fe8d27e",
+          "ownerName": "QA Shop",
+          "phone": "[original QA owner phone]"
+        }
+      }
+    },
+    {
+      "name": "zero-cost delivery physical stock",
+      "path": "/warehouse/packaging",
+      "http": 200,
+      "data": [
+        {
+          "id": "ec7b32ca-68f6-4b40-b47c-9939cb69c44d",
+          "source": "SHOP",
+          "zomaalShopVariantId": "692358d5-910e-4546-89d6-1a569e31df7e",
+          "name": "[QA SHOP] Simple c31dd016",
+          "supplierNames": [],
+          "sku": "QA-c31dd016-0",
+          "unit": "PIECES",
+          "imageUrl": null,
+          "inventoryItemId": "276ab9a7-f01f-4183-bb94-34e757fe5f90",
+          "onHand": 5,
+          "available": 5,
+          "minimumLevel": 0,
+          "lowStockAlert": true,
+          "stockStatus": "IN_STOCK",
+          "usedInProducts": 0,
+          "createdAt": "2026-10-20T20:29:19.636Z",
+          "updatedAt": "2026-10-20T20:30:34.696Z"
+        }
+      ]
+    },
+    {
+      "name": "zero-cost purchase ledger",
+      "path": "/purchases?tab=FROM_SHOP",
+      "http": 200,
+      "data": {
+        "summary": {
+          "totalSpent": "37.50",
+          "currency": "MAD",
+          "totalSpentByCurrency": [
+            {
+              "currency": "MAD",
+              "amount": "37.50"
+            }
+          ],
+          "totalItems": 5,
+          "purchaseCount": 3,
+          "productCount": 1
+        },
+        "items": [
+          {
+            "key": "s_692358d5-910e-4546-89d6-1a569e31df7e~MAD",
+            "source": "SHOP",
+            "sourceLabel": "From Shop",
+            "itemType": "PACKAGING",
+            "productName": "[QA SHOP] Simple c31dd016",
+            "imageUrl": null,
+            "unitLabel": "piece",
+            "totalQuantity": 5,
+            "quantityLabel": "5 piece",
+            "totalCost": "37.50",
+            "currency": "MAD",
+            "lastUnitPrice": "0.00",
+            "lastBoxPrice": "0.00",
+            "lastPurchaseDate": "2026-10-20T20:30:34.611Z",
+            "purchaseCount": 3,
+            "editable": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "zero-cost expense ledger",
+      "path": "/expenses?limit=100",
+      "http": 200,
+      "data": {
+        "expenses": [
+          {
+            "id": "fb207670-cee4-4d21-bcb8-1837aa74f286",
+            "title": "Purchase \u2014 [QA SHOP] Simple c31dd016",
+            "amount": "0.00",
+            "paymentMethod": "CASH",
+            "spentAt": "2026-10-20T20:30:34.611Z",
+            "notes": "Zomaal Shop order ZS-15\nAcquisition cost 0.00 MAD; expense 0.00 MAD; FX 1 MAD/MAD",
+            "receiptUrl": null,
+            "category": {
+              "id": "5f7b6480-9c07-4550-ad1f-cff74e039ba2",
+              "name": "Purchases",
+              "group": "PURCHASES",
+              "icon": null,
+              "color": null,
+              "isSystem": true
+            },
+            "staffMemberId": null,
+            "salaryPaymentId": null,
+            "isSalaryGenerated": false,
+            "purchaseId": "ddfe7b20-82ee-49c0-a4d1-83a86309991d",
+            "isPurchaseGenerated": true,
+            "createdAt": "2026-10-20T20:30:34.651Z"
+          },
+          {
+            "id": "f638713e-1870-48d7-abb0-fcb3c47f5dcd",
+            "title": "Purchase \u2014 [QA SHOP] Simple c31dd016",
+            "amount": "12.50",
+            "paymentMethod": "CASH",
+            "spentAt": "2026-10-20T20:29:50.356Z",
+            "notes": "Zomaal Shop order ZS-11\nAcquisition cost 12.50 MAD; expense 12.50 MAD; FX 1 MAD/MAD",
+            "receiptUrl": null,
+            "category": {
+              "id": "5f7b6480-9c07-4550-ad1f-cff74e039ba2",
+              "name": "Purchases",
+              "group": "PURCHASES",
+              "icon": null,
+              "color": null,
+              "isSystem": true
+            },
+            "staffMemberId": null,
+            "salaryPaymentId": null,
+            "isSalaryGenerated": false,
+            "purchaseId": "97d6efd9-ebf3-44a8-a7ba-87f596fd05c7",
+            "isPurchaseGenerated": true,
+            "createdAt": "2026-10-20T20:29:50.399Z"
+          },
+          {
+            "id": "96a697f6-9805-4032-82f1-824720c57105",
+            "title": "Purchase \u2014 [QA SHOP] Simple c31dd016",
+            "amount": "25.00",
+            "paymentMethod": "CASH",
+            "spentAt": "2026-10-20T20:29:19.536Z",
+            "notes": "Zomaal Shop order ZS-10\nAcquisition cost 25.00 MAD; expense 25.00 MAD; FX 1 MAD/MAD",
+            "receiptUrl": null,
+            "category": {
+              "id": "5f7b6480-9c07-4550-ad1f-cff74e039ba2",
+              "name": "Purchases",
+              "group": "PURCHASES",
+              "icon": null,
+              "color": null,
+              "isSystem": true
+            },
+            "staffMemberId": null,
+            "salaryPaymentId": null,
+            "isSalaryGenerated": false,
+            "purchaseId": "c7588fc5-c154-4832-a5a0-4d542aa553d1",
+            "isPurchaseGenerated": true,
+            "createdAt": "2026-10-20T20:29:19.580Z"
+          }
+        ],
+        "total": 3,
+        "totalAmount": "37.50",
+        "page": 1,
+        "limit": 100
+      }
+    },
+    {
+      "name": "COD restriction threshold preview",
+      "path": "/shop/checkout/preview",
+      "http": 200,
+      "data": {
+        "currency": "MAD",
+        "items": [],
+        "address": {
+          "id": "9f27ac14-1c7b-4b57-b8e0-36f4b020f845",
+          "label": "Race 1-0",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "isDefault": true,
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "pricing": {
+          "subtotal": "0.00",
+          "discount": "0.00",
+          "deliveryFee": "0.00",
+          "total": "0.00"
+        },
+        "promo": null,
+        "paymentMethods": [
+          {
+            "method": "COD",
+            "available": false,
+            "reason": "Cash on Delivery is paused for your account after 3 cancelled orders in the last 90 days."
+          },
+          {
+            "method": "ONLINE",
+            "available": false,
+            "reason": "Online payment is not available yet. Please use Cash on Delivery."
+          }
+        ],
+        "codRestriction": {
+          "cancellations": 3,
+          "limit": 3,
+          "windowDays": 90,
+          "restricted": true
+        },
+        "canPlaceOrder": false,
+        "blockers": [
+          {
+            "code": "CART_EMPTY",
+            "message": "Your cart is empty."
+          },
+          {
+            "code": "COD_RESTRICTED",
+            "message": "Cash on Delivery is paused for your account after 3 cancelled orders in the last 90 days."
+          }
+        ]
+      }
+    },
+    {
+      "name": "foreign currency order details",
+      "path": "/shop/orders/8ff2a0a7-e70c-49f7-87ec-dac9a2a9561f",
+      "http": 200,
+      "data": {
+        "id": "8ff2a0a7-e70c-49f7-87ec-dac9a2a9561f",
+        "number": "ZS-13",
+        "status": "PENDING",
+        "listTab": "PROCESSING",
+        "lastUpdate": "Order placed",
+        "paymentMethod": "COD",
+        "paymentStatus": "UNPAID",
+        "currency": "MAD",
+        "subtotal": "30.00",
+        "discount": "0.00",
+        "deliveryFee": "0.00",
+        "total": "30.00",
+        "promoCode": null,
+        "itemCount": 1,
+        "items": [
+          {
+            "id": "a049a3de-f7a5-4be3-afb1-db738b6f0779",
+            "productId": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+            "variantId": "358c06b0-a7d6-43df-b4cc-d2b932663a14",
+            "productName": "[QA SHOP] Variants c31dd016",
+            "variantLabel": "L \u00b7 Blue",
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "unitPrice": "30.00",
+            "quantity": 1,
+            "lineTotal": "30.00"
+          }
+        ],
+        "shippingAddress": {
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "note": null,
+        "trackingNumber": null,
+        "statusSteps": [
+          {
+            "key": "PLACED",
+            "title": "Order Placed",
+            "at": "2026-10-20T20:30:21.289Z",
+            "completed": true,
+            "current": true
+          },
+          {
+            "key": "CONFIRMED",
+            "title": "Order Confirm",
+            "at": null,
+            "completed": false,
+            "current": false
+          },
+          {
+            "key": "SHIPPED",
+            "title": "Shipped",
+            "at": null,
+            "completed": false,
+            "current": false,
+            "trackingNumber": null
+          },
+          {
+            "key": "OUT_FOR_DELIVERY",
+            "title": "Out for delivery",
+            "at": null,
+            "completed": false,
+            "current": false
+          },
+          {
+            "key": "DELIVERED",
+            "title": "Delivered",
+            "at": null,
+            "completed": false,
+            "current": false
+          }
+        ],
+        "timeline": {
+          "placedAt": "2026-10-20T20:30:21.289Z",
+          "confirmedAt": null,
+          "shippedAt": null,
+          "deliveredAt": null,
+          "cancelledAt": null
+        },
+        "cancelledBy": null,
+        "cancelReason": null,
+        "createdAt": "2026-10-20T20:30:21.289Z",
+        "updatedAt": "2026-10-20T20:30:21.289Z",
+        "canCancel": true
+      }
+    },
+    {
+      "name": "deliver MAD purchase to BDT store",
+      "path": "/admin/shop/orders/8ff2a0a7-e70c-49f7-87ec-dac9a2a9561f/status",
+      "http": 200,
+      "data": {
+        "id": "8ff2a0a7-e70c-49f7-87ec-dac9a2a9561f",
+        "number": "ZS-13",
+        "status": "DELIVERED",
+        "listTab": "DELIVERED",
+        "lastUpdate": "Delivered",
+        "paymentMethod": "COD",
+        "paymentStatus": "PAID",
+        "currency": "MAD",
+        "subtotal": "30.00",
+        "discount": "0.00",
+        "deliveryFee": "0.00",
+        "total": "30.00",
+        "promoCode": null,
+        "itemCount": 1,
+        "items": [
+          {
+            "id": "a049a3de-f7a5-4be3-afb1-db738b6f0779",
+            "productId": "e1b59291-791c-4452-9beb-ecb93a57a9fc",
+            "variantId": "358c06b0-a7d6-43df-b4cc-d2b932663a14",
+            "productName": "[QA SHOP] Variants c31dd016",
+            "variantLabel": "L \u00b7 Blue",
+            "unitLabel": "piece",
+            "imageUrl": null,
+            "unitPrice": "30.00",
+            "quantity": 1,
+            "lineTotal": "30.00"
+          }
+        ],
+        "shippingAddress": {
+          "label": "Home",
+          "fullName": "QA Shop Synthetic",
+          "phone": "+212600000301",
+          "country": "Morocco",
+          "city": "Casablanca",
+          "district": null,
+          "address": "SYNTHETIC API QA DO NOT SHIP",
+          "formatted": "SYNTHETIC API QA DO NOT SHIP, Casablanca, Morocco"
+        },
+        "note": null,
+        "trackingNumber": null,
+        "statusSteps": [
+          {
+            "key": "PLACED",
+            "title": "Order Placed",
+            "at": "2026-10-20T20:30:21.289Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "CONFIRMED",
+            "title": "Order Confirm",
+            "at": "2026-10-20T20:30:42.203Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "SHIPPED",
+            "title": "Shipped",
+            "at": "2026-10-20T20:30:42.203Z",
+            "completed": true,
+            "current": false,
+            "trackingNumber": null
+          },
+          {
+            "key": "OUT_FOR_DELIVERY",
+            "title": "Out for delivery",
+            "at": "2026-10-20T20:30:42.203Z",
+            "completed": true,
+            "current": false
+          },
+          {
+            "key": "DELIVERED",
+            "title": "Delivered",
+            "at": "2026-10-20T20:30:42.203Z",
+            "completed": true,
+            "current": true
+          }
+        ],
+        "timeline": {
+          "placedAt": "2026-10-20T20:30:21.289Z",
+          "confirmedAt": "2026-10-20T20:30:42.203Z",
+          "shippedAt": "2026-10-20T20:30:42.203Z",
+          "deliveredAt": "2026-10-20T20:30:42.203Z",
+          "cancelledAt": null
+        },
+        "cancelledBy": null,
+        "cancelReason": null,
+        "createdAt": "2026-10-20T20:30:21.289Z",
+        "updatedAt": "2026-10-20T20:30:42.346Z",
+        "adminNote": null,
+        "canCancel": false,
+        "nextStatuses": [],
+        "merchant": {
+          "userId": "6bee41d3-ef91-4e63-ac05-fc1f97bf4c44",
+          "storeId": "4009a0bf-594e-4178-b638-9417f8ec22e9",
+          "businessName": "[QA TEMP SHOP ISOLATION] c31dd016-c43d-4ad6-b522-cb6e2fe8d27e",
+          "ownerName": "QA Shop",
+          "phone": "[original QA owner phone]"
+        }
+      }
+    },
+    {
+      "name": "foreign currency purchases",
+      "path": "/purchases?tab=FROM_SHOP",
+      "http": 200,
+      "data": {
+        "summary": {
+          "totalSpent": "30.00",
+          "currency": "MAD",
+          "totalSpentByCurrency": [
+            {
+              "currency": "MAD",
+              "amount": "30.00"
+            }
+          ],
+          "totalItems": 1,
+          "purchaseCount": 1,
+          "productCount": 1
+        },
+        "items": [
+          {
+            "key": "s_e1b59291-791c-4452-9beb-ecb93a57a9fc~MAD",
+            "source": "SHOP",
+            "sourceLabel": "From Shop",
+            "itemType": "PACKAGING",
+            "productName": "[QA SHOP] Variants c31dd016",
+            "imageUrl": null,
+            "unitLabel": "piece",
+            "totalQuantity": 1,
+            "quantityLabel": "1 piece",
+            "totalCost": "30.00",
+            "currency": "MAD",
+            "lastUnitPrice": "30.00",
+            "lastBoxPrice": "30.00",
+            "lastPurchaseDate": "2026-10-20T20:30:42.203Z",
+            "purchaseCount": 1,
+            "editable": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "foreign currency expense summary",
+      "path": "/expenses/summary",
+      "http": 200,
+      "data": {
+        "totalAmount": "378.79",
+        "byGroup": [
+          {
+            "group": "SHIPPING",
+            "total": "0.00"
+          },
+          {
+            "group": "ADS",
+            "total": "0.00"
+          },
+          {
+            "group": "SALARY",
+            "total": "0.00"
+          },
+          {
+            "group": "PURCHASES",
+            "total": "378.79"
+          },
+          {
+            "group": "OTHER",
+            "total": "0.00"
+          }
+        ],
+        "unconvertedAdSpend": [],
+        "unconvertedShippingCosts": []
+      }
+    },
+    {
+      "name": "converted expense with FX snapshot",
+      "path": "/expenses?limit=100",
+      "http": 200,
+      "data": {
+        "expenses": [
+          {
+            "id": "fff87a0e-74e6-4041-a49b-c884b6d91a55",
+            "title": "Purchase \u2014 [QA SHOP] Variants c31dd016",
+            "amount": "378.79",
+            "paymentMethod": "CASH",
+            "spentAt": "2026-10-20T20:30:42.203Z",
+            "notes": "Zomaal Shop order ZS-13 \u00b7 L \u00b7 Blue\nAcquisition cost 30.00 MAD; expense 378.79 BDT; FX 12.626235591302548804 BDT/MAD",
+            "receiptUrl": null,
+            "category": {
+              "id": "2e4c9321-c557-4c81-9b55-bfcd47951ab7",
+              "name": "Purchases",
+              "group": "PURCHASES",
+              "icon": null,
+              "color": null,
+              "isSystem": true
+            },
+            "staffMemberId": null,
+            "salaryPaymentId": null,
+            "isSalaryGenerated": false,
+            "purchaseId": "0d952792-2c42-4718-9a1a-fcb73bdc615a",
+            "isPurchaseGenerated": true,
+            "createdAt": "2026-10-20T20:30:42.364Z"
+          }
+        ],
+        "total": 1,
+        "totalAmount": "378.79",
+        "page": 1,
+        "limit": 100
+      }
+    }
+  ],
+  "currencyEvidence": {
+    "orderCurrency": "MAD",
+    "orderTotal": "30.00",
+    "storeCurrency": "BDT",
+    "purchases": {
+      "summary": {
+        "totalSpent": "30.00",
+        "currency": "MAD",
+        "totalSpentByCurrency": [
+          {
+            "currency": "MAD",
+            "amount": "30.00"
+          }
+        ],
+        "totalItems": 1,
+        "purchaseCount": 1,
+        "productCount": 1
+      },
+      "items": [
+        {
+          "key": "s_e1b59291-791c-4452-9beb-ecb93a57a9fc~MAD",
+          "source": "SHOP",
+          "sourceLabel": "From Shop",
+          "itemType": "PACKAGING",
+          "productName": "[QA SHOP] Variants c31dd016",
+          "imageUrl": null,
+          "unitLabel": "piece",
+          "totalQuantity": 1,
+          "quantityLabel": "1 piece",
+          "totalCost": "30.00",
+          "currency": "MAD",
+          "lastUnitPrice": "30.00",
+          "lastBoxPrice": "30.00",
+          "lastPurchaseDate": "2026-10-20T20:30:42.203Z",
+          "purchaseCount": 1,
+          "editable": false
+        }
+      ]
+    },
+    "expenses": {
+      "totalAmount": "378.79",
+      "byGroup": [
+        {
+          "group": "SHIPPING",
+          "total": "0.00"
+        },
+        {
+          "group": "ADS",
+          "total": "0.00"
+        },
+        {
+          "group": "SALARY",
+          "total": "0.00"
+        },
+        {
+          "group": "PURCHASES",
+          "total": "378.79"
+        },
+        {
+          "group": "OTHER",
+          "total": "0.00"
+        }
+      ],
+      "unconvertedAdSpend": [],
+      "unconvertedShippingCosts": []
+    },
+    "ledger": {
+      "expenses": [
+        {
+          "id": "fff87a0e-74e6-4041-a49b-c884b6d91a55",
+          "title": "Purchase \u2014 [QA SHOP] Variants c31dd016",
+          "amount": "378.79",
+          "paymentMethod": "CASH",
+          "spentAt": "2026-10-20T20:30:42.203Z",
+          "notes": "Zomaal Shop order ZS-13 \u00b7 L \u00b7 Blue\nAcquisition cost 30.00 MAD; expense 378.79 BDT; FX 12.626235591302548804 BDT/MAD",
+          "receiptUrl": null,
+          "category": {
+            "id": "2e4c9321-c557-4c81-9b55-bfcd47951ab7",
+            "name": "Purchases",
+            "group": "PURCHASES",
+            "icon": null,
+            "color": null,
+            "isSystem": true
+          },
+          "staffMemberId": null,
+          "salaryPaymentId": null,
+          "isSalaryGenerated": false,
+          "purchaseId": "0d952792-2c42-4718-9a1a-fcb73bdc615a",
+          "isPurchaseGenerated": true,
+          "createdAt": "2026-10-20T20:30:42.364Z"
+        }
+      ],
+      "total": 1,
+      "totalAmount": "378.79",
+      "page": 1,
+      "limit": 100
+    }
+  }
+}

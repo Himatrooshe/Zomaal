@@ -1,14 +1,14 @@
 # Zomaal Shop & My Orders — QA handoff
 
-## Current result
+## Latest deployed result
 
-Production revision00066-bbg, application0e7d246;347 recorded observations,322 reviewed passes/25 failures across nine bug groups. Three raw harness expectations were corrected with review notes in JSON. Local Shop/admin unit tests:8 suites/97 passed. [Complete results and reproduction evidence](./live-server-test-results-2026-10-21.md).
+**362/362 live observations passed, zero failures**, on revision 00068-vbx/app 2b31110. Both CI/CD jobs succeeded. Local verification: 136 unit suites/ 1188 tests;11 PostgreSQL suites/ 297 tests, including 41 new Shop regressions. [Final verification and actual responses](./fix-verification-2026-10-21.md).
 
-No fixes deployed in this pass. Do not mark module complete.
+All nine confirmed API bug groups are resolved. Real provider/mobile and missing design-feature acceptance remain scoped below. Earlier audit counts were347 observations/25 reviewed failed assertions; historical responses are preserved in the original audit files.
 
 ## Reproduction / required regression cases
 
-1. Deliver a full-price order2×12.50; then another2×12.50 with50% promo. Both COD delivered. Expected combined Purchases/Expenses37.50; observed50.00. Add multi-line discount rounding, zero-cost result and nonzero delivery allocations after agreeing accounting policy.
+1. Deliver a full-price order2×12.50; then another2×12.50 with 50% promo. Both COD delivered. Expected combined Purchases/Expenses37.50; observed50.00. Add multi-line discount rounding, zero-cost result and nonzero delivery allocations after agreeing accounting policy.
 2. Deliver a MAD Shop order to an isolated BDT store. Verify FX conversion or explicit unconverted treatment; current code posts the same nominal number into base expenses.
 3. Existing cart qty1: two parallel +1 requests; expect qty3. Four live rounds included qty2. Empty cart: two parallel first adds; expect one qty2 line; observed two qty1 lines. Add cart edit/clear vs checkout tests during fix.
 4. Parallel checkouts from two stores for distinct variants of the same parent. Both success should leave parent=sum(variants); observed89 vs88. Also verify last-unit contention, cancellation vs purchase, no negative stock and lock ordering/deadlocks.
@@ -20,7 +20,7 @@ No fixes deployed in this pass. Do not mark module complete.
 
 ## Working live regression baseline
 
-Browse/favorites/variants, sequential address defaults, cart validation/repair/unavailable products, COD preview/order, double submit, simultaneous cancel/restock once, last-unit cross-store contention, admin lifecycle, terminal protections, delivered purchase idempotency, promo eligibility/caps/use restoration, COD3/90day restriction, anonymous/admin separation, viewer permission revocation and cross-store resource isolation passed. Consult recorded assertions for exact scope.
+Browse/favorites/variants, sequential address defaults, cart validation/repair/unavailable products, COD preview/order, double submit, simultaneous cancel/restock once, last-unit cross-store contention, admin lifecycle, terminal protections, delivered purchase idempotency, promo eligibility/caps/use restoration, COD3/90 day restriction, anonymous/admin separation, viewer permission revocation and cross-store resource isolation passed. Consult recorded assertions for exact scope.
 
 ## Still needed
 
@@ -28,4 +28,4 @@ Real gateway choice/callbacks and refunds, real courier/COD collection, mobile s
 
 ## Fixture safety
 
-Use disposable clearly labeled stores/catalog/products/addresses. Never place actual courier shipments or online charges merely to simulate delivery. Admin status updates here were synthetic accounting transitions. Preserve original oshi-ecom and its existing data. This audit removed its two test stores, four catalog products, eight promos and test order data; synthetic staff retains normal30-day deletion grace. Next unused synthetic staff phone after this audit is+12025550147. Original active store and seven before/after snapshots matched.
+Use disposable clearly labeled stores/catalog/products/addresses. Never place actual courier shipments or online charges merely to simulate delivery. Admin status updates here were synthetic accounting transitions. Preserve original oshi-ecom and its existing data. This audit removed its two test stores, four catalog products, nine promos and nine test orders; synthetic staff retains normal 30-day deletion grace. Next unused synthetic staff phone after this audit is +12025550148. Original active store and seven before/after snapshots matched.

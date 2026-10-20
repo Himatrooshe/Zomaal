@@ -2,7 +2,7 @@
 
 ## Status
 
-Live audit21 October2026 found nine bug groups. [Audit and actual responses](./live-server-test-results-2026-10-21.md). API contract exists; full sign-off is pending fixes and mobile acceptance.
+The nine 21 October 2026 findings are fixed and deployed: 362/362 live checks passed on app 2b31110/revision 00068-vbx. Details are tracked in [fix verification](./fix-verification-2026-10-21.md). The original audit is retained below for context. [Audit and actual responses](./live-server-test-results-2026-10-21.md). API contract exists; full sign-off is pending fixes and mobile acceptance.
 
 ## Screen/API map
 
@@ -31,14 +31,17 @@ Live audit21 October2026 found nine bug groups. [Audit and actual responses](./l
 - Cancel uses canCancel; stock/promo restores server-side. Three merchant COD cancellations in90days currently restrict new COD, while cart remains editable.
 - PROCESSING combines PENDING+CONFIRMED. SHIPPED currently drives OUT_FOR_DELIVERY display. Use statusSteps rather than inventing extra courier events.
 
-## Known live issues affecting UI
+## Deployed corrected contract
 
-- Concurrent cart mutations can lose increments/create duplicate lines. Serializing taps in one client reduces exposure; backend fix is still required for multiple devices/staff.
-- Multiple default addresses can occur concurrently; backend fix required. Trim/reject blank required address fields; omit unchanged properties rather than sending null. Server null PATCH currently500.
-- Use only tab in My Orders until ALL/status precedence is fixed.
-- Huge page/admin numeric search and persisted/computed amount overflow can return500; keep pagination bounded and surface retry-safe errors.
-- Purchase/Expense costs are currently wrong for discounted Shop deliveries and cross-currency stores. Do not certify these totals until SHOP-01/02 retest.
-- Variant parent stock can be stale after concurrent orders; fresh GET does not repair the parent invariant by itself.
+- Cart mutations and checkout serialize per store. Historical duplicate lines merge on next add. Use returned line IDs after a merge.
+- Addresses trim before validation. Blank required fields and null required PATCH fields/default bool return400. Omit unchanged properties; district:null clears the optional district.
+- Exactly one address remains default after a mutation, including concurrent creations/switches/deletions. isDefault:false still does not unset the only default.
+- tab=ALL ignores the status parameter. PROCESSING covers PENDING+CONFIRMED.
+- Pages are bounded1–1,000,000; oversized numeric admin order searches safely return an unmatched result. Computed preview/checkout amounts beyond persistence range return400. UI must handle preview validation errors as well as blockers.
+- Delivered Purchases allocate actual paid acquisition cost including discount/delivery, in Shop currency. Purchase unitPrice is allocation/quantity rounded to four decimals; totalCost is authoritative. Quantity×displayed two-decimal unitPrice can differ by rounding cents.
+- Expense amounts convert into store base currency at delivery; source cost, target amount and real FX rate are retained in expense notes. Missing FX returns503 and leaves the order undelivered; retry when available. Never display a delivery success from a failed request.
+- Parent stock/variant updates and cancellation use sorted parent-first locks across stores.
+- No historical accounting backfill was performed. Existing earlier incorrect costs need reviewed reconciliation, if any.
 
 ## Figma/client dependencies
 

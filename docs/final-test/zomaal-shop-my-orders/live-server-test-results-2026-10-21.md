@@ -71,12 +71,12 @@ Source: [Zomaal Figma](https://www.figma.com/design/6g6gVrZZovSVOOfRB9vPGw/zomal
 - Product context mentions tier prices; current code supports base/variant price and compare-at price, not quantity tiers. Confirm intended quantity pricing before sign-off.
 - Figma shows a cancel button on a progressed timeline, while merchant cancellation currently allows PENDING only. Confirm policy; this was not silently changed.
 - Plan gate is declared for Shop/Pro. This audit used the existing owner entitlement and a staff viewer, not real Starter subscription transitions, expired trials, plan purchase or suspension acceptance.
-- Online payment is deliberately unavailable: client must choose/configure Moroccan gateway. COD restriction defaults3/90days, delivery fee0, admin-managed fulfillment are current assumptions, not final client policy.
+- Online payment is deliberately unavailable: client must choose/configure Moroccan gateway. COD restriction defaults3/90 days, delivery fee0, admin-managed fulfillment are current assumptions, not final client policy.
 - Real courier delivery, actual COD collection/refund, downloadable invoice, mobile screens and paid-gateway callbacks remain untested/unavailable as described.
 
 ## Cleanup and data preservation
 
-Two temporary stores, four synthetic catalog products, eight temporary promo codes and all test store orders/cart/addresses/purchases/expenses/packaging were removed. Catalog deletion succeeded after order/store cleanup. No media was uploaded, no cloud objects were created. Synthetic staff was scheduled for normal30-day account deletion and deactivated before its temporary membership/store were removed.
+Two temporary stores, four synthetic catalog products, eight temporary promo codes and all test store orders/cart/addresses/purchases/expenses/packaging were removed. Catalog deletion succeeded after order/store cleanup. No media was uploaded, no cloud objects were created. Synthetic staff was scheduled for normal 30-day account deletion and deactivated before its temporary membership/store were removed.
 
 Original active store restored. Before/after responses matched for original Shop home, cart, addresses, favorites, My Orders, Purchases and Expenses summary. Existing account and business data preserved. Normal authentication/activity audit records remain; synthetic user record retains the normal deletion grace period.
 

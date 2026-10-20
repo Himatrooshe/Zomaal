@@ -41,3 +41,7 @@ Answer:
 ## Shop accounting and concurrency fixes — 21 October 2026
 
 Implementation covers the nine live findings; see `../final-test/zomaal-shop-my-orders/fix-verification-2026-10-21.md` for rollout status. Delivered From Shop costs allocate the paid total (discount and delivery included), preserve source currency, and convert Expense costs into the store base currency using real FX. Missing rates fail delivery atomically with503. Cart/checkout/address operations serialize per store; catalog stock uses parent-first sorted locks. No migration or historical bulk accounting rewrite is performed.
+
+### Deployed verification
+
+Final app `2b31110`, ready revision `zomaal-backend-00068-vbx`, CI/CD success.362/362 live regression observations passed; all nine audit findings resolved. See the final-test report for real-payment/courier/mobile, invoice/reorder/courier-name/tier-pricing and historical accounting limits. Temporary fixtures were removed; original store context and data snapshots matched.
