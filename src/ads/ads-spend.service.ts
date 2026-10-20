@@ -167,6 +167,7 @@ export class AdsSpendService {
   async getMonthly(
     store: AdSpendStore,
     since: Date,
+    calendarFrom?: string,
   ): Promise<{
     byMonth: Map<string, Prisma.Decimal>;
     unconverted: UnconvertedAmount[];
@@ -181,7 +182,7 @@ export class AdsSpendService {
       INNER JOIN "AdsConnection" c ON c."id" = cp."connectionId"
       WHERE c."storeId" = ${store.id}
         AND cp."tracked" = true
-        AND s."date" >= ${since.toISOString().slice(0, 10)}::date
+        AND s."date" >= ${calendarFrom ?? since.toISOString().slice(0, 10)}::date
       GROUP BY "month", s."currency"
     `);
 

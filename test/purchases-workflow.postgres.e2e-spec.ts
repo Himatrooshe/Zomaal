@@ -148,7 +148,12 @@ postgres('Purchases audit regressions with PostgreSQL', () => {
         },
         {
           provide: ExpensesService,
-          useValue: new ExpensesService(prisma, media, {} as never),
+          useValue: new ExpensesService(
+            prisma,
+            media,
+            {} as never,
+            {} as never,
+          ),
         },
         { provide: StoreAccessService, useValue: access },
         PermissionGuard,

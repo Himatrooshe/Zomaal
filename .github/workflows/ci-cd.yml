@@ -182,6 +182,11 @@ jobs:
           PACKAGING_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
         run: npm run test:e2e -- --runInBand packaging-workflow.postgres
 
+      - name: Verify Expenses receipts, idempotency and financial totals in PostgreSQL
+        env:
+          EXPENSES_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run test:e2e -- --runInBand expenses-workflow.postgres
+
       - name: Build
         run: npm run build
 

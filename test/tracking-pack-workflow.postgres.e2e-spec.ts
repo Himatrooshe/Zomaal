@@ -146,6 +146,11 @@ postgres('Tracking, pack and return edge cases with PostgreSQL', () => {
       risk,
       access,
       {} as never,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      } as never,
     );
     const returns = new ReturnRequestService(
       prisma,

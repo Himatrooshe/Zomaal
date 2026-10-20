@@ -1,3 +1,12 @@
+import { createHash } from 'node:crypto';
+import { CourierCostsService } from './courier-costs.service';
+import {
+  expenseDateWhere,
+  expenseInstant,
+  expenseRange,
+  dateInZone,
+  monthInZone,
+} from './expense-date.util';
 import {
   BadRequestException,
   ConflictException,
@@ -20,16 +29,7 @@ import {
   isForeignKeyConstraintError,
   isUniqueConstraintError,
 } from '../common/prisma-errors.util';
-import {
-  calculateTrend,
-  lastNMonthKeys,
-  monthKey,
-  monthsAgoStart,
-} from '../common/trend.util';
-import {
-  MonthlyTrendQueryDto,
-  MonthlyTrendResponseDto,
-} from '../common/dto/monthly-trend.dto';
+import { calculateTrend, lastNMonthKeys } from '../common/trend.util';
 import {
   CreateExpenseCategoryDto,
   ExpenseCategoryResponseDto,
@@ -44,6 +44,8 @@ import {
   ExpenseSummaryQueryDto,
   ExpenseSummaryResponseDto,
   UpdateExpenseDto,
+  ExpenseTrendQueryDto,
+  ExpenseTrendResponseDto,
 } from './dto/expense.dto';
 import { AdsSpendService } from '../ads/ads-spend.service';
 import {
@@ -68,6 +70,7 @@ export class ExpensesService {
     private readonly prisma: PrismaService,
     private readonly media: MediaService,
     private readonly adsSpend: AdsSpendService,
+    private readonly courierCosts: CourierCostsService,
   ) {}
 
   // ---- Receipts (shared by Expenses and Staff Salary Payments) ----------
@@ -240,7 +243,7 @@ export class ExpensesService {
     storeId: string,
     query: ExpenseListQueryDto,
   ): Promise<ExpenseListResponseDto> {
-    assertDateRange(query.dateFrom, query.dateTo);
+    expenseRange(query);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
@@ -254,8 +257,7 @@ export class ExpensesService {
       ...(query.dateFrom || query.dateTo
         ? {
             spentAt: {
-              ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-              ...(query.dateTo ? { lt: endOfDateFilter(query.dateTo) } : {}),
+              ...expenseDateWhere(query),
             },
           }
         : {}),
@@ -286,26 +288,28 @@ export class ExpensesService {
     storeId: string,
     query: ExpenseSummaryQueryDto,
   ): Promise<ExpenseSummaryResponseDto> {
-    assertDateRange(query.dateFrom, query.dateTo);
+    expenseRange(query);
     const where: Prisma.ExpenseWhereInput = {
       storeId,
       ...(query.dateFrom || query.dateTo
         ? {
             spentAt: {
-              ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-              ...(query.dateTo ? { lt: endOfDateFilter(query.dateTo) } : {}),
+              ...expenseDateWhere(query),
             },
           }
         : {}),
     };
 
-    const [expenses, adSpend] = await Promise.all([
+    const [expenses, adSpend, shipping] = await Promise.all([
       this.prisma.expense.findMany({
         where,
         select: { amount: true, category: { select: { group: true } } },
       }),
       this.requireStore(storeId).then((store) =>
         this.adsSpend.getTotals(store, toAdSpendRange(query)),
+      ),
+      this.requireStore(storeId).then((store) =>
+        this.courierCosts.getTotals(store, query),
       ),
     ]);
 
@@ -325,7 +329,13 @@ export class ExpensesService {
         adSpend.spend,
       ),
     );
-    totalAmount = totalAmount.plus(adSpend.spend);
+    totals.set(
+      ExpenseGroup.SHIPPING,
+      (totals.get(ExpenseGroup.SHIPPING) ?? new Prisma.Decimal(0)).plus(
+        shipping.total,
+      ),
+    );
+    totalAmount = totalAmount.plus(adSpend.spend).plus(shipping.total);
 
     return {
       totalAmount: totalAmount.toFixed(2),
@@ -334,6 +344,7 @@ export class ExpensesService {
         total: (totals.get(group) ?? new Prisma.Decimal(0)).toFixed(2),
       })),
       unconvertedAdSpend: toUnconvertedDto(adSpend.unconverted),
+      unconvertedShippingCosts: toUnconvertedDto(shipping.unconverted),
     };
   }
 
@@ -342,7 +353,7 @@ export class ExpensesService {
     storeId: string,
     query: ExpenseSummaryQueryDto,
   ): Promise<AdSpendResponseDto> {
-    assertDateRange(query.dateFrom, query.dateTo);
+    expenseRange(query);
     const store = await this.requireStore(storeId);
     return toAdSpendResponse(
       await this.adsSpend.getTotals(store, toAdSpendRange(query)),
@@ -352,31 +363,47 @@ export class ExpensesService {
   /** Monthly totals for the Expenses trend/line chart. */
   async trend(
     storeId: string,
-    query: MonthlyTrendQueryDto,
-  ): Promise<MonthlyTrendResponseDto> {
+    query: ExpenseTrendQueryDto,
+  ): Promise<ExpenseTrendResponseDto> {
     const months = query.months ?? 6;
-    const keys = lastNMonthKeys(months);
-    const since = monthsAgoStart(months);
+    const timezone = query.timezone ?? 'UTC';
+    const currentMonth = monthInZone(new Date(), timezone);
+    const reference = new Date(`${currentMonth}-15T12:00:00Z`);
+    const keys = lastNMonthKeys(months, reference);
+    const since = dateInZone(`${keys[0]}-01`, timezone);
+    const next = new Date(`${currentMonth}-01T00:00:00Z`);
+    next.setUTCMonth(next.getUTCMonth() + 1);
+    const until = dateInZone(next.toISOString().slice(0, 10), timezone);
 
-    const [expenses, adSpend] = await Promise.all([
+    const [expenses, adSpend, shipping] = await Promise.all([
       this.prisma.expense.findMany({
-        where: { storeId, spentAt: { gte: since } },
+        where: { storeId, spentAt: { gte: since, lt: until } },
         select: { amount: true, spentAt: true },
       }),
       this.requireStore(storeId).then((store) =>
-        this.adsSpend.getMonthly(store, since),
+        timezone === 'UTC'
+          ? this.adsSpend.getMonthly(store, since)
+          : this.adsSpend.getMonthly(store, since, `${keys[0]}-01`),
+      ),
+      this.requireStore(storeId).then((store) =>
+        this.courierCosts.getMonthly(store, since, timezone, until),
       ),
     ]);
 
     const totals = new Map<string, Prisma.Decimal>(adSpend.byMonth);
     for (const expense of expenses) {
-      const key = monthKey(expense.spentAt);
+      const key = monthInZone(expense.spentAt, timezone);
       totals.set(
         key,
         (totals.get(key) ?? new Prisma.Decimal(0)).plus(expense.amount),
       );
     }
 
+    for (const [month, amount] of shipping.byMonth)
+      totals.set(
+        month,
+        (totals.get(month) ?? new Prisma.Decimal(0)).plus(amount),
+      );
     const points = keys.map((month) => ({
       month,
       total: (totals.get(month) ?? new Prisma.Decimal(0)).toFixed(2),
@@ -385,25 +412,85 @@ export class ExpensesService {
     const current = Number(points[points.length - 1]?.total ?? 0);
     const previous = Number(points[points.length - 2]?.total ?? 0);
 
-    return { points, trend: calculateTrend(current, previous) };
+    return {
+      points,
+      trend: calculateTrend(current, previous),
+      timezone,
+      unconvertedShippingCosts: toUnconvertedDto(shipping.unconverted),
+      unconvertedAdSpend: toUnconvertedDto(adSpend.unconverted),
+    };
   }
 
   async create(
     access: StoreAccess,
     dto: CreateExpenseDto,
+    headerKey?: string,
   ): Promise<ExpenseResponseDto> {
-    const category = await this.requireCategory(access.storeId, dto.categoryId);
-    this.rejectSalaryCategory(category.group);
-    this.rejectPurchaseCategory(category.group);
-
+    if (
+      headerKey !== undefined &&
+      !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,99}$/.test(headerKey)
+    )
+      throw new BadRequestException(
+        'Idempotency-Key must contain 8–100 letters, digits, dots, underscores, colons or hyphens',
+      );
+    if (headerKey && dto.idempotencyKey && headerKey !== dto.idempotencyKey)
+      throw new BadRequestException(
+        'Body and header idempotency keys must match',
+      );
+    const key = headerKey ?? dto.idempotencyKey;
+    const spentAt = expenseInstant(dto.spentAt, dto.timezone);
+    const requestHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          title: dto.title.trim(),
+          amount: new Prisma.Decimal(dto.amount).toFixed(2),
+          paymentMethod: dto.paymentMethod,
+          spentAt: spentAt.toISOString(),
+          categoryId: dto.categoryId,
+          notes: dto.notes ?? null,
+          receipt: dto.receiptAssetId
+            ? { asset: dto.receiptAssetId }
+            : { url: dto.receiptUrl ?? null },
+        }),
+      )
+      .digest('hex');
     const expense = await this.prisma.$transaction(async (tx) => {
+      if (key) {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`expense:${access.storeId}:${key}`}, 0))::text`;
+        const prior = await tx.expenseCreateRequest.findUnique({
+          where: {
+            storeId_idempotencyKey: {
+              storeId: access.storeId,
+              idempotencyKey: key,
+            },
+          },
+          include: { expense: { include: EXPENSE_INCLUDE } },
+        });
+        if (prior) {
+          if (prior.requestHash !== requestHash)
+            throw new ConflictException(
+              'Idempotency key was already used with different expense data',
+            );
+          if (!prior.expense)
+            throw new ConflictException(
+              'This expense was deleted; use a new key for a new expense',
+            );
+          return prior.expense;
+        }
+      }
+      const category = await tx.expenseCategory.findFirst({
+        where: { id: dto.categoryId, storeId: access.storeId },
+      });
+      if (!category) throw new NotFoundException('Expense category not found');
+      this.rejectSalaryCategory(category.group);
+      this.rejectPurchaseCategory(category.group);
       const created = await tx.expense.create({
         data: {
           storeId: access.storeId,
           title: dto.title,
           amount: dto.amount,
           paymentMethod: dto.paymentMethod,
-          spentAt: new Date(dto.spentAt),
+          spentAt,
           categoryId: dto.categoryId,
           notes: dto.notes ?? null,
           receiptUrl: dto.receiptAssetId
@@ -419,6 +506,15 @@ export class ExpensesService {
         });
       }
 
+      if (key)
+        await tx.expenseCreateRequest.create({
+          data: {
+            storeId: access.storeId,
+            idempotencyKey: key,
+            requestHash,
+            expenseId: created.id,
+          },
+        });
       return tx.expense.findUniqueOrThrow({
         where: { id: created.id },
         include: EXPENSE_INCLUDE,
@@ -453,32 +549,44 @@ export class ExpensesService {
       this.rejectPurchaseCategory(category.group);
     }
 
-    let previousReceipt: { id: string } | null = null;
-    if (dto.receiptAssetId) {
-      // expenseId is @unique on MediaAsset — replacing the receipt means
-      // freeing the old one first (best-effort GCS delete, same as remove()),
-      // done outside the transaction since the GCS call can't roll back with it.
-      const existingReceipt = await this.prisma.mediaAsset.findUnique({
-        where: { expenseId },
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Expense" WHERE id = ${expenseId} FOR UPDATE`;
+      const currentExpense = await tx.expense.findFirst({
+        where: { id: expenseId, storeId: access.storeId },
+        include: EXPENSE_INCLUDE,
       });
-      if (existingReceipt && existingReceipt.id !== dto.receiptAssetId)
-        previousReceipt = existingReceipt;
-    }
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      if (dto.receiptAssetId) {
+      if (!currentExpense) throw new NotFoundException('Expense not found');
+      this.rejectIfSalaryGenerated(currentExpense);
+      this.rejectIfPurchaseGenerated(currentExpense);
+      const currentReceipt = await tx.mediaAsset.findUnique({
+        where: { expenseId },
+        select: { id: true },
+      });
+      const replaces =
+        dto.receiptAssetId !== undefined &&
+        dto.receiptAssetId !== currentReceipt?.id;
+      // Clearing or replacing a receipt URL detaches its owned upload atomically.
+      const detaches =
+        replaces ||
+        (dto.receiptAssetId === undefined && dto.receiptUrl !== undefined);
+      if (detaches && currentReceipt)
+        await tx.mediaAsset.update({
+          where: { id: currentReceipt.id },
+          data: { expenseId: null },
+        });
+      if (replaces && dto.receiptAssetId)
         await attachReceipt(tx, access.storeId, dto.receiptAssetId, {
           expenseId,
         });
-      }
-
-      return tx.expense.update({
+      const updated = await tx.expense.update({
         where: { id: expenseId },
         data: {
           title: dto.title,
           amount: dto.amount,
           paymentMethod: dto.paymentMethod,
-          spentAt: dto.spentAt ? new Date(dto.spentAt) : undefined,
+          spentAt: dto.spentAt
+            ? expenseInstant(dto.spentAt, dto.timezone)
+            : undefined,
           categoryId: dto.categoryId,
           notes: dto.notes,
           receiptUrl: dto.receiptAssetId
@@ -487,33 +595,43 @@ export class ExpensesService {
         },
         include: EXPENSE_INCLUDE,
       });
+      return { updated, previousReceipt: detaches ? currentReceipt : null };
     });
-
-    if (previousReceipt)
+    if (result.previousReceipt)
       await this.media
-        .deleteAttachedAsset(previousReceipt.id)
+        .deleteAttachedAsset(result.previousReceipt.id)
         .catch(() => undefined);
+    const updated = result.updated;
 
     return toExpenseResponse(updated);
   }
 
   async remove(access: StoreAccess, expenseId: string): Promise<void> {
-    const expense = await this.requireExpense(access.storeId, expenseId);
-    this.rejectIfSalaryGenerated(expense);
-    this.rejectIfPurchaseGenerated(expense);
-
-    // The FK is SetNull, not Cascade, so deleting the expense wouldn't clean
-    // up an attached receipt on its own — do it explicitly so nothing is
-    // left orphaned in Cloud Storage.
-    const receipt = await this.prisma.mediaAsset.findUnique({
-      where: { expenseId },
+    const receipt = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Expense" WHERE id = ${expenseId} FOR UPDATE`;
+      const expense = await tx.expense.findFirst({
+        where: { id: expenseId, storeId: access.storeId },
+        include: EXPENSE_INCLUDE,
+      });
+      if (!expense) throw new NotFoundException('Expense not found');
+      this.rejectIfSalaryGenerated(expense);
+      this.rejectIfPurchaseGenerated(expense);
+      const attached = await tx.mediaAsset.findUnique({
+        where: { expenseId },
+        select: { id: true },
+      });
+      await tx.expense.delete({ where: { id: expenseId } });
+      return attached;
     });
-    await this.prisma.expense.delete({ where: { id: expenseId } });
     if (receipt)
       await this.media.deleteAttachedAsset(receipt.id).catch(() => undefined);
   }
 
   private rejectSalaryCategory(group: ExpenseGroup): void {
+    if (group === ExpenseGroup.SHIPPING || group === ExpenseGroup.ADS)
+      throw new ConflictException(
+        'Shipping and advertising costs are managed by their source modules',
+      );
     if (group === ExpenseGroup.SALARY) {
       throw new ConflictException(
         'Salary expenses are recorded from Staff Salary, not created directly here.',
@@ -600,23 +718,6 @@ function toAdSpendRange(query: { dateFrom?: string; dateTo?: string }) {
     from: query.dateFrom ? query.dateFrom.slice(0, 10) : null,
     to: query.dateTo ? query.dateTo.slice(0, 10) : null,
   };
-}
-
-function endOfDateFilter(value: string): Date {
-  const date = new Date(value);
-  return /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? new Date(date.getTime() + 24 * 60 * 60 * 1000)
-    : date;
-}
-
-function assertDateRange(dateFrom?: string, dateTo?: string): void {
-  if (
-    dateFrom &&
-    dateTo &&
-    new Date(dateFrom).getTime() > endOfDateFilter(dateTo).getTime()
-  ) {
-    throw new BadRequestException('dateFrom must be before or equal to dateTo');
-  }
 }
 
 function toCategoryResponse(category: {

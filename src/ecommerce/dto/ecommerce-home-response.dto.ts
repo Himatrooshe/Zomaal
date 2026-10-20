@@ -141,9 +141,16 @@ export class EcommerceHomeAdsDto {
 
 export class EcommerceHomeExpensesDto {
   @ApiProperty({
+    type: [UnconvertedAmountDto],
+    description:
+      'Courier costs excluded from expense totals because no real conversion rate was available.',
+  })
+  unconvertedShippingCosts!: UnconvertedAmountDto[];
+
+  @ApiProperty({
     example: '0.00',
     description:
-      'Recorded expenses (spentAt in the period) plus ad spend, in the store base currency.',
+      'Recorded expenses plus ad spend and courier ledger costs, in the store currency. Courier ledger fees use their financial event timestamp.',
   })
   total!: string;
 

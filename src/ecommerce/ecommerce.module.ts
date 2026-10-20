@@ -1,3 +1,4 @@
+import { CourierCostsModule } from '../expenses/courier-costs.module';
 import { Module } from '@nestjs/common';
 import { ShopifyModule } from '../shopify/shopify.module';
 import { YouCanModule } from '../youcan/youcan.module';
@@ -34,6 +35,7 @@ import { CustomersModule } from '../customers/customers.module';
     YouCanModule,
     LightfunnelsModule,
     CurrencyModule,
+    CourierCostsModule,
     AdsModule,
     ShippingModule,
     WarehouseModule,

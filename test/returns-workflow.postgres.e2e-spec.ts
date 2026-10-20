@@ -6,7 +6,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { PrismaClient, EcommercePlatform } from '@prisma/client';
+import { PrismaClient, Prisma, EcommercePlatform } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import request from 'supertest';
@@ -130,6 +130,11 @@ postgres('Returns workflow with PostgreSQL', () => {
       risk,
       access,
       {} as never,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      } as never,
     );
     const returns = new ReturnRequestService(
       prisma,

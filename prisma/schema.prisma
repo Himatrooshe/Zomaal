@@ -873,21 +873,22 @@ model ShippingCourierSuggestion {
 }
 
 model Store {
-  id            String   @id @default(uuid())
-  ownerName     String
+  expenseCreateRequests ExpenseCreateRequest[]
+  id                    String                 @id @default(uuid())
+  ownerName             String
   // Owner's personal profile photo (Settings > Edit Profile "Add Your
   // Photo") — distinct from `logoUrl`, which is the customer-facing
   // business logo set on the Create/Edit Store screen.
-  ownerPhotoUrl String?
-  businessName  String
-  address       String
-  city          String
-  country       String
-  logoUrl       String?
-  isActive      Boolean  @default(true)
-  baseCurrency  String   @default("MAD")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  ownerPhotoUrl         String?
+  businessName          String
+  address               String
+  city                  String
+  country               String
+  logoUrl               String?
+  isActive              Boolean                @default(true)
+  baseCurrency          String                 @default("MAD")
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
   userId         String
   // Cascade so deleting a User who owns stores tears them down.
@@ -2269,6 +2270,8 @@ model ExpenseCategory {
   @@index([storeId])
 }
 
+// TEMPORARY CLIENT DEPENDENCY (Q9.5): CASH/BANK follow the current Figma.
+// Additional methods await the client decision; no online payment is implied.
 enum ExpensePaymentMethod {
   CASH
   BANK
@@ -2308,6 +2311,7 @@ model Expense {
   salaryPayment    StaffSalaryPayment?
   merchantPurchase MerchantPurchase?
   receiptMedia     MediaAsset?
+  createRequest    ExpenseCreateRequest?
 
   @@index([storeId, spentAt])
   @@index([storeId, categoryId])
@@ -2675,4 +2679,18 @@ model PackagingOwnerAlert {
   updatedAt         DateTime     @updatedAt
 
   @@index([status, nextAttemptAt])
+}
+
+// Keeps a deletion tombstone so a delayed retry cannot recreate a deleted charge.
+model ExpenseCreateRequest {
+  id             String   @id @default(uuid())
+  storeId        String
+  store          Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  idempotencyKey String
+  requestHash    String
+  expenseId      String?  @unique
+  expense        Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+
+  @@unique([storeId, idempotencyKey])
 }

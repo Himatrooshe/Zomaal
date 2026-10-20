@@ -38,6 +38,7 @@ function decimal(value: string) {
 
 function build() {
   const models = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     expenseCategory: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -64,6 +65,7 @@ function build() {
     mediaAsset: {
       findUnique: jest.fn().mockResolvedValue(null),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      update: jest.fn().mockResolvedValue({}),
     },
   };
   // create()/update() run through $transaction(tx => ...) — reuse the same
@@ -100,6 +102,14 @@ function build() {
     prisma as never,
     media as never,
     adsSpend as never,
+    {
+      getTotals: jest
+        .fn()
+        .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      getMonthly: jest
+        .fn()
+        .mockResolvedValue({ byMonth: new Map(), unconverted: [] }),
+    } as never,
   );
   return { service, prisma, media, adsSpend };
 }
@@ -488,7 +498,7 @@ describe('ExpensesService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('replacing a receipt on update frees the old one before attaching the new one', async () => {
+  it('replacing a receipt detaches the old row inside the transaction and cleans its object after success', async () => {
     const { service, prisma, media } = build();
     prisma.expense.findFirst.mockResolvedValue({
       id: 'exp-1',

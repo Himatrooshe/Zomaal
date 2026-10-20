@@ -1,3 +1,4 @@
+import { CourierCostsService } from '../expenses/courier-costs.service';
 import {
   findManualOrderRetry,
   manualOrderRequestHash,
@@ -269,6 +270,7 @@ export class EcommerceService {
     private readonly customerRisk: CustomerRiskService,
     private readonly storeAccess: StoreAccessService,
     private readonly adsSpend: AdsSpendService,
+    private readonly courierCosts: CourierCostsService,
   ) {}
 
   async listConnections(userId: string): Promise<EcommerceConnectionListDto> {
@@ -326,6 +328,7 @@ export class EcommerceService {
       profitRows,
       adSpend,
       recordedExpenseRows,
+      courierCosts,
     ] = await Promise.all([
       this.getRevenueSummary(userId, homeQuery),
       this.prisma.$queryRaw<HomeOrderMetricsRow[]>(Prisma.sql`
@@ -409,6 +412,11 @@ export class EcommerceService {
           WHERE expense."storeId" = ${store.id}
             ${buildSpentAtFilter(range)}
         `),
+      this.courierCosts.getTotals(store, {
+        dateFrom: range.from ?? undefined,
+        dateTo: range.to ?? undefined,
+        timezone: range.timezone,
+      }),
     ]);
 
     let orderProfit = new Prisma.Decimal(0);
@@ -429,7 +437,9 @@ export class EcommerceService {
     const operatingExpenses = new Prisma.Decimal(
       recordedExpenseRows[0]?.operating ?? 0,
     );
-    const expensesTotal = recordedExpenses.plus(adSpend.spend);
+    const expensesTotal = recordedExpenses
+      .plus(adSpend.spend)
+      .plus(courierCosts.total);
     const netProfit = orderProfit.minus(adSpend.spend).minus(operatingExpenses);
     const lostOrders = {
       orders: orderStatusBuckets.lost.count,
@@ -505,6 +515,7 @@ export class EcommerceService {
       },
       expenses: {
         total: expensesTotal.toFixed(2),
+        unconvertedShippingCosts: toUnconvertedDto(courierCosts.unconverted),
         avgPerOrder:
           Number(row.inPeriod) > 0
             ? expensesTotal.dividedBy(Number(row.inPeriod)).toFixed(2)

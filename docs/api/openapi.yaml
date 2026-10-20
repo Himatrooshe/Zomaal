@@ -14406,8 +14406,16 @@ paths:
         - Expenses
   /expenses/summary:
     get:
+      description: Includes recorded expenses, tracked ad spend and signed courier financial ledger costs. Missing FX is returned separately. Courier fees use event timestamps; they are not subtracted from Home profit a second time.
       operationId: Expenses_summary
       parameters:
+        - name: timezone
+          required: false
+          in: query
+          description: Phone IANA timezone; send the device timezone for local calendar-day filters.
+          schema:
+            default: UTC
+            type: string
         - name: dateFrom
           required: false
           in: query
@@ -14449,6 +14457,13 @@ paths:
       description: Calculated live from synced metrics of tracked campaigns and converted to the store currency. Dates are inclusive calendar days; date-times are widened to whole days. Spend with no available exchange rate is listed under `unconverted` instead of being guessed.
       operationId: Expenses_adSpend
       parameters:
+        - name: timezone
+          required: false
+          in: query
+          description: Phone IANA timezone; send the device timezone for local calendar-day filters.
+          schema:
+            default: UTC
+            type: string
         - name: dateFrom
           required: false
           in: query
@@ -14493,7 +14508,7 @@ paths:
         - Expenses
   /expenses/trend:
     get:
-      description: Includes ad spend from tracked campaigns. Spend with no available exchange rate is left out (see /expenses/summary for the unconverted amounts).
+      description: Monthly recorded expenses, tracked daily ad spend and courier ledger costs in the supplied phone timezone. Ad spend retains provider calendar dates. Missing exchange rates are reported separately.
       operationId: Expenses_trend
       parameters:
         - name: months
@@ -14505,13 +14520,20 @@ paths:
             maximum: 24
             default: 6
             type: number
+        - name: timezone
+          required: false
+          in: query
+          description: Phone IANA timezone for monthly grouping and the current month.
+          schema:
+            default: UTC
+            type: string
       responses:
         '200':
           description: ''
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MonthlyTrendResponseDto'
+                $ref: '#/components/schemas/ExpenseTrendResponseDto'
         '401':
           description: Missing or invalid Zomaal access token.
           content:
@@ -14533,6 +14555,13 @@ paths:
     get:
       operationId: Expenses_list
       parameters:
+        - name: timezone
+          required: false
+          in: query
+          description: Phone IANA timezone; send the device timezone for local calendar-day filters.
+          schema:
+            default: UTC
+            type: string
         - name: search
           required: false
           in: query
@@ -14573,6 +14602,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -14608,9 +14638,20 @@ paths:
       tags:
         - Expenses
     post:
-      description: Categories in the SALARY group are rejected here — record those from Staff Salary instead.
+      description: Only OTHER categories accept manual expenses. Shipping, Ads, Salary and Purchases are managed by their source modules. Provide a body idempotencyKey or Idempotency-Key header for retry safety.
       operationId: Expenses_create
-      parameters: []
+      parameters:
+        - name: idempotency-key
+          required: true
+          in: header
+          schema:
+            type: string
+        - name: Idempotency-Key
+          in: header
+          description: 8–100 character retry key. Reuse on timeout; changed payload or deleted expense returns 409.
+          required: false
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -14643,7 +14684,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorDto'
         '409':
-          description: The category is a SALARY-group category.
+          description: The category is system-managed or an idempotency key conflicts.
           content:
             application/json:
               schema:
@@ -25162,16 +25203,22 @@ components:
     EcommerceHomeExpensesDto:
       type: object
       properties:
+        unconvertedShippingCosts:
+          description: Courier costs excluded from expense totals because no real conversion rate was available.
+          type: array
+          items:
+            $ref: '#/components/schemas/UnconvertedAmountDto'
         total:
           type: string
           example: '0.00'
-          description: Recorded expenses (spentAt in the period) plus ad spend, in the store base currency.
+          description: Recorded expenses plus ad spend and courier ledger costs, in the store currency. Courier ledger fees use their financial event timestamp.
         avgPerOrder:
           type: string
           nullable: true
           example: null
           description: total ÷ orders in the period; null when there are none.
       required:
+        - unconvertedShippingCosts
         - total
         - avgPerOrder
     EcommerceConnectionDto:
@@ -30502,7 +30549,7 @@ components:
         month:
           type: string
           example: 2026-09
-          description: UTC year-month.
+          description: Calendar year-month in the endpoint timezone; UTC where no timezone parameter is supported.
         total:
           type: string
           example: '4250.00'
@@ -30877,9 +30924,14 @@ components:
     ExpenseSummaryResponseDto:
       type: object
       properties:
+        unconvertedShippingCosts:
+          description: Courier fees excluded because a real exchange rate was unavailable.
+          type: array
+          items:
+            $ref: '#/components/schemas/UnconvertedAmountDto'
         totalAmount:
           type: string
-          description: Recorded expenses plus ad spend from tracked campaigns, in the store currency.
+          description: Recorded expenses plus tracked ad spend and courier financial ledger costs, in the store currency.
         byGroup:
           description: ADS is calculated live from synced ad metrics; there are no ADS expense records.
           type: array
@@ -30891,6 +30943,7 @@ components:
           items:
             $ref: '#/components/schemas/UnconvertedAmountDto'
       required:
+        - unconvertedShippingCosts
         - totalAmount
         - byGroup
         - unconvertedAdSpend
@@ -30994,6 +31047,33 @@ components:
         - accounts
         - unconverted
         - dataUpdatedAt
+    ExpenseTrendResponseDto:
+      type: object
+      properties:
+        points:
+          description: Oldest first. Every month in range appears even if its total is zero.
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthlyTrendPointDto'
+        trend:
+          $ref: '#/components/schemas/MonthlyTrendDto'
+        timezone:
+          type: string
+          description: IANA timezone used for monthly grouping.
+        unconvertedShippingCosts:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnconvertedAmountDto'
+        unconvertedAdSpend:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnconvertedAmountDto'
+      required:
+        - points
+        - trend
+        - timezone
+        - unconvertedShippingCosts
+        - unconvertedAdSpend
     ExpenseResponseDto:
       type: object
       properties:
@@ -31071,6 +31151,15 @@ components:
     CreateExpenseDto:
       type: object
       properties:
+        timezone:
+          type: string
+          default: UTC
+          description: Phone IANA timezone for a date-only spentAt; timestamps must include their own offset.
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 100
+          description: Creation retry key, also accepted through Idempotency-Key. Reusing it with different data returns 409.
         title:
           type: string
           example: Bubble wrap restock
@@ -31078,6 +31167,8 @@ components:
         amount:
           type: string
           example: '450.00'
+          pattern: ^[0-9]{1,16}([.][0-9]{1,2})?$
+          description: Positive store-currency amount; at most 16 integer digits and 2 decimals.
         paymentMethod:
           type: string
           enum:
@@ -31107,6 +31198,10 @@ components:
     UpdateExpenseDto:
       type: object
       properties:
+        timezone:
+          type: string
+          default: UTC
+          description: Phone IANA timezone for a date-only spentAt; timestamps must include their own offset.
         title:
           type: string
           example: Bubble wrap restock
@@ -31114,6 +31209,8 @@ components:
         amount:
           type: string
           example: '450.00'
+          pattern: ^[0-9]{1,16}([.][0-9]{1,2})?$
+          description: Positive store-currency amount; at most 16 integer digits and 2 decimals.
         paymentMethod:
           type: string
           enum:

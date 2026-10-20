@@ -37,23 +37,28 @@ recent days, and a copy would drift from the real numbers.
 The Add Expense list includes "Employee salary" and "Marketing". If a merchant adds salary manually while
 staff salary is automatic, it counts twice. Should the manual list only allow "Other" sub-categories?
 Assumption: manual expenses always go under Other. The automatic groups are read-only.
-Answer:
+Answer: Confirmed: automatic staff salaries cannot be entered manually again; bonuses belong in Other expenses.
 
 **Q9.2 — Shipping cost source**
 Should we use the actual fee from the courier API, or a per-city rate the merchant enters? What about orders shipped outside Zomaal?
 Assumption: the courier API fee when available, otherwise a default fee the merchant sets per courier.
-Answer:
+Answer: Confirmed: use shipping costs from the courier service API.
 
 **Q9.3 — Recurring expenses**
 Rent is monthly. Do we need "repeat every month" on manual expenses?
 Assumption: not in v1.
-Answer:
+Answer: Confirmed: do not create automatic monthly recurring expenses in v1.
 
 **Q9.4 — "Revenue" row in the Figma categories list**
 One Figma state shows "Revenue — 0% of total expenses". Is that a design mistake?
 Assumption: yes, and we will ignore it.
-Answer:
+Answer: Confirmed: the Revenue expense-category row is a design mistake; revenue is calculated separately.
 
 **Q9.5 — Payment methods list**
 Figma shows Cash and Bank. Is anything else needed (card, mobile wallet)?
-Answer:
+Answer: Client decision pending. CASH and BANK are the current temporary supported methods; additional methods must follow the later client decision.
+
+
+## Production audit — 20 October 2026
+
+Original client answers above were read directly from the shared Google Doc. Expenses live audit: **345 observations, 313 passed, 32 failed assertions** across ten live finding groups. A separate code review confirms missing courier-cost aggregation, without nonzero live courier fees to reproduce its amount. See [results and actual responses](../final-test/expenses/live-server-test-results-2026-10-20.md). No application fixes or deployment occurred in this audit. Existing Cash/Bank support is temporary while the client decides other payment methods; the chart currently uses UTC although the client requested the phone timezone.

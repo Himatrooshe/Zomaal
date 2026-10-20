@@ -65,6 +65,12 @@ describe('EcommerceService', () => {
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
         touchLastActive: jest.fn(),
       } as never,
+      {} as never,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      } as never,
     );
 
     await expect(
@@ -162,6 +168,12 @@ describe('EcommerceService', () => {
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
         touchLastActive: jest.fn(),
       } as never,
+      {} as never,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      } as never,
     );
 
     const result = await service.dispatchOrder('user-id', order.id, {
@@ -225,6 +237,12 @@ describe('EcommerceService', () => {
           .fn()
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
       } as never,
+      {} as never,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      } as never,
     );
 
     await expect(
@@ -283,6 +301,12 @@ describe('EcommerceService', () => {
           .fn()
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
         touchLastActive: jest.fn(),
+      } as never,
+      {} as never,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
       } as never,
     );
 
@@ -347,6 +371,11 @@ describe('EcommerceService', () => {
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
       } as never,
       {} as any,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      } as never,
     );
 
     const result = await service.getRevenueSummary('user-id', {});
@@ -390,6 +419,12 @@ describe('EcommerceService', () => {
           .fn()
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
         touchLastActive: jest.fn(),
+      } as never,
+      {} as never,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
       } as never,
     );
 
@@ -489,6 +524,12 @@ describe('EcommerceService', () => {
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
         touchLastActive: jest.fn(),
       } as never,
+      {} as never,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      } as never,
     );
 
     const result = await service.createManualOrder('user-id', {
@@ -543,6 +584,12 @@ describe('EcommerceService', () => {
           .fn()
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
         touchLastActive: jest.fn(),
+      } as never,
+      {} as never,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
       } as never,
     );
 
@@ -639,6 +686,12 @@ describe('EcommerceService', () => {
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
         touchLastActive: jest.fn(),
       } as never,
+      {} as never,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      } as never,
     );
 
     const result = await service.createManualOrder('user-id', {
@@ -711,6 +764,12 @@ describe('EcommerceService', () => {
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
         touchLastActive: jest.fn(),
       } as never,
+      {} as never,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      } as never,
     );
 
     const verify = jest
@@ -761,6 +820,11 @@ describe('EcommerceService', () => {
           .mockResolvedValue({ id: 'store-id', baseCurrency: 'MAD' }),
       } as never,
       {} as any,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      } as never,
     );
 
     await service.getRevenueSummary('user-id', {});
@@ -858,6 +922,11 @@ describe('EcommerceService', () => {
           dataUpdatedAt: null,
         }),
       } as any,
+      {
+        getTotals: jest
+          .fn()
+          .mockResolvedValue({ total: new Prisma.Decimal(0), unconverted: [] }),
+      } as never,
     );
     jest.spyOn(service, 'listOrders').mockResolvedValue({ data: [] } as never);
 

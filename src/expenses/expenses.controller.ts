@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -20,6 +21,7 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiHeader,
   ApiConflictResponse,
   ApiConsumes,
   ApiCreatedResponse,
@@ -43,10 +45,6 @@ import type { StoreAccess } from '../access/store-access.service';
 import { PERMISSIONS } from '../access/permissions';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import type { WarehouseMediaUploadFile } from '../warehouse/media.service';
-import {
-  MonthlyTrendQueryDto,
-  MonthlyTrendResponseDto,
-} from '../common/dto/monthly-trend.dto';
 import { ExpensesService } from './expenses.service';
 import {
   CreateExpenseCategoryDto,
@@ -63,6 +61,8 @@ import {
   ExpenseSummaryQueryDto,
   ExpenseSummaryResponseDto,
   UpdateExpenseDto,
+  ExpenseTrendQueryDto,
+  ExpenseTrendResponseDto,
 } from './dto/expense.dto';
 import { AdSpendResponseDto } from '../ads/dto/ad-spend.dto';
 
@@ -225,7 +225,11 @@ export class ExpensesController {
 
   @Get('summary')
   @RequirePermission(PERMISSIONS.EXPENSES_VIEW)
-  @ApiOperation({ summary: 'Totals by group (Expenses Breakdown screen)' })
+  @ApiOperation({
+    summary: 'Totals by group (Expenses Breakdown screen)',
+    description:
+      'Includes recorded expenses, tracked ad spend and signed courier financial ledger costs. Missing FX is returned separately. Courier fees use event timestamps; they are not subtracted from Home profit a second time.',
+  })
   @ApiOkResponse({ type: ExpenseSummaryResponseDto })
   summary(
     @CurrentStoreAccess() access: StoreAccess,
@@ -258,13 +262,13 @@ export class ExpensesController {
   @ApiOperation({
     summary: 'Monthly totals (Expenses line chart)',
     description:
-      'Includes ad spend from tracked campaigns. Spend with no available exchange rate is left out (see /expenses/summary for the unconverted amounts).',
+      'Monthly recorded expenses, tracked daily ad spend and courier ledger costs in the supplied phone timezone. Ad spend retains provider calendar dates. Missing exchange rates are reported separately.',
   })
-  @ApiOkResponse({ type: MonthlyTrendResponseDto })
+  @ApiOkResponse({ type: ExpenseTrendResponseDto })
   trend(
     @CurrentStoreAccess() access: StoreAccess,
-    @Query() query: MonthlyTrendQueryDto,
-  ): Promise<MonthlyTrendResponseDto> {
+    @Query() query: ExpenseTrendQueryDto,
+  ): Promise<ExpenseTrendResponseDto> {
     return this.expenses.trend(access.storeId, query);
   }
 
@@ -282,11 +286,17 @@ export class ExpensesController {
   }
 
   @Post()
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description:
+      '8–100 character retry key. Reuse on timeout; changed payload or deleted expense returns 409.',
+  })
   @RequirePermission(PERMISSIONS.EXPENSES_ADD)
   @ApiOperation({
     summary: 'Add an expense (Add Expense screen)',
     description:
-      'Categories in the SALARY group are rejected here — record those from Staff Salary instead.',
+      'Only OTHER categories accept manual expenses. Shipping, Ads, Salary and Purchases are managed by their source modules. Provide a body idempotencyKey or Idempotency-Key header for retry safety.',
   })
   @ApiOkResponse({ type: ExpenseResponseDto })
   @ApiNotFoundResponse({
@@ -294,14 +304,16 @@ export class ExpensesController {
     type: ApiErrorDto,
   })
   @ApiConflictResponse({
-    description: 'The category is a SALARY-group category.',
+    description:
+      'The category is system-managed or an idempotency key conflicts.',
     type: ApiErrorDto,
   })
   create(
     @CurrentStoreAccess() access: StoreAccess,
     @Body() dto: CreateExpenseDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ): Promise<ExpenseResponseDto> {
-    return this.expenses.create(access, dto);
+    return this.expenses.create(access, dto, idempotencyKey);
   }
 
   @Get(':expenseId')

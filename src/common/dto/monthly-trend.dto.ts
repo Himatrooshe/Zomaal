@@ -10,7 +10,9 @@ export class MonthlyTrendQueryDto {
     description: 'How many months to include, ending at the current month.',
   })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value,
+  )
   @IsInt()
   @Min(1)
   @Max(24)
@@ -18,7 +20,11 @@ export class MonthlyTrendQueryDto {
 }
 
 export class MonthlyTrendPointDto {
-  @ApiProperty({ example: '2026-09', description: 'UTC year-month.' })
+  @ApiProperty({
+    example: '2026-09',
+    description:
+      'Calendar year-month in the endpoint timezone; UTC where no timezone parameter is supported.',
+  })
   month!: string;
 
   @ApiProperty({ example: '4250.00' })
@@ -40,7 +46,8 @@ export class MonthlyTrendDto {
 export class MonthlyTrendResponseDto {
   @ApiProperty({
     type: [MonthlyTrendPointDto],
-    description: 'Oldest first. Every month in range appears even if its total is zero.',
+    description:
+      'Oldest first. Every month in range appears even if its total is zero.',
   })
   points!: MonthlyTrendPointDto[];
 

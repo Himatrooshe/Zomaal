@@ -211,6 +211,12 @@ postgres('Packaging fixes with PostgreSQL', () => {
       dedupeKey: `LOW_STOCK:${m.id}`,
     });
     await alerts.syncStore(storeId);
+    // Dispatch assertions require an already-due job, independent of the
+    // millisecond rounding of PostgreSQL timestamp defaults.
+    await db.packagingOwnerAlert.update({
+      where: { notificationId: n!.id },
+      data: { nextAttemptAt: new Date(Date.now() - 1000) },
+    });
     return { m, n: n! };
   }
   async function queue(notificationId: string) {

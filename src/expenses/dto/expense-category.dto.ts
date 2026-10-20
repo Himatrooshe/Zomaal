@@ -1,7 +1,10 @@
+import { Transform } from 'class-transformer';
+import { trimExpenseText } from '../expense-date.util';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { ExpenseGroup } from '@prisma/client';
 import {
   IsIn,
+  ValidateIf,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -10,6 +13,7 @@ import {
 
 export class CreateExpenseCategoryDto {
   @ApiProperty({ example: 'Packaging Supplies', maxLength: 80 })
+  @Transform(trimExpenseText)
   @IsString()
   @IsNotEmpty()
   @MaxLength(80)
@@ -20,7 +24,7 @@ export class CreateExpenseCategoryDto {
     default: ExpenseGroup.OTHER,
     description: 'Which of the 5 summary buckets this category rolls into.',
   })
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsIn(Object.values(ExpenseGroup))
   group?: ExpenseGroup;
 
@@ -39,6 +43,7 @@ export class CreateExpenseCategoryDto {
 
 export class UpdateExpenseCategoryDto extends PartialType(
   CreateExpenseCategoryDto,
+  { skipNullProperties: false },
 ) {}
 
 export class ExpenseCategoryResponseDto {
