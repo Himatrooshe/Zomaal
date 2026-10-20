@@ -17,8 +17,7 @@ refusals / no-answer, combined limit, warn on new order) · Remove from blacklis
 
 **Rule.** Two orders are duplicates when they have the same customer (same store + phone, E.164), share
 at least one product, and were placed within 24 hours of the group's oldest order. The oldest order is
-**Main**. Cancelled orders and orders the merchant already decided on are left out. Product match, in
-order: warehouse variant, platform product/variant ID, SKU (case-insensitive), normalized line name.
+**Main**. Cancelled orders and orders the merchant already decided on are left out. Product matches compare each line pair. Matching warehouse variants win; conflicting known variants cannot be overridden by SKU/title. Within one connection, conflicting platform variant/product IDs cannot be overridden by weaker keys. Case-insensitive SKU supports cross-platform matching; normalized title is the final fallback when stronger comparable identities are missing.
 Orders without a phone (e.g. Shopify without protected customer data, Q11.4) cannot be grouped.
 
 Groups are computed when read, so there is no stored "group" table. Merchant decisions are stored per
@@ -79,3 +78,19 @@ Answer:
 Should "Cancel selected" also cancel the order on Shopify/YouCan?
 Assumption: yes, when the platform API allows it. Otherwise it is only marked cancelled in Zomaal.
 Answer:
+
+## Live audit — 2026-10-21
+
+Serving revision `zomaal-backend-00065-zbd`:326 recorded observations,291 passed and35 failed expectations across seven finding groups. Reproduced: formatted-phone identity/blacklist-warning bypass; same-title false duplicate matches between distinct warehouse products; incorrect cancelled-duplicate customer-history badge; concurrent cancellation of every group member; numeric query coercion/overflow; null settings500; per-category integer overflow500. Existing Customers unit baseline:70 passed. Original account/business snapshots preserved; synthetic stores/orders/products/staff access/media cleaned up. No application fixes or deployment occurred in this audit.
+
+See [live report and handoffs](../final-test/customers-risk-center/README.md). Lowering risk limits does not retrospectively blacklist existing customers until the next risk increment; client requirements do not yet define retrospective re-evaluation, so this is documented separately rather than counted as a failed test.
+
+## Fix contract — 2026-10-21
+
+Customer phone ingestion normalizes valid international, spaced/punctuated,00-prefix and store-country national phone formats to E.164, including landlines. A single existing legacy-formatted customer is renamed in place, keeping its ID, risk state and order history. Non-phone legacy references retain their exact identity. Multiple existing rows that normalize to the same phone return409 for reconciliation; risk histories are never silently combined or deleted. A read-only pre-rollout production inventory found17 customers,14 valid phones,12 needing formatting normalization and0 colliding groups. There is no bulk rewrite.
+
+Duplicate keep/cancel and dispatch claiming now share a short store-scoped database transaction lock. Membership and the surviving-order rule are re-evaluated inside that transaction; external courier network calls happen after the claim commits. Customer history honors stored/duplicate cancellation.
+
+Pagination accepts digit-only page1–1,000,000 and limit1–100; duplicate days1–90. Required settings rejectnull and all risk limits are integer0–100,000. Invalid input returns400. Lowering thresholds remains prospective until another risk event; retrospective policy still needs the client decision noted above.
+
+The additive migration creates only a store+phone-digits expression index (Prisma does not model expression indexes). No customer/order/risk rows are migrated or removed. The previous app remains compatible with the extra index. See the final-test verification for actual rollout status.

@@ -15,6 +15,7 @@ import {
   BlacklistScreenResponseDto,
   BlacklistedCustomerDto,
 } from './dto/blacklist.dto';
+import { customerPhoneIdentity } from './customer-phone.util';
 import { CustomerRiskService } from './customer-risk.service';
 import {
   closestRiskProximity,
@@ -83,6 +84,16 @@ export class CustomersService {
       ...(search && {
         OR: [
           { phone: { contains: search, mode: 'insensitive' as const } },
+          ...(customerPhoneIdentity(search)?.phone !== search
+            ? [
+                {
+                  phone: {
+                    contains: customerPhoneIdentity(search)!.phone,
+                    mode: 'insensitive' as const,
+                  },
+                },
+              ]
+            : []),
           { name: { contains: search, mode: 'insensitive' as const } },
         ],
       }),
@@ -208,6 +219,16 @@ export class CustomersService {
             {
               phone: { contains: trimmedSearch, mode: 'insensitive' as const },
             },
+            ...(customerPhoneIdentity(trimmedSearch)?.phone !== trimmedSearch
+              ? [
+                  {
+                    phone: {
+                      contains: customerPhoneIdentity(trimmedSearch)!.phone,
+                      mode: 'insensitive' as const,
+                    },
+                  },
+                ]
+              : []),
             { name: { contains: trimmedSearch, mode: 'insensitive' as const } },
           ],
         }
@@ -302,6 +323,11 @@ export class CustomersService {
     events: Array<{ type: string }>,
     fallbackStatus: string,
   ): string {
+    if (
+      fallbackStatus === 'CANCELLED' ||
+      events.some((e) => e.type === OrderEventType.DUPLICATE_ORDER_CANCELLED)
+    )
+      return 'Cancelled';
     const derived = deriveCurrentStatus(events) ?? fallbackStatus;
     return STATUS_LABEL[derived] ?? derived;
   }

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { EcommerceOrderStatus, EcommercePlatform } from '@prisma/client';
 import { Transform } from 'class-transformer';
+import { strictInteger } from '../../common/calendar-date.util';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -25,22 +26,23 @@ export class DuplicateOrdersQueryDto {
     description: 'Show groups with a duplicate placed in the last N days.',
   })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
   @Max(DUPLICATE_LOOKBACK_MAX_DAYS)
   days?: number = 30;
 
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: 1000000, default: 1 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
+  @Max(1000000)
   page?: number = 1;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
   @Max(100)

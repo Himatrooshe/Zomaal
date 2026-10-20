@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { BlacklistSettings, Customer } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreAccessService } from '../access/store-access.service';
@@ -13,6 +17,8 @@ import { OrderEventType } from '../ecommerce/constants/order-event-type';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/notification-type';
 import { DuplicateOrdersService } from './duplicate-orders.service';
+
+import { customerPhoneIdentity } from './customer-phone.util';
 
 export type RiskCategory =
   | 'RETURNS'
@@ -67,29 +73,51 @@ export class CustomerRiskService {
     address?: string | null;
     city?: string | null;
   }): Promise<Customer | null> {
-    const phone = params.phone?.trim();
-    if (!phone) {
-      return null;
-    }
-
-    return this.prisma.customer.upsert({
-      where: { storeId_phone: { storeId: params.storeId, phone } },
-      create: {
-        storeId: params.storeId,
-        phone,
-        name: params.name?.trim() || null,
-        address: params.address?.trim() || null,
-        city: params.city?.trim() || null,
-      },
-      update: {
-        ...(params.name !== undefined && {
-          name: params.name?.trim() || null,
-        }),
+    if (!params.phone?.trim()) return null;
+    const store = await this.prisma.store.findUniqueOrThrow({
+      where: { id: params.storeId },
+      select: { country: true },
+    });
+    const identity = customerPhoneIdentity(params.phone, store.country)!;
+    const phone = identity.phone;
+    return this.prisma.$transaction(async (tx) => {
+      // All formats of the same phone take one lock, including the first insert.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'customer-phone:' + params.storeId + ':' + phone}, 0))::text`;
+      const candidates = await tx.$queryRaw<Customer[]>`SELECT * FROM "Customer"
+        WHERE "storeId" = ${params.storeId}
+        AND regexp_replace("phone", '[^0-9]', '', 'g') = ANY(${identity.digitAliases}::text[])
+        ORDER BY "createdAt", id FOR UPDATE`;
+      const equivalent = candidates.filter(
+        (c) => customerPhoneIdentity(c.phone, store.country)?.phone === phone,
+      );
+      if (equivalent.length > 1)
+        throw new ConflictException(
+          'Multiple historical customer records use this phone. Reconcile their histories before adding another order.',
+        );
+      const metadata = {
+        ...(params.name !== undefined && { name: params.name?.trim() || null }),
         ...(params.address !== undefined && {
           address: params.address?.trim() || null,
         }),
         ...(params.city !== undefined && { city: params.city?.trim() || null }),
-      },
+      };
+      // Rename a single legacy formatted row in place: stable ID, risk and history.
+      if (equivalent[0] && equivalent[0].phone !== phone)
+        return tx.customer.update({
+          where: { id: equivalent[0].id },
+          data: { phone, ...metadata },
+        });
+      return tx.customer.upsert({
+        where: { storeId_phone: { storeId: params.storeId, phone } },
+        create: {
+          storeId: params.storeId,
+          phone,
+          name: params.name?.trim() || null,
+          address: params.address?.trim() || null,
+          city: params.city?.trim() || null,
+        },
+        update: metadata,
+      });
     });
   }
 

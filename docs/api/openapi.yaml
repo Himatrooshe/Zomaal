@@ -14872,6 +14872,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -15016,6 +15017,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -15127,6 +15129,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -31581,20 +31584,25 @@ components:
         returnsLimit:
           type: number
           minimum: 0
+          maximum: 100000
         cancellationsLimit:
           type: number
           minimum: 0
+          maximum: 100000
         refusalsLimit:
           type: number
           minimum: 0
+          maximum: 100000
         noAnswerLimit:
           type: number
           minimum: 0
+          maximum: 100000
         useCombinedLimit:
           type: boolean
         combinedLimit:
           type: number
           minimum: 0
+          maximum: 100000
         warnOnNewOrder:
           type: boolean
     RiskProximityDto:

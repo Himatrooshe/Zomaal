@@ -108,6 +108,7 @@ describe('EcommerceService', () => {
         findUnique: jest.fn().mockResolvedValue(order),
         update: jest.fn().mockResolvedValue({}),
       },
+      $queryRaw: jest.fn().mockResolvedValue([]),
       ecommerceOrderDispatch: {
         create: jest.fn().mockResolvedValue({}),
         update: jest.fn().mockResolvedValue({ status: 'DISPATCHED' }),
@@ -116,7 +117,9 @@ describe('EcommerceService', () => {
       $transaction: jest
         .fn()
         .mockImplementation((ops: unknown) =>
-          Array.isArray(ops) ? Promise.all(ops) : Promise.resolve([]),
+          Array.isArray(ops)
+            ? Promise.all(ops)
+            : (ops as (tx: unknown) => Promise<unknown>)(prisma),
         ),
     } as any;
     const fulfillment = {

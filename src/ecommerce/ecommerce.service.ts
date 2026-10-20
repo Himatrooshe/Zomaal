@@ -1,3 +1,4 @@
+import { lockDuplicateReviewStore } from '../customers/duplicate-review-lock.util';
 import { CourierCostsService } from '../expenses/courier-costs.service';
 import {
   findManualOrderRetry,
@@ -1014,32 +1015,54 @@ export class EcommerceService {
     const merchantTracking = `ORD-${order.id.slice(0, 8).toUpperCase()}`;
 
     try {
-      if (order.dispatch?.status === 'FAILED') {
-        const claimed = await this.prisma.ecommerceOrderDispatch.updateMany({
-          where: { id: order.dispatch.id, status: 'FAILED' },
-          data: {
-            provider: payload.provider,
-            merchantTracking,
-            providerTracking: null,
-            status: 'PENDING',
-            errorMessage: null,
+      await this.prisma.$transaction(async (tx) => {
+        await lockDuplicateReviewStore(tx, store.id);
+        const current = await tx.ecommerceOrder.findUnique({
+          where: { id: order.id, connection: { storeId: store.id } },
+          include: {
+            dispatch: true,
+            duplicateReview: { select: { decision: true } },
           },
         });
-        if (claimed.count !== 1) {
+        if (!current) throw new NotFoundException('Order not found');
+        if (
+          current.status === EcommerceOrderStatus.CANCELLED ||
+          current.duplicateReview?.decision === DuplicateOrderDecision.CANCELLED
+        )
           throw new ConflictException(
-            'Order dispatch is already being retried',
+            'This order was cancelled and cannot be shipped',
           );
+        if (current.dispatch && current.dispatch.status !== 'FAILED')
+          throw new ConflictException(
+            'Order dispatch is already in progress or completed',
+          );
+        if (current.dispatch?.status === 'FAILED') {
+          const claimed = await tx.ecommerceOrderDispatch.updateMany({
+            where: { id: current.dispatch.id, status: 'FAILED' },
+            data: {
+              provider: payload.provider,
+              merchantTracking,
+              providerTracking: null,
+              status: 'PENDING',
+              errorMessage: null,
+            },
+          });
+          if (claimed.count !== 1) {
+            throw new ConflictException(
+              'Order dispatch is already being retried',
+            );
+          }
+        } else {
+          await tx.ecommerceOrderDispatch.create({
+            data: {
+              orderId: order.id,
+              provider: payload.provider,
+              merchantTracking,
+              status: 'PENDING',
+            },
+          });
         }
-      } else {
-        await this.prisma.ecommerceOrderDispatch.create({
-          data: {
-            orderId: order.id,
-            provider: payload.provider,
-            merchantTracking,
-            status: 'PENDING',
-          },
-        });
-      }
+      });
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

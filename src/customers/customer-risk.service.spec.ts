@@ -13,7 +13,11 @@ const DEFAULT_SETTINGS = {
 };
 
 function build() {
-  const prisma = {
+  const tx = {
+    store: {
+      findUniqueOrThrow: jest.fn().mockResolvedValue({ country: 'Morocco' }),
+    },
+    $queryRaw: jest.fn().mockResolvedValue([]),
     customer: {
       upsert: jest.fn(),
       update: jest.fn(),
@@ -30,6 +34,10 @@ function build() {
     ecommerceOrder: {
       findUnique: jest.fn().mockResolvedValue({ orderName: '#1001' }),
     },
+  };
+  const prisma = {
+    ...tx,
+    $transaction: jest.fn((fn: (db: typeof tx) => Promise<unknown>) => fn(tx)),
   };
   const notifications = { raise: jest.fn().mockResolvedValue({ id: 'n-1' }) };
   const duplicates = {

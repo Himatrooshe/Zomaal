@@ -46,6 +46,35 @@ export function lineProductKeys(
   return keys;
 }
 
+/** A weaker title/SKU match must not override conflicting known identities. */
+export function duplicateLinesMatch(
+  a: DuplicateLineInput,
+  aConnection: string,
+  b: DuplicateLineInput,
+  bConnection: string,
+): boolean {
+  if (a.warehouseVariantId && b.warehouseVariantId)
+    return a.warehouseVariantId === b.warehouseVariantId;
+  if (aConnection === bConnection) {
+    if (a.externalVariantId && b.externalVariantId)
+      return a.externalVariantId === b.externalVariantId;
+    if (
+      a.externalProductId &&
+      b.externalProductId &&
+      a.externalProductId !== b.externalProductId
+    )
+      return false;
+  }
+  const aSku = a.sku?.trim().toLowerCase(),
+    bSku = b.sku?.trim().toLowerCase();
+  if (aSku && bSku) return aSku === bSku;
+  if (aConnection === bConnection && a.externalProductId && b.externalProductId)
+    return a.externalProductId === b.externalProductId;
+  const name = (line: DuplicateLineInput) =>
+    line.name.trim().toLowerCase().replace(/\s+/g, ' ');
+  return !!name(a) && name(a) === name(b);
+}
+
 /**
  * Groups each customer's orders: an order joins a group when it was placed
  * within the window after the group's main (oldest) order and shares at
@@ -56,6 +85,7 @@ export function lineProductKeys(
 export function clusterDuplicateOrders<T extends DuplicateCandidate>(
   orders: readonly T[],
   windowMs: number = DUPLICATE_WINDOW_MS,
+  matches?: (a: T, b: T) => boolean,
 ): DuplicateCluster<T>[] {
   const byCustomer = new Map<string, T[]>();
   for (const order of orders) {
@@ -75,7 +105,9 @@ export function clusterDuplicateOrders<T extends DuplicateCandidate>(
       const cluster = open.find(
         (c) =>
           order.placedAt.getTime() - c.main.placedAt.getTime() <= windowMs &&
-          [...order.productKeys].some((key) => c.keys.has(key)),
+          (matches
+            ? [c.main, ...c.duplicates].some((member) => matches(order, member))
+            : [...order.productKeys].some((key) => c.keys.has(key))),
       );
       if (cluster) {
         cluster.duplicates.push(order);

@@ -27,8 +27,11 @@ import {
   DUPLICATE_WINDOW_MS,
   clusterDuplicateOrders,
   lineProductKeys,
+  duplicateLinesMatch,
   type DuplicateCluster,
 } from './duplicate-orders.util';
+
+import { lockDuplicateReviewStore } from './duplicate-review-lock.util';
 
 const DAY_MS = 86_400_000;
 // Orders this far before the visible range still decide which order is
@@ -138,33 +141,35 @@ export class DuplicateOrdersService {
     userId: string,
     orderIds: string[],
   ): Promise<CancelDuplicateOrdersResponseDto> {
-    const clusters = await this.clustersContaining(storeId, orderIds);
-    const selected = new Set(orderIds);
-    const groupOf = new Map<string, DuplicateCluster<Candidate>>();
-    for (const cluster of clusters) {
-      for (const member of [cluster.main, ...cluster.duplicates]) {
-        if (selected.has(member.id)) groupOf.set(member.id, cluster);
-      }
-      const remaining = [cluster.main, ...cluster.duplicates].filter(
-        (m) => !selected.has(m.id),
-      );
-      if (remaining.length === 0) {
-        throw new BadRequestException(
-          `Keep at least one order from the group of ${label(cluster.main.row)}`,
-        );
-      }
-    }
-    const missing = orderIds.filter((id) => !groupOf.has(id));
-    if (missing.length > 0) {
-      throw new BadRequestException(
-        `Not in a duplicate group: ${missing.join(', ')}`,
-      );
-    }
-
+    let clusters: DuplicateCluster<Candidate>[] = [];
     const now = new Date();
     const cancelled: CancelDuplicateOrdersResponseDto['cancelled'] = [];
     try {
       await this.prisma.$transaction(async (tx) => {
+        await lockDuplicateReviewStore(tx, storeId);
+        clusters = await this.clustersContaining(storeId, orderIds, tx);
+        const selected = new Set(orderIds);
+        const groupOf = new Map<string, DuplicateCluster<Candidate>>();
+        for (const cluster of clusters) {
+          for (const member of [cluster.main, ...cluster.duplicates]) {
+            if (selected.has(member.id)) groupOf.set(member.id, cluster);
+          }
+          const remaining = [cluster.main, ...cluster.duplicates].filter(
+            (m) => !selected.has(m.id),
+          );
+          if (remaining.length === 0) {
+            throw new BadRequestException(
+              `Keep at least one order from the group of ${label(cluster.main.row)}`,
+            );
+          }
+        }
+        const missing = orderIds.filter((id) => !groupOf.has(id));
+        if (missing.length > 0) {
+          throw new BadRequestException(
+            `Not in a duplicate group: ${missing.join(', ')}`,
+          );
+        }
+
         for (const orderId of orderIds) {
           const cluster = groupOf.get(orderId)!;
           const order = [cluster.main, ...cluster.duplicates].find(
@@ -266,24 +271,28 @@ export class DuplicateOrdersService {
     userId: string,
     mainOrderId: string,
   ): Promise<{ kept: number }> {
-    const cluster = (
-      await this.clustersContaining(storeId, [mainOrderId])
-    ).find((c) => c.main.id === mainOrderId);
-    if (!cluster) {
-      throw new NotFoundException('Duplicate group not found');
-    }
-    const { count } = await this.prisma.duplicateOrderReview.createMany({
-      data: cluster.duplicates.map((d) => ({
-        storeId,
-        orderId: d.id,
-        mainOrderId,
-        decision: DuplicateOrderDecision.KEPT,
-        decidedByUserId: userId,
-      })),
-      skipDuplicates: true,
+    let resolved: DuplicateCluster<Candidate>[] = [];
+    const result = await this.prisma.$transaction(async (tx) => {
+      await lockDuplicateReviewStore(tx, storeId);
+      const cluster = (
+        await this.clustersContaining(storeId, [mainOrderId], tx)
+      ).find((c) => c.main.id === mainOrderId);
+      if (!cluster) throw new NotFoundException('Duplicate group not found');
+      const { count } = await tx.duplicateOrderReview.createMany({
+        data: cluster.duplicates.map((d) => ({
+          storeId,
+          orderId: d.id,
+          mainOrderId,
+          decision: DuplicateOrderDecision.KEPT,
+          decidedByUserId: userId,
+        })),
+        skipDuplicates: true,
+      });
+      resolved = [cluster];
+      return { kept: count };
     });
-    await this.resolveAlerts(storeId, [cluster]);
-    return { kept: count };
+    await this.resolveAlerts(storeId, resolved);
+    return result;
   }
 
   /**
@@ -337,8 +346,12 @@ export class DuplicateOrdersService {
     return review?.decision === DuplicateOrderDecision.CANCELLED;
   }
 
-  private async clustersContaining(storeId: string, orderIds: string[]) {
-    const orders = await this.prisma.ecommerceOrder.findMany({
+  private async clustersContaining(
+    storeId: string,
+    orderIds: string[],
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    const orders = await db.ecommerceOrder.findMany({
       where: { id: { in: orderIds }, connection: { storeId } },
       select: { customerId: true, providerCreatedAt: true },
     });
@@ -352,16 +365,21 @@ export class DuplicateOrdersService {
     ];
     if (customerIds.length === 0) return [];
     const times = orders.map((o) => o.providerCreatedAt.getTime());
-    return this.detect(storeId, {
-      customerIds,
-      from: new Date(Math.min(...times) - LOOKBACK_MARGIN_MS),
-      to: new Date(Math.max(...times) + LOOKBACK_MARGIN_MS),
-    });
+    return this.detect(
+      storeId,
+      {
+        customerIds,
+        from: new Date(Math.min(...times) - LOOKBACK_MARGIN_MS),
+        to: new Date(Math.max(...times) + LOOKBACK_MARGIN_MS),
+      },
+      db,
+    );
   }
 
   private async detect(
     storeId: string,
     range: { from: Date; to: Date; customerIds?: string[] },
+    db: Prisma.TransactionClient = this.prisma,
   ): Promise<DuplicateCluster<Candidate>[]> {
     const where: Prisma.EcommerceOrderWhereInput = {
       connection: { storeId },
@@ -372,7 +390,7 @@ export class DuplicateOrdersService {
     };
     let customerIds = range.customerIds;
     if (!customerIds) {
-      const repeat = await this.prisma.ecommerceOrder.groupBy({
+      const repeat = await db.ecommerceOrder.groupBy({
         by: ['customerId'],
         where,
         having: { customerId: { _count: { gt: 1 } } },
@@ -383,7 +401,7 @@ export class DuplicateOrdersService {
     }
     if (customerIds.length === 0) return [];
 
-    const rows = await this.prisma.ecommerceOrder.findMany({
+    const rows = await db.ecommerceOrder.findMany({
       where: { ...where, customerId: { in: customerIds } },
       select: ORDER_SELECT,
     });
@@ -401,6 +419,18 @@ export class DuplicateOrdersService {
           ),
           row,
         })),
+      DUPLICATE_WINDOW_MS,
+      (a, b) =>
+        a.row.lines.some((left) =>
+          b.row.lines.some((right) =>
+            duplicateLinesMatch(
+              left,
+              a.row.connectionId,
+              right,
+              b.row.connectionId,
+            ),
+          ),
+        ),
     );
   }
 

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  ValidateIf,
   IsInt,
   IsOptional,
   IsString,
@@ -114,44 +115,48 @@ export class BlacklistSettingsDto {
 }
 
 export class UpdateBlacklistSettingsDto {
-  @ApiPropertyOptional({ minimum: 0 })
-  @IsOptional()
+  @ApiPropertyOptional({ minimum: 0, maximum: 100000 })
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsInt()
   @Min(0)
+  @Max(100000)
   returnsLimit?: number;
 
-  @ApiPropertyOptional({ minimum: 0 })
-  @IsOptional()
+  @ApiPropertyOptional({ minimum: 0, maximum: 100000 })
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsInt()
   @Min(0)
+  @Max(100000)
   cancellationsLimit?: number;
 
-  @ApiPropertyOptional({ minimum: 0 })
-  @IsOptional()
+  @ApiPropertyOptional({ minimum: 0, maximum: 100000 })
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsInt()
   @Min(0)
+  @Max(100000)
   refusalsLimit?: number;
 
-  @ApiPropertyOptional({ minimum: 0 })
-  @IsOptional()
+  @ApiPropertyOptional({ minimum: 0, maximum: 100000 })
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsInt()
   @Min(0)
+  @Max(100000)
   noAnswerLimit?: number;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsBoolean()
   useCombinedLimit?: boolean;
 
-  @ApiPropertyOptional({ minimum: 0 })
-  @IsOptional()
+  @ApiPropertyOptional({ minimum: 0, maximum: 100000 })
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsInt()
   @Min(0)
   @Max(100000)
   combinedLimit?: number;
 
   @ApiPropertyOptional()
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsBoolean()
   warnOnNewOrder?: boolean;
 }

@@ -1,0 +1,2956 @@
+{
+  "module": "Customers & Risk Center",
+  "dateLocal": "2026-10-21",
+  "timezone": "Asia/Dhaka",
+  "baseUrl": "https://zomaal-backend-563898960389.us-central1.run.app",
+  "revision": "zomaal-backend-00065-zbd",
+  "commit": "0326eaaf00cd5592087a2707a0f782759f0a055c",
+  "total": 326,
+  "passed": 291,
+  "failed": 35,
+  "checks": [
+    {
+      "name": "original store list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original baseline /customers?limit=100",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original baseline /customers/blacklist",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original baseline /customers/blacklist/settings",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original baseline /ecommerce/home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original baseline /expenses/summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original duplicates baseline",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create disposable Customers store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "empty /customers",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "empty /customers/blacklist",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "empty /customers/blacklist/settings",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "empty /customers/duplicate-orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "save initial blacklist settings",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create temporary category",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "upload test product image a",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create test product a",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "upload test product image b",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create test product b",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "first manual customer order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "find synthetic customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer identity and initial totals",
+      "pass": true
+    },
+    {
+      "name": "manual retry preserves customer order count",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "manual retry same order",
+      "pass": true
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "manual retry counted once",
+      "pass": true
+    },
+    {
+      "name": "same customer second order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "same phone merges customer and updates name",
+      "pass": true
+    },
+    {
+      "name": "case insensitive name search",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "name search finds exact customer",
+      "pass": true
+    },
+    {
+      "name": "unmatched customer search",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "unmatched search returns empty",
+      "pass": true
+    },
+    {
+      "name": "different phone same product",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "duplicate groups",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "same phone/product grouped; other phone excluded",
+      "pass": true
+    },
+    {
+      "name": "duplicate metadata includes manual cancellation capability",
+      "pass": true
+    },
+    {
+      "name": "duplicate alert list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "duplicate group generates alert",
+      "pass": true
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "manual blacklist explicit reason",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "blacklist reason trimmed and timestamp set",
+      "pass": true
+    },
+    {
+      "name": "blacklisted list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "manual blacklist included",
+      "pass": true
+    },
+    {
+      "name": "repeat manual blacklist",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "new order from blacklisted customer",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "blacklisted order timeline",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "blacklist warning timeline event present",
+      "pass": true
+    },
+    {
+      "name": "blacklisted customer alert",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "blacklisted order notification generated",
+      "pass": true
+    },
+    {
+      "name": "disable warning toggle",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "blacklisted order warnings disabled",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "warnings-off timeline",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "warnings-off suppresses warning event",
+      "pass": true
+    },
+    {
+      "name": "remove blacklist",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "remove resets blacklist state and all risk counters",
+      "pass": true
+    },
+    {
+      "name": "repeat remove blacklist",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "auto-fill blacklist reason",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "restore unblocked customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "restore warning toggle",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "returns limit2 individual mode",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "first return risk order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "find synthetic customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "detect synthetic return",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "one return sets proximity one away",
+      "pass": true
+    },
+    {
+      "name": "at-risk customer list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "at-risk watchlist includes customer",
+      "pass": true
+    },
+    {
+      "name": "customer high-risk totals",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "high risk customer count across search",
+      "pass": true
+    },
+    {
+      "name": "detect synthetic return",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "same open return detection retry counted once",
+      "pass": true
+    },
+    {
+      "name": "second risk order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "detect synthetic return",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "threshold auto-blacklists exactly at2 returns",
+      "pass": true
+    },
+    {
+      "name": "reset blacklisted risk",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "reset counters and risk proximity",
+      "pass": true
+    },
+    {
+      "name": "combined replaces individual limit",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "combined risk first order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "find synthetic customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "detect synthetic return",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "combined mode ignores individual return limit1",
+      "pass": true
+    },
+    {
+      "name": "combined risk second order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "detect synthetic return",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "combined limit2 auto-blacklists",
+      "pass": true
+    },
+    {
+      "name": "disable all automatic blacklist limits",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "zero-limit control order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "detect synthetic return",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "find synthetic customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "zero limits disable automatic blacklist",
+      "pass": true
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "cannot cancel entire duplicate group",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "cancel one duplicate",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "manual duplicate cancellation needs no platform action",
+      "pass": true
+    },
+    {
+      "name": "cancelled duplicate order details",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "duplicate order has cancelled stored status",
+      "pass": true
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "duplicate cancellation does not increase customer risk",
+      "pass": true
+    },
+    {
+      "name": "customer history shows duplicate as Cancelled",
+      "pass": false,
+      "actual": "Order placed"
+    },
+    {
+      "name": "retry cancelled duplicate rejected without another side effect",
+      "pass": true,
+      "http": 400,
+      "expected": [
+        400,
+        409
+      ],
+      "message": "Not in a duplicate group: 199f12cb-7a17-4e6a-a782-8581d79c04cf"
+    },
+    {
+      "name": "duplicate groups",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "keep group real orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "duplicate groups",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "kept group disappears",
+      "pass": true
+    },
+    {
+      "name": "keep no-longer-group returns404",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "distinct product first order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "distinct product second order same display title",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "find synthetic customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "duplicate groups",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "different warehouse products with same title are not duplicates",
+      "pass": false,
+      "groupCount": 1,
+      "firstProduct": "U1OL9AGY",
+      "secondProduct": "E12F38VP"
+    },
+    {
+      "name": "concurrent cancellation first order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "concurrent cancellation second order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "concurrent cancellation preserves at least one group order",
+      "pass": true,
+      "statuses": [
+        200,
+        400
+      ]
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "canonical phone order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "find synthetic customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "formatted equivalent phone order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "find synthetic customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "equivalent phone formatting resolves to one customer",
+      "pass": false,
+      "canonicalId": "1e7812e0-aea4-49cb-bdc0-c75bd76b1c01",
+      "formattedId": "81cbf919-5d66-4647-ac3f-11275bdbde75",
+      "canonicalTotal": 1
+    },
+    {
+      "name": "blacklist canonical phone for bypass probe",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "formatted blacklisted phone order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "formatted phone warning timeline",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "equivalent blacklisted phone keeps warning protection",
+      "pass": false
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "reject /customers page=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers page=-1",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers page=abc",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers page=1.5",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers page=1junk",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers page=999999999999999999999",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "reject /customers limit=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers limit=101",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers limit=1.5",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers limit=2junk",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers unknown=true",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/blacklist page=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/blacklist page=-1",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/blacklist page=abc",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/blacklist page=1.5",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/blacklist page=1junk",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/blacklist page=999999999999999999999",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "reject /customers/blacklist limit=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/blacklist limit=101",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/blacklist limit=1.5",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/blacklist limit=2junk",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/blacklist unknown=true",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/duplicate-orders page=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/duplicate-orders page=-1",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/duplicate-orders page=abc",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/duplicate-orders page=1.5",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/duplicate-orders page=1junk",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/duplicate-orders page=999999999999999999999",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/duplicate-orders limit=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/duplicate-orders limit=101",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/duplicate-orders limit=1.5",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/duplicate-orders limit=2junk",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject /customers/duplicate-orders unknown=true",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "duplicate rejects days=0",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "duplicate rejects days=91",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "duplicate rejects days=1.5",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "duplicate rejects days=2junk",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "duplicate rejects days=abc",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "settings reject returnsLimit null",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject cancellationsLimit null",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject refusalsLimit null",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject noAnswerLimit null",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject combinedLimit null",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject useCombinedLimit null",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject warnOnNewOrder null",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject returnsLimit 2147483648",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject returnsLimit -1",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject returnsLimit 1.5",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject returnsLimit \"2\"",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject combinedLimit 100001",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject useCombinedLimit \"true\"",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject warnOnNewOrder 1",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "restore valid settings after probe",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "settings reject unknown field",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "blacklist rejects numeric reason",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid duplicate selection",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid duplicate selection",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid duplicate selection",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid duplicate selection",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "invalid duplicate selection",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "invalid duplicate selection",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "customer malformed or unknown ID",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "customer malformed or unknown ID",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "blacklist unknown customer",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "unknown group keep",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "anonymous denied /customers",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "anonymous denied /customers/blacklist",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "anonymous denied /customers/blacklist/settings",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "anonymous denied /customers/duplicate-orders",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create customer viewer staff",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "customer viewer login",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "viewer can read /customers",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "viewer can read /customers/b8bffbea-3655-4787-a103-c82d595b5852",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "viewer can read /customers/duplicate-orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "viewer cannot access blacklist management /customers/blacklist",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "viewer cannot access blacklist management /customers/blacklist/settings",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "viewer cannot blacklist customer",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "viewer cannot unblacklist",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "viewer cannot change limits",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "viewer cannot cancel duplicates",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "viewer cannot keep duplicates",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "remove customer viewer permissions",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "old token loses customer read immediately",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "grant blacklist management only",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "blacklist permission can read settings",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "blacklist permission cannot list customers",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "blacklist permission can change settings",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create isolation store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "cross-store denied GET /customers/b8bffbea-3655-4787-a103-c82d595b5852",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "cross-store denied POST /customers/b8bffbea-3655-4787-a103-c82d595b5852/blacklist",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "cross-store denied DELETE /customers/b8bffbea-3655-4787-a103-c82d595b5852/blacklist",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "cross-store denied POST /customers/duplicate-orders/f599c605-6740-4b8b-a633-3af4e2b8468a/keep",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "cross-store denied POST /customers/duplicate-orders/cancel",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "other store customer isolation",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "other store has no foreign customers",
+      "pass": true
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer pagination page1",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer pagination page2",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer pagination beyond end",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer pages preserve global totals and distinct rows",
+      "pass": true
+    },
+    {
+      "name": "blacklist search by phone",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "blacklist search finds matching customer only",
+      "pass": true
+    },
+    {
+      "name": "concurrent return detector fixture",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "concurrent return detection same return request",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ]
+    },
+    {
+      "name": "find synthetic customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent return increments customer risk once",
+      "pass": true
+    },
+    {
+      "name": "concurrent manual retry same order",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ]
+    },
+    {
+      "name": "find synthetic customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent manual retries increment customer order total once",
+      "pass": true
+    },
+    {
+      "name": "atomic duplicate cancel control1",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "atomic duplicate cancel control2",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "atomic cancel rejects mixed missing order",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "atomic cancel leaves valid order open",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "invalid mixed cancel did not partially change valid order",
+      "pass": true
+    },
+    {
+      "name": "lower returns threshold beneath existing risk",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "find synthetic customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "customer detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "observe settings save without rewriting customer history",
+      "pass": true,
+      "isBlacklisted": false,
+      "riskProximity": {
+        "category": "returns",
+        "current": 1,
+        "limit": 1,
+        "remaining": 0
+      },
+      "note": "Lowering settings does not immediately re-evaluate existing customers; document policy instead of assuming retrospective blacklisting."
+    },
+    {
+      "name": "restore disabled thresholds",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "captured cancelled-duplicate customer history",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "captured canonical-phone blacklisted customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "captured formatted-phone separate customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "duplicate groups",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "captured fractional page coercion",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "captured suffix duplicate lookback coercion",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "race control first 0",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "race control second 0",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "cancel race retains one order attempt0",
+      "pass": true,
+      "statuses": [
+        200,
+        400
+      ]
+    },
+    {
+      "name": "race control first 1",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "race control second 1",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "cancel race retains one order attempt1",
+      "pass": false,
+      "statuses": [
+        200,
+        200
+      ]
+    },
+    {
+      "name": "race control first 2",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "race control second 2",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "cancel race retains one order attempt2",
+      "pass": false,
+      "statuses": [
+        200,
+        200
+      ]
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read persisted cancelled race order",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read persisted cancelled race order",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent group retains an OPEN order after repeat cancellation race 1",
+      "pass": false,
+      "statuses": [
+        "CANCELLED",
+        "CANCELLED"
+      ],
+      "orderIds": [
+        "368b9e47-ed2c-4727-9cc2-778618b1b368",
+        "43b0122b-6d33-44f4-b7dc-62f4a6dc921b"
+      ]
+    },
+    {
+      "name": "read persisted cancelled race order",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read persisted cancelled race order",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "concurrent group retains an OPEN order after repeat cancellation race 2",
+      "pass": false,
+      "statuses": [
+        "CANCELLED",
+        "CANCELLED"
+      ],
+      "orderIds": [
+        "659fe7ef-db40-427b-a65b-d91b3465865a",
+        "bbc82f51-d0fd-4b12-96db-e84b5683b0d6"
+      ]
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "synthetic staff cleanup login",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "schedule synthetic staff account deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deactivate synthetic staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolation test store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete customer QA store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original stores after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store set restored",
+      "pass": true
+    },
+    {
+      "name": "original snapshot after cleanup /customers?limit=100",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "preserved /customers?limit=100",
+      "pass": true
+    },
+    {
+      "name": "original snapshot after cleanup /customers/blacklist",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "preserved /customers/blacklist",
+      "pass": true
+    },
+    {
+      "name": "original snapshot after cleanup /customers/blacklist/settings",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "preserved /customers/blacklist/settings",
+      "pass": true
+    },
+    {
+      "name": "original snapshot after cleanup /ecommerce/home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "preserved /ecommerce/home",
+      "pass": true
+    },
+    {
+      "name": "original snapshot after cleanup /expenses/summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "preserved /expenses/summary",
+      "pass": true
+    },
+    {
+      "name": "original duplicate groups after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original duplicate groups preserved",
+      "pass": true
+    },
+    {
+      "name": "select store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    }
+  ],
+  "responses": [
+    {
+      "name": "empty /customers",
+      "path": "/customers",
+      "http": 200,
+      "data": {
+        "customers": [],
+        "totalCustomers": 0,
+        "highRiskCount": 0,
+        "page": 1,
+        "limit": 20
+      }
+    },
+    {
+      "name": "empty /customers/blacklist",
+      "path": "/customers/blacklist",
+      "http": 200,
+      "data": {
+        "totalBlacklisted": 0,
+        "atRiskCustomers": [],
+        "blacklistedCustomers": [],
+        "page": 1,
+        "limit": 20
+      }
+    },
+    {
+      "name": "empty /customers/blacklist/settings",
+      "path": "/customers/blacklist/settings",
+      "http": 200,
+      "data": {
+        "id": "c3eb531f-b649-4239-b8e0-905ba145dd64",
+        "storeId": "5743cbf9-44ba-4d6e-81ed-43939d654aaa",
+        "returnsLimit": 0,
+        "cancellationsLimit": 0,
+        "refusalsLimit": 0,
+        "noAnswerLimit": 0,
+        "useCombinedLimit": false,
+        "combinedLimit": 0,
+        "warnOnNewOrder": true,
+        "createdAt": "2026-10-20T19:13:44.696Z",
+        "updatedAt": "2026-10-20T19:13:44.696Z"
+      }
+    },
+    {
+      "name": "empty /customers/duplicate-orders",
+      "path": "/customers/duplicate-orders",
+      "http": 200,
+      "data": {
+        "windowHours": 24,
+        "from": "2026-09-20T19:13:45.638Z",
+        "totalGroups": 0,
+        "totalDuplicates": 0,
+        "data": [],
+        "meta": {
+          "page": 1,
+          "limit": 20,
+          "total": 0,
+          "totalPages": 0
+        }
+      }
+    },
+    {
+      "name": "manual blacklist explicit reason",
+      "path": "/customers/b8bffbea-3655-4787-a103-c82d595b5852/blacklist",
+      "http": 201,
+      "data": {
+        "id": "b8bffbea-3655-4787-a103-c82d595b5852",
+        "phone": "+212600000201",
+        "name": "[QA CUSTOMER] Updated name",
+        "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+        "totalOrders": 2,
+        "riskScore": {
+          "returns": 0,
+          "cancellations": 0,
+          "refusals": 0,
+          "noAnswer": 0,
+          "totalRiskActions": 0
+        },
+        "isBlacklisted": true,
+        "blacklistReason": "QA explicit reason",
+        "blacklistedAt": "2026-10-20T19:14:05.399Z",
+        "riskProximity": null,
+        "orders": [
+          {
+            "orderId": "199f12cb-7a17-4e6a-a782-8581d79c04cf",
+            "orderName": "#199F12CB",
+            "productSummary": "[QA CUSTOMERS] Same displayed title",
+            "status": "Order placed",
+            "occurredAt": "2026-10-20T19:14:01.329Z"
+          },
+          {
+            "orderId": "f599c605-6740-4b8b-a633-3af4e2b8468a",
+            "orderName": "#F599C605",
+            "productSummary": "[QA CUSTOMERS] Same displayed title",
+            "status": "Order placed",
+            "occurredAt": "2026-10-20T19:13:59.296Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "blacklisted order timeline",
+      "path": "/ecommerce/orders/72c3b276-0d65-4546-8f0d-c39e230d6aaf/timeline",
+      "http": 200,
+      "data": {
+        "orderId": "72c3b276-0d65-4546-8f0d-c39e230d6aaf",
+        "platform": "MANUAL",
+        "available": true,
+        "currentStatus": "ORDER_CREATED",
+        "stale": false,
+        "dataUpdatedAt": "2026-10-20T19:14:06.573Z",
+        "tracking": null,
+        "events": [
+          {
+            "id": "e6ea785e-658a-406f-b23d-0cf8dc6f8b2c",
+            "type": "CUSTOMER_BLACKLISTED_WARNING",
+            "title": "Blacklisted customer placed a new order",
+            "message": null,
+            "actor": null,
+            "location": null,
+            "occurredAt": "2026-10-20T19:14:06.440Z",
+            "synthetic": false
+          },
+          {
+            "id": "9ec86a54-ae02-42c8-add7-070fda640b65",
+            "type": "ORDER_CREATED",
+            "title": "Manual order created",
+            "message": null,
+            "actor": null,
+            "location": null,
+            "occurredAt": "2026-10-20T19:14:06.440Z",
+            "synthetic": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "cancel one duplicate",
+      "path": "/customers/duplicate-orders/cancel",
+      "http": 200,
+      "data": {
+        "cancelled": [
+          {
+            "orderId": "199f12cb-7a17-4e6a-a782-8581d79c04cf",
+            "orderName": "#199F12CB",
+            "platform": "MANUAL",
+            "platformCancelRequired": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "keep group real orders",
+      "path": "/customers/duplicate-orders/f599c605-6740-4b8b-a633-3af4e2b8468a/keep",
+      "http": 200,
+      "data": {
+        "kept": 2
+      }
+    },
+    {
+      "name": "concurrent cancel different members same group",
+      "runs": [
+        {
+          "http": 200,
+          "data": {
+            "cancelled": [
+              {
+                "orderId": "8840af52-60af-4406-b19c-d28f4473e33f",
+                "orderName": "#8840AF52",
+                "platform": "MANUAL",
+                "platformCancelRequired": false
+              }
+            ]
+          }
+        },
+        {
+          "http": 400,
+          "data": {
+            "message": "Not in a duplicate group: 1038bf6e-5d4b-404b-98cf-3aa23dd01f33",
+            "error": "Bad Request",
+            "statusCode": 400
+          }
+        }
+      ]
+    },
+    {
+      "name": "reject /customers page=999999999999999999999",
+      "path": "/customers?page=999999999999999999999",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "reject /customers/blacklist page=999999999999999999999",
+      "path": "/customers/blacklist?page=999999999999999999999",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "settings reject returnsLimit null",
+      "path": "/customers/blacklist/settings",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "settings reject cancellationsLimit null",
+      "path": "/customers/blacklist/settings",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "settings reject refusalsLimit null",
+      "path": "/customers/blacklist/settings",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "settings reject noAnswerLimit null",
+      "path": "/customers/blacklist/settings",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "settings reject combinedLimit null",
+      "path": "/customers/blacklist/settings",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "settings reject useCombinedLimit null",
+      "path": "/customers/blacklist/settings",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "settings reject warnOnNewOrder null",
+      "path": "/customers/blacklist/settings",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "settings reject returnsLimit 2147483648",
+      "path": "/customers/blacklist/settings",
+      "http": 500,
+      "data": {
+        "statusCode": 500,
+        "message": "Internal server error"
+      }
+    },
+    {
+      "name": "settings reject returnsLimit -1",
+      "path": "/customers/blacklist/settings",
+      "http": 400,
+      "data": {
+        "message": [
+          "returnsLimit must not be less than 0"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "settings reject returnsLimit 1.5",
+      "path": "/customers/blacklist/settings",
+      "http": 400,
+      "data": {
+        "message": [
+          "returnsLimit must be an integer number"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "settings reject returnsLimit \"2\"",
+      "path": "/customers/blacklist/settings",
+      "http": 400,
+      "data": {
+        "message": [
+          "returnsLimit must not be less than 0",
+          "returnsLimit must be an integer number"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "settings reject combinedLimit 100001",
+      "path": "/customers/blacklist/settings",
+      "http": 400,
+      "data": {
+        "message": [
+          "combinedLimit must not be greater than 100000"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "settings reject useCombinedLimit \"true\"",
+      "path": "/customers/blacklist/settings",
+      "http": 400,
+      "data": {
+        "message": [
+          "useCombinedLimit must be a boolean value"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "settings reject warnOnNewOrder 1",
+      "path": "/customers/blacklist/settings",
+      "http": 400,
+      "data": {
+        "message": [
+          "warnOnNewOrder must be a boolean value"
+        ],
+        "error": "Bad Request",
+        "statusCode": 400
+      }
+    },
+    {
+      "name": "existing customer after lowering return limit to current count",
+      "customerId": "6b381359-1fbd-4a70-81d5-af163e3cdf7c",
+      "riskScore": {
+        "returns": 1,
+        "cancellations": 0,
+        "refusals": 0,
+        "noAnswer": 0,
+        "totalRiskActions": 1
+      },
+      "isBlacklisted": false,
+      "riskProximity": {
+        "category": "returns",
+        "current": 1,
+        "limit": 1,
+        "remaining": 0
+      }
+    },
+    {
+      "name": "captured cancelled-duplicate customer history",
+      "path": "/customers/b8bffbea-3655-4787-a103-c82d595b5852",
+      "http": 200,
+      "data": {
+        "id": "b8bffbea-3655-4787-a103-c82d595b5852",
+        "phone": "+212600000201",
+        "name": "[QA CUSTOMER] 201",
+        "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+        "totalOrders": 4,
+        "riskScore": {
+          "returns": 0,
+          "cancellations": 0,
+          "refusals": 0,
+          "noAnswer": 0,
+          "totalRiskActions": 0
+        },
+        "isBlacklisted": false,
+        "blacklistReason": null,
+        "blacklistedAt": null,
+        "riskProximity": null,
+        "orders": [
+          {
+            "orderId": "ba9a8ce0-e77b-4fa7-9fc4-1524b9577a9b",
+            "orderName": "#BA9A8CE0",
+            "productSummary": "[QA CUSTOMERS] Same displayed title",
+            "status": "Order placed",
+            "occurredAt": "2026-10-20T19:14:07.974Z"
+          },
+          {
+            "orderId": "72c3b276-0d65-4546-8f0d-c39e230d6aaf",
+            "orderName": "#72C3B276",
+            "productSummary": "[QA CUSTOMERS] Same displayed title",
+            "status": "Order placed",
+            "occurredAt": "2026-10-20T19:14:06.440Z"
+          },
+          {
+            "orderId": "199f12cb-7a17-4e6a-a782-8581d79c04cf",
+            "orderName": "#199F12CB",
+            "productSummary": "[QA CUSTOMERS] Same displayed title",
+            "status": "Order placed",
+            "occurredAt": "2026-10-20T19:14:01.329Z"
+          },
+          {
+            "orderId": "f599c605-6740-4b8b-a633-3af4e2b8468a",
+            "orderName": "#F599C605",
+            "productSummary": "[QA CUSTOMERS] Same displayed title",
+            "status": "Order placed",
+            "occurredAt": "2026-10-20T19:13:59.296Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "captured canonical-phone blacklisted customer",
+      "path": "/customers?search=%2B212600000208",
+      "http": 200,
+      "data": {
+        "customers": [
+          {
+            "id": "1e7812e0-aea4-49cb-bdc0-c75bd76b1c01",
+            "phone": "+212600000208",
+            "name": "[QA CUSTOMER] 208",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 1,
+            "isBlacklisted": true,
+            "isHighRisk": false
+          }
+        ],
+        "totalCustomers": 1,
+        "highRiskCount": 0,
+        "page": 1,
+        "limit": 20
+      }
+    },
+    {
+      "name": "captured formatted-phone separate customer",
+      "path": "/customers?search=%2B212%20600%20000208",
+      "http": 200,
+      "data": {
+        "customers": [
+          {
+            "id": "81cbf919-5d66-4647-ac3f-11275bdbde75",
+            "phone": "+212 600 000208",
+            "name": "[QA CUSTOMER] 208",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 2,
+            "isBlacklisted": false,
+            "isHighRisk": false
+          }
+        ],
+        "totalCustomers": 1,
+        "highRiskCount": 0,
+        "page": 1,
+        "limit": 20
+      }
+    },
+    {
+      "name": "distinct warehouse products with identical title falsely grouped",
+      "group": {
+        "id": "7cf1309c-405e-4c62-bbd8-a98a956d841e",
+        "reason": "SAME_PHONE_SAME_PRODUCT",
+        "customer": {
+          "id": "e859e835-4af5-4d16-ac1b-7276fcac2a9a",
+          "phone": "+212600000206",
+          "name": "[QA CUSTOMER] 206",
+          "isBlacklisted": false
+        },
+        "mainOrder": {
+          "id": "7cf1309c-405e-4c62-bbd8-a98a956d841e",
+          "orderName": "#7CF1309C",
+          "platform": "MANUAL",
+          "status": "OPEN",
+          "placedAt": "2026-10-20T19:14:28.169Z",
+          "totalCollected": "100.00",
+          "currency": "MAD",
+          "itemCount": 1,
+          "products": [
+            {
+              "name": "[QA CUSTOMERS] Same displayed title",
+              "quantity": 1
+            }
+          ],
+          "dispatchStatus": null,
+          "canCancel": true
+        },
+        "duplicates": [
+          {
+            "id": "a902e4a6-8934-44ee-9ef6-35ac3bda83c7",
+            "orderName": "#A902E4A6",
+            "platform": "MANUAL",
+            "status": "OPEN",
+            "placedAt": "2026-10-20T19:14:28.613Z",
+            "totalCollected": "100.00",
+            "currency": "MAD",
+            "itemCount": 1,
+            "products": [
+              {
+                "name": "[QA CUSTOMERS] Same displayed title",
+                "quantity": 1
+              }
+            ],
+            "dispatchStatus": null,
+            "canCancel": true
+          }
+        ],
+        "lastPlacedAt": "2026-10-20T19:14:28.613Z"
+      }
+    },
+    {
+      "name": "captured fractional page coercion",
+      "path": "/customers?page=1.5",
+      "http": 200,
+      "data": {
+        "customers": [
+          {
+            "id": "33dda69f-572e-4366-a3d0-8cfcf2770a3e",
+            "phone": "+212600000211",
+            "name": "[QA CUSTOMER] 211",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 2,
+            "isBlacklisted": false,
+            "isHighRisk": false
+          },
+          {
+            "id": "c78c9691-11ad-4739-9925-ae2137c14d5e",
+            "phone": "+212600000210",
+            "name": "[QA CUSTOMER] 210",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 1,
+            "isBlacklisted": false,
+            "isHighRisk": false
+          },
+          {
+            "id": "fa8c9041-7d1b-42ad-adce-0f0a610878af",
+            "phone": "+212600000209",
+            "name": "[QA CUSTOMER] 209",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 1,
+            "isBlacklisted": false,
+            "isHighRisk": false
+          },
+          {
+            "id": "81cbf919-5d66-4647-ac3f-11275bdbde75",
+            "phone": "+212 600 000208",
+            "name": "[QA CUSTOMER] 208",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 2,
+            "isBlacklisted": false,
+            "isHighRisk": false
+          },
+          {
+            "id": "1e7812e0-aea4-49cb-bdc0-c75bd76b1c01",
+            "phone": "+212600000208",
+            "name": "[QA CUSTOMER] 208",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 1,
+            "isBlacklisted": true,
+            "isHighRisk": false
+          },
+          {
+            "id": "25df20d8-b177-4a6e-ab22-5ee177b7700d",
+            "phone": "+212600000207",
+            "name": "[QA CUSTOMER] 207",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 2,
+            "isBlacklisted": false,
+            "isHighRisk": false
+          },
+          {
+            "id": "e859e835-4af5-4d16-ac1b-7276fcac2a9a",
+            "phone": "+212600000206",
+            "name": "[QA CUSTOMER] 206",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 2,
+            "isBlacklisted": false,
+            "isHighRisk": false
+          },
+          {
+            "id": "6b381359-1fbd-4a70-81d5-af163e3cdf7c",
+            "phone": "+212600000205",
+            "name": "[QA CUSTOMER] 205",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 1,
+            "isBlacklisted": false,
+            "isHighRisk": false
+          },
+          {
+            "id": "6a47377b-d34f-4d65-abc0-f629210e7683",
+            "phone": "+212600000204",
+            "name": "[QA CUSTOMER] 204",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 2,
+            "isBlacklisted": true,
+            "isHighRisk": false
+          },
+          {
+            "id": "f68663bd-b54d-4106-861d-9e83e8aa7f16",
+            "phone": "+212600000203",
+            "name": "[QA CUSTOMER] 203",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 2,
+            "isBlacklisted": false,
+            "isHighRisk": false
+          },
+          {
+            "id": "b8bffbea-3655-4787-a103-c82d595b5852",
+            "phone": "+212600000201",
+            "name": "[QA CUSTOMER] 201",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 4,
+            "isBlacklisted": false,
+            "isHighRisk": false
+          },
+          {
+            "id": "023ce6c3-9304-4880-9d93-b9b8035dc394",
+            "phone": "+212600000202",
+            "name": "[QA CUSTOMER] 202",
+            "address": "SYNTHETIC QA DO NOT DISPATCH, Casablanca",
+            "totalOrders": 1,
+            "isBlacklisted": false,
+            "isHighRisk": false
+          }
+        ],
+        "totalCustomers": 12,
+        "highRiskCount": 0,
+        "page": 1,
+        "limit": 20
+      }
+    },
+    {
+      "name": "captured suffix duplicate lookback coercion",
+      "path": "/customers/duplicate-orders?days=2junk",
+      "http": 200,
+      "data": {
+        "windowHours": 24,
+        "from": "2026-10-18T19:16:03.487Z",
+        "totalGroups": 5,
+        "totalDuplicates": 5,
+        "data": [
+          {
+            "id": "dc170310-0362-422f-8932-722b8a9207a6",
+            "reason": "SAME_PHONE_SAME_PRODUCT",
+            "customer": {
+              "id": "33dda69f-572e-4366-a3d0-8cfcf2770a3e",
+              "phone": "+212600000211",
+              "name": "[QA CUSTOMER] 211",
+              "isBlacklisted": false
+            },
+            "mainOrder": {
+              "id": "dc170310-0362-422f-8932-722b8a9207a6",
+              "orderName": "#DC170310",
+              "platform": "MANUAL",
+              "status": "OPEN",
+              "placedAt": "2026-10-20T19:15:32.048Z",
+              "totalCollected": "100.00",
+              "currency": "MAD",
+              "itemCount": 1,
+              "products": [
+                {
+                  "name": "[QA CUSTOMERS] Same displayed title",
+                  "quantity": 1
+                }
+              ],
+              "dispatchStatus": null,
+              "canCancel": true
+            },
+            "duplicates": [
+              {
+                "id": "877ec9c6-a28e-47c1-adec-34bc7f521ea6",
+                "orderName": "#877EC9C6",
+                "platform": "MANUAL",
+                "status": "OPEN",
+                "placedAt": "2026-10-20T19:15:32.550Z",
+                "totalCollected": "100.00",
+                "currency": "MAD",
+                "itemCount": 1,
+                "products": [
+                  {
+                    "name": "[QA CUSTOMERS] Same displayed title",
+                    "quantity": 1
+                  }
+                ],
+                "dispatchStatus": null,
+                "canCancel": true
+              }
+            ],
+            "lastPlacedAt": "2026-10-20T19:15:32.550Z"
+          },
+          {
+            "id": "75b3e295-f745-4a64-9561-1c6625cb87ea",
+            "reason": "SAME_PHONE_SAME_PRODUCT",
+            "customer": {
+              "id": "81cbf919-5d66-4647-ac3f-11275bdbde75",
+              "phone": "+212 600 000208",
+              "name": "[QA CUSTOMER] 208",
+              "isBlacklisted": false
+            },
+            "mainOrder": {
+              "id": "75b3e295-f745-4a64-9561-1c6625cb87ea",
+              "orderName": "#75B3E295",
+              "platform": "MANUAL",
+              "status": "OPEN",
+              "placedAt": "2026-10-20T19:14:33.374Z",
+              "totalCollected": "100.00",
+              "currency": "MAD",
+              "itemCount": 1,
+              "products": [
+                {
+                  "name": "[QA CUSTOMERS] Same displayed title",
+                  "quantity": 1
+                }
+              ],
+              "dispatchStatus": null,
+              "canCancel": true
+            },
+            "duplicates": [
+              {
+                "id": "a8cc5864-d7e9-40a9-8a55-0c6dd4a35241",
+                "orderName": "#A8CC5864",
+                "platform": "MANUAL",
+                "status": "OPEN",
+                "placedAt": "2026-10-20T19:14:35.406Z",
+                "totalCollected": "100.00",
+                "currency": "MAD",
+                "itemCount": 1,
+                "products": [
+                  {
+                    "name": "[QA CUSTOMERS] Same displayed title",
+                    "quantity": 1
+                  }
+                ],
+                "dispatchStatus": null,
+                "canCancel": true
+              }
+            ],
+            "lastPlacedAt": "2026-10-20T19:14:35.406Z"
+          },
+          {
+            "id": "7cf1309c-405e-4c62-bbd8-a98a956d841e",
+            "reason": "SAME_PHONE_SAME_PRODUCT",
+            "customer": {
+              "id": "e859e835-4af5-4d16-ac1b-7276fcac2a9a",
+              "phone": "+212600000206",
+              "name": "[QA CUSTOMER] 206",
+              "isBlacklisted": false
+            },
+            "mainOrder": {
+              "id": "7cf1309c-405e-4c62-bbd8-a98a956d841e",
+              "orderName": "#7CF1309C",
+              "platform": "MANUAL",
+              "status": "OPEN",
+              "placedAt": "2026-10-20T19:14:28.169Z",
+              "totalCollected": "100.00",
+              "currency": "MAD",
+              "itemCount": 1,
+              "products": [
+                {
+                  "name": "[QA CUSTOMERS] Same displayed title",
+                  "quantity": 1
+                }
+              ],
+              "dispatchStatus": null,
+              "canCancel": true
+            },
+            "duplicates": [
+              {
+                "id": "a902e4a6-8934-44ee-9ef6-35ac3bda83c7",
+                "orderName": "#A902E4A6",
+                "platform": "MANUAL",
+                "status": "OPEN",
+                "placedAt": "2026-10-20T19:14:28.613Z",
+                "totalCollected": "100.00",
+                "currency": "MAD",
+                "itemCount": 1,
+                "products": [
+                  {
+                    "name": "[QA CUSTOMERS] Same displayed title",
+                    "quantity": 1
+                  }
+                ],
+                "dispatchStatus": null,
+                "canCancel": true
+              }
+            ],
+            "lastPlacedAt": "2026-10-20T19:14:28.613Z"
+          },
+          {
+            "id": "21ad7c99-63be-46e3-89d9-1aa859170777",
+            "reason": "SAME_PHONE_SAME_PRODUCT",
+            "customer": {
+              "id": "6a47377b-d34f-4d65-abc0-f629210e7683",
+              "phone": "+212600000204",
+              "name": "[QA CUSTOMER] 204",
+              "isBlacklisted": true
+            },
+            "mainOrder": {
+              "id": "21ad7c99-63be-46e3-89d9-1aa859170777",
+              "orderName": "#21AD7C99",
+              "platform": "MANUAL",
+              "status": "OPEN",
+              "placedAt": "2026-10-20T19:14:18.256Z",
+              "totalCollected": "100.00",
+              "currency": "MAD",
+              "itemCount": 1,
+              "products": [
+                {
+                  "name": "[QA CUSTOMERS] Same displayed title",
+                  "quantity": 1
+                }
+              ],
+              "dispatchStatus": null,
+              "canCancel": true
+            },
+            "duplicates": [
+              {
+                "id": "1744e475-54d4-41d0-85ae-66707edddf00",
+                "orderName": "#1744E475",
+                "platform": "MANUAL",
+                "status": "OPEN",
+                "placedAt": "2026-10-20T19:14:19.859Z",
+                "totalCollected": "100.00",
+                "currency": "MAD",
+                "itemCount": 1,
+                "products": [
+                  {
+                    "name": "[QA CUSTOMERS] Same displayed title",
+                    "quantity": 1
+                  }
+                ],
+                "dispatchStatus": null,
+                "canCancel": true
+              }
+            ],
+            "lastPlacedAt": "2026-10-20T19:14:19.859Z"
+          },
+          {
+            "id": "b989da93-0b2b-44bc-b7c5-f7cc46077887",
+            "reason": "SAME_PHONE_SAME_PRODUCT",
+            "customer": {
+              "id": "f68663bd-b54d-4106-861d-9e83e8aa7f16",
+              "phone": "+212600000203",
+              "name": "[QA CUSTOMER] 203",
+              "isBlacklisted": false
+            },
+            "mainOrder": {
+              "id": "b989da93-0b2b-44bc-b7c5-f7cc46077887",
+              "orderName": "#B989DA93",
+              "platform": "MANUAL",
+              "status": "OPEN",
+              "placedAt": "2026-10-20T19:14:12.483Z",
+              "totalCollected": "100.00",
+              "currency": "MAD",
+              "itemCount": 1,
+              "products": [
+                {
+                  "name": "[QA CUSTOMERS] Same displayed title",
+                  "quantity": 1
+                }
+              ],
+              "dispatchStatus": null,
+              "canCancel": true
+            },
+            "duplicates": [
+              {
+                "id": "d99b52e4-309d-4fb4-84bd-019d85e40646",
+                "orderName": "#D99B52E4",
+                "platform": "MANUAL",
+                "status": "OPEN",
+                "placedAt": "2026-10-20T19:14:15.865Z",
+                "totalCollected": "100.00",
+                "currency": "MAD",
+                "itemCount": 1,
+                "products": [
+                  {
+                    "name": "[QA CUSTOMERS] Same displayed title",
+                    "quantity": 1
+                  }
+                ],
+                "dispatchStatus": null,
+                "canCancel": true
+              }
+            ],
+            "lastPlacedAt": "2026-10-20T19:14:15.865Z"
+          }
+        ],
+        "meta": {
+          "page": 1,
+          "limit": 20,
+          "total": 5,
+          "totalPages": 1
+        }
+      }
+    },
+    {
+      "name": "repeat cancellation race 0",
+      "runs": [
+        {
+          "http": 200,
+          "data": {
+            "cancelled": [
+              {
+                "orderId": "27b2f5f9-3c22-4b86-97a9-b0f752c3ee4a",
+                "orderName": "#27B2F5F9",
+                "platform": "MANUAL",
+                "platformCancelRequired": false
+              }
+            ]
+          }
+        },
+        {
+          "http": 400,
+          "data": {
+            "message": "Not in a duplicate group: f87c1262-c4d0-4630-9794-52c94100257a",
+            "error": "Bad Request",
+            "statusCode": 400
+          }
+        }
+      ]
+    },
+    {
+      "name": "repeat cancellation race 1",
+      "runs": [
+        {
+          "http": 200,
+          "data": {
+            "cancelled": [
+              {
+                "orderId": "368b9e47-ed2c-4727-9cc2-778618b1b368",
+                "orderName": "#368B9E47",
+                "platform": "MANUAL",
+                "platformCancelRequired": false
+              }
+            ]
+          }
+        },
+        {
+          "http": 200,
+          "data": {
+            "cancelled": [
+              {
+                "orderId": "43b0122b-6d33-44f4-b7dc-62f4a6dc921b",
+                "orderName": "#43B0122B",
+                "platform": "MANUAL",
+                "platformCancelRequired": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "repeat cancellation race 2",
+      "runs": [
+        {
+          "http": 200,
+          "data": {
+            "cancelled": [
+              {
+                "orderId": "659fe7ef-db40-427b-a65b-d91b3465865a",
+                "orderName": "#659FE7EF",
+                "platform": "MANUAL",
+                "platformCancelRequired": false
+              }
+            ]
+          }
+        },
+        {
+          "http": 200,
+          "data": {
+            "cancelled": [
+              {
+                "orderId": "bbc82f51-d0fd-4b12-96db-e84b5683b0d6",
+                "orderName": "#BBC82F51",
+                "platform": "MANUAL",
+                "platformCancelRequired": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "persisted state after repeat cancellation race 1",
+      "orders": [
+        {
+          "id": "368b9e47-ed2c-4727-9cc2-778618b1b368",
+          "status": "CANCELLED",
+          "orderName": "#368B9E47"
+        },
+        {
+          "id": "43b0122b-6d33-44f4-b7dc-62f4a6dc921b",
+          "status": "CANCELLED",
+          "orderName": "#43B0122B"
+        }
+      ]
+    },
+    {
+      "name": "persisted state after repeat cancellation race 2",
+      "orders": [
+        {
+          "id": "659fe7ef-db40-427b-a65b-d91b3465865a",
+          "status": "CANCELLED",
+          "orderName": "#659FE7EF"
+        },
+        {
+          "id": "bbc82f51-d0fd-4b12-96db-e84b5683b0d6",
+          "status": "CANCELLED",
+          "orderName": "#BBC82F51"
+        }
+      ]
+    }
+  ],
+  "cleaned": true,
+  "cloudMediaCleaned": true,
+  "localBaseline": {
+    "command": "npm test -- --runInBand customers",
+    "suitesPassed": 5,
+    "testsPassed": 70
+  }
+}

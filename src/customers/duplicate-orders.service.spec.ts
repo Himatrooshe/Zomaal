@@ -52,13 +52,17 @@ function row(
 
 function build(rows: ReturnType<typeof row>[]) {
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     ecommerceOrderDispatch: {
       findUnique: jest.fn(({ where }: { where: { orderId: string } }) => {
         const r = rows.find((o) => o.id === where.orderId);
         return Promise.resolve(r?.dispatch ?? null);
       }),
     },
-    duplicateOrderReview: { create: jest.fn().mockResolvedValue({}) },
+    duplicateOrderReview: {
+      create: jest.fn().mockResolvedValue({}),
+      createMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
     ecommerceOrder: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     ecommerceOrderEvent: { upsert: jest.fn().mockResolvedValue({}) },
   };
@@ -80,6 +84,8 @@ function build(rows: ReturnType<typeof row>[]) {
     },
     $transaction: jest.fn((fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
   };
+  Object.assign(tx.ecommerceOrder, prisma.ecommerceOrder);
+  tx.duplicateOrderReview.createMany = prisma.duplicateOrderReview.createMany;
   const notifications = {
     raise: jest.fn().mockResolvedValue({ id: 'n-1' }),
     resolve: jest.fn().mockResolvedValue(1),

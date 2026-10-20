@@ -187,6 +187,11 @@ jobs:
           EXPENSES_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
         run: npm run test:e2e -- --runInBand expenses-workflow.postgres
 
+      - name: Verify Customers phone identity, duplicate review and risk validation in PostgreSQL
+        env:
+          CUSTOMERS_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run test:e2e -- --runInBand customers-risk.postgres
+
       - name: Build
         run: npm run build
 
