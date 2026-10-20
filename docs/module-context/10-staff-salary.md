@@ -39,3 +39,7 @@ Answer:
 ## Live audit and corrections — 2026-10-21
 
 The live audit recorded228 observations,213 passed and15 failed expectations. Validation, page overflow, malformed dates, timezone support and scheduler provisioning are addressed in the linked Staff & Salary final-test documents. The inactive-forecast sentence in the old guide was stale: existing behavior and explicit regression tests require salary accrual and projections to continue after access deactivation. This fix preserves that established rule. See [final-test handoff](../final-test/staff-salary/README.md) for deployed status.
+
+### Deployed verification
+
+Application `0326eaa`,revision `zomaal-backend-00065-zbd`:267/267 live observations passed after successful CI/CD. Actual salary Scheduler execution returnedHTTP200; invalid inputs now400 and device-timezone reports/saved schedules are supported. Original account/business data preserved and disposable QA records/media removed. [Full report](../final-test/staff-salary/fix-verification-2026-10-21.md).

@@ -39,7 +39,7 @@ Expenses totals count actual Expense rows once. Pending manual salary obligation
 
 Default status is PENDING. Explicit `status: PAID` confirms the selected payouts now; it is not a planned-payment switch. Adding a record does not change the recurring salary profile.
 
-Generate a key once per submission and reuse it for retries, including after a timeout. The batch commits entirely or rolls back entirely. Reusing a key with changed data returns 409. There is one salary obligation per staff member per UTC due date. If the scheduler or an earlier submission already created that date, the API returns 409 identifying the existing record; confirm that record instead. The scheduler also recognizes legacy records with no new due-date key.
+Generate a key once per submission and reuse it for retries, including after a timeout. The batch commits entirely or rolls back entirely. Reusing a key with changed data returns 409. There is one salary obligation per staff member per calendar due date encoded at UTC midnight. If the scheduler or an earlier submission already created that date, the API returns 409 identifying the existing record; confirm that record instead. The scheduler also recognizes legacy records with no new due-date key.
 
 Upload receipts through `POST /expenses/receipts`. A batch receipt is attached to the first staff member in the submitted list, since an upload has one owning record. It must belong to this store, be unexpired, and not already attached. A stale or foreign receipt rolls back the batch. Repeated confirmation does not attach a receipt again or change an already-confirmed payment.
 
@@ -55,7 +55,7 @@ Upload receipts through `POST /expenses/receipts`. A batch receipt is attached t
 
 Payments include photo, job title, frequency snapshot, next scheduled date, expense handling, linked expense ID, and `expenseRecorded`. `displayStatus` derives OVERDUE when an unpaid due date is **before today in the requested phone timezone**; due today stays PENDING throughout that local day. Paid monthly charts use `paidAt`, not the due date. Monetary outputs are strings with two decimal places.
 
-The annual summary combines payments made in the requested phone-local year for payouts (calendar due-date labels retain their year), unpaid records due that year, and remaining occurrences of the current active profile without duplicating existing records. `annualTotal` is a projection, not a fixed annual commitment. `projected` indicates that uncreated occurrences contributed. Inactive staff retain their salary agreement: recorded payments, outstanding obligations and future forecasts remain included. Deactivation blocks login and store access; it does not terminate employment or stop salary scheduling. The earlier sentence excluding inactive forecasts was stale; the existing implementation and regression tests consistently require accrual to continue.
+The annual summary combines payments made in the requested phone-local year for payouts (calendar due-date labels retain their year), unpaid records due that year, and remaining occurrences of the current configured profile without duplicating existing records. `annualTotal` is a projection, not a fixed annual commitment. `projected` indicates that uncreated occurrences contributed. Inactive staff retain their salary agreement: recorded payments, outstanding obligations and future forecasts remain included. Deactivation blocks login and store access; it does not terminate employment or stop salary scheduling. The earlier sentence excluding inactive forecasts was stale; the existing implementation and regression tests consistently require accrual to continue.
 
 ## Phone timezone and date contract
 
@@ -93,3 +93,7 @@ The PostgreSQL suite covers concurrent scheduling/confirmation/batch retries, ma
 Run `python3 scripts/setup-staff-salary-scheduler.py --project <project> --prepare` before deploying. This provisions `zomaal-staff-salary-scheduler-secret` and runtime access without printing the secret. CI binds the secret and enables the endpoint. After the new revision serves traffic, run the same command without `--prepare` to configure `zomaal-staff-salary-run` every15 minutes. Unauthenticated/wrong-secret requests must return401; verify an actual Scheduler run200 and its execution log. Scheduler retries are safe through staff locks and the per-date obligation key.
 
 Rollback: revert the application commit and disable/pause the salary Scheduler job if needed. Keep the additive timezone column; the previous application can run with it. Pausing stops future accrual processing without deleting history.
+
+## Production verification — 2026-10-21
+
+Application `0326eaa`, serving revision `zomaal-backend-00065-zbd`:267/267 live observations passed after CI/CD. Actual Cloud Scheduler executionHTTP200; recurring job ENABLED every15 minutes. See [deployed verification](final-test/staff-salary/fix-verification-2026-10-21.md).
