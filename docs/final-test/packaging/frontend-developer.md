@@ -59,3 +59,8 @@ Use the routes and exact schemas in OpenAPI. Handle loading, empty, success, val
 ### Client Meta dependency
 
 Real owner WhatsApp delivery still needs the client's working Meta app/connection, encrypted token and an approved inventory template. Configure `PACKAGING_OWNER_WHATSAPP_TEMPLATE` and language (default `fr`). Body parameters in order: material name, available stock, minimum level, unit. The backend checks actual Meta approval; it does not substitute static success or a fabricated template name.
+
+
+## Deployed live retest
+
+`b1ee535` / `zomaal-backend-00063-qdf`: **208/208 production observations passed**. [Verification and actual responses](./fix-verification-2026-10-20.md). PKG-01/02/03/05 are closed; PKG-04 backend path is implemented and reports BLOCKED / WHATSAPP_DISABLED until client Meta/template prerequisites are met. Original QA account retained; synthetic test data/images cleaned.

@@ -69,3 +69,8 @@ Packaging create/edit and read responses support `supplierNames`, matching wareh
 ## Live audit — 20 October 2026
 
 Client answers above were checked against the original Google Doc Q6.1–Q6.4. Five runtime/configuration/requirements findings remain open; see [Packaging live audit](../final-test/packaging/live-server-test-results-2026-10-20.md). Delivery, Shop replenishment and alert evaluator logic passed separate local PostgreSQL checks; they must not be described as live courier or message-delivery acceptance.
+
+
+### Deployed fix retest — 20 October 2026
+
+Commit `b1ee535`, revision `zomaal-backend-00063-qdf`: 208/208 live observations passed. Image retries/concurrency, integer bounds, trimmed reasons and scheduled in-app alerts are fixed. Owner WhatsApp uses a durable queue with actual dependency status; the live status is BLOCKED / WHATSAPP_DISABLED. Client Meta setup and an approved inventory template are still required before owner receipt can be accepted. See [fix verification and responses](../final-test/packaging/fix-verification-2026-10-20.md). The audit section above records the pre-fix state.

@@ -2,10 +2,13 @@
 
 - [Frontend developer guide](./frontend-developer.md)
 - [QA tester guide](./qa-tester.md)
-- Requirements and answered questions: [06-packaging.md](../../module-context/06-packaging.md)
-- API schemas and routes: [OpenAPI](../../api/openapi.yaml)
+- [Deployed fixes and live retest](./fix-verification-2026-10-20.md)
+- [Live retest evidence and responses](./live-server-fix-retest-results-2026-10-20.json)
+- [Requirements and answered questions](../../module-context/06-packaging.md)
+- [API schemas and routes](../../api/openapi.yaml)
 
+## Current status — 20 October 2026
 
-## Live audit — 20 October 2026
+Backend fixes deployed as `b1ee535`, revision `zomaal-backend-00063-qdf`. **208/208 live observations passed.** Image retries, stock bounds, blank reasons and scheduled in-app notifications are fixed. Owner WhatsApp alert queue and dependency status are implemented; **actual receipt still awaits client Meta setup and an approved inventory template**.
 
-**Not ready for final signoff.** Five findings remain open: image replacement retries, integer bounds, notification scheduler configuration, owner WhatsApp alerts and blank stock-journal reasons. [Results and responses](./live-server-test-results-2026-10-20.md), [sanitized live evidence](./live-server-results-2026-10-20.json), [local delivery checks](./local-postgres-results-2026-10-20.json).
+[Pre-fix audit](./live-server-test-results-2026-10-20.md) is historical evidence; its five open findings describe the earlier revision. Delivery/Shop-admin events, push receipt and real owner WhatsApp receipt are separate acceptance checks.

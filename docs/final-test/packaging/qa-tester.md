@@ -53,3 +53,8 @@ New PostgreSQL suite: `PACKAGING_TEST_DATABASE_URL=<dedicated-local-test-db> npm
 Covers replay/concurrent image replacement and rollback; absolute/delta/result integer overflow; blank/short trimmed reasons; valid integer maximum; queue deduplication; blocked Meta configuration in the notification response; approved-template dispatch with mocked Meta; uncertain-outcome protection; cancellation and new alert cycles; real evaluator restock resolution; owner/staff/store access. Meta send tests in this suite are mocked and do not prove production message delivery.
 
 Live retest must separately verify the deployed revision, real image preview/replay, rejected stock writes without changed balances, scheduler authentication, low/out-of-stock creation and deduplication, toggle/restock resolution, and the actual `ownerWhatsApp` blocker. Preserve the original QA account and delete temporary records/images.
+
+
+## Deployed live retest
+
+`b1ee535` / `zomaal-backend-00063-qdf`: **208/208 production observations passed**. [Verification and actual responses](./fix-verification-2026-10-20.md). PKG-01/02/03/05 are closed; PKG-04 backend path is implemented and reports BLOCKED / WHATSAPP_DISABLED until client Meta/template prerequisites are met. Original QA account retained; synthetic test data/images cleaned.
