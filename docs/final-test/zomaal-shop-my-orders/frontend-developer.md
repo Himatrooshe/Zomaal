@@ -23,23 +23,23 @@ The nine 21 October 2026 findings are fixed and deployed: 362/362 live checks pa
 
 ## Integration rules
 
-- Use authenticated active-store context. Shop is plan-gated; separate403 PLAN_UPGRADE_REQUIRED from403 PERMISSION_DENIED. Expired subscription writes may return402. Shop viewer has shop.view; cart/addresses/checkout/cancel require shop.purchase. Favorites use shop.view.
+- Use authenticated active-store context. Shop is plan-gated; separate403 PLAN_UPGRADE_REQUIRED from403 PERMISSION_DENIED. Expired subscription writes may return 402. Shop viewer has shop.view; cart/addresses/checkout/cancel require shop.purchase. Favorites use shop.view.
 - Keep money as decimal strings; display API currency. Do not calculate totals with JavaScript binary floats or assume original store currency equals Shop currency.
 - Re-preview after cart/address/promo edits; use blockers and line.problem, paymentMethods availability and codRestriction. ONLINE is unavailable, submit422; do not display a successful payment state.
 - Both base/variant prices may have compareAtPrice; there is no quantity-tier contract today. Product variants must be selected when required.
-- Placement returns201; repeat taps currently produce one order and400/409, not an idempotent replay of its result. Reconcile GET cart/orders before retry after uncertain network outcomes.
+- Placement returns 201; repeat taps currently produce one order and400/409, not an idempotent replay of its result. Reconcile GET cart/orders before retry after uncertain network outcomes.
 - Cancel uses canCancel; stock/promo restores server-side. Three merchant COD cancellations in90days currently restrict new COD, while cart remains editable.
 - PROCESSING combines PENDING+CONFIRMED. SHIPPED currently drives OUT_FOR_DELIVERY display. Use statusSteps rather than inventing extra courier events.
 
 ## Deployed corrected contract
 
 - Cart mutations and checkout serialize per store. Historical duplicate lines merge on next add. Use returned line IDs after a merge.
-- Addresses trim before validation. Blank required fields and null required PATCH fields/default bool return400. Omit unchanged properties; district:null clears the optional district.
+- Addresses trim before validation. Blank required fields and null required PATCH fields/default bool return 400. Omit unchanged properties; district:null clears the optional district.
 - Exactly one address remains default after a mutation, including concurrent creations/switches/deletions. isDefault:false still does not unset the only default.
 - tab=ALL ignores the status parameter. PROCESSING covers PENDING+CONFIRMED.
-- Pages are bounded1–1,000,000; oversized numeric admin order searches safely return an unmatched result. Computed preview/checkout amounts beyond persistence range return400. UI must handle preview validation errors as well as blockers.
+- Pages are bounded 1–1,000,000; oversized numeric admin order searches safely return an unmatched result. Computed preview/checkout amounts beyond persistence range return 400. UI must handle preview validation errors as well as blockers.
 - Delivered Purchases allocate actual paid acquisition cost including discount/delivery, in Shop currency. Purchase unitPrice is allocation/quantity rounded to four decimals; totalCost is authoritative. Quantity×displayed two-decimal unitPrice can differ by rounding cents.
-- Expense amounts convert into store base currency at delivery; source cost, target amount and real FX rate are retained in expense notes. Missing FX returns503 and leaves the order undelivered; retry when available. Never display a delivery success from a failed request.
+- Expense amounts convert into store base currency at delivery; source cost, target amount and real FX rate are retained in expense notes. Missing FX returns 503 and leaves the order undelivered; retry when available. Never display a delivery success from a failed request.
 - Parent stock/variant updates and cancellation use sorted parent-first locks across stores.
 - No historical accounting backfill was performed. Existing earlier incorrect costs need reviewed reconciliation, if any.
 

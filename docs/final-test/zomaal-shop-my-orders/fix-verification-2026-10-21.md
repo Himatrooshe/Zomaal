@@ -16,13 +16,13 @@ This verifies backend/API fixes. Client decisions, missing design features, real
 ## Changes
 
 - SHOP-01: Delivered Purchase costs allocate the actual paid total, including discount and delivery, proportionally across item gross values. Largest-remainder cent allocation is deterministic and preserves the order total. Zero-priced items use physical quantity weights for delivery-only cost. Purchase unit price is the allocated acquisition cost / quantity rounded to four decimals; totalCost is authoritative.
-- SHOP-02: Purchases retain order currency; Expenses store the converted cost in store base currency. Real FX is loaded before the transaction; missing FX returns503 and leaves fulfillment and accounting unchanged. Converted monetary overflow rolls back delivery. Store currency is locked/rechecked before posting. Expense notes retain source cost, converted amount, currencies and rate for audit.
+- SHOP-02: Purchases retain order currency; Expenses store the converted cost in store base currency. Real FX is loaded before the transaction; missing FX returns 503 and leaves fulfillment and accounting unchanged. Converted monetary overflow rolls back delivery. Store currency is locked/rechecked before posting. Expense notes retain source cost, converted amount, currencies and rate for audit.
 - SHOP-03: Cart add/update/delete/clear and checkout share a per-store transaction lock. Duplicate historical cart lines merge on next add without losing their aggregate quantity. Checkout reads current rows/prices/quantities under locks, rather than deleting and pricing a stale preflight snapshot.
 - SHOP-04: Checkout/cancel/status changes lock parent products in sorted order before touching variants. Admin scalar/variant stock edits use the same parent-first convention. Variant aggregate totals cannot race against another checkout. Combined variant stock is bounded to the database Int range.
 - SHOP-05: Address creation/update/deletion share the store lock and enforce exactly one default whenever addresses exist. Legacy multiple defaults repair on next address mutation.
-- SHOP-06: Required address strings trim before validation; blank strings and null required PATCH fields/default bool return400. Omitted fields remain unchanged; nullable district remains supported.
-- SHOP-07: Merchant/admin pages are bounded1–1,000,000. Oversized numeric admin searches safely omit the impossible numeric-order match and continue text search, returning200 with an empty result rather than500.
-- SHOP-08: Catalog/variant/promo/settings money and stock integer inputs are bounded; computed checkout totals/lines and delivery FX totals are checked against Decimal(20,4) before persistence. Oversized checkout preview and placement return400; valid unit price10^12 remains allowed. Existing exponent/hex integer query coercion is unchanged.
+- SHOP-06: Required address strings trim before validation; blank strings and null required PATCH fields/default bool return 400. Omitted fields remain unchanged; nullable district remains supported.
+- SHOP-07: Merchant/admin pages are bounded 1–1,000,000. Oversized numeric admin searches safely omit the impossible numeric-order match and continue text search, returning 200 with an empty result rather than 500.
+- SHOP-08: Catalog/variant/promo/settings money and stock integer inputs are bounded; computed checkout totals/lines and delivery FX totals are checked against Decimal(20,4) before persistence. Oversized checkout preview and placement return 400; valid unit price10^12 remains allowed. Existing exponent/hex integer query coercion is unchanged.
 - SHOP-09: `tab=ALL` takes priority over exact status, matching the API contract.
 - Promo claim now rechecks the locked current offer, dates, global/per-store use and changed discount terms. No silent old-price promo application during a concurrent admin edit.
 
@@ -47,10 +47,10 @@ Invoice/reorder/courier-name APIs, quantity tiers, real payment gateway, actual 
 | Scenario | Actual final-revision result |
 | --- | --- |
 | Full-price +50% discounted delivered purchases | Purchases and Expenses **37.50 MAD**, matching25.00 +12.50 actually paid; previously50.00 |
-| Fully discounted COD delivery | Order total0.00; no inflated acquisition costs; Purchase/Expense totals stay37.50; physical packaging stock still credited |
+| Fully discounted COD delivery | Order total 0.00; no inflated acquisition costs; Purchase/Expense totals stay37.50; physical packaging stock still credited |
 | Cross-currency delivery | **30.00 MAD → 378.79 BDT** at recorded real rate **12.626235591302548804 BDT/MAD**; independent decimal multiplication of the saved quote matched the posted amount |
-| Existing cart parallel +1/+1 | All four rounds returned201/201 and quantity3 |
-| Empty cart parallel first adds | One merged line, quantity2; both201 |
+| Existing cart parallel +1/+1 | All four rounds returned201/201 and quantity 3 |
+| Empty cart parallel first adds | One merged line, quantity 2; both201 |
 | Variant checkout contention | Both orders succeeded; parent88 = variant sum88 |
 | Last-unit contention across stores | One201 and one409; stock zero, never negative |
 | Address bursts | Both six-request bursts returned201 and exactly one default |

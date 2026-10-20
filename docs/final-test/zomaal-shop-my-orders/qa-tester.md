@@ -2,20 +2,20 @@
 
 ## Latest deployed result
 
-**362/362 live observations passed, zero failures**, on revision 00068-vbx/app 2b31110. Both CI/CD jobs succeeded. Local verification: 136 unit suites/ 1188 tests;11 PostgreSQL suites/ 297 tests, including 41 new Shop regressions. [Final verification and actual responses](./fix-verification-2026-10-21.md).
+**362/362 live observations passed, zero failures**, on revision 00068-vbx/app 2b31110. Both CI/CD jobs succeeded. Local verification: 136 unit suites/ 1188 tests; 11 PostgreSQL suites/ 297 tests, including 41 new Shop regressions. [Final verification and actual responses](./fix-verification-2026-10-21.md).
 
-All nine confirmed API bug groups are resolved. Real provider/mobile and missing design-feature acceptance remain scoped below. Earlier audit counts were347 observations/25 reviewed failed assertions; historical responses are preserved in the original audit files.
+All nine confirmed API bug groups are resolved. Real provider/mobile and missing design-feature acceptance remain scoped below. Earlier audit counts were 347 observations/25 reviewed failed assertions; historical responses are preserved in the original audit files.
 
-## Reproduction / required regression cases
+## Historical reproduction steps / required regression cases
 
-1. Deliver a full-price order2×12.50; then another2×12.50 with 50% promo. Both COD delivered. Expected combined Purchases/Expenses37.50; observed50.00. Add multi-line discount rounding, zero-cost result and nonzero delivery allocations after agreeing accounting policy.
-2. Deliver a MAD Shop order to an isolated BDT store. Verify FX conversion or explicit unconverted treatment; current code posts the same nominal number into base expenses.
-3. Existing cart qty1: two parallel +1 requests; expect qty3. Four live rounds included qty2. Empty cart: two parallel first adds; expect one qty2 line; observed two qty1 lines. Add cart edit/clear vs checkout tests during fix.
-4. Parallel checkouts from two stores for distinct variants of the same parent. Both success should leave parent=sum(variants); observed89 vs88. Also verify last-unit contention, cancellation vs purchase, no negative stock and lock ordering/deadlocks.
+1. Deliver a full-price order 2×12.50; then another 2×12.50 with 50% promo. Both COD delivered. Expected combined Purchases/Expenses 37.50; observed 50.00. Add multi-line discount rounding, zero-cost result and nonzero delivery allocations after agreeing accounting policy.
+2. Deliver a MAD Shop order to an isolated BDT store. Verify FX conversion or explicit unconverted treatment; pre-fix code posted the same nominal number into base expenses.
+3. Existing cart qty 1: two parallel +1 requests; expect qty 3. Four live rounds included qty 2. Empty cart: two parallel first adds; expect one qty 2 line; observed two qty 1 lines. Add cart edit/clear vs checkout tests during fix.
+4. Parallel checkouts from two stores for distinct variants of the same parent. Both success should leave parent=sum(variants); observed 89 vs88. Also verify last-unit contention, cancellation vs purchase, no negative stock and lock ordering/deadlocks.
 5. Empty address list: burst six creates with isDefault:false. Exactly one default required; observed three. Repeat concurrent default switches/deletes.
 6. POST whitespace label/name/country/city/address must400; currently201/empty strings. PATCH null all required fields/default bool must400; six text fields500, bool200. Optional district clear remains separate policy.
 7. Reject unsafe huge page/skip for merchant catalog/admin orders, and safely handle numeric order search outside Int bounds. Current requests yield500. Exponent/hex integer strings are currently accepted by Number coercion; choose strict digit policy only if intended.
-8. Reject admin stock2147483648, price10^16 and computed order10^12×10000 before persistence. Preview must not advertise an unpersistable order as ready.10^12 unit price itself is valid Decimal(20,4), not an overflow.
+8. Reject admin stock 2147483648, price10^16 and computed order 10^12×10000 before persistence. Preview must not advertise an unpersistable order as ready.10^12 unit price itself is valid Decimal(20,4), not an overflow.
 9. tab=ALL plus status=CANCELLED must obey documented tab priority and include delivered orders.
 
 ## Working live regression baseline
