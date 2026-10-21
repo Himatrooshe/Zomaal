@@ -1,0 +1,22 @@
+# Item Value — QA tester guide
+
+Updated 22 October 2026. Local unit and real PostgreSQL HTTP verification completed; production acceptance is in progress. No detailed Figma screen is available.
+
+## Acceptance checklist
+
+- Empty store: 200, no rows, zero known totals and `complete: true`.
+- Multi-location product stock: aggregate on-hand; distinguish reserved/damaged from available; exclude incoming-only and zero-stock items.
+- Archived products and inactive packaging with physical stock remain valued. A virtual pack never adds another copy of component inventory value.
+- Variant warehouse cost drives product valuation. Packaging cost comes from the latest purchase date, then creation time/id, using actual paid totals, not Shop list price. Verify manual, Shop variant and legacy Shop product links.
+- Latest invalid historical cost does not silently fall back to an older cost. Zero product cost and missing purchases remain unvalued. Confirmed free packaging stays known zero without an FX quote.
+- Known foreign currency converts through a real quote. Missing/invalid quotes remain null/incomplete. No fabricated rate.
+- Kind filters, alphabetical pagination, duplicate names, empty pages and stable IDs work. Summary covers all filtered rows and remains unchanged across pages, except snapshot time.
+- Invalid/fractional/scientific/hexadecimal/unsafe page values, duplicate query values, invalid kinds, limit outside 1–100 and injected store IDs return 400.
+- Missing authentication 401; staff lacking `products.view` or deactivated 403; no-store caller 404. Changing permissions affects the current session.
+- Two independent owners only see their own store; switching an owner's active store does not move assigned staff. A foreign purchase must never supply a local material's cost.
+- Repeated reads do not change balances, purchase records or inventory/financial journals. Permission activity timestamps may update normally.
+- Restore original store selection and delete only disposable QA fixtures/accounts. Preserve real imported records and the retained merchant account.
+
+Unit tests cover decimal valuation, FX caching and invalid quotes. `test/item-value-workflow.postgres.e2e-spec.ts` uses the real controller, validation, permissions, store access and PostgreSQL relationships; test auth identities and exchange quotes are controlled at their boundaries. The CI gate runs it before deployment. Real production quotes and JWTs are checked separately during live acceptance.
+
+[Requirements](../../module-context/18-reports.md) · [OpenAPI](../../api/openapi.yaml).

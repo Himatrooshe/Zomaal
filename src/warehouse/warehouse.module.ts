@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CurrencyModule } from '../currency/currency.module';
 import { LightfunnelsModule } from '../lightfunnels/lightfunnels.module';
 import { ShopifyModule } from '../shopify/shopify.module';
 import { YouCanModule } from '../youcan/youcan.module';
@@ -9,6 +10,8 @@ import { CategoryController } from './category.controller';
 import { CategoryService } from './category.service';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
+import { ItemValueController } from './item-value.controller';
+import { ItemValueService } from './item-value.service';
 import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
 import { PackagingController } from './packaging.controller';
@@ -19,13 +22,14 @@ import { ProductService } from './product.service';
 import { WarehouseStoreService } from './warehouse-store.service';
 
 @Module({
-  imports: [ShopifyModule, YouCanModule, LightfunnelsModule],
+  imports: [ShopifyModule, YouCanModule, LightfunnelsModule, CurrencyModule],
   controllers: [
     CategoryController,
     BarcodeController,
     MediaController,
     ProductController,
     InventoryController,
+    ItemValueController,
     PackagingController,
   ],
   providers: [
@@ -37,6 +41,7 @@ import { WarehouseStoreService } from './warehouse-store.service';
     ProductService,
     ProductComparisonPdfService,
     InventoryService,
+    ItemValueService,
     PackagingService,
   ],
   exports: [

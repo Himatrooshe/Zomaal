@@ -12089,6 +12089,71 @@ paths:
       summary: Set the final on-hand stock quantity
       tags:
         - Warehouse Inventory
+  /warehouse/item-value:
+    get:
+      description: Store-scoped, read-only current valuation. Physical product variants and packaging with stock are included; bundle components are counted only as their physical variants. Unknown costs and legacy zero-cost products are reported as unvalued. Confirmed free packaging purchases have zero value. Incoming stock is excluded. The response is a current snapshot, not a historical valuation. Summary covers all matching items, independently of pagination.
+      operationId: ItemValue_get
+      parameters:
+        - name: kind
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - PRODUCT_VARIANT
+              - PACKAGING_MATERIAL
+        - name: page
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 9007199254740991
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            minimum: 1
+            maximum: 100
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemValueListDto'
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '404':
+          description: The caller has no store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+      security:
+        - bearer: []
+      summary: Get current warehouse inventory value
+      tags:
+        - Item Value
   /warehouse/packaging:
     get:
       description: Packaging list screen and the Add Product packaging selector. Returns active materials, both bought from Zomaal Shop (source SHOP) and added by the merchant (source MANUAL), sorted by name. available is on-hand minus reserved and damaged.
@@ -29172,6 +29237,137 @@ components:
         - quantity
         - reason
         - idempotencyKey
+    ItemValueLineDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - PRODUCT_VARIANT
+            - PACKAGING_MATERIAL
+        sourceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        variantTitle:
+          type: string
+          nullable: true
+        sku:
+          type: string
+          nullable: true
+        onHand:
+          type: number
+        reserved:
+          type: number
+        damaged:
+          type: number
+        available:
+          type: number
+        unitCost:
+          type: string
+          nullable: true
+          description: Null when cost is unknown. A confirmed free packaging purchase has zero cost; legacy zero-cost products remain unvalued.
+        onHandValue:
+          type: string
+          nullable: true
+        availableValue:
+          type: string
+          nullable: true
+        reservedValue:
+          type: string
+          nullable: true
+        damagedValue:
+          type: string
+          nullable: true
+      required:
+        - id
+        - kind
+        - sourceId
+        - name
+        - variantTitle
+        - sku
+        - onHand
+        - reserved
+        - damaged
+        - available
+        - unitCost
+        - onHandValue
+        - availableValue
+        - reservedValue
+        - damagedValue
+    ItemValueSummaryDto:
+      type: object
+      properties:
+        currency:
+          type: string
+        asOf:
+          type: string
+          format: date-time
+        itemCount:
+          type: number
+        onHandUnits:
+          type: number
+        availableUnits:
+          type: number
+        reservedUnits:
+          type: number
+        damagedUnits:
+          type: number
+        knownOnHandValue:
+          type: string
+          description: Value of units with a known positive unit cost; not a full total when complete is false.
+        knownAvailableValue:
+          type: string
+        knownReservedValue:
+          type: string
+        knownDamagedValue:
+          type: string
+        unvaluedItemCount:
+          type: number
+        unvaluedOnHandUnits:
+          type: number
+        complete:
+          type: boolean
+      required:
+        - currency
+        - asOf
+        - itemCount
+        - onHandUnits
+        - availableUnits
+        - reservedUnits
+        - damagedUnits
+        - knownOnHandValue
+        - knownAvailableValue
+        - knownReservedValue
+        - knownDamagedValue
+        - unvaluedItemCount
+        - unvaluedOnHandUnits
+        - complete
+    ItemValueListDto:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemValueLineDto'
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+        summary:
+          $ref: '#/components/schemas/ItemValueSummaryDto'
+      required:
+        - items
+        - total
+        - page
+        - limit
+        - summary
     OwnedPackagingMaterialResponseDto:
       type: object
       properties:

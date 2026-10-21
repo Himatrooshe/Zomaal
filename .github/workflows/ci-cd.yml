@@ -157,6 +157,11 @@ jobs:
           ORDER_EXPORT_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
         run: npm run test:e2e -- --runInBand orders-export.postgres
 
+      - name: Verify Item Value stock, costs and access in PostgreSQL
+        env:
+          ITEM_VALUE_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run test:e2e -- --runInBand item-value-workflow.postgres
+
       - name: Verify Returns stock and losses in PostgreSQL
         env:
           RETURNS_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
