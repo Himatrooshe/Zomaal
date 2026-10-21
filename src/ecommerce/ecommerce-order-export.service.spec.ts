@@ -70,6 +70,10 @@ describe('EcommerceOrderExportService', () => {
     expect(sheet?.getCell('H2').value).toBe(120);
     expect(sheet?.getCell('S2').value).toBe('SENDIT');
     expect(sheet?.getCell('T2').value).toBe('TRK-42');
+    expect(sheet?.getCell('H2').numFmt).toBe('#,##0.00');
+    expect(sheet?.getRow(1).font.bold).toBe(true);
+    expect(sheet?.views[0]).toMatchObject({ state: 'frozen', ySplit: 1 });
+    expect(sheet?.autoFilter).toBe('A1:T1');
     const calls = findMany.mock.calls as unknown as Array<
       [Prisma.EcommerceOrderFindManyArgs]
     >;
@@ -99,5 +103,31 @@ describe('EcommerceOrderExportService', () => {
     await expect(service.exportXlsx('owner-a', {})).rejects.toThrow(
       PayloadTooLargeException,
     );
+  });
+
+  it('exports the full supported boundary with unique text references and numeric amounts', async () => {
+    findMany.mockResolvedValue(
+      Array.from({ length: MAX_ORDER_EXPORT_ROWS }, (_, index) => ({
+        ...order,
+        orderName: `=QA-${index}`,
+        externalOrderId: `boundary-${index}`,
+      })),
+    );
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(await service.exportXlsx('owner-a', {}));
+    const sheet = workbook.getWorksheet('Orders')!;
+    expect(sheet.rowCount).toBe(MAX_ORDER_EXPORT_ROWS + 1);
+    expect(sheet.columnCount).toBe(20);
+    expect(sheet.getCell('B2').value).toBe('boundary-0');
+    expect(sheet.getCell(`B${sheet.rowCount}`).value).toBe('boundary-9999');
+    const references = new Set<string>();
+    sheet.eachRow((row, index) => {
+      if (index === 1) return;
+      references.add(row.getCell(2).text);
+      expect(row.getCell(1).type).toBe(ExcelJS.ValueType.String);
+      expect(row.getCell(8).value).toBe(120);
+      expect(row.getCell(8).numFmt).toBe('#,##0.00');
+    });
+    expect(references.size).toBe(MAX_ORDER_EXPORT_ROWS);
   });
 });

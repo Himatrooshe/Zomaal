@@ -200,6 +200,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify 10000-row Orders export within a constrained heap
+        run: node --max-old-space-size=96 scripts/test-order-export-memory.cjs
+
       - name: Check whitespace
         run: git diff --check
 

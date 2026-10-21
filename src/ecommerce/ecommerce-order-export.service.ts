@@ -1,6 +1,7 @@
 import { Injectable, PayloadTooLargeException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
+import { Writable } from 'node:stream';
 import { StoreAccessService } from '../access/store-access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EcommerceOrderExportQueryDto } from './dto/ecommerce-order-export-query.dto';
@@ -89,41 +90,27 @@ export class EcommerceOrderExportService {
 }
 
 async function buildWorkbook(orders: ExportOrder[]): Promise<Buffer> {
-  const workbook = new ExcelJS.Workbook();
+  // Commit rows as they are written; retaining the whole cell model exhausted
+  // the production heap at the supported 10,000-order boundary. Only compressed
+  // XLSX chunks are retained for the existing Buffer response contract.
+  const chunks: Buffer[] = [];
+  const output = new Writable({
+    write(chunk: Buffer, _encoding, callback) {
+      chunks.push(chunk);
+      callback();
+    },
+  });
+  const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+    stream: output,
+    useStyles: true,
+    useSharedStrings: false,
+  });
   workbook.creator = 'Zomaal';
-  const sheet = workbook.addWorksheet('Orders');
+  const sheet = workbook.addWorksheet('Orders', {
+    views: [{ state: 'frozen', ySplit: 1 }],
+  });
   sheet.columns = COLUMNS;
-  sheet.views = [{ state: 'frozen', ySplit: 1 }];
   sheet.autoFilter = { from: 'A1', to: 'T1' };
-  sheet.getRow(1).font = { bold: true };
-
-  for (const order of orders) {
-    sheet.addRow({
-      orderReference: order.orderName ?? order.externalOrderId,
-      externalOrderId: order.externalOrderId,
-      platform: order.connection.platform,
-      status: order.status,
-      financialStatus: order.financialStatus,
-      fulfillmentStatus: order.fulfillmentStatus ?? '',
-      currency: order.currency,
-      grossSales: money(order.grossSales),
-      discounts: money(order.discounts),
-      shipping: money(order.shipping),
-      refunds: money(order.refunds),
-      netSales: money(order.netSales),
-      totalCollected: money(order.totalCollected),
-      codAmount: order.codAmount ? money(order.codAmount) : null,
-      codStatus: order.codStatus ?? '',
-      itemCount: order.itemCount,
-      processedAt: order.processedAt.toISOString(),
-      cancelledAt: order.cancelledAt?.toISOString() ?? '',
-      courier: order.dispatch?.provider ?? '',
-      tracking:
-        order.dispatch?.providerTracking ??
-        order.dispatch?.merchantTracking ??
-        '',
-    });
-  }
   for (const key of [
     'grossSales',
     'discounts',
@@ -135,7 +122,40 @@ async function buildWorkbook(orders: ExportOrder[]): Promise<Buffer> {
   ]) {
     sheet.getColumn(key).numFmt = '#,##0.00';
   }
-  return Buffer.from(await workbook.xlsx.writeBuffer());
+  sheet.getRow(1).font = { bold: true };
+  sheet.getRow(1).commit();
+
+  for (const order of orders) {
+    sheet
+      .addRow({
+        orderReference: order.orderName ?? order.externalOrderId,
+        externalOrderId: order.externalOrderId,
+        platform: order.connection.platform,
+        status: order.status,
+        financialStatus: order.financialStatus,
+        fulfillmentStatus: order.fulfillmentStatus ?? '',
+        currency: order.currency,
+        grossSales: money(order.grossSales),
+        discounts: money(order.discounts),
+        shipping: money(order.shipping),
+        refunds: money(order.refunds),
+        netSales: money(order.netSales),
+        totalCollected: money(order.totalCollected),
+        codAmount: order.codAmount ? money(order.codAmount) : null,
+        codStatus: order.codStatus ?? '',
+        itemCount: order.itemCount,
+        processedAt: order.processedAt.toISOString(),
+        cancelledAt: order.cancelledAt?.toISOString() ?? '',
+        courier: order.dispatch?.provider ?? '',
+        tracking:
+          order.dispatch?.providerTracking ??
+          order.dispatch?.merchantTracking ??
+          '',
+      })
+      .commit();
+  }
+  await workbook.commit();
+  return Buffer.concat(chunks);
 }
 
 function money(value: Prisma.Decimal): number {
