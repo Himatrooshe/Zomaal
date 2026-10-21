@@ -40,3 +40,7 @@ All five expanded-audit findings are fixed on application `9d4e661`, production 
 - Keep the same retry key and original payload for retries. Changed payloads return 409; concurrent exact retries preserve one order.
 
 The initial expanded audit is historical. Its five findings are closed; broader provider/device/large-export acceptance limits remain as listed in the fix report.
+
+## Live staff access verification — 21 October 2026
+
+The Orders view/edit/export permission matrix, role inheritance and replacement overrides, immediate grant/revocation, deactivation and staff assigned-store isolation passed 118/118 recorded live observations. See [staff access results and scope](./live-staff-access-2026-10-21.md). Separate merchant-owner isolation remains a separate live acceptance check.

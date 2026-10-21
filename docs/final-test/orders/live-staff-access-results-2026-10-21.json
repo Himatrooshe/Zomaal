@@ -1,0 +1,714 @@
+{
+  "date": "2026-10-21",
+  "startedAt": "2026-10-21T17:20:03.731Z",
+  "finishedAt": "2026-10-21T17:22:51.048Z",
+  "environment": "Production Cloud Run API",
+  "deployment": {
+    "startedAt": "2026-10-21T17:20:03.731Z",
+    "revision": "zomaal-backend-00070-94q",
+    "commit": "9d4e661190cb9bf9bafaf413e219e2c881ed6f52",
+    "traffic": [
+      {
+        "revision": "zomaal-backend-00070-94q",
+        "percent": 100
+      }
+    ]
+  },
+  "finalRevision": "zomaal-backend-00070-94q",
+  "counts": {
+    "recordedObservations": 118,
+    "passed": 118,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "capture original staff totals",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original roles",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original Orders references",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original current store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original store list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create disposable Orders store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create disposable category",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "upload disposable image",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create disposable standard product",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "disposable store starts with zero orders",
+      "pass": true
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create staff permission fixture order",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create no-access QA role",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create disposable staff account",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "staff response excludes password and hash",
+      "pass": true
+    },
+    {
+      "name": "staff signs in without owner credentials",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "no-access staff denied list",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "no-access staff denied status summary",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "no-access staff denied detail",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "no-access staff denied products",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "no-access staff denied timeline",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "no-access staff denied financials",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "no-access staff denied export",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "no-access staff denied creation",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "permission denial response is structured",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "locked-screen response identifies Orders and missing view grant",
+      "pass": true
+    },
+    {
+      "name": "owner changes QA role grants",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "view role permits list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "view role permits status summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "view role permits detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "view role permits products",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "view role permits timeline",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "view role permits financials",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "view role session bootstrap",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff session resolves assigned store",
+      "pass": true
+    },
+    {
+      "name": "view role cannot export",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "view role cannot create",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "view role cannot sync financials",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "owner changes QA staff overrides",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "export-only session permissions",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff bootstrap reflects replacement override",
+      "pass": true
+    },
+    {
+      "name": "export-only override removes view",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "export-only override permits export",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff workbook contains only its assigned store orders",
+      "pass": true
+    },
+    {
+      "name": "export-only override cannot create",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "owner changes QA staff overrides",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "edit-only override does not imply view",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "edit-only override does not imply export",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "edit-only staff can create manual order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "edit-only staff can retry same manual order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "staff retry does not duplicate order",
+      "pass": true
+    },
+    {
+      "name": "edit-only staff can sync own manual financials",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "owner changes QA staff overrides",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "empty overrides restore inherited view",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "empty overrides remove previous export override",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "owner changes QA role grants",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "role grant applies immediately to existing login",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "owner changes QA role grants",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "role revocation applies immediately to existing login",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "remaining role export still allowed",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "owner changes QA staff overrides",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "unrelated override replaces role export",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "unrelated override grants expenses read",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "owner changes QA staff overrides",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "combined role grants allow list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "combined role grants allow status summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "combined role grants allow detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "combined role grants allow products",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "combined role grants allow timeline",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "combined role grants allow financials",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff cannot manage staff list",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "staff cannot list owner roles",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "staff cannot self-escalate permission overrides",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "staff cannot edit its role",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "staff cannot create owner stores",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "owner switching stores does not move staff assignment",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff cannot read original store order detail",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "staff cannot read original store order /products",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "staff cannot read original store order /timeline",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "staff cannot read original store order /financials",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "staff cannot sync original store financials",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "foreign order excluded from staff list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff foreign-order search is empty",
+      "pass": true
+    },
+    {
+      "name": "foreign order excluded from staff export",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff foreign-order workbook is header-only",
+      "pass": true
+    },
+    {
+      "name": "staff cannot switch into owner original store",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "staff cannot switch into owner fixture store as owner",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff store unchanged after rejected switches",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff still bound to fixture store",
+      "pass": true
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deactivate QA staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deactivation blocks existing JWT list",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "deactivation blocks existing JWT timeline",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "deactivation blocks existing JWT export",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "inactive staff login rejected",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "reactivate QA staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "reactivated staff can read assigned order",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "schedule disposable staff account deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff account uses documented deletion grace period",
+      "pass": true
+    },
+    {
+      "name": "deactivate disposable staff before deleting fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete disposable Orders store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "verify original store restored",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store is active",
+      "pass": true
+    },
+    {
+      "name": "verify store list after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store list restored",
+      "pass": true
+    },
+    {
+      "name": "verify original home after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original Home order metrics preserved",
+      "pass": true
+    },
+    {
+      "name": "verify original staff list after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original staff list and totals unchanged",
+      "pass": true
+    },
+    {
+      "name": "verify original roles after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original role list unchanged",
+      "pass": true
+    }
+  ],
+  "cleanup": {
+    "fixtureStoreDeleted": true,
+    "fixtureStaffMembershipRemovedWithStore": true,
+    "originalStoreSelectionAndListRestored": true,
+    "originalHomeOrderMetricsPreserved": true,
+    "originalStaffAndRolesUnchanged": true,
+    "syntheticStaffUserDeletionScheduled": true,
+    "deletionScheduledFor": "2026-11-20T17:21:44.703Z",
+    "uploadedImagesRemoved": 1
+  },
+  "scopeLimits": [
+    "Foreign-store checks used two stores of the same owner; unrelated merchant owners were not tested",
+    "Orders view/edit/export permissions and owner-only boundaries were exercised; real courier cancellation/dispatch was not attempted",
+    "Synthetic staff User row follows the documented 30-day deletion grace period"
+  ]
+}
