@@ -1,0 +1,229 @@
+{
+  "date": "2026-10-22",
+  "revisionAtProbe": "zomaal-backend-00070-94q",
+  "context": "Additional connected-provider diagnostic during export CI/CD. No synthetic carrier parcel created.",
+  "passed": 31,
+  "failed": 2,
+  "checks": [
+    {
+      "name": "capture current store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture Home before bounded sync",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "sendit connection read",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "sendit disconnected sync rejected",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "quicklivraison connection read",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "quicklivraison bounded sync request accepted",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "quicklivraison sync normalized contract",
+      "pass": true
+    },
+    {
+      "name": "quicklivraison shipments after sync",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "quicklivraison shipment list remains paginated",
+      "pass": true
+    },
+    {
+      "name": "quicklivraison overview after sync",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "forcelog connection read",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "forcelog bounded sync request accepted",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "forcelog sync normalized contract",
+      "pass": true
+    },
+    {
+      "name": "forcelog shipments after sync",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "forcelog shipment list remains paginated",
+      "pass": true
+    },
+    {
+      "name": "forcelog overview after sync",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "ozoneexpress connection read",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "ozoneexpress bounded sync request accepted",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "ozoneexpress sync normalized contract",
+      "pass": true
+    },
+    {
+      "name": "ozoneexpress shipments after sync",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "ozoneexpress shipment list remains paginated",
+      "pass": true
+    },
+    {
+      "name": "ozoneexpress overview after sync",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "ameex connection read",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "ameex bounded sync request accepted",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "ameex sync normalized contract",
+      "pass": true
+    },
+    {
+      "name": "ameex shipments after sync",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "ameex shipment list remains paginated",
+      "pass": true
+    },
+    {
+      "name": "ameex overview after sync",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "selected store after provider tests",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "provider sync did not switch active store",
+      "pass": true
+    },
+    {
+      "name": "Home after bounded sync",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "Ameex upstream import succeeds",
+      "pass": false,
+      "http": 200,
+      "providerHttp": 403
+    },
+    {
+      "name": "Ameex upstream credential status probe succeeds",
+      "pass": false,
+      "http": 502
+    }
+  ],
+  "outcomes": {
+    "sendit": {
+      "connected": false,
+      "http": 409,
+      "success": null,
+      "imported": null,
+      "failed": null
+    },
+    "quicklivraison": {
+      "connected": true,
+      "http": 200,
+      "success": true,
+      "imported": 2,
+      "failed": 0
+    },
+    "forcelog": {
+      "connected": true,
+      "http": 200,
+      "success": true,
+      "imported": 0,
+      "failed": 0
+    },
+    "ozoneexpress": {
+      "connected": true,
+      "http": 200,
+      "success": true,
+      "imported": 0,
+      "failed": 0
+    },
+    "ameex": {
+      "connected": true,
+      "http": 200,
+      "success": false,
+      "imported": 0,
+      "failed": 1
+    }
+  },
+  "ameexProviderReason": {
+    "message": "Access denied by Imunify360 bot-protection. IPs used for automation should be whitelisted"
+  },
+  "notes": [
+    "HTTP 200 with success:false is a failed business sync.",
+    "The two failures are the same Ameex firewall blocker, observed during import and status validation.",
+    "QuickLivraison imported two existing genuine provider parcels; they were preserved.",
+    "No newly controlled dashboard parcel-to-order match was established."
+  ]
+}

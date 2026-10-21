@@ -1,6 +1,6 @@
 # Orders
 
-**Latest finding — 22 October 2026:** exactly 10,000 export rows return 503 and exhaust the production Node heap; 10,001 rows correctly return 413. This is an open defect. Real ForceLog dispatch, PDF decoding, cancellation, pack return conditions and cleanup passed. See [courier/scan/export flow results](./live-courier-flow-2026-10-22.md).
+**Latest status — 22 October 2026:** the export heap failure is fixed on `31c0dd4`, production `zomaal-backend-00071-h7g`. **34/34 live observations passed**, including 10,000-row exports and two concurrent exports; 10,001 rows return 413. [Fix, deployment and live evidence](./export-memory-fix-verification-2026-10-22.md). Ameex firewall access, Sendit connection and real-world/device acceptance remain open.
 
 **Current status — 21 October 2026:** all five expanded-audit findings are fixed and verified live. Application commit `9d4e661`, production revision `zomaal-backend-00070-94q`, 100% traffic. **155/155 recorded live observations passed**, zero failed. Disposable data and image removed; original account/store and Home order metrics preserved.
 

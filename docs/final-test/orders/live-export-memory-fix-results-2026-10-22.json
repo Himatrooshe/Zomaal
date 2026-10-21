@@ -1,0 +1,216 @@
+{
+  "date": "2026-10-22",
+  "timezone": "Asia/Dhaka",
+  "applicationCommit": "31c0dd4",
+  "revision": "zomaal-backend-00071-h7g",
+  "trafficPercent": 100,
+  "ciRun": "https://github.com/Himatrooshe/Zomaal/actions/runs/39653877979",
+  "ciConclusion": "success",
+  "passed": 34,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "capture original selected store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original store list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original Home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create isolated export boundary store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "exactly 10001 isolated rows seeded",
+      "pass": true
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "list all seeded export rows",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "API sees all 10001 fixture rows",
+      "pass": true
+    },
+    {
+      "name": "10001 rows rejected with 413",
+      "pass": true,
+      "http": 413,
+      "expected": 413
+    },
+    {
+      "name": "exactly 10000 rows export successfully",
+      "pass": true,
+      "http": 200,
+      "expected": 200,
+      "durationMs": 7528
+    },
+    {
+      "name": "workbook has 10000 data rows and 20 columns",
+      "pass": true,
+      "dataRows": 10000,
+      "columns": 20
+    },
+    {
+      "name": "all 10000 order references are unique",
+      "pass": true
+    },
+    {
+      "name": "no foreign store rows exported",
+      "pass": true
+    },
+    {
+      "name": "all amounts stay numeric with money formatting",
+      "pass": true
+    },
+    {
+      "name": "formula-like references remain plain text",
+      "pass": true
+    },
+    {
+      "name": "frozen header and autofilter preserved",
+      "pass": true
+    },
+    {
+      "name": "small filtered export remains valid",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "empty filter exports usable header-only file",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "malformed filter still rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "unauthenticated export still rejected",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "two concurrent boundary exports succeed without a restart",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ]
+    },
+    {
+      "name": "server remains healthy after boundary export",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original active store cannot export fixture rows",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "verify explicit disposable store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated export store and bulk rows",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read original Home after export cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original Home orders preserved",
+      "pass": true
+    },
+    {
+      "name": "original Home catalog preserved",
+      "pass": true
+    },
+    {
+      "name": "read original store list after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original stores and active selection restored",
+      "pass": true
+    },
+    {
+      "name": "zero fixture orders remain",
+      "pass": true
+    },
+    {
+      "name": "fixture store permanently removed",
+      "pass": true
+    }
+  ],
+  "xlsxBytes": 893498,
+  "serverLogs": {
+    "revision": "zomaal-backend-00071-h7g",
+    "since": "2026-10-21T18:43:12.956Z",
+    "heapOrMemoryFailureCount": 0,
+    "checkedAt": "2026-10-21T18:44:07.408Z"
+  },
+  "cleanup": {
+    "bulkRowsAndStoreDeleted": true,
+    "zeroFixtureOrdersRemain": true,
+    "originalStoreListAndSelectionPreserved": true,
+    "originalHomeOrdersAndCatalogPreserved": true
+  },
+  "localVerification": {
+    "unitSuites": 139,
+    "unitTests": 1231,
+    "postgresExportTests": 1,
+    "constrainedOldSpaceMiB": 96,
+    "memoryProbePeakRssKiB": 128992,
+    "build": "passed",
+    "targetedEslint": "passed",
+    "prettier": "passed",
+    "prismaValidation": "passed",
+    "openApiGeneration": "passed",
+    "openApiDiff": "none"
+  }
+}

@@ -47,4 +47,6 @@ The Orders view/edit/export permission matrix, role inheritance and replacement 
 
 ## Live export boundary finding — 22 October 2026
 
-Exactly 10,000 matching rows exhaust the production Node heap and return 503; 10,001 rows correctly return 413. Keep the export boundary open pending a backend fix and live retest. Do not silently truncate exports. The same run verified real ForceLog PDFs, software-decoded tracking, pack conditions and cancellation. Genuine courier-origin status events and physical-device scanning remain outstanding. See [full flow evidence and limits](./live-courier-flow-2026-10-22.md).
+The earlier 10,000-row heap failure is **fixed** on `31c0dd4`, production `zomaal-backend-00071-h7g`. The live retest passed 34/34 recorded observations: 10,000 rows return a complete XLSX, two concurrent exports succeed, and 10,001 rows return 413. Do not silently truncate exports. [Fix and live evidence](./export-memory-fix-verification-2026-10-22.md). The same run verified real ForceLog PDFs, software-decoded tracking, pack conditions and cancellation. Genuine courier-origin status events and physical-device scanning remain outstanding. See [full flow evidence and limits](./live-courier-flow-2026-10-22.md).
+
+For courier sync, inspect the response `success` and `failures` fields, not HTTP 200 alone. Ameex currently reports a failed sync because its firewall rejects backend traffic; Sendit is disconnected. See [client/provider actions](../shipping/client-actions-2026-10-22.md).
