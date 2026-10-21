@@ -2,6 +2,7 @@
 
 **Current status — 21 October 2026:** all five expanded-audit findings are fixed and verified live. Application commit `9d4e661`, production revision `zomaal-backend-00070-94q`, 100% traffic. **155/155 recorded live observations passed**, zero failed. Disposable data and image removed; original account/store and Home order metrics preserved.
 
+- [Separate merchant-owner isolation — 114/114 passed](./live-owner-isolation-2026-10-21.md)
 - [Staff permissions and assigned-store live test — 118/118 passed](./live-staff-access-2026-10-21.md)
 - [Fresh independent live confirmation — 155/155 passed](./live-confirmation-2026-10-21.md)
 - [Fix verification, deployment and remaining acceptance](./live-fix-verification-2026-10-21.md)

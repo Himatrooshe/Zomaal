@@ -1,0 +1,627 @@
+{
+  "date": "2026-10-21",
+  "environment": "production",
+  "applicationCommit": "9d4e661",
+  "revision": "zomaal-backend-00070-94q",
+  "passed": 114,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "capture original store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original store list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original Home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A creates own store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "A creates category",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "A uploads fixture image",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "A creates product",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "A creates same-key independent order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create empty bootstrap store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create disposable bootstrap identity",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "disposable identity authenticates normally",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete empty bootstrap store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B creates own store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "B creates category",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "B uploads fixture image",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "B creates product",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "B creates same-key independent order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "two stores belong to distinct authenticated owners",
+      "pass": true
+    },
+    {
+      "name": "same retry key creates distinct orders across owners",
+      "pass": true
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A owner session",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A owner session resolves own store",
+      "pass": true
+    },
+    {
+      "name": "A reads own detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A denied foreign detail",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "A reads own /products",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A denied foreign /products",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "A reads own /timeline",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A denied foreign /timeline",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "A reads own /financials",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A denied foreign /financials",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "A denied foreign /fulfillment-preview",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "A denied foreign /shipping-qr",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "A denied foreign financial sync",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "A lists orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A list contains only own fixture",
+      "pass": true
+    },
+    {
+      "name": "A searches shared external reference",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A shared reference stays owner scoped",
+      "pass": true
+    },
+    {
+      "name": "A searches foreign customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A foreign search empty",
+      "pass": true
+    },
+    {
+      "name": "A exports all",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A all export row count",
+      "pass": true
+    },
+    {
+      "name": "A exports foreign",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A foreign export row count",
+      "pass": true
+    },
+    {
+      "name": "A cannot select foreign store",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "A cannot delete foreign fixture store",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "A cannot read foreign warehouse product",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "A rejects foreign product code",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "A verifies no rejected customer persisted",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A rejected cross-owner order creates no customer",
+      "pass": true
+    },
+    {
+      "name": "A rereads own orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A rejected requests added no order",
+      "pass": true
+    },
+    {
+      "name": "A verifies inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A stock unchanged",
+      "pass": true
+    },
+    {
+      "name": "A verifies active store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A failed switches preserved active store",
+      "pass": true
+    },
+    {
+      "name": "B owner session",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B owner session resolves own store",
+      "pass": true
+    },
+    {
+      "name": "B reads own detail",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B denied foreign detail",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "B reads own /products",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B denied foreign /products",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "B reads own /timeline",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B denied foreign /timeline",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "B reads own /financials",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B denied foreign /financials",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "B denied foreign /fulfillment-preview",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "B denied foreign /shipping-qr",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "B denied foreign financial sync",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "B lists orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B list contains only own fixture",
+      "pass": true
+    },
+    {
+      "name": "B searches shared external reference",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B shared reference stays owner scoped",
+      "pass": true
+    },
+    {
+      "name": "B searches foreign customer",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B foreign search empty",
+      "pass": true
+    },
+    {
+      "name": "B exports all",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B all export row count",
+      "pass": true
+    },
+    {
+      "name": "B exports foreign",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B foreign export row count",
+      "pass": true
+    },
+    {
+      "name": "B cannot select foreign store",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "B cannot delete foreign fixture store",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "B cannot read foreign warehouse product",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "B rejects foreign product code",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "B verifies no rejected customer persisted",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B rejected cross-owner order creates no customer",
+      "pass": true
+    },
+    {
+      "name": "B rereads own orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B rejected requests added no order",
+      "pass": true
+    },
+    {
+      "name": "B verifies inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B stock unchanged",
+      "pass": true
+    },
+    {
+      "name": "B verifies active store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B failed switches preserved active store",
+      "pass": true
+    },
+    {
+      "name": "A captures financial state",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A denies foreign return condition",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "B captures financial state",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B denies foreign return condition",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "A rereads financial state after condition denial",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A financial state unchanged",
+      "pass": true
+    },
+    {
+      "name": "A rereads inventory after condition denial",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "A rejected condition did not affect stock",
+      "pass": true
+    },
+    {
+      "name": "B rereads financial state after condition denial",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B financial state unchanged",
+      "pass": true
+    },
+    {
+      "name": "B rereads inventory after condition denial",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "B rejected condition did not affect stock",
+      "pass": true
+    },
+    {
+      "name": "disposable second owner permanently removed",
+      "pass": true
+    },
+    {
+      "name": "second owner fixture store removed",
+      "pass": true
+    },
+    {
+      "name": "delete original owner temporary store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "verify original store restored",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store preserved",
+      "pass": true
+    },
+    {
+      "name": "verify original store list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store list preserved",
+      "pass": true
+    },
+    {
+      "name": "verify original Home metrics",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original Home order metrics preserved",
+      "pass": true
+    },
+    {
+      "name": "A fixture image object removed",
+      "pass": true
+    },
+    {
+      "name": "B fixture image object removed",
+      "pass": true
+    }
+  ]
+}

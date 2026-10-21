@@ -43,4 +43,4 @@ The initial expanded audit is historical. Its five findings are closed; broader 
 
 ## Live staff access verification — 21 October 2026
 
-The Orders view/edit/export permission matrix, role inheritance and replacement overrides, immediate grant/revocation, deactivation and staff assigned-store isolation passed 118/118 recorded live observations. See [staff access results and scope](./live-staff-access-2026-10-21.md). Separate merchant-owner isolation remains a separate live acceptance check.
+The Orders view/edit/export permission matrix, role inheritance and replacement overrides, immediate grant/revocation, deactivation and staff assigned-store isolation passed 118/118 recorded live observations. See [staff access results and scope](./live-staff-access-2026-10-21.md). Separate merchant-owner isolation subsequently passed 114/114 recorded live observations. See [owner isolation results and cleanup](./live-owner-isolation-2026-10-21.md). Real courier/device acceptance and the large production export boundary remain outside these checks.
