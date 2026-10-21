@@ -1,6 +1,6 @@
 # Item Value — frontend developer guide
 
-Updated 22 October 2026. No detailed Figma screen exists; the client confirmed current inventory valuation (`stock × cost`). Reports are excluded from v1. Deployment/live acceptance is in progress.
+Updated 22 October 2026. No detailed Figma screen exists; the client confirmed current inventory valuation (`stock × cost`). Reports are excluded from v1. Deployed as `7a1cb34`, revision `zomaal-backend-00072-kmd`; 100/100 live observations passed.
 
 ## Request
 
@@ -22,3 +22,7 @@ The response has `items`, `total`, `page`, `limit`, and `summary`. `summary` cov
 Handle empty, loading, denied, incomplete valuation and retry states with real API responses. Do not invent inventory/costs or use Figma samples as business data.
 
 [Requirements](../../module-context/18-reports.md) · [OpenAPI](../../api/openapi.yaml).
+
+[Deployment, live evidence and limits](./live-server-test-results-2026-10-22.md) · [Sanitized QA response examples](./live-server-results-2026-10-22.json).
+
+Deployed Swagger: https://zomaal-backend-563898960389.us-central1.run.app/docs

@@ -1,6 +1,6 @@
 # Item Value — QA tester guide
 
-Updated 22 October 2026. Local unit and real PostgreSQL HTTP verification completed; production acceptance is in progress. No detailed Figma screen is available.
+Updated 22 October 2026. Deployed as `7a1cb34`, revision `zomaal-backend-00072-kmd`. Local unit/PostgreSQL checks and 100/100 recorded live observations passed. No detailed Figma screen is available.
 
 ## Acceptance checklist
 
@@ -20,3 +20,7 @@ Updated 22 October 2026. Local unit and real PostgreSQL HTTP verification comple
 Unit tests cover decimal valuation, FX caching and invalid quotes. `test/item-value-workflow.postgres.e2e-spec.ts` uses the real controller, validation, permissions, store access and PostgreSQL relationships; test auth identities and exchange quotes are controlled at their boundaries. The CI gate runs it before deployment. Real production quotes and JWTs are checked separately during live acceptance.
 
 [Requirements](../../module-context/18-reports.md) · [OpenAPI](../../api/openapi.yaml).
+
+[Deployment, live evidence and limits](./live-server-test-results-2026-10-22.md) · [Sanitized QA response examples](./live-server-results-2026-10-22.json).
+
+Deployed Swagger: https://zomaal-backend-563898960389.us-central1.run.app/docs

@@ -1,0 +1,693 @@
+{
+  "date": "2026-10-22",
+  "timezone": "Asia/Dhaka",
+  "applicationCommit": "7a1cb34",
+  "revision": "zomaal-backend-00072-kmd",
+  "trafficPercent": 100,
+  "ciRun": "https://github.com/Himatrooshe/Zomaal/actions/runs/39662709829",
+  "ciConclusion": "success",
+  "passed": 100,
+  "failed": 0,
+  "countsInclude": "Fixture setup, status assertions, value comparisons and cleanup; not 100 distinct scenarios.",
+  "checks": [
+    {
+      "name": "capture original active store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original stores",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original Home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create disposable owner A store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "peer authenticates with own fixture credentials",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "peer token identity differs from original merchant",
+      "pass": true
+    },
+    {
+      "name": "staff authenticates with own fixture credentials",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff token identity differs from original merchant",
+      "pass": true
+    },
+    {
+      "name": "peer refreshes own login before acceptance",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff refreshes own login before acceptance",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select requested test store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "valuation endpoint available after deployment",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "valuation response disables shared caching",
+      "pass": true
+    },
+    {
+      "name": "snapshot time is valid",
+      "pass": true
+    },
+    {
+      "name": "only eight stocked physical rows included",
+      "pass": true
+    },
+    {
+      "name": "bundle and incoming-only rows excluded",
+      "pass": true
+    },
+    {
+      "name": "stock buckets counted across locations",
+      "pass": true
+    },
+    {
+      "name": "standard multi-location cost and buckets exact",
+      "pass": true
+    },
+    {
+      "name": "archived stock remains included",
+      "pass": true
+    },
+    {
+      "name": "latest packaging purchase date wins over older insertion",
+      "pass": true
+    },
+    {
+      "name": "free packaging is known zero",
+      "pass": true
+    },
+    {
+      "name": "unknown product and unpurchased packaging remain null",
+      "pass": true
+    },
+    {
+      "name": "unsupported currency stays unvalued without fake rate",
+      "pass": true
+    },
+    {
+      "name": "live EUR conversion produces positive quoted value or explicit unknown",
+      "pass": true
+    },
+    {
+      "name": "converted unit cost and physical quantity reconcile within display precision",
+      "pass": true
+    },
+    {
+      "name": "known total reconciles rows and unknown counts",
+      "pass": true
+    },
+    {
+      "name": "read valuation first page",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read valuation second page",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "pages contain distinct alphabetically sorted rows",
+      "pass": true
+    },
+    {
+      "name": "summary independent of page",
+      "pass": true
+    },
+    {
+      "name": "filter physical product variants",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "product filter has exact own product valuation",
+      "pass": true
+    },
+    {
+      "name": "filter packaging materials",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "packaging filter summary excludes products",
+      "pass": true
+    },
+    {
+      "name": "read far beyond last page",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "out-of-range page empty with global summary intact",
+      "pass": true
+    },
+    {
+      "name": "reject invalid Item Value query page",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query page",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query page",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query page",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query page",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query page",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query page",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query page",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query limit",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query limit",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query limit",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query kind",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query storeId",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid Item Value query page",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "unauthenticated valuation rejected",
+      "pass": true,
+      "http": 401,
+      "expected": 401
+    },
+    {
+      "name": "separate owner reads own valuation",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "separate owner sees only own stock",
+      "pass": true
+    },
+    {
+      "name": "separate owner cannot inject original fixture store",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "permitted staff reads assigned valuation",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff rows match assigned store",
+      "pass": true
+    },
+    {
+      "name": "select requested test store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original active store does not expose fixture rows",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store contains no fixture IDs",
+      "pass": true
+    },
+    {
+      "name": "staff assignment survives owner store switch",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "staff keeps original assigned valuation after owner switch",
+      "pass": true
+    },
+    {
+      "name": "select requested test store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "remove fixture staff permission",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "permission removal blocks existing staff JWT",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "restore fixture staff permission",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "restored permission works immediately",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deactivate fixture staff",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deactivation blocks existing JWT",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "repeat read leaves business data intact 1",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "repeat read leaves business data intact 2",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "repeat read leaves business data intact 3",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "repeated reads preserve exact balances",
+      "pass": true
+    },
+    {
+      "name": "repeated reads preserve purchase records",
+      "pass": true
+    },
+    {
+      "name": "repeated reads add no inventory journals",
+      "pass": true
+    },
+    {
+      "name": "repeated reads add no financial ledger events",
+      "pass": true
+    },
+    {
+      "name": "fresh snapshot reflects newer purchase cost",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "latest cost changes without stale cached valuation",
+      "pass": true
+    },
+    {
+      "name": "read inactive packaging with physical stock",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "inactive packaging stock remains valued",
+      "pass": true
+    },
+    {
+      "name": "authenticated merchant without store returns 404",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "select requested test store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "peer disposable user removed",
+      "pass": true
+    },
+    {
+      "name": "staff disposable user removed",
+      "pass": true
+    },
+    {
+      "name": "second merchant fixture store removed",
+      "pass": true
+    },
+    {
+      "name": "delete only owner A isolated fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select requested test store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read original store set after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store set preserved",
+      "pass": true
+    },
+    {
+      "name": "original Home after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original Home order counts preserved",
+      "pass": true
+    },
+    {
+      "name": "original Home catalog preserved",
+      "pass": true
+    },
+    {
+      "name": "create disposable empty valuation store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "empty live valuation",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "empty store is complete zero valuation",
+      "pass": true
+    },
+    {
+      "name": "delete empty valuation store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select requested test store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "all fixture stock and costs removed",
+      "pass": true
+    },
+    {
+      "name": "final original store list and selection restored",
+      "pass": true
+    },
+    {
+      "name": "deployed OpenAPI publishes Item Value and validation errors",
+      "pass": true
+    },
+    {
+      "name": "live server healthy after fixture cleanup",
+      "pass": true,
+      "http": 200
+    }
+  ],
+  "liveFxAvailable": true,
+  "syntheticQaResponse": {
+    "notice": "Disposable QA inventory only; not merchant business data or frontend defaults. Identifiers and SKUs are omitted from these published examples.",
+    "summary": {
+      "currency": "MAD",
+      "asOf": "2026-10-21T19:41:44.421Z",
+      "itemCount": 8,
+      "onHandUnits": 33,
+      "availableUnits": 31,
+      "reservedUnits": 1,
+      "damagedUnits": 1,
+      "knownOnHandValue": "342.02",
+      "knownAvailableValue": "317.02",
+      "knownReservedValue": "12.50",
+      "knownDamagedValue": "12.50",
+      "unvaluedItemCount": 3,
+      "unvaluedOnHandUnits": 9,
+      "complete": false
+    },
+    "items": [
+      {
+        "kind": "PRODUCT_VARIANT",
+        "name": "A standard",
+        "variantTitle": "Default",
+        "onHand": 8,
+        "reserved": 1,
+        "damaged": 1,
+        "available": 6,
+        "unitCost": "12.5000",
+        "onHandValue": "100.00",
+        "availableValue": "75.00",
+        "reservedValue": "12.50",
+        "damagedValue": "12.50"
+      },
+      {
+        "kind": "PRODUCT_VARIANT",
+        "name": "B archived",
+        "variantTitle": "Default",
+        "onHand": 2,
+        "reserved": 0,
+        "damaged": 0,
+        "available": 2,
+        "unitCost": "2.0000",
+        "onHandValue": "4.00",
+        "availableValue": "4.00",
+        "reservedValue": "0.00",
+        "damagedValue": "0.00"
+      },
+      {
+        "kind": "PRODUCT_VARIANT",
+        "name": "C unknown product",
+        "variantTitle": "Default",
+        "onHand": 4,
+        "reserved": 0,
+        "damaged": 0,
+        "available": 4,
+        "unitCost": null,
+        "onHandValue": null,
+        "availableValue": null,
+        "reservedValue": null,
+        "damagedValue": null
+      },
+      {
+        "kind": "PACKAGING_MATERIAL",
+        "name": "D purchased box",
+        "variantTitle": null,
+        "onHand": 6,
+        "reserved": 0,
+        "damaged": 0,
+        "available": 6,
+        "unitCost": "3.0000",
+        "onHandValue": "18.00",
+        "availableValue": "18.00",
+        "reservedValue": "0.00",
+        "damagedValue": "0.00"
+      },
+      {
+        "kind": "PACKAGING_MATERIAL",
+        "name": "E free box",
+        "variantTitle": null,
+        "onHand": 4,
+        "reserved": 0,
+        "damaged": 0,
+        "available": 4,
+        "unitCost": "0.0000",
+        "onHandValue": "0.00",
+        "availableValue": "0.00",
+        "reservedValue": "0.00",
+        "damagedValue": "0.00"
+      },
+      {
+        "kind": "PACKAGING_MATERIAL",
+        "name": "F unpriced box",
+        "variantTitle": null,
+        "onHand": 2,
+        "reserved": 0,
+        "damaged": 0,
+        "available": 2,
+        "unitCost": null,
+        "onHandValue": null,
+        "availableValue": null,
+        "reservedValue": null,
+        "damagedValue": null
+      },
+      {
+        "kind": "PACKAGING_MATERIAL",
+        "name": "G FX box",
+        "variantTitle": null,
+        "onHand": 4,
+        "reserved": 0,
+        "damaged": 0,
+        "available": 4,
+        "unitCost": "55.0060",
+        "onHandValue": "220.02",
+        "availableValue": "220.02",
+        "reservedValue": "0.00",
+        "damagedValue": "0.00"
+      },
+      {
+        "kind": "PACKAGING_MATERIAL",
+        "name": "H missing FX box",
+        "variantTitle": null,
+        "onHand": 3,
+        "reserved": 0,
+        "damaged": 0,
+        "available": 3,
+        "unitCost": null,
+        "onHandValue": null,
+        "availableValue": null,
+        "reservedValue": null,
+        "damagedValue": null
+      }
+    ]
+  },
+  "cleanup": {
+    "originalAccountPreserved": true,
+    "originalStoreSelectionAndListRestored": true,
+    "originalHomeOrderAndCatalogMetricsPreserved": true,
+    "twoDisposableUsersDeleted": true,
+    "allThreeDisposableStoresDeleted": true,
+    "fixtureStockAndPurchasesRemoved": true,
+    "imagesUploaded": 0,
+    "courierParcelsCreated": 0,
+    "smsOrWhatsAppSent": 0
+  },
+  "local": {
+    "unitSuites": 140,
+    "unitTests": 1241,
+    "itemValuePostgresHttpTests": 27,
+    "build": "passed",
+    "targetedEslint": "passed",
+    "formatting": "passed",
+    "prismaValidate": "passed",
+    "openApiGeneration": "passed",
+    "ordersExportMemoryGate": "passed"
+  },
+  "limitations": [
+    "No detailed Item Value Figma screen is available; mobile UI/device acceptance is not certified.",
+    "Large-catalog/load testing is not certified by these small controlled live fixtures.",
+    "Legacy Shop links were verified in the real local PostgreSQL suite; live stock fixtures used manual purchase links.",
+    "Unsupported currency was exercised live; a real FX provider outage was not forced.",
+    "This API is current valuation, not historical valuation. Legacy zero product costs cannot be distinguished from genuine free product costs."
+  ]
+}
