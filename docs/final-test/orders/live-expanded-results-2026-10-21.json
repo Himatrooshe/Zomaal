@@ -1,0 +1,844 @@
+{
+  "date": "2026-10-21",
+  "environment": "Production Cloud Run",
+  "deployment": {
+    "revision": "zomaal-backend-00069-vb7",
+    "traffic": [
+      {
+        "revision": "zomaal-backend-00069-vb7",
+        "percent": 100
+      }
+    ]
+  },
+  "applicationCommit": "ecae39f",
+  "outcome": "Five open confirmed bug groups",
+  "counts": {
+    "observations": 134,
+    "passed": 109,
+    "failed": 25,
+    "excludedHarnessObservations": 2
+  },
+  "findings": [
+    "ORD-01: whitespace required fields accepted",
+    "ORD-02: invalid currency accepted",
+    "ORD-03: money overflow returns 500 and can leave a customer record",
+    "ORD-04: malformed query values silently coerced",
+    "ORD-05: timeline bypasses active-store scope for the same owner"
+  ],
+  "checks": [
+    {
+      "name": "capture original current store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original store list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture original home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create disposable Orders store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create disposable category",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "upload disposable image",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create disposable standard product",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "disposable store starts with zero orders",
+      "pass": true
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create manual order",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "manual order totals and platform",
+      "pass": true
+    },
+    {
+      "name": "exact retry returns same order",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "changed retry rejected",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "retry does not duplicate order",
+      "pass": true
+    },
+    {
+      "name": "three concurrent exact retries return one order",
+      "pass": true,
+      "statuses": [
+        201,
+        201,
+        201
+      ]
+    },
+    {
+      "name": "concurrent conflicting retries yield one success and one conflict",
+      "pass": true,
+      "statuses": [
+        409,
+        201
+      ]
+    },
+    {
+      "name": "three keys produce exactly three orders",
+      "pass": true
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read latest fixture product version",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "change fixture catalog price with required version",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "exact retry preserves price after catalog edit",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "new order uses edited catalog price",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "unkeyed requests create separate orders as documented",
+      "pass": true,
+      "statuses": [
+        201,
+        201
+      ]
+    },
+    {
+      "name": "read inventory after undispatched orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "undispatched orders leave stock and reservations unchanged",
+      "pass": true
+    },
+    {
+      "name": "read undispatched financial summary",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read manual timeline",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "manual timeline has matching contract",
+      "pass": true
+    },
+    {
+      "name": "100 line boundary accepted with correct total",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "quantity 1000 boundary accepted",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "successful boundary orders persist",
+      "pass": true
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "reject empty items",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for empty items",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject 101 lines",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for 101 lines",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject quantity zero",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for quantity zero",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject quantity negative",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for quantity negative",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject quantity fractional",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for quantity fractional",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject quantity over 1000",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for quantity over 1000",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject unknown product",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for unknown product",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject mixed valid and unknown products",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for mixed valid and unknown products",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject negative price",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for negative price",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject negative shipping",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for negative shipping",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject empty customer name",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for empty customer name",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject blank customer name",
+      "pass": false,
+      "http": 201,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for blank customer name",
+      "pass": false,
+      "ordersAdded": 1
+    },
+    {
+      "name": "reject blank address",
+      "pass": false,
+      "http": 201,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for blank address",
+      "pass": false,
+      "ordersAdded": 1
+    },
+    {
+      "name": "reject blank phone",
+      "pass": false,
+      "http": 201,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for blank phone",
+      "pass": false,
+      "ordersAdded": 1
+    },
+    {
+      "name": "reject empty phone",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for empty phone",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject empty product code",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for empty product code",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject null quantity",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for null quantity",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject null items",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for null items",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject unexpected field",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for unexpected field",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject short retry key",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for short retry key",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject invalid currency symbols",
+      "pass": false,
+      "http": 201,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for invalid currency symbols",
+      "pass": false,
+      "ordersAdded": 1
+    },
+    {
+      "name": "reject price over database capacity",
+      "pass": false,
+      "http": 500,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for price over database capacity",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject shipping over database capacity",
+      "pass": false,
+      "http": 500,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for shipping over database capacity",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "reject line total over database capacity",
+      "pass": false,
+      "http": 500,
+      "expected": 400
+    },
+    {
+      "name": "no order persisted for line total over database capacity",
+      "pass": true,
+      "ordersAdded": 0
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "export agrees with list: all",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 12,
+      "exportRows": 12,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: platform=MANUAL",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 12,
+      "exportRows": 12,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: platform=SHOPIFY",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 0,
+      "exportRows": 0,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: financialStatus=PENDING",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 12,
+      "exportRows": 12,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: financialStatus=PAID",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 0,
+      "exportRows": 0,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: financialStatus=REFUNDED",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 0,
+      "exportRows": 0,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: fulfillmentStatus=unfulfilled",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 0,
+      "exportRows": 0,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: includeCancelled=true",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 12,
+      "exportRows": 12,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: includeRefunded=true",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 12,
+      "exportRows": 12,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: includeDispatched=true",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 12,
+      "exportRows": 12,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: includeInRevenue=true",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 12,
+      "exportRows": 12,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: includeInRevenue=false",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 0,
+      "exportRows": 0,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: search filter",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 0,
+      "exportRows": 0,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: search filter",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 1,
+      "exportRows": 1,
+      "columns": 20
+    },
+    {
+      "name": "export agrees with list: search filter",
+      "pass": true,
+      "listHttp": 200,
+      "exportHttp": 200,
+      "listTotal": 1,
+      "exportRows": 1,
+      "columns": 20
+    },
+    {
+      "name": "reject invalid export query platform=UNKNOWN",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid export query page=1",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid export query limit=20",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid export query from=2026-01-01",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid export query includeCancelled=garbage",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid export query includeInRevenue=garbage",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "reject invalid export query includeDispatched=garbage",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "unauthenticated export rejected",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "list rejects malformed query financialStatus=NOT_A_STATUS",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "list rejects malformed query includeCancelled=garbage",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "list rejects malformed query includeRefunded=garbage",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "list rejects malformed query includeDispatched=garbage",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "list rejects malformed query includeInRevenue=garbage",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "list rejects malformed query page=1.5",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "list rejects malformed query page=1junk",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "list rejects malformed query limit=2.5",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "list rejects malformed query limit=2junk",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "export rejects unsupported payment status",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "overflow request returns validation error before mutation",
+      "pass": false,
+      "http": 500,
+      "expected": 400
+    },
+    {
+      "name": "failed overflow leaves no new customer",
+      "pass": false,
+      "customersAdded": 1
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "other active store cannot read fixture order",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "other active store cannot read fixture order products",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "other active store cannot read fixture timeline",
+      "pass": false,
+      "http": 200
+    },
+    {
+      "name": "other active store cannot read fixture financials",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "other active store list excludes fixture order",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "foreign store product code rejected before creating order",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete disposable Orders store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "verify original store restored",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store is active",
+      "pass": true
+    },
+    {
+      "name": "verify store list after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store list restored",
+      "pass": true
+    },
+    {
+      "name": "verify original home after cleanup",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original Home order metrics preserved",
+      "pass": true
+    }
+  ],
+  "localOnly": {
+    "command": "npm test -- --runInBand src/ecommerce/ecommerce-order-export.service.spec.ts",
+    "testsPassed": 3,
+    "largeLiveExportTested": false
+  },
+  "cleanup": {
+    "temporaryStoreDeleted": true,
+    "originalStoreRestored": true,
+    "originalHomeOrderMetricsPreserved": true,
+    "uploadedTestImagesRemoved": true
+  },
+  "scopeLimits": [
+    "No individual manual-order edit/delete contract in v1",
+    "No date-range filter in export",
+    "No production 10,001-row export test",
+    "No separate-owner or staff account test",
+    "No real courier status callback in this run"
+  ]
+}
