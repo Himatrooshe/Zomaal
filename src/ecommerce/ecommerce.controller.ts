@@ -803,10 +803,11 @@ export class EcommerceController {
   @ApiOperation({
     summary: 'Get the event timeline for an order',
     description:
-      'Returns all order lifecycle and shipping events sourced from the connected e-commerce platform. ' +
+      'Returns order lifecycle and shipping events for an order in the current active store. ' +
+      'Staff use their assigned store; orders outside the resolved store return 404. ' +
       'Works regardless of which shipping carrier or plugin the merchant uses, as long as the platform ' +
       'reflects the shipment updates. Pass ?refresh=true to re-fetch from the platform; otherwise cached ' +
-      'events are returned. Always returns 200 — check `available` to determine whether events exist.',
+      'events are returned. Accessible orders return 200 — check `available` to determine whether events exist.',
   })
   @ApiParam({
     name: 'orderId',

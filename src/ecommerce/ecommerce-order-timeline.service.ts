@@ -3,6 +3,7 @@ import {
   EcommercePlatform,
   EcommercePaymentStatus,
   EcommerceOrderStatus,
+  Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderEventType } from './constants/order-event-type';
@@ -13,6 +14,7 @@ import { LightfunnelsOrderTimelineAdapter } from './lightfunnels-order-timeline.
 import type { NormalizedOrderEvent } from './interfaces/order-timeline-adapter.interface';
 import type { OrderTimelineDto } from './dto/order-timeline.dto';
 import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
+import { StoreAccessService } from '../access/store-access.service';
 
 @Injectable()
 export class EcommerceOrderTimelineService {
@@ -24,6 +26,7 @@ export class EcommerceOrderTimelineService {
     private readonly youCanAdapter: YouCanOrderTimelineAdapter,
     private readonly lightfunnelsAdapter: LightfunnelsOrderTimelineAdapter,
     private readonly financialService: EcommerceOrderFinancialService,
+    private readonly storeAccess: StoreAccessService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -35,8 +38,9 @@ export class EcommerceOrderTimelineService {
     orderId: string,
     refresh: boolean,
   ): Promise<OrderTimelineDto> {
+    const store = await this.storeAccess.requireStore(userId);
     const order = await this.prisma.ecommerceOrder.findFirst({
-      where: { id: orderId, connection: { store: { userId } } },
+      where: { id: orderId, connection: { storeId: store.id } },
       include: {
         connection: { select: { platform: true } },
         events: { orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }] },
@@ -263,13 +267,17 @@ export class EcommerceOrderTimelineService {
             actor: event.actor ?? null,
             location: event.location ?? null,
             metadata: event.metadata
-              ? JSON.parse(JSON.stringify(event.metadata))
+              ? (JSON.parse(
+                  JSON.stringify(event.metadata),
+                ) as Prisma.InputJsonValue)
               : undefined,
             occurredAt,
             synthetic: event.synthetic,
             rawPayload:
               event.rawPayload !== undefined
-                ? JSON.parse(JSON.stringify(event.rawPayload))
+                ? (JSON.parse(
+                    JSON.stringify(event.rawPayload),
+                  ) as Prisma.InputJsonValue)
                 : undefined,
           },
           update: {}, // immutable — never overwrite

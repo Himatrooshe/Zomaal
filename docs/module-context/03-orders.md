@@ -68,3 +68,18 @@ total collected, COD amount/status, item count, processed/cancelled timestamps, 
 and tracking number. Customer contact details are excluded. An empty result downloads a
 header-only workbook. More than 10,000 matching rows returns 413 so exports never truncate
 silently; narrow the filters and retry. The endpoint is read only and has no schema migration.
+
+### Manual-order and query validation
+
+Manual-order name, phone and address must contain a non-whitespace character.
+Currency must be an officially assigned ISO 4217 code (case insensitive); omission
+uses the store currency. Price and shipping accept at most four decimal places.
+Individual amounts and computed line, gross-sales and final totals must fit the
+persisted monetary range. Invalid or overflowing amounts return 400 before any
+customer or order write.
+
+List and export boolean query values must be `true` or `false`. List `page` and
+`limit` must be integer values within the documented bounds; malformed values are
+rejected rather than truncated. Timelines use the active owner store or the
+staff member's assigned store, matching order detail and financial reads. An
+order outside that resolved store returns 404.

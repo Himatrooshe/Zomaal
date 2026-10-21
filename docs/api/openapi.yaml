@@ -8867,7 +8867,7 @@ paths:
         - E-commerce Revenue
   /ecommerce/orders/{orderId}/timeline:
     get:
-      description: Returns all order lifecycle and shipping events sourced from the connected e-commerce platform. Works regardless of which shipping carrier or plugin the merchant uses, as long as the platform reflects the shipment updates. Pass ?refresh=true to re-fetch from the platform; otherwise cached events are returned. Always returns 200 — check `available` to determine whether events exist.
+      description: Returns order lifecycle and shipping events for an order in the current active store. Staff use their assigned store; orders outside the resolved store return 404. Works regardless of which shipping carrier or plugin the merchant uses, as long as the platform reflects the shipment updates. Pass ?refresh=true to re-fetch from the platform; otherwise cached events are returned. Accessible orders return 200 — check `available` to determine whether events exist.
       operationId: Ecommerce_getOrderTimeline
       parameters:
         - name: orderId
@@ -25779,6 +25779,9 @@ components:
         unitPrice:
           type: number
           example: 300
+          minimum: 0
+          maximum: 9999999999999998
+          multipleOf: 0.0001
           description: Price actually charged for this line. Defaults to the product's stored price when omitted.
       required:
         - productCode
@@ -25795,12 +25798,15 @@ components:
         customerName:
           type: string
           example: Ahmed
+          pattern: \S
         customerPhone:
           type: string
           example: '+212612345678'
+          pattern: \S
         shippingAddress:
           type: string
           example: 123 Rue Al Massira, Casablanca
+          pattern: \S
         shippingCity:
           type: string
           example: Casablanca
@@ -25813,10 +25819,13 @@ components:
         currency:
           type: string
           example: MAD
-          default: MAD
+          description: Official ISO 4217 currency code. Case insensitive; defaults to the store currency.
         shippingCost:
           type: number
           example: 0
+          minimum: 0
+          maximum: 9999999999999998
+          multipleOf: 0.0001
           description: Shipping fee charged to the customer, if any.
         items:
           minItems: 1

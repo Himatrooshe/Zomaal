@@ -1,4 +1,6 @@
 import { MANUAL_REQUEST_EVENT_ID } from '../src/ecommerce/manual-order-retry';
+import { CreateManualOrderDto } from '../src/ecommerce/dto/create-manual-order.dto';
+import { EcommerceOrderTimelineService } from '../src/ecommerce/ecommerce-order-timeline.service';
 import { StoresService } from '../src/stores/stores.service';
 import { OrderConditionService } from '../src/ecommerce/order-condition.service';
 import { ProductCondition } from '../src/ecommerce/constants/product-condition';
@@ -107,7 +109,7 @@ postgres('Tracking, pack and return edge cases with PostgreSQL', () => {
         userId: viewer,
         storeId: stores[0],
         name: 'Returns viewer',
-        permissionOverrides: ['returns.view'],
+        permissionOverrides: ['returns.view', 'orders.view'],
       },
     });
     connectionId = (
@@ -2082,6 +2084,177 @@ postgres('Tracking, pack and return edge cases with PostgreSQL', () => {
         },
       }),
     ).toBe(1);
+  });
+
+  it('ORDERS invalid required fields, currency and input money leave no customer or order', async () => {
+    const p = await physical();
+    const body = {
+      customerName: 'Test customer',
+      customerPhone: `qa-${randomUUID()}`,
+      shippingAddress: 'Test address',
+      items: [{ productCode: p.variant.productCode!, quantity: 1 }],
+    };
+    const before = {
+      customers: await db.customer.count({ where: { storeId: stores[0] } }),
+      orders: await db.ecommerceOrder.count({
+        where: { connection: { storeId: stores[0] } },
+      }),
+    };
+    const pipe = new ValidationPipe(GLOBAL_VALIDATION_PIPE_OPTIONS);
+    for (const invalid of [
+      { customerName: '   ' },
+      { customerPhone: '   ' },
+      { shippingAddress: '   ' },
+      { currency: '123' },
+      { currency: 'ZZZ' },
+      { shippingCost: 1e20 },
+      {
+        items: [
+          { productCode: p.variant.productCode!, quantity: 1, unitPrice: 1e20 },
+        ],
+      },
+    ]) {
+      await expect(
+        (async () => {
+          const dto = (await pipe.transform(
+            { ...body, ...invalid },
+            { type: 'body', metatype: CreateManualOrderDto },
+          )) as CreateManualOrderDto;
+          return ecommerce.createManualOrder(owner, dto);
+        })(),
+      ).rejects.toMatchObject({ status: 400 });
+    }
+    expect(await db.customer.count({ where: { storeId: stores[0] } })).toBe(
+      before.customers,
+    );
+    expect(
+      await db.ecommerceOrder.count({
+        where: { connection: { storeId: stores[0] } },
+      }),
+    ).toBe(before.orders);
+  });
+
+  it('ORDERS computed monetary overflow cannot create or update a customer', async () => {
+    const p = await physical();
+    const phone = `qa-${randomUUID()}`;
+    const original = await db.customer.create({
+      data: { storeId: stores[0], phone, name: 'Original customer' },
+    });
+    const beforeOrders = await db.ecommerceOrder.count({
+      where: { connection: { storeId: stores[0] } },
+    });
+    for (const customerPhone of [phone, `new-${randomUUID()}`]) {
+      for (const money of [
+        {
+          shippingCost: 0,
+          items: [
+            {
+              productCode: p.variant.productCode!,
+              quantity: 1000,
+              unitPrice: 1e15,
+            },
+          ],
+        },
+        {
+          shippingCost: 0,
+          items: Array.from({ length: 2 }, () => ({
+            productCode: p.variant.productCode!,
+            quantity: 1,
+            unitPrice: 6e15,
+          })),
+        },
+        {
+          shippingCost: 6e15,
+          items: [
+            {
+              productCode: p.variant.productCode!,
+              quantity: 1,
+              unitPrice: 6e15,
+            },
+          ],
+        },
+      ]) {
+        await expect(
+          ecommerce.createManualOrder(owner, {
+            customerName: 'Should never overwrite customer',
+            customerPhone,
+            shippingAddress: 'Test',
+            ...money,
+          }),
+        ).rejects.toMatchObject({ status: 400 });
+      }
+      if (customerPhone !== phone)
+        expect(
+          await db.customer.findUnique({
+            where: {
+              storeId_phone: { storeId: stores[0], phone: customerPhone },
+            },
+          }),
+        ).toBeNull();
+    }
+    expect(
+      (await db.customer.findUniqueOrThrow({ where: { id: original.id } }))
+        .name,
+    ).toBe('Original customer');
+    expect(
+      await db.ecommerceOrder.count({
+        where: { connection: { storeId: stores[0] } },
+      }),
+    ).toBe(beforeOrders);
+  });
+
+  it('ORDERS timeline follows the active store and supports staff in their assigned store', async () => {
+    const p = await physical();
+    const order = await ecommerce.createManualOrder(owner, {
+      idempotencyKey: randomUUID(),
+      customerName: 'Timeline test',
+      customerPhone: `qa-${randomUUID()}`,
+      shippingAddress: 'Test',
+      items: [{ productCode: p.variant.productCode!, quantity: 1 }],
+    });
+    const access = new StoreAccessService(db as PrismaService);
+    const timeline = new EcommerceOrderTimelineService(
+      db as PrismaService,
+      {} as never,
+      {} as never,
+      {} as never,
+      financial,
+      access,
+    );
+    expect((await timeline.getTimeline(owner, order.id, false)).orderId).toBe(
+      order.id,
+    );
+    const otherStore = await db.store.create({
+      data: {
+        userId: owner,
+        ownerName: 'Test',
+        businessName: 'Other timeline store',
+        address: 'Test',
+        city: 'Test',
+        country: 'MA',
+      },
+    });
+    stores.push(otherStore.id);
+    await db.user.update({
+      where: { id: owner },
+      data: { activeStoreId: otherStore.id },
+    });
+    try {
+      await expect(
+        timeline.getTimeline(owner, order.id, false),
+      ).rejects.toMatchObject({ status: 404 });
+      await expect(
+        timeline.getTimeline(otherOwner, order.id, false),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(
+        (await timeline.getTimeline(viewer, order.id, false)).orderId,
+      ).toBe(order.id);
+    } finally {
+      await db.user.update({
+        where: { id: owner },
+        data: { activeStoreId: stores[0] },
+      });
+    }
   });
 
   it('LIVE confirmed ForceLog deletion atomically cancels tracking and releases reservations', async () => {

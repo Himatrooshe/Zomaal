@@ -1,15 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { MAX_MONEY_INPUT } from '../../common/persisted-money';
 import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsInt,
+  IsISO4217CurrencyCode,
   IsNumber,
   IsOptional,
   IsString,
   Max,
   MaxLength,
+  Matches,
   Min,
   MinLength,
   ValidateNested,
@@ -33,13 +36,17 @@ export class ManualOrderItemDto {
 
   @ApiPropertyOptional({
     example: 300,
+    minimum: 0,
+    maximum: MAX_MONEY_INPUT,
+    multipleOf: 0.0001,
     description:
       "Price actually charged for this line. Defaults to the product's stored price when omitted.",
   })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   unitPrice?: number;
 }
 
@@ -61,22 +68,25 @@ export class CreateManualOrderDto {
   @MaxLength(100)
   idempotencyKey?: string;
 
-  @ApiProperty({ example: 'Ahmed' })
+  @ApiProperty({ example: 'Ahmed', pattern: '\\S' })
   @IsString()
   @MinLength(1)
   @MaxLength(200)
+  @Matches(/\S/, { message: 'customerName must not be blank' })
   customerName: string;
 
-  @ApiProperty({ example: '+212612345678' })
+  @ApiProperty({ example: '+212612345678', pattern: '\\S' })
   @IsString()
   @MinLength(3)
   @MaxLength(30)
+  @Matches(/\S/, { message: 'customerPhone must not be blank' })
   customerPhone: string;
 
-  @ApiProperty({ example: '123 Rue Al Massira, Casablanca' })
+  @ApiProperty({ example: '123 Rue Al Massira, Casablanca', pattern: '\\S' })
   @IsString()
   @MinLength(1)
   @MaxLength(500)
+  @Matches(/\S/, { message: 'shippingAddress must not be blank' })
   shippingAddress: string;
 
   @ApiPropertyOptional({ example: 'Casablanca' })
@@ -97,21 +107,31 @@ export class CreateManualOrderDto {
   @MaxLength(1000)
   notes?: string;
 
-  @ApiPropertyOptional({ example: 'MAD', default: 'MAD' })
+  @ApiPropertyOptional({
+    example: 'MAD',
+    description:
+      'Official ISO 4217 currency code. Case insensitive; defaults to the store currency.',
+  })
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
   @IsString()
-  @MinLength(3)
-  @MaxLength(3)
+  @IsISO4217CurrencyCode()
   currency?: string;
 
   @ApiPropertyOptional({
     example: 0,
+    minimum: 0,
+    maximum: MAX_MONEY_INPUT,
+    multipleOf: 0.0001,
     description: 'Shipping fee charged to the customer, if any.',
   })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
+  @Max(MAX_MONEY_INPUT)
   shippingCost?: number;
 
   @ApiProperty({

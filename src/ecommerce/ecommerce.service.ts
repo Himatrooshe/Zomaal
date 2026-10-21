@@ -1,4 +1,5 @@
 import { lockDuplicateReviewStore } from '../customers/duplicate-review-lock.util';
+import { assertPersistedMoney } from '../common/persisted-money';
 import { CourierCostsService } from '../expenses/courier-costs.service';
 import {
   findManualOrderRetry,
@@ -664,6 +665,8 @@ export class EcommerceService {
       const variant = variantByCode.get(item.productCode)!;
       const unitPrice = new Prisma.Decimal(item.unitPrice ?? variant.price);
       const totalPrice = unitPrice.times(item.quantity);
+      assertPersistedMoney(unitPrice, 'Unit price');
+      assertPersistedMoney(totalPrice, 'Line total');
       return {
         externalLineId: `manual-${index}`,
         warehouseVariantId: variant.id,
@@ -683,6 +686,10 @@ export class EcommerceService {
     const shipping = new Prisma.Decimal(dto.shippingCost ?? 0);
     const netSales = grossSales;
     const totalCollected = netSales.plus(shipping);
+    // Reject overflow before the independent customer upsert or any order write.
+    assertPersistedMoney(grossSales, 'Gross sales');
+    assertPersistedMoney(shipping, 'Shipping cost');
+    assertPersistedMoney(totalCollected, 'Order total');
     const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
     const now = new Date();
     const orderId = randomUUID();
