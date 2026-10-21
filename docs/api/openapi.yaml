@@ -26561,6 +26561,7 @@ components:
             - SHOPIFY
             - YOUCAN
             - LIGHTFUNNELS
+            - MANUAL
         available:
           type: boolean
           description: True when timeline data is available for this order

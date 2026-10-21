@@ -43,7 +43,7 @@ export class OrderTimelineDto {
   @ApiProperty({ description: 'Zomaal internal order ID', format: 'uuid' })
   orderId: string;
 
-  @ApiProperty({ enum: ['SHOPIFY', 'YOUCAN', 'LIGHTFUNNELS'] })
+  @ApiProperty({ enum: ['SHOPIFY', 'YOUCAN', 'LIGHTFUNNELS', 'MANUAL'] })
   platform: string;
 
   @ApiProperty({ description: 'True when timeline data is available for this order' })
