@@ -1,0 +1,684 @@
+{
+  "date": "2026-10-22",
+  "timezone": "Asia/Dhaka",
+  "environment": "production",
+  "applicationCommit": "9d4e661",
+  "revision": "zomaal-backend-00070-94q",
+  "recordedObservations": 112,
+  "passed": 111,
+  "failed": 1,
+  "countsInclude": "Setup, API assertions, state comparisons and cleanup; not distinct scenarios.",
+  "testHarnessCorrections": [
+    "Initial 401 expectation used an incomplete Sendit event; the documented malformed-payload response is 400. This request did not reach signature verification.",
+    "Initial OpenAPI assertion used {id}; actual documented path uses {returnRequestId}."
+  ],
+  "checks": [
+    {
+      "name": "capture selected store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "capture Home",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "sendit connection contract",
+      "pass": true,
+      "http": 200,
+      "connected": false
+    },
+    {
+      "name": "quicklivraison connection contract",
+      "pass": true,
+      "http": 200,
+      "connected": true
+    },
+    {
+      "name": "forcelog connection contract",
+      "pass": true,
+      "http": 200,
+      "connected": true
+    },
+    {
+      "name": "ozoneexpress connection contract",
+      "pass": true,
+      "http": 200,
+      "connected": true
+    },
+    {
+      "name": "ameex connection contract",
+      "pass": true,
+      "http": 200,
+      "connected": true
+    },
+    {
+      "name": "capture stores before courier fixture",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create isolated courier fixture store",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create courier fixture category",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "upload a image",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create a component",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "upload b image",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create b component",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "upload pack image",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "create courier fixture pack",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "fetch live ForceLog cities",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create zero-COD no-pickup QA order",
+      "pass": true,
+      "http": 201,
+      "expected": 201
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "create real zero-COD ForceLog parcel",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "dispatch receives stable provider and merchant tracking",
+      "pass": true
+    },
+    {
+      "name": "duplicate dispatch blocked",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "read a inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read b inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "pack dispatch reserves exact component quantities",
+      "pass": true
+    },
+    {
+      "name": "scan real ForceLog tracking",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "tracking resolves exact QA order and pack",
+      "pass": true
+    },
+    {
+      "name": "scan ignores forged QR order and product fields",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "QR uses stored order and status",
+      "pass": true
+    },
+    {
+      "name": "fetch real ForceLog PDF sticker",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "provider label is genuine PDF",
+      "pass": true
+    },
+    {
+      "name": "Zomaal QR is valid PDF",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read pending parcel financials",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "pending parcel recognizes zero revenue",
+      "pass": true
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete only newly created ForceLog parcel",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "ForceLog confirms parcel deletion",
+      "pass": true
+    },
+    {
+      "name": "read a inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read b inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "provider deletion releases all pack reservations",
+      "pass": true
+    },
+    {
+      "name": "scan cancelled parcel after deletion",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "scan reports persisted cancelled state",
+      "pass": true
+    },
+    {
+      "name": "read cancelled financials",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "cancelled parcel contributes no delivered revenue",
+      "pass": true
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "provider label includes pack code",
+      "pass": true
+    },
+    {
+      "name": "provider label has decodable barcode",
+      "pass": true
+    },
+    {
+      "name": "scan exact provider decoded label",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "provider decoded label resolves expected order",
+      "pass": true
+    },
+    {
+      "name": "provider decoded label expands exact pack components",
+      "pass": true
+    },
+    {
+      "name": "zomaal label includes pack code",
+      "pass": true
+    },
+    {
+      "name": "zomaal label has decodable barcode",
+      "pass": true
+    },
+    {
+      "name": "scan exact zomaal decoded label",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "zomaal decoded label resolves expected order",
+      "pass": true
+    },
+    {
+      "name": "zomaal decoded label expands exact pack components",
+      "pass": true
+    },
+    {
+      "name": "scan courier code with scanner newline",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "scanner newline preserves resolution",
+      "pass": true
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original store cannot scan fixture tracking",
+      "pass": true,
+      "http": 404,
+      "expected": 404
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "detect return from actual provider tracking",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "return tracking identifies order and pack",
+      "pass": true
+    },
+    {
+      "name": "repeat return scan",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "repeated scan reuses open return",
+      "pass": true
+    },
+    {
+      "name": "record mixed pack return conditions",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "mixed return is processed",
+      "pass": true
+    },
+    {
+      "name": "read mixed-condition loss ledger",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "mixed loss equals explicit damage plus missing purchase cost",
+      "pass": true
+    },
+    {
+      "name": "read a inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read b inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "retry exact mixed return",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read a inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read b inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "return retry preserves stock",
+      "pass": true
+    },
+    {
+      "name": "read ledger after return retry",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "return retry preserves ledger",
+      "pass": true
+    },
+    {
+      "name": "correct synthetic return to Good",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "verify corrected ledger",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "Good correction reverses item loss",
+      "pass": true
+    },
+    {
+      "name": "read a inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "read b inventory",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "Good correction restores all component stock",
+      "pass": true
+    },
+    {
+      "name": "quicklivraison rejects missing signature",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "quicklivraison rejects invalid signature",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "sendit rejects missing signature",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "Sendit malformed event missing required timestamp rejected",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "Ameex json unknown callback acknowledged without matching shipment",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "Ameex form unknown callback acknowledged without matching shipment",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "QuickLivraison valid signed untracked",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "QuickLivraison repeated signed untracked",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "QuickLivraison tampered body with original signature",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "Sendit valid-shape unknown shipment rejected before credential lookup",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "read deployed OpenAPI",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deployed API documents scan return dispatch and callbacks",
+      "pass": true,
+      "testCorrection": "Initial assertion used {id}; deployed and source path correctly use {returnRequestId}."
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "live list counts 10001 isolated orders",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "10001 export fixture rows exist",
+      "pass": true
+    },
+    {
+      "name": "production rejects 10001 matching export rows",
+      "pass": true,
+      "http": 413,
+      "expected": 413,
+      "durationMs": 1408
+    },
+    {
+      "name": "production accepts exactly 10000 matching export rows",
+      "pass": false,
+      "http": 503
+    },
+    {
+      "name": "export boundary synthetic rows removed",
+      "pass": true,
+      "removed": 9999
+    },
+    {
+      "name": "read final deployed OpenAPI contract",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "deployed API documents actual returnRequestId path",
+      "pass": true
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "delete isolated courier store and all fixtures",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "select fixture store",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "verify original store list restored",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original stores preserved",
+      "pass": true
+    },
+    {
+      "name": "verify original Home after courier test",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "original Home order metrics preserved",
+      "pass": true
+    },
+    {
+      "name": "original Home catalog preserved",
+      "pass": true
+    },
+    {
+      "name": "all three exact fixture image objects removed",
+      "pass": true
+    }
+  ],
+  "confirmedDefect": {
+    "module": "Orders Excel export",
+    "matchingRows": 10000,
+    "expectedHttp": 200,
+    "actualHttp": 503,
+    "cause": "Node V8 heap exhausted while building the XLSX; Cloud Run instance terminated/restarted.",
+    "aboveLimit": {
+      "rows": 10001,
+      "http": 413
+    }
+  },
+  "serverEvidence": [
+    {
+      "time": "2026-10-21T18:13:10.370792862Z",
+      "severity": "WARNING",
+      "log": "run.googleapis.com%2Fvarlog%2Fsystem",
+      "memoryExceeded": false,
+      "shutdown": true,
+      "startup": false,
+      "timeout": false
+    },
+    {
+      "time": "2026-10-21T18:13:10.252935Z",
+      "severity": "INFO",
+      "log": "run.googleapis.com%2Fvarlog%2Fsystem",
+      "memoryExceeded": false,
+      "shutdown": false,
+      "startup": true,
+      "timeout": false,
+      "message": "Starting new instance. Reason: AUTOSCALING - Instance started due to configured scaling factors (e.g. CPU utilization, request throughput, etc.) or no existing capacity for current traffic."
+    },
+    {
+      "time": "2026-10-21T18:13:10.031064Z",
+      "log": "run.googleapis.com%2Fstderr",
+      "memoryExceeded": true,
+      "shutdown": false,
+      "startup": false,
+      "timeout": false,
+      "message": "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory"
+    },
+    {
+      "time": "2026-10-21T18:13:02.451330Z",
+      "severity": "ERROR",
+      "log": "run.googleapis.com%2Frequests",
+      "status": 503,
+      "latency": "7.586344926s",
+      "memoryExceeded": false,
+      "shutdown": false,
+      "startup": false,
+      "timeout": false
+    }
+  ],
+  "cleanup": {
+    "realForceLogParcelDeleted": true,
+    "pickupRequested": false,
+    "bulkExportRowsRemoved": 9999,
+    "fixtureStoreAndDependentRowsDeleted": true,
+    "threeImageObjectsDeleted": true,
+    "originalStoreListPreserved": true,
+    "originalHomeOrdersAndCatalogPreserved": true
+  },
+  "localVerification": {
+    "trackingAndReturnsPostgres": 82,
+    "ordersExportPostgres": 1,
+    "focusedUnitTests": 7,
+    "failed": 0
+  },
+  "limitations": [
+    "PDF barcodes decoded in software; no physical print, phone camera or handheld scanner.",
+    "No genuine courier-origin Delivered/Returned callback was generated. QuickLivraison callback probes were locally signed unknown-parcel simulations.",
+    "Sendit disconnected; no matched Sendit callback tested.",
+    "No new courier-dashboard-created parcel import was exercised.",
+    "Four other couriers did not receive a fresh end-to-end parcel test."
+  ]
+}

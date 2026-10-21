@@ -46,3 +46,7 @@ The initial expanded audit is historical. Its five findings are closed; broader 
 ## Live staff access verification — 21 October 2026
 
 The Orders view/edit/export permission matrix, role inheritance and replacement overrides, immediate grant/revocation, deactivation and staff assigned-store isolation passed 118/118 recorded live observations. See [staff access results and scope](./live-staff-access-2026-10-21.md). Separate merchant-owner isolation subsequently passed 114/114 recorded live observations. See [owner isolation results and cleanup](./live-owner-isolation-2026-10-21.md). Real courier/device acceptance and the large production export boundary remain outside these checks.
+
+## Live export boundary finding — 22 October 2026
+
+Exactly 10,000 matching rows exhaust the production Node heap and return 503; 10,001 rows correctly return 413. Keep the export boundary open pending a backend fix and live retest. Do not silently truncate exports. The same run verified real ForceLog PDFs, software-decoded tracking, pack conditions and cancellation. Genuine courier-origin status events and physical-device scanning remain outstanding. See [full flow evidence and limits](./live-courier-flow-2026-10-22.md).

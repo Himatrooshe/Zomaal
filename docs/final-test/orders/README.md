@@ -1,5 +1,7 @@
 # Orders
 
+**Latest finding — 22 October 2026:** exactly 10,000 export rows return 503 and exhaust the production Node heap; 10,001 rows correctly return 413. This is an open defect. Real ForceLog dispatch, PDF decoding, cancellation, pack return conditions and cleanup passed. See [courier/scan/export flow results](./live-courier-flow-2026-10-22.md).
+
 **Current status — 21 October 2026:** all five expanded-audit findings are fixed and verified live. Application commit `9d4e661`, production revision `zomaal-backend-00070-94q`, 100% traffic. **155/155 recorded live observations passed**, zero failed. Disposable data and image removed; original account/store and Home order metrics preserved.
 
 - [Separate merchant-owner isolation — 114/114 passed](./live-owner-isolation-2026-10-21.md)
