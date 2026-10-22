@@ -1,14 +1,14 @@
 # QA and frontend status — 22 October 2026
 
-This handoff consolidates completed work and recorded evidence through 22 October 2026. It does not run new feature regressions or certify every endpoint. Recorded observation counts include setup, requests, assertions and cleanup; they are not unique business-case counts.
+This handoff consolidates completed work and recorded evidence through 22 October 2026. The subsequent backend correction passed full automated gates and 79/79 live observations; this still does not certify every endpoint. Recorded observation counts include setup, requests, assertions and cleanup; they are not unique business-case counts.
 
 ## Deployment and contract baseline
 
-The latest successful production workflow checked in this session is application `7a1cb34` ([CI/CD run 39662709829](https://github.com/Himatrooshe/Zomaal/actions/runs/39662709829)); test/build, production deploy and smoke steps passed. `GET /health` returned 200 on 22 October. The Item Value report records revision `zomaal-backend-00072-kmd` at 100% traffic at its test time. Historical per-module revision names below describe their test runs, not separate currently serving versions.
+The latest verified application merge is `89a2b2b` ([CI/CD run 39774915329](https://github.com/Himatrooshe/Zomaal/actions/runs/39774915329)); test/build, all required database gates, production deployment and smoke steps passed. Serving revision `zomaal-backend-00073-c2b` has 100% traffic. The eight live-audit bug groups passed 79/79 recorded observations. See the [completed backend work log](../backend-live-audit-fixes-2026-10-22.md) and [live evidence](./backend-live-fix-results-2026-10-22.json). Historical per-module revisions below identify the version tested at their own execution time.
 
 [Production OpenAPI snapshot](./openapi.production.json) was fetched from `/docs/openapi.json` on 22 October. It contains 331 paths and 405 operations. [Endpoint inventory](./API-INVENTORY.md) lists them. Publication in OpenAPI establishes a contract, not a passing feature/provider/device test.
 
-At initial inspection the local checkout was based on `aba4c66` with uncommitted copies of already published fixes and older Item Value/eCommerce implementations. Before publishing this handoff, all local edits were backed up and the branch was fast-forwarded to current `main` (`2416db4`). The newer published backend implementations were retained; the remaining publication changes are documentation and the handoff archive. Use the captured production schema for integration.
+Earlier stale local copies were backed up and reconciled with main before publication. The later backend fix branch corrects currency protection, required-null/blank/ISO validation and pagination/boolean parsing. The captured production schema reflects that deployed correction. Accounting currency must be chosen at store creation; changes later return 409 without partial settings writes.
 
 ## Module status
 
