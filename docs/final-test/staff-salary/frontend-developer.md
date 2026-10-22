@@ -34,3 +34,7 @@ Deactivation blocks login and old-token access, but retains the salary agreement
 Client dependencies remain documented in `docs/module-context/10-staff-salary.md`: staff plan limits, cross-owner phone policy, mid-period agreements and activity-log scope need final client decisions. No invented Figma example salaries are seeded.
 
 See [deployed verification](fix-verification-2026-10-21.md) for the final rollout status and live responses.
+
+## Backend audit correction — 22 October 2026
+
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.

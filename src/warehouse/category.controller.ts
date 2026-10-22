@@ -4,7 +4,6 @@ import {
   Delete,
   Get,
   Param,
-  ParseBoolPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -37,6 +36,7 @@ import { CategoryService } from './category.service';
 import { ProductCategoryResponseDto } from './dto/category-response.dto';
 import {
   CreateProductCategoryDto,
+  ProductCategoryQueryDto,
   UpdateProductCategoryDto,
 } from './dto/category.dto';
 
@@ -100,10 +100,9 @@ export class CategoryController {
   })
   list(
     @CurrentUser() user: JwtPayload,
-    @Query('includeInactive', new ParseBoolPipe({ optional: true }))
-    includeInactive?: boolean,
+    @Query() query: ProductCategoryQueryDto,
   ) {
-    return this.categories.list(user.userId, includeInactive);
+    return this.categories.list(user.userId, query.includeInactive);
   }
 
   @Patch(':id')

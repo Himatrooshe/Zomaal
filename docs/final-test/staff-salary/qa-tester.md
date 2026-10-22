@@ -30,3 +30,7 @@ Use a disposable store and synthetic staff phones; keep the original `oshi-ecom`
 The original [live audit](live-server-test-results-2026-10-21.md) is historical. Final deployment/retest evidence belongs in [fix verification](fix-verification-2026-10-21.md). Observation counts include setup/assertions/cleanup and are not unique business case counts.
 
 Delete disposable stores, deactivate/schedule deletion of synthetic users, remove exact synthetic cloud media objects and compare original snapshots. Do not report a mobile UI or actual money-transfer test from API-only evidence.
+
+## Backend audit correction — 22 October 2026
+
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.

@@ -31,3 +31,7 @@ Use the routes and exact schemas in OpenAPI. Handle loading, empty, success, val
 - [ ] Empty, loading, error, retry, access-denied, and disconnected states are covered.
 - [ ] No real-looking catalog, metrics, or order data is hardcoded.
 - [ ] Keep TikTok/Snapchat, Reports, and gateway-dependent checkout out of this pass.
+
+## Backend audit correction — 22 October 2026
+
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.

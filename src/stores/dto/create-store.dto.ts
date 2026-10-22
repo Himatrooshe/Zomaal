@@ -3,15 +3,19 @@ import {
   IsNotEmpty,
   IsOptional,
   IsUrl,
-  Matches,
+  IsISO4217CurrencyCode,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { trimText } from '../../common/calendar-date.util';
 
 export class CreateStoreDto {
   @ApiProperty({
     description: 'Store owner’s full name.',
     example: 'Ahmed Alaoui',
   })
+  @Transform(trimText)
   @IsString()
   @IsNotEmpty()
   ownerName!: string;
@@ -20,6 +24,7 @@ export class CreateStoreDto {
     description: 'Customer-facing business/store name.',
     example: 'Atlas Market',
   })
+  @Transform(trimText)
   @IsString()
   @IsNotEmpty()
   businessName!: string;
@@ -28,11 +33,13 @@ export class CreateStoreDto {
     description: 'Store or pickup address.',
     example: '123 Rue Hassan II',
   })
+  @Transform(trimText)
   @IsString()
   @IsNotEmpty()
   address!: string;
 
   @ApiProperty({ example: 'Casablanca' })
+  @Transform(trimText)
   @IsString()
   @IsNotEmpty()
   city!: string;
@@ -42,7 +49,8 @@ export class CreateStoreDto {
     example: 'Morocco',
     default: 'Morocco',
   })
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @Transform(trimText)
   @IsString()
   @IsNotEmpty()
   country?: string;
@@ -59,13 +67,14 @@ export class CreateStoreDto {
 
   @ApiPropertyOptional({
     description:
-      'ISO 4217 currency code for this store (e.g. MAD, USD, EUR). Defaults to MAD when omitted.',
+      'Official ISO 4217 accounting currency (e.g. MAD, USD, EUR). Defaults to MAD. Chosen at creation and cannot subsequently be changed.',
     example: 'MAD',
   })
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
   @IsString()
-  @Matches(/^[A-Za-z]{3}$/, {
-    message: 'baseCurrency must be a 3-letter ISO 4217 code',
-  })
+  @IsISO4217CurrencyCode()
   baseCurrency?: string;
 }

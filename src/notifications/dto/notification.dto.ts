@@ -1,3 +1,8 @@
+import {
+  MAX_QUERY_PAGE,
+  strictBoolean,
+  strictInteger,
+} from '../../common/query-transform.util';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   NotificationCategory,
@@ -31,20 +36,21 @@ export class NotificationListQueryDto {
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
+  @Transform(strictBoolean)
   @IsBoolean()
   unreadOnly?: boolean = false;
 
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: MAX_QUERY_PAGE, default: 1 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
+  @Max(MAX_QUERY_PAGE)
   page?: number = 1;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
   @Max(100)

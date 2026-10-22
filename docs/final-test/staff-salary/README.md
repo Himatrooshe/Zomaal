@@ -17,3 +17,7 @@ This refresh consolidates recorded work; it does not claim a new full regression
 - [Historical initial audit](live-server-test-results-2026-10-21.md)
 
 Inactive staff retain salary agreements and forecasts; deactivation removes access. This resolves a stale documentation sentence while preserving established behavior.
+
+## Backend audit correction — 22 October 2026
+
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.

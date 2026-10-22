@@ -33,3 +33,7 @@ View/update profile/store; select store; view plan/trial; confirm read-only afte
 ## Module-specific checks
 
 Test store-switch isolation, entitlements, trial boundaries, cancel/resume, expired read-only state, admin activation, and ensure no mock checkout reports success.
+
+## Backend audit correction — 22 October 2026
+
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.

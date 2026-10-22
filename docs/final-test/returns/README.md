@@ -19,3 +19,7 @@ Cross-module follow-up: [client tracking/pack/return workflow audit](../tracking
 ## Courier flow follow-up — 22 October 2026
 
 [Live ForceLog label, tracking, cancellation and pack-return verification](../orders/live-courier-flow-2026-10-22.md) passed. Labels were decoded in software; no physical pickup/device or genuine provider Delivered/Returned callback was tested. The same run found an open Orders export heap failure at exactly 10,000 rows.
+
+## Backend audit correction — 22 October 2026
+
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.

@@ -1,3 +1,5 @@
+import { Transform } from 'class-transformer';
+import { trimText } from '../../common/calendar-date.util';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   ArrayUnique,
@@ -12,12 +14,15 @@ import { ALL_PERMISSIONS, type Permission } from '../../access/permissions';
 
 export class CreateRoleDto {
   @ApiProperty({ example: 'Warehouse Staff', maxLength: 80 })
+  @Transform(trimText)
   @IsString()
   @IsNotEmpty()
   @MaxLength(80)
   name!: string;
 
-  @ApiPropertyOptional({ example: 'Packs and ships orders from the warehouse.' })
+  @ApiPropertyOptional({
+    example: 'Packs and ships orders from the warehouse.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(300)
@@ -36,15 +41,22 @@ export class CreateRoleDto {
   permissions!: Permission[];
 }
 
-export class UpdateRoleDto extends PartialType(CreateRoleDto) {}
+export class UpdateRoleDto extends PartialType(CreateRoleDto, {
+  skipNullProperties: false,
+}) {}
 
 export class RoleResponseDto {
   @ApiProperty() id!: string;
   @ApiProperty() name!: string;
-  @ApiPropertyOptional({ nullable: true, type: String }) description!: string | null;
-  @ApiProperty({ enum: ALL_PERMISSIONS, isArray: true }) permissions!: Permission[];
+  @ApiPropertyOptional({ nullable: true, type: String }) description!:
+    | string
+    | null;
+  @ApiProperty({ enum: ALL_PERMISSIONS, isArray: true })
+  permissions!: Permission[];
   @ApiProperty() isSystem!: boolean;
-  @ApiProperty({ description: 'Number of active staff currently on this role.' })
+  @ApiProperty({
+    description: 'Number of active staff currently on this role.',
+  })
   staffCount!: number;
   @ApiProperty() createdAt!: string;
   @ApiProperty() updatedAt!: string;

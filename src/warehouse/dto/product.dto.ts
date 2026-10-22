@@ -1,3 +1,7 @@
+import {
+  MAX_QUERY_PAGE,
+  strictInteger,
+} from '../../common/query-transform.util';
 import { SupplierNamesDto } from '../../common/dto/supplier-names.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { InventoryBarcodeType, WarehouseProductStatus } from '@prisma/client';
@@ -738,11 +742,13 @@ export class CompareCatalogQueryDto {
     minimum: 1,
     default: 1,
     description: 'Page number for WAREHOUSE and YOUCAN.',
+    maximum: MAX_QUERY_PAGE,
   })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
+  @Max(MAX_QUERY_PAGE)
   page?: number;
 
   @ApiPropertyOptional({
@@ -752,7 +758,7 @@ export class CompareCatalogQueryDto {
     description: 'Page size (also used as Shopify/Lightfunnels `first`).',
   })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
   @Max(100)
@@ -807,16 +813,17 @@ export class WarehouseProductQueryDto {
   @IsUUID()
   categoryId?: string;
 
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: MAX_QUERY_PAGE, default: 1 })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
+  @Max(MAX_QUERY_PAGE)
   page?: number;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
   @Max(100)
