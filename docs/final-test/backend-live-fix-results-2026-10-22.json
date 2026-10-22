@@ -1,0 +1,664 @@
+{
+  "startedAt": "2026-10-22T12:23:19.182Z",
+  "checks": [
+    {
+      "name": "reject original malformed query",
+      "path": "/warehouse/products?page=1e100",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject original malformed query",
+      "path": "/ecommerce/returns?page=1e100",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject original malformed query",
+      "path": "/billing/invoices?page=1e100",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject original malformed query",
+      "path": "/warehouse/products/compare/products?platform=WAREHOUSE&page=1e100",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject original malformed query",
+      "path": "/notifications?page=1.5&limit=1.5",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject original malformed query",
+      "path": "/notifications?page=1junk",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject original malformed query",
+      "path": "/notifications?page=1000001",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject original malformed query",
+      "path": "/notifications?unreadOnly=invalid",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject original malformed query",
+      "path": "/notifications?unreadOnly=false&unreadOnly=true",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject original malformed query",
+      "path": "/warehouse/categories?includeInactive=invalid",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject original malformed query",
+      "path": "/warehouse/categories?includeInactive=false&includeInactive=true",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "normal read still works",
+      "path": "/warehouse/products?limit=1",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "normal read still works",
+      "path": "/ecommerce/returns?limit=1",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "normal read still works",
+      "path": "/billing/invoices?limit=1",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "normal read still works",
+      "path": "/notifications?unreadOnly=false&limit=1",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "normal read still works",
+      "path": "/warehouse/categories?includeInactive=false",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "normal read still works",
+      "path": "/warehouse/item-value",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "original store baseline",
+      "path": "/stores",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "original Home baseline",
+      "path": "/ecommerce/home",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "original Expense baseline",
+      "path": "/expenses/summary",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject unknown currency on create",
+      "path": "/stores",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject blank store on create",
+      "path": "/stores",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "create disposable retest store",
+      "path": "/stores",
+      "http": 201,
+      "expected": [
+        201
+      ],
+      "pass": true
+    },
+    {
+      "name": "creation normalizes lowercase currency",
+      "pass": true
+    },
+    {
+      "name": "Store required null ownerName",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Store required null businessName",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Store required null address",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Store required null city",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Store required null country",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Store required null baseCurrency",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Store blank text ownerName",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Store blank text businessName",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Store blank text address",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Store blank text city",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Store blank text country",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Store unsupported currency",
+      "path": "/stores/me",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "empty-store currency also remains fixed",
+      "path": "/stores/me",
+      "http": 409,
+      "expected": [
+        409
+      ],
+      "pass": true
+    },
+    {
+      "name": "same accounting currency remains accepted",
+      "path": "/stores/me",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "valid Store text is trimmed",
+      "pass": true
+    },
+    {
+      "name": "create disposable role",
+      "path": "/roles",
+      "http": 201,
+      "expected": [
+        201
+      ],
+      "pass": true
+    },
+    {
+      "name": "role name trimmed",
+      "pass": true
+    },
+    {
+      "name": "Role required null name",
+      "path": "/roles/a2e30799-8a95-4de1-b2eb-40fa1bf96efc",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Role required null permissions",
+      "path": "/roles/a2e30799-8a95-4de1-b2eb-40fa1bf96efc",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Role blank update",
+      "path": "/roles/a2e30799-8a95-4de1-b2eb-40fa1bf96efc",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Role blank create",
+      "path": "/roles",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "empty role permissions still valid",
+      "path": "/roles/a2e30799-8a95-4de1-b2eb-40fa1bf96efc",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "create disposable warehouse category",
+      "path": "/warehouse/categories",
+      "http": 201,
+      "expected": [
+        201
+      ],
+      "pass": true
+    },
+    {
+      "name": "category name trimmed",
+      "pass": true
+    },
+    {
+      "name": "Category required null name",
+      "path": "/warehouse/categories/60dd8963-e9d7-4d8c-8f20-0257bf541136",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Category required null position",
+      "path": "/warehouse/categories/60dd8963-e9d7-4d8c-8f20-0257bf541136",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Category required null isActive",
+      "path": "/warehouse/categories/60dd8963-e9d7-4d8c-8f20-0257bf541136",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Category position overflow",
+      "path": "/warehouse/categories/60dd8963-e9d7-4d8c-8f20-0257bf541136",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Category blank name update",
+      "path": "/warehouse/categories/60dd8963-e9d7-4d8c-8f20-0257bf541136",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "Category blank name create",
+      "path": "/warehouse/categories",
+      "http": 400,
+      "expected": [
+        400
+      ],
+      "pass": true
+    },
+    {
+      "name": "optional Category description clear",
+      "path": "/warehouse/categories/60dd8963-e9d7-4d8c-8f20-0257bf541136",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "optional clear and integer maximum persist",
+      "pass": true
+    },
+    {
+      "name": "false category filter excludes inactive",
+      "path": "/warehouse/categories?includeInactive=false",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "inactive category really excluded",
+      "pass": true
+    },
+    {
+      "name": "true category filter includes inactive",
+      "path": "/warehouse/categories?includeInactive=true",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "inactive category really included",
+      "pass": true
+    },
+    {
+      "name": "fixture expense categories",
+      "path": "/expenses/categories",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "expense exact retry 0",
+      "path": "/expenses",
+      "http": 201,
+      "expected": [
+        201
+      ],
+      "pass": true
+    },
+    {
+      "name": "expense exact retry 1",
+      "path": "/expenses",
+      "http": 201,
+      "expected": [
+        201
+      ],
+      "pass": true
+    },
+    {
+      "name": "expense retry creates one charge",
+      "pass": true
+    },
+    {
+      "name": "MAD summary before rejected currency update",
+      "path": "/expenses/summary",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "reject currency change without partially saving settings",
+      "path": "/stores/me",
+      "http": 409,
+      "expected": [
+        409
+      ],
+      "pass": true
+    },
+    {
+      "name": "currency conflict is machine-readable",
+      "pass": true
+    },
+    {
+      "name": "MAD summary after rejected currency update",
+      "path": "/expenses/summary",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "fixture Home after rejected currency update",
+      "path": "/ecommerce/home",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "fixture settings after rejected currency update",
+      "path": "/stores/me",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "MAD cost and settings preserved",
+      "pass": true,
+      "currency": "MAD",
+      "totalAmount": "10.00"
+    },
+    {
+      "name": "restore original active store",
+      "path": "/stores/select",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "delete complete disposable QA store",
+      "path": "/stores/dd342202-524b-42b3-86fa-8b894aeba83e",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "verify original store list",
+      "path": "/stores",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "original store set and selection preserved",
+      "pass": true
+    },
+    {
+      "name": "verify original Home",
+      "path": "/ecommerce/home",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "verify original Expenses",
+      "path": "/expenses/summary",
+      "http": 200,
+      "expected": [
+        200
+      ],
+      "pass": true
+    },
+    {
+      "name": "original Home business figures preserved",
+      "pass": true
+    },
+    {
+      "name": "original Expense summary preserved",
+      "pass": true
+    }
+  ],
+  "scope": "Deployed fixes for eight confirmed backend audit groups",
+  "fixtureStoreId": "dd342202-524b-42b3-86fa-8b894aeba83e",
+  "cleaned": true,
+  "completedAt": "2026-10-22T12:23:45.189Z",
+  "total": 79,
+  "failed": 0,
+  "applicationCommit": "89a2b2be44577d9f75592ea856192575ec17b30b",
+  "revision": "zomaal-backend-00073-c2b",
+  "trafficPercent": 100,
+  "ciRun": "https://github.com/Himatrooshe/Zomaal/actions/runs/39774915329",
+  "observationCountNote": "Includes setup, HTTP requests, semantic assertions and cleanup; not 79 unique business scenarios."
+}

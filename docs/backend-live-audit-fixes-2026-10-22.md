@@ -2,7 +2,7 @@
 
 ## Scope and status
 
-Backend-only correction of the eight confirmed groups in the 22 October production audit. Frontend source was not edited. Payment gateway/account onboarding, WhatsApp connection/preview/template editing, billing plan setup, FCM and courier configuration remain outside this fix. Application code and generated OpenAPI are prepared; deployment/live verification will be recorded after merge.
+Backend-only correction of the eight confirmed groups in the 22 October production audit. Frontend source was not edited. Payment gateway/account onboarding, WhatsApp connection/preview/template editing, billing plan setup, FCM and courier configuration remain outside this fix. **All eight bug groups are fixed, merged to main, deployed and live retested: 79/79 recorded observations passed.**
 
 ## Changes
 
@@ -37,4 +37,31 @@ Tests use only a disposable localhost PostgreSQL instance on port 5437 with expl
 
 ## Deployment and live retest
 
-Pending the authorized merge and normal CI/CD. This section will record the actual commit, run, revision, responses and cleanup after verification. Earlier module reports and the bundled production OpenAPI describe their own captured revision until refreshed after deployment.
+- Fix commit: `242477d` on `fix/backend-live-audit-20261022`.
+- Application merge on main: `89a2b2be44577d9f75592ea856192575ec17b30b`.
+- [CI/CD run 39774915329](https://github.com/Himatrooshe/Zomaal/actions/runs/39774915329): **Test and build — success; Deploy production — success**, including the deployed health smoke test and new required PostgreSQL gate.
+- Cloud Run revision **`zomaal-backend-00073-c2b`**, latest created and ready, **100% traffic**. Production `/health` returned HTTP 200.
+- **79/79 recorded live observations passed, zero failed.** Counts include setup, requests, assertions and cleanup, not 79 unique business cases.
+- [Sanitized live results](./final-test/backend-live-fix-results-2026-10-22.json).
+
+### Actual deployed outcomes
+
+- All six required Store null probes, both Role null probes, required Category nulls and category position overflow returned **400**. Optional category description null returned **200** and persisted null; database integer maximum remained valid.
+- Blank Store text, Role names and Category names returned **400**. Valid role/category names and Store text were trimmed correctly.
+- `ZZZ` returned **400** on both store creation and update. A new store with lowercase `mad` returned `MAD`.
+- Different currency returned **409 STORE_CURRENCY_IMMUTABLE**, including on an empty store. Resubmitting `mad` for an existing MAD store succeeded.
+- A fixture expense of **MAD 10.00** remained MAD 10.00 after an attempted USD update combined with a renamed business. The currency, original business name, Expense summary and Home total all stayed unchanged.
+- All original malformed pagination/boolean probes returned **400**, including duplicate boolean values and oversized comparison-picker pages. Normal controls returned **200**.
+- `includeInactive=false` hid the archived fixture category; `true` included it. This verifies the original primitive-Boolean conversion defect is corrected in the live HTTP pipeline.
+- Concurrent exact expense submissions returned the same expense ID, preserving existing retry behavior.
+- Deployed Swagger publishes the currency 409 response and updated query bounds; the bundled production snapshot was refreshed from the live server.
+
+### Cleanup and preservation
+
+The disposable production store and all of its expense, role and category fixtures were removed through the normal owner-authorized deletion API. Original store list and selected store, Home order/shipping/catalog figures and Expense summary matched the pretest snapshots. No staff, image uploads, courier parcels, external customer messages or charges were created.
+
+All local regression suites finished with **zero users, stores, expenses and inventory movements** in the dedicated test database. The disposable PostgreSQL server was shut down after verification.
+
+### Remaining limits
+
+This closes the eight audited backend groups. It does not certify every API, frontend/device behavior, real courier events, gateway payments, WhatsApp delivery or phone push. Existing billing-plan data, Meta/provider accounts and FCM configuration remain client/operations prerequisites and were not changed. Historical financial data was not converted or repaired. Repository-wide lint retains its documented baseline failures; scoped checks pass.

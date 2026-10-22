@@ -1,6 +1,6 @@
 # Final Test — QA and frontend handoff
 
-Updated 22 October 2026. Start with [current status, completed fixes and open API gaps](./CURRENT-STATUS.md). This refresh reconciles recorded work; it is not a new full production test run.
+Updated 22 October 2026. Start with [current status, completed fixes and open API gaps](./CURRENT-STATUS.md). The initial handoff reconciled recorded work; a subsequent backend correction passed full automated gates and 79/79 focused live observations. See the [completed backend work log](../backend-live-audit-fixes-2026-10-22.md).
 
 - [Production OpenAPI snapshot](./openapi.production.json) — fetched from the live server on 22 October.
 - [API inventory](./API-INVENTORY.md) — 331 published paths / 405 operations; publication is not live-test coverage.

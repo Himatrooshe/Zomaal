@@ -20,4 +20,4 @@ Inactive staff retain salary agreements and forecasts; deactivation removes acce
 
 ## Backend audit correction — 22 October 2026
 
-See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The fixes are deployed on `zomaal-backend-00073-c2b` and passed 79/79 live observations; the log records both local and deployed evidence. Historical module observations above keep their original date and scope.

@@ -1,8 +1,8 @@
 # Published production API inventory
 
-Captured 22 October 2026 from [production OpenAPI](https://zomaal-backend-563898960389.us-central1.run.app/docs/openapi.json). Full schemas, permissions, request/response/error contracts and references are in [the bundled snapshot](./openapi.production.json).
+Captured 22 October 2026 after backend fixes deployed on revision `zomaal-backend-00073-c2b`. Full schemas, permissions and request/response contracts are in [the production snapshot](./openapi.production.json).
 
-331 paths / 405 operations. This inventory lists published contracts, including admin/internal/provider routes; it is not an assertion that every operation was tested or all integrations are enabled. Read [current status and gaps](./CURRENT-STATUS.md) before acceptance.
+331 paths / 405 operations. Publication is not a claim that every operation or provider/device flow passed acceptance. See [current status](./CURRENT-STATUS.md) and the [backend verification log](../backend-live-audit-fixes-2026-10-22.md).
 
 | Method | Path | API tags | Summary |
 | --- | --- | --- | --- |
