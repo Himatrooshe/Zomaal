@@ -1,6 +1,10 @@
+import {
+  MAX_QUERY_PAGE,
+  strictInteger,
+} from '../../common/query-transform.util';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { BillingInterval } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
@@ -204,16 +208,17 @@ export class BillingInvoiceListResponseDto {
 }
 
 export class InvoiceListQueryDto {
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: MAX_QUERY_PAGE, default: 1 })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
+  @Max(MAX_QUERY_PAGE)
   page?: number = 1;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(strictInteger)
   @IsInt()
   @Min(1)
   @Max(100)

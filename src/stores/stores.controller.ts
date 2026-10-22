@@ -149,13 +149,13 @@ export class StoresController {
   @ApiOperation({
     summary: 'Update the current (active) store',
     description:
-      'All request fields are optional; only supplied fields are changed. Includes logo, country, and baseCurrency.',
+      'All request fields are optional; only supplied fields are changed. Required text is trimmed and cannot be blank or null. The accounting currency is fixed at store creation; sending a different baseCurrency returns 409 STORE_CURRENCY_IMMUTABLE without saving any fields. Sending the existing currency is allowed.',
   })
   @ApiBody({
     type: UpdateStoreDto,
     examples: {
       renameStore: {
-        summary: 'Update business name, logo, and currency',
+        summary: 'Update business name and logo; retain the existing currency',
         value: {
           businessName: 'Atlas Market Pro',
           logoUrl: 'https://example.com/new-logo.png',
@@ -173,6 +173,11 @@ export class StoresController {
     },
   })
   @ApiOkResponse({ description: 'Updated store.', type: StoreResponseDto })
+  @ApiConflictResponse({
+    description:
+      'STORE_CURRENCY_IMMUTABLE: the requested currency differs from the accounting currency chosen at store creation. No settings were changed.',
+    type: ApiErrorDto,
+  })
   @ApiBadRequestResponse({
     description: 'Invalid or unexpected request field.',
     type: ApiErrorDto,

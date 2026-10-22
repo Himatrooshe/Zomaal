@@ -17,3 +17,7 @@ Cross-module follow-up: [client tracking/pack/return workflow audit](../tracking
 
 - [Fix verification — 20 October 2026](./fix-verification-2026-10-20.md): all five fixes deployed and passed live retesting; broader module limits remain.
 - [Live Products/Inventory test results — 19 October 2026](./live-server-test-results.md): initial five failures, subsequently fixed and retested.
+
+## Backend audit correction — 22 October 2026
+
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.

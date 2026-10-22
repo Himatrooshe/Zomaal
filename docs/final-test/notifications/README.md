@@ -25,3 +25,7 @@ customer/COD payments are not implemented.
 - Requirements and answered questions: [16-notifications.md](../../module-context/16-notifications.md)
 - API schemas and routes: [OpenAPI](../openapi.production.json)
 - [Live server test results (21 October 2026)](./live-server-test-results-2026-10-21.md)
+
+## Backend audit correction — 22 October 2026
+
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.

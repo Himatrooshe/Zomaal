@@ -71,7 +71,7 @@ export class CategoryService {
             }),
         ...(dto.description === undefined
           ? {}
-          : { description: dto.description.trim() || null }),
+          : { description: dto.description?.trim() || null }),
         ...(dto.parentId === undefined ? {} : { parentId: dto.parentId }),
         ...(dto.position === undefined ? {} : { position: dto.position }),
         ...(dto.isActive === undefined ? {} : { isActive: dto.isActive }),

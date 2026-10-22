@@ -102,13 +102,27 @@ export class StoresService {
       throw new BadRequestException('Provide at least one field to update');
     }
 
+    if (baseCurrency !== undefined) {
+      const current = await this.prisma.store.findUnique({
+        where: { id: access.storeId },
+        select: { baseCurrency: true },
+      });
+      if (!current) throw new NotFoundException('Store not found');
+      // Existing costs, salaries and manual expenses are denominated in this
+      // currency. They cannot safely be relabelled by a settings update.
+      if (baseCurrency.toUpperCase() !== current.baseCurrency) {
+        throw new ConflictException({
+          message:
+            'Store currency is fixed at creation to preserve accounting history',
+          reason: 'STORE_CURRENCY_IMMUTABLE',
+        });
+      }
+    }
+
     const store = await this.prisma.store.update({
       where: { id: access.storeId },
       data: {
         ...rest,
-        ...(baseCurrency !== undefined && {
-          baseCurrency: baseCurrency.toUpperCase(),
-        }),
       },
     });
     return this.toResponse(store, true);

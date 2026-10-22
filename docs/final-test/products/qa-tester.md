@@ -33,3 +33,7 @@ List/filter; create/edit products and variants; inventory updates; bundles; comp
 ## Module-specific checks
 
 Test variants/SKUs, stock reservation and delivery, bundle cost/availability, image nullability, imports and matching, compare responses, and store isolation.
+
+## Backend audit correction — 22 October 2026
+
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.

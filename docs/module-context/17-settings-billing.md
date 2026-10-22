@@ -111,3 +111,7 @@ removed and the original store restored. `GET /billing/plans` returned HTTP
 Approved active plan records must be configured before plan selection or manual
 activation can be accepted. The original account remains in its unchanged
 trial. See the [live test report](../final-test/settings-billing/live-server-test-results-2026-10-21.md).
+
+## Backend validation correction — 22 October 2026
+
+Store accounting currency is chosen at creation and is immutable afterwards. `PUT /stores/me` returns 409 `STORE_CURRENCY_IMMUTABLE` for a different currency without saving other fields; resubmitting the existing currency is allowed. Required null/blank store fields and unknown ISO currency codes return 400. See [backend fix log](../backend-live-audit-fixes-2026-10-22.md) for tests and rollout status.

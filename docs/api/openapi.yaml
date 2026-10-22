@@ -908,7 +908,7 @@ paths:
       tags:
         - Stores
     put:
-      description: All request fields are optional; only supplied fields are changed. Includes logo, country, and baseCurrency.
+      description: All request fields are optional; only supplied fields are changed. Required text is trimmed and cannot be blank or null. The accounting currency is fixed at store creation; sending a different baseCurrency returns 409 STORE_CURRENCY_IMMUTABLE without saving any fields. Sending the existing currency is allowed.
       operationId: Stores_update
       parameters: []
       requestBody:
@@ -919,7 +919,7 @@ paths:
               $ref: '#/components/schemas/UpdateStoreDto'
             examples:
               renameStore:
-                summary: Update business name, logo, and currency
+                summary: Update business name and logo; retain the existing currency
                 value:
                   businessName: Atlas Market Pro
                   logoUrl: https://example.com/new-logo.png
@@ -951,6 +951,12 @@ paths:
                 $ref: '#/components/schemas/ApiErrorDto'
         '404':
           description: The authenticated user has not created a store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorDto'
+        '409':
+          description: 'STORE_CURRENCY_IMMUTABLE: the requested currency differs from the accounting currency chosen at store creation. No settings were changed.'
           content:
             application/json:
               schema:
@@ -9000,6 +9006,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -10478,6 +10485,7 @@ paths:
           required: false
           in: query
           schema:
+            default: false
             example: false
             type: boolean
       responses:
@@ -11220,6 +11228,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -11387,6 +11396,7 @@ paths:
           description: Page number for WAREHOUSE and YOUCAN.
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -18422,6 +18432,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -19281,6 +19292,7 @@ paths:
           in: query
           schema:
             minimum: 1
+            maximum: 1000000
             default: 1
             type: number
         - name: limit
@@ -20027,7 +20039,7 @@ components:
           format: uri
         baseCurrency:
           type: string
-          description: ISO 4217 currency code for this store (e.g. MAD, USD, EUR). Defaults to MAD when omitted.
+          description: Official ISO 4217 accounting currency (e.g. MAD, USD, EUR). Defaults to MAD. Chosen at creation and cannot subsequently be changed.
           example: MAD
       required:
         - ownerName
@@ -20073,7 +20085,7 @@ components:
           format: uri
         baseCurrency:
           type: string
-          description: ISO 4217 currency code for this store (e.g. MAD, USD, EUR). Defaults to MAD when omitted.
+          description: Official ISO 4217 accounting currency (e.g. MAD, USD, EUR). Defaults to MAD. Chosen at creation and cannot subsequently be changed.
           example: MAD
     SelectStoreDto:
       type: object
@@ -27262,6 +27274,7 @@ components:
         description:
           type: string
           example: Electronic warehouse products
+          nullable: true
         parentId:
           type: string
           format: uuid
@@ -27269,6 +27282,7 @@ components:
         position:
           type: number
           default: 0
+          maximum: 2147483647
           description: Lower positions appear first in the category selector.
       required:
         - name
@@ -27341,6 +27355,7 @@ components:
         description:
           type: string
           example: Electronic warehouse products
+          nullable: true
         parentId:
           type: string
           format: uuid
@@ -27348,6 +27363,7 @@ components:
         position:
           type: number
           default: 0
+          maximum: 2147483647
           description: Lower positions appear first in the category selector.
         isActive:
           type: boolean

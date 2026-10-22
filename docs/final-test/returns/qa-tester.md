@@ -37,3 +37,7 @@ Test barcode and manual lookup, delayed/verification state, each item condition,
 ## Shared tracking/pack contract after the later fixes
 
 Use the [tracking frontend contract](../tracking-workflow/frontend-developer.md) and [regression guide](../tracking-workflow/qa-tester.md) for whole-pack/component quantities, `expectedRevision`, exact retry safety, correction/reopening, stock/ledger rollback and 503 on unavailable conversion. The [97/97 live retest](../tracking-workflow/live-fix-retest-2026-10-20.md) includes later bounds and access fixes. The initial manual-return report remains evidence only for its stated scenario/date. Later Orders label software decoding does not certify a phone camera or genuine courier-delivery event.
+
+## Backend audit correction — 22 October 2026
+
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.

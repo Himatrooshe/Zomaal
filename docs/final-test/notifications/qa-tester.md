@@ -33,3 +33,7 @@ Trigger event; display notification once; persist read/unread; send push when co
 ## Module-specific checks
 
 Test deduplication/resolution, severity, store/role isolation, read state, push failure behavior, and scheduler authentication.
+
+## Backend audit correction — 22 October 2026
+
+See the [backend fix log](../../backend-live-audit-fixes-2026-10-22.md) for the new Store/Role/Category validation, accounting-currency protection and strict pagination/boolean contracts. The log distinguishes verified local tests from deployment and live retest. Historical module observations above keep their original date and scope.
