@@ -1,0 +1,201 @@
+{
+  "date": "2026-10-21",
+  "environment": "Production Cloud Run API",
+  "deployment": {
+    "revision": "zomaal-backend-00068-vbx",
+    "commit": "2b31110ed4ad68a2624b13dd11e989bd658efc4d",
+    "trafficPercent": 100,
+    "healthHttp": 200
+  },
+  "recordedChecks": {
+    "total": 34,
+    "passed": 33,
+    "failed": 1
+  },
+  "checks": [
+    {
+      "name": "read stores",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "one original store active at start",
+      "pass": true
+    },
+    {
+      "name": "GET active plans",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "active plans available to pricing screen",
+      "pass": false,
+      "finding": "HTTP 200 with zero active plans"
+    },
+    {
+      "name": "GET subscription",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "GET billing invoices",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "invalid invoice pagination",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "billing route requires access token",
+      "http": 401,
+      "pass": true
+    },
+    {
+      "name": "cancel rejects trial without changing it",
+      "http": 409,
+      "pass": true
+    },
+    {
+      "name": "resume rejects trial without pending cancellation",
+      "http": 409,
+      "pass": true
+    },
+    {
+      "name": "confirm subscription unchanged",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "rejected billing actions preserve trial fields",
+      "pass": true
+    },
+    {
+      "name": "create isolated second store",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "GET active store after create",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "creating store selects it",
+      "pass": true
+    },
+    {
+      "name": "list stores after create",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "store list has one active badge",
+      "pass": true
+    },
+    {
+      "name": "profile for selected store",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "profile contains selected store",
+      "pass": true
+    },
+    {
+      "name": "subscription entitlement count",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "account trial has unlimited stores and reports count",
+      "pass": true
+    },
+    {
+      "name": "update disposable store settings",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "store update returns saved values",
+      "pass": true
+    },
+    {
+      "name": "invalid empty city update rejected",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "read store after invalid update",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "invalid setting leaves stored values intact",
+      "pass": true
+    },
+    {
+      "name": "invalid select ID rejected",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "unowned store selection rejected",
+      "http": 404,
+      "pass": true
+    },
+    {
+      "name": "deletion of nonexistent store rejected",
+      "http": 404,
+      "pass": true
+    },
+    {
+      "name": "GET packaging for new store",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "new store starts without another store packaging data",
+      "pass": true
+    },
+    {
+      "name": "restore original selected store",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "delete isolated store",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "verify final stores",
+      "http": 200,
+      "pass": true
+    }
+  ],
+  "observedBillingState": {
+    "activePlanCountFromApi": 0,
+    "subscriptionStatus": "TRIALING",
+    "trialDaysLeft": 5,
+    "isReadOnly": false,
+    "paymentMethod": null,
+    "checkoutUrlConfigured": false,
+    "invoiceCount": 0,
+    "cancelAtPeriodEnd": false
+  },
+  "finding": {
+    "severity": "BLOCKER",
+    "endpoint": "GET /billing/plans",
+    "http": 200,
+    "response": [],
+    "impact": "The Plans & Pricing screen has no active plan options; plan activation requires a plan record."
+  },
+  "cleanup": {
+    "temporaryStoreDeleted": true,
+    "originalStoreRestoredAsActive": true,
+    "originalStoreCount": 1,
+    "subscriptionUnchanged": true
+  }
+}

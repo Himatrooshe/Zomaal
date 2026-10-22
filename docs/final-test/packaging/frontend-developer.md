@@ -1,16 +1,20 @@
 # Frontend Developer Guide — Packaging
 
-Updated 20 October 2026.
+## Handoff status — 22 October 2026
+
+Fix `b1ee535` passed 208/208 production observations. Image retries, integer bounds, trimmed stock reasons and scheduled in-app inventory alerts are fixed. The owner WhatsApp outbox is implemented; actual receipt is still blocked by client Meta configuration and an approved inventory template.
+
+[Verification evidence](./fix-verification-2026-10-20.md) · [Cross-module status and API gaps](../CURRENT-STATUS.md) · [Production API contract](../openapi.production.json).
+
+This refresh consolidates recorded work; it does not claim a new full regression run. Unchecked UI/QA checklists remain acceptance work. Revision names below identify the version tested at that time.
+
+Updated 22 October 2026 (documentation reconciliation; original test dates are retained).
 
 ## References
 
 - Figma: [Packaging list and setup (Figma section 1:11814)](https://www.figma.com/design/6g6gVrZZovSVOOfRB9vPGw/zomal-copy?node-id=0-1).
 - [Module requirements](../../module-context/06-packaging.md).
-- [OpenAPI contract](../../api/openapi.yaml).
-
-## Backend status
-
-Live audit completed on revision `zomaal-backend-00062-gmt` (`54e1048`). **Five findings remain open; final signoff is blocked.** Stock/threshold/usage APIs work, but image retries, integer limits, blank movement reasons and notification scheduling need fixes. Owner WhatsApp stock alerts are not wired. See [live audit](./live-server-test-results-2026-10-20.md).
+- [OpenAPI contract](../openapi.production.json).
 
 ## Main flow
 
@@ -36,15 +40,14 @@ Use the routes and exact schemas in OpenAPI. Handle loading, empty, success, val
 - Owner WhatsApp and in-app alerts are required. The current toggle does not prove either notification has been sent.
 - Delivered Zomaal Shop purchases should increase packaging stock automatically.
 
-## Integration handoff after live audit
+## Current integration handoff
 
-- Send openingStock on create; use PUT /warehouse/inventory/items/:id/stock for later absolute quantities. Reuse the same idempotency key only for retrying the same stock operation.
-- Stock and threshold values are integers for all four units. Display available separately from onHand when reservations/damage matter.
-- Send imageUploadId only when choosing a new upload, and null to remove it. Repeating the same successful replacement currently returns 400; preserve form state and reload the material before retrying.
-- Reject blank stock reasons in the UI; the backend currently accepts whitespace and stores an empty reason. Backend validation still needs fixing.
-- Handle current overflow 500 responses without claiming a stock change succeeded; the audit confirmed those failed transactions leave stock unchanged. Server-side 400 bounds are still required.
-- Display stockStatus from the API. LOW_STOCK does not currently mean a notification was delivered: the live evaluator is disabled. Do not report the WhatsApp toggle as a confirmed send.
-- Supplier names from the Purchases rollout are available on packaging create/edit/read; existing purchase snapshots remain independent.
+- Send `openingStock` on create. Later absolute stock uses `PUT /warehouse/inventory/items/:id/stock`; reuse an idempotency key only for the identical operation.
+- Quantities/thresholds are integers. Separate available, on-hand, reserved and damaged stock.
+- Replaying the current `imageUploadId` succeeds. Null removes the image; invalid/consumed replacement preserves the existing material.
+- Trim stock reasons to 3–500 characters. Input/result overflow returns 400 with unchanged stock/journal.
+- In-app notifications run through the enabled protected five-minute evaluator. `stockStatus` alone does not establish WhatsApp or handset delivery.
+- Supplier names are available on material create/edit/read; purchase snapshots stay independent.
 
 ## Fix contract — 20 October 2026
 

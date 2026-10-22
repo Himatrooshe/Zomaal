@@ -1,0 +1,162 @@
+{
+  "date": "2026-10-20",
+  "commit": "6f8d8d4",
+  "environment": "disposable local PostgreSQL",
+  "total": 38,
+  "passed": 28,
+  "failed": 10,
+  "cases": [
+    {
+      "name": "verifies GOOD with correct stock, losses, and repeat behavior",
+      "status": "passed"
+    },
+    {
+      "name": "verifies RETURNED with correct stock, losses, and repeat behavior",
+      "status": "passed"
+    },
+    {
+      "name": "verifies DAMAGED with correct stock, losses, and repeat behavior",
+      "status": "passed"
+    },
+    {
+      "name": "verifies LOST with correct stock, losses, and repeat behavior",
+      "status": "passed"
+    },
+    {
+      "name": "verifies MISSING with correct stock, losses, and repeat behavior",
+      "status": "passed"
+    },
+    {
+      "name": "applies only the difference for damage-cost and condition corrections",
+      "status": "passed"
+    },
+    {
+      "name": "keeps partially verified returns open until every line is checked",
+      "status": "passed"
+    },
+    {
+      "name": "does not invent product costs or stock for an unmatched line",
+      "status": "passed"
+    },
+    {
+      "name": "deduplicates concurrent scans and counts customer return risk once",
+      "status": "passed"
+    },
+    {
+      "name": "resolves a third-party tracking barcode and a Zomaal QR payload",
+      "status": "passed"
+    },
+    {
+      "name": "shows delayed requests and removes them from that tab when processed",
+      "status": "passed"
+    },
+    {
+      "name": "blocks another store from detecting, verifying, or listing the return",
+      "status": "passed"
+    },
+    {
+      "name": "allows view-only staff to read and blocks scanning and verification",
+      "status": "passed"
+    },
+    {
+      "name": "rejects an invalid line without partially verifying earlier valid lines",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE same product on separate orders resolves the right tracking and releases only that order stock",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE a QR with a misleading product/order id still resolves by the store-owned tracking number",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ambiguous tracking numbers must not silently choose one of two orders",
+      "status": "failed"
+    },
+    {
+      "name": "EDGE whole-pack delivery and GOOD return update every component correctly",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE whole-pack delivery and RETURNED return update every component correctly",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE whole-pack delivery and DAMAGED return update every component correctly",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE whole-pack delivery and LOST return update every component correctly",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE whole-pack delivery and MISSING return update every component correctly",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE scanning a pack must expose physical component codes and quantities",
+      "status": "failed"
+    },
+    {
+      "name": "EDGE pack QR must retain component quantities rather than just code strings",
+      "status": "failed"
+    },
+    {
+      "name": "EDGE mixed conditions for different pack components must be supported independently",
+      "status": "failed"
+    },
+    {
+      "name": "EDGE two units on one line need independently recorded partial conditions",
+      "status": "failed"
+    },
+    {
+      "name": "EDGE conflicting repeated line IDs must be rejected rather than silently overwriting conditions",
+      "status": "failed"
+    },
+    {
+      "name": "EDGE duplicate delivery events do not duplicate stock deductions or revenue",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE stale terminal delivery arriving after a newer return does not resurrect revenue",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE a later genuine Delivered correction after a returned status restores revenue",
+      "status": "failed"
+    },
+    {
+      "name": "EDGE concurrent delivery syncs both finish without duplicate stock or financial events",
+      "status": "failed"
+    },
+    {
+      "name": "EDGE an Ameex-only shipment reference can resolve to its manual order",
+      "status": "failed"
+    },
+    {
+      "name": "EDGE ticket requests contain product codes and quantities for all four dispatch adapters",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog status ingestion links the order and duplicate Delivered snapshots are idempotent",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog stale In Transit snapshot must not replace a Delivered outcome",
+      "status": "failed"
+    },
+    {
+      "name": "EDGE ForceLog CANCELLED before delivery releases reservation and books only incurred shipping",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog REFUSED before delivery releases reservation and books only incurred shipping",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog RETURNED_TO_SELLER before delivery releases reservation and books only incurred shipping",
+      "status": "passed"
+    }
+  ]
+}

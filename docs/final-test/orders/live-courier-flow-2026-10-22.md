@@ -1,5 +1,7 @@
 # Courier, scan, return and export flow — live verification
 
+> Historical evidence. Original failures and observations below describe the tested revision at that time. Use [the subsequent verification](./export-memory-fix-verification-2026-10-22.md) and [current module status](../CURRENT-STATUS.md) for resolved findings and remaining acceptance.
+
 **Follow-up:** the export failure recorded below is now fixed and verified live on `31c0dd4`. See [fix verification](./export-memory-fix-verification-2026-10-22.md). The original observations below remain historical evidence.
 
 **22 October 2026 (Asia/Dhaka)** · Production application `9d4e661` · Cloud Run revision `zomaal-backend-00070-94q`, 100% traffic.

@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-21",
+  "environment": "Production Cloud Run API",
+  "deployment": {
+    "revision": "zomaal-backend-00068-vbx",
+    "commit": "2b31110ed4ad68a2624b13dd11e989bd658efc4d",
+    "trafficPercent": 100,
+    "healthHttp": 200
+  },
+  "scheduler": {
+    "name": "zomaal-notifications-evaluate",
+    "schedule": "*/5 * * * *",
+    "state": "ENABLED",
+    "latestObservedInvocationHttp": 200
+  },
+  "apiChecks": [
+    { "name": "empty notification list", "http": 200, "pass": true },
+    { "name": "empty unread counts", "http": 200, "pass": true },
+    { "name": "all four tabs", "http": 200, "pass": true },
+    { "name": "missing authentication", "http": 401, "pass": true },
+    { "name": "invalid tab and pagination", "http": 400, "pass": true },
+    { "name": "read-all with zero rows", "http": 200, "marked": 0, "pass": true },
+    { "name": "unknown notification UUID", "http": 404, "pass": true },
+    { "name": "malformed notification UUID", "http": 400, "pass": true },
+    { "name": "invalid push device token", "http": 400, "pass": true },
+    { "name": "delete nonexistent push device", "http": 204, "pass": true },
+    { "name": "missing scheduler secret", "http": 401, "pass": true },
+    { "name": "incorrect scheduler secret", "http": 401, "pass": true }
+  ],
+  "inventoryLifecycle": {
+    "recordedChecks": 28,
+    "passed": 28,
+    "failed": 0,
+    "scenarios": [
+      "create LOW_STOCK alert with expected inventory metadata",
+      "deduplicate repeated LOW_STOCK evaluation",
+      "mark alert read and update unread counts",
+      "resolve LOW_STOCK and create OUT_OF_STOCK at zero balance",
+      "deduplicate repeated OUT_OF_STOCK evaluation",
+      "resolve OUT_OF_STOCK after restock",
+      "delete temporary store and restore original active store"
+    ]
+  },
+  "push": {
+    "enabled": false,
+    "evidence": "Serving revision does not configure PUSH_NOTIFICATIONS_ENABLED or FCM_PROJECT_ID",
+    "deviceReceiptTested": false
+  },
+  "cleanup": {
+    "temporaryStoreDeleted": true,
+    "originalStoreRestoredAsActive": true,
+    "originalStoreCount": 1,
+    "remainingNotifications": 0,
+    "unreadCounts": { "all": 0, "critical": 0, "warning": 0, "inventory": 0 }
+  },
+  "scopeLimit": "No defect reproduced in the tested API and inventory-alert scope. Other alert types and actual FCM receipt remain unverified."
+}

@@ -1,5 +1,13 @@
 # Item Value — QA tester guide
 
+## Handoff status — 22 October 2026
+
+`7a1cb34` / revision `zomaal-backend-00072-kmd` passed 100/100 live observations. Store-scoped current physical stock valuation, whole-filter summaries, unknown costs/FX, permissions and isolation are deployed. No historical valuation or detailed Figma screen is provided; frontend/device and large-catalog acceptance remain separate. Reports are outside v1.
+
+[Verification evidence](./live-server-test-results-2026-10-22.md) · [Cross-module status and API gaps](../CURRENT-STATUS.md) · [Production API contract](../openapi.production.json).
+
+This refresh consolidates recorded work; it does not claim a new full regression run. Unchecked UI/QA checklists remain acceptance work. Revision names below identify the version tested at that time.
+
 Updated 22 October 2026. Deployed as `7a1cb34`, revision `zomaal-backend-00072-kmd`. Local unit/PostgreSQL checks and 100/100 recorded live observations passed. No detailed Figma screen is available.
 
 ## Acceptance checklist
@@ -19,7 +27,7 @@ Updated 22 October 2026. Deployed as `7a1cb34`, revision `zomaal-backend-00072-k
 
 Unit tests cover decimal valuation, FX caching and invalid quotes. `test/item-value-workflow.postgres.e2e-spec.ts` uses the real controller, validation, permissions, store access and PostgreSQL relationships; test auth identities and exchange quotes are controlled at their boundaries. The CI gate runs it before deployment. Real production quotes and JWTs are checked separately during live acceptance.
 
-[Requirements](../../module-context/18-reports.md) · [OpenAPI](../../api/openapi.yaml).
+[Requirements](../../module-context/18-reports.md) · [OpenAPI](../openapi.production.json).
 
 [Deployment, live evidence and limits](./live-server-test-results-2026-10-22.md) · [Sanitized QA response examples](./live-server-results-2026-10-22.json).
 

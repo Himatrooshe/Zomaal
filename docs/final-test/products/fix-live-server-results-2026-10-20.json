@@ -1,0 +1,296 @@
+{
+  "date": "2026-10-20",
+  "commit": "6f8d8d4",
+  "environment": "production Cloud Run",
+  "checks": [
+    {
+      "name": "approved account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "Home before fix retest",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "fixtures remain archived",
+      "pass": true
+    },
+    {
+      "name": "upload QA image PRODUCT_MAIN",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit archived QA fixture",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "PROD-01 main image replaced",
+      "pass": true
+    },
+    {
+      "name": "old main image removed",
+      "http": 404,
+      "pass": true
+    },
+    {
+      "name": "upload QA image PRODUCT_GALLERY",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit archived QA fixture",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "gallery addition retained",
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit archived QA fixture",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "PROD-02 gallery removed",
+      "pass": true
+    },
+    {
+      "name": "removed gallery no longer accessible",
+      "http": 404,
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit archived QA fixture",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "PROD-03 nullable description clears",
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit archived QA fixture",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "PROD-04 blank name rejected without writes",
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit archived QA fixture",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "upload QA image VARIANT",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit archived QA fixture",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "variant image replacement also works",
+      "pass": true
+    },
+    {
+      "name": "old variant image removed",
+      "http": 404,
+      "pass": true
+    },
+    {
+      "name": "upload QA image PRODUCT_GALLERY",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit archived QA fixture",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "failed image replacement rolls back name version and main",
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "unused variant starts with zero quantities",
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit archived QA fixture",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "PROD-05 unused variant removed",
+      "pass": true
+    },
+    {
+      "name": "removed unused inventory is gone",
+      "http": 404,
+      "pass": true
+    },
+    {
+      "name": "used variant history before rejection",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit archived QA fixture",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "used variant history after rejection",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "used zero-stock variant keeps all history",
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA product remains archived and zero stock",
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA product remains archived and zero stock",
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA product remains archived and zero stock",
+      "pass": true
+    },
+    {
+      "name": "read archived QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA product remains archived and zero stock",
+      "pass": true
+    },
+    {
+      "name": "Home after fix retest",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "orders unchanged",
+      "pass": true
+    },
+    {
+      "name": "no dispatch created",
+      "pass": true
+    },
+    {
+      "name": "Home catalog stays complete with no active QA stock",
+      "pass": true
+    }
+  ],
+  "final": {
+    "allFiveBugsPassed": true,
+    "fixturesArchived": true,
+    "stock": 0,
+    "ordersUnchanged": true,
+    "dispatchesCreated": 0
+  }
+}

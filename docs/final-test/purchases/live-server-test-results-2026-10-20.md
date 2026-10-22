@@ -1,5 +1,7 @@
 # Purchases — live audit, 20 October 2026
 
+> Historical evidence. Original failures and observations below describe the tested revision at that time. Use [the subsequent verification](./live-fix-retest-2026-10-20.md) and [current module status](../CURRENT-STATUS.md) for resolved findings and remaining acceptance.
+
 > Historical audit before the fixes. All six findings are now deployed and passed the [production retest](./live-fix-retest-2026-10-20.md).
 
 ## Result

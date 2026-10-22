@@ -1,5 +1,7 @@
 # Staff & Salary — live API audit, 2026-10-21
 
+> Historical evidence. Original failures and observations below describe the tested revision at that time. Use [the subsequent verification](./fix-verification-2026-10-21.md) and [current module status](../CURRENT-STATUS.md) for resolved findings and remaining acceptance.
+
 ## Result
 
 **Not ready for full signoff.** 228 recorded observations: 213 passed, 15 failed expectations across seven finding groups. Counts include setup, assertions, HTTP requests and cleanup; they are not 228 distinct business cases.

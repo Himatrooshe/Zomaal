@@ -1,5 +1,13 @@
 # Expenses
 
+## Handoff status — 22 October 2026
+
+Fix `639a58b` passed 362/362 production observations; all ten initial live finding groups passed retesting. Receipt lifecycle, durable creation retries, source-group protection, strict dates/amounts and device timezone are corrected. Courier ledger fees feed Expenses/Home; nonzero provider billing and populated ad-account acceptance remain limited by real data.
+
+[Verification evidence](./fix-verification-2026-10-20.md) · [Cross-module status and API gaps](../CURRENT-STATUS.md) · [Production API contract](../openapi.production.json).
+
+This refresh consolidates recorded work; it does not claim a new full regression run. Unchecked UI/QA checklists remain acceptance work. Revision names below identify the version tested at that time.
+
 - [Deployed fix verification](./fix-verification-2026-10-20.md)
 - [Live retest evidence and responses](./live-fix-retest-results-2026-10-20.json)
 - [Frontend developer guide](./frontend-developer.md)

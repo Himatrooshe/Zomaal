@@ -1,5 +1,13 @@
 # Staff & Salary final tests
 
+## Handoff status — 22 October 2026
+
+Fix `0326eaa` passed 267/267 live observations. Strict input/date validation, saved schedule timezone, local-calendar reports and protected 15-minute scheduling are deployed; a real Scheduler invocation returned 200. PAID is an accounting record. Bank transfer, natural overnight recurrence and unresolved client policies are not certified.
+
+[Verification evidence](./fix-verification-2026-10-21.md) · [Cross-module status and API gaps](../CURRENT-STATUS.md) · [Production API contract](../openapi.production.json).
+
+This refresh consolidates recorded work; it does not claim a new full regression run. Unchecked UI/QA checklists remain acceptance work. Revision names below identify the version tested at that time.
+
 **Latest status:** application commit `0326eaa`, serving revision `zomaal-backend-00065-zbd`;267/267 live observations passed after successful CI/CD. Salary Scheduler configured and an actual execution verifiedHTTP200. Original account/data preserved; disposable test data removed.
 
 - [Final deployed verification](fix-verification-2026-10-21.md)

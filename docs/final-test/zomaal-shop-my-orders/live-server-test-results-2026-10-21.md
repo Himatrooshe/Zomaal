@@ -1,5 +1,7 @@
 # Zomaal Shop & My Orders — live audit, 21 October 2026
 
+> Historical evidence. Original failures and observations below describe the tested revision at that time. Use [the subsequent verification](./fix-verification-2026-10-21.md) and [current module status](../CURRENT-STATUS.md) for resolved findings and remaining acceptance.
+
 ## Result
 
 **Not ready for full sign-off. Nine confirmed backend bug groups were reproduced on production.** No application fixes or deployment were performed in this audit.

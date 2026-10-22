@@ -1,5 +1,7 @@
 # Customers & Risk Center — live audit, 2026-10-21
 
+> Historical evidence. Original failures and observations below describe the tested revision at that time. Use [the subsequent verification](./fix-verification-2026-10-21.md) and [current module status](../CURRENT-STATUS.md) for resolved findings and remaining acceptance.
+
 ## Result
 
 **Not ready for signoff.** 326 recorded observations: **291 passed, 35 failed expectations**, across seven finding groups. Counts include setup, requests, assertions, repeated reproductions and cleanup; they are not326 unique business cases.

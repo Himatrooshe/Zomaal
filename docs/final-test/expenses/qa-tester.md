@@ -1,16 +1,20 @@
 # QA Tester Guide — Expenses
 
-Updated 19 October 2026.
+## Handoff status — 22 October 2026
+
+Fix `639a58b` passed 362/362 production observations; all ten initial live finding groups passed retesting. Receipt lifecycle, durable creation retries, source-group protection, strict dates/amounts and device timezone are corrected. Courier ledger fees feed Expenses/Home; nonzero provider billing and populated ad-account acceptance remain limited by real data.
+
+[Verification evidence](./fix-verification-2026-10-20.md) · [Cross-module status and API gaps](../CURRENT-STATUS.md) · [Production API contract](../openapi.production.json).
+
+This refresh consolidates recorded work; it does not claim a new full regression run. Unchecked UI/QA checklists remain acceptance work. Revision names below identify the version tested at that time.
+
+Updated 22 October 2026 (documentation reconciliation; original test dates are retained).
 
 ## References
 
 - Figma: [Expenses (Figma section 1:7802)](https://www.figma.com/design/6g6gVrZZovSVOOfRB9vPGw/zomal-copy?node-id=0-1).
 - [Module requirements](../../module-context/09-expenses.md).
-- [OpenAPI contract](../../api/openapi.yaml).
-
-## Current status
-
-Manual/system expenses and ad-spend aggregation exist. Courier fees affect order financials but were not found in the Expenses Shipping-group summary.
+- [OpenAPI contract](../openapi.production.json).
 
 ## Main flow
 
@@ -31,21 +35,17 @@ Summary/trends; date filters; expense list/detail; create/edit/delete manual cat
 Test manual/system group rules, receipts, trend/date boundaries, ad spend, and confirm courier fees appear in Shipping total.
 
 
+## Historical audit and current integration rules
 
-## Executed production audit — 20 October 2026
+The initial audit recorded ten live finding groups. Those findings passed the deployed retest; use [fix verification](./fix-verification-2026-10-20.md) for current responses. The [original report](./live-server-test-results-2026-10-20.md) preserves pre-fix failures.
 
-**345 observations: 313 passed, 32 failed assertions; ten live finding groups.** [Results, responses, limits and cleanup](./live-server-test-results-2026-10-20.md). The broader module is not signed off.
-
-- Receipt replacement currently returns 500; replaying the current receipt ID returns 400. Preserve the displayed original receipt on failure.
-- Avoid automatic POST retries: manual expense creation has no durable deduplication support; identical submissions can count twice.
-- Money overflow/precision, null PATCH fields, blank names, malformed integer queries and calendar validation need backend fixes. Validate locally too, while retaining server validation as the authority.
-- Treat SHIPPING/ADS/SALARY/PURCHASES as source-managed. The server currently fails to enforce this fully for SHIPPING/ADS.
-- Normal manual CRUD, Purchases and Salary expense links, ordinary totals/Home profit, receipt upload/read/delete and store/role isolation passed live checks.
-- The client requested the phone timezone; the chart is currently UTC with no timezone input. A phone-local October expense was counted in September.
-- Actual nonzero courier/ads data and natural receipt expiry remain unverified live. Do not render missing conversion data as zero or fabricate a courier charge to demonstrate the screen.
-- Client answers: automatic salary cannot be entered again manually; bonuses use OTHER; courier API supplies shipping costs; no automatic monthly recurrence. Additional payment methods await the client; CASH/BANK are temporary current options.
-- Original account and ledgers preserved; temporary test records/store and two remaining cloud receipt images removed.
-
+- Receipt replacement and current-receipt replay now succeed; invalid replacements preserve the original attachment.
+- Use a stable creation idempotency key for retries. Identical payloads create one charge; changed payloads and replay after deletion return 409. Requests without a key can create separate expenses.
+- Manual creation/reassignment into SHIPPING, ADS, SALARY and PURCHASES is rejected. Use OTHER categories for manual expenses; bonuses use OTHER.
+- Send the phone IANA timezone for date-only input, filters and charts. Explicit timestamp upper bounds are inclusive; date-only upper bounds include the full local day.
+- Money bounds, required nulls, blank names, malformed pagination and invalid calendar dates return 400.
+- Courier ledger costs feed summary/trend and Home without another profit deduction. Missing FX is explicit; stored SHIPPING expense rows are distinct from the derived courier summary.
+- Real nonzero courier/ad-provider data and natural receipt expiry remain separate acceptance. CASH/BANK are current methods; additional methods await client decisions.
 
 ## Deployed live fix retest — 20 October 2026
 

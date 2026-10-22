@@ -1,8 +1,16 @@
 # Zomaal Shop & My Orders — frontend handoff
 
+## Handoff status — 22 October 2026
+
+All nine confirmed bug groups were fixed in `2263e76`/`2b31110` and passed 362/362 live observations. Cart/checkout concurrency, address defaults/validation, query/money bounds and delivered purchase/FX accounting are corrected. Online payments await the gateway; Shop invoice download, dedicated reorder and courier-name contracts remain gaps. Real COD collection, carrier/device and complete plan-state acceptance are not certified.
+
+[Verification evidence](./fix-verification-2026-10-21.md) · [Cross-module status and API gaps](../CURRENT-STATUS.md) · [Production API contract](../openapi.production.json).
+
+This refresh consolidates recorded work; it does not claim a new full regression run. Unchecked UI/QA checklists remain acceptance work. Revision names below identify the version tested at that time.
+
 ## Status
 
-The nine 21 October 2026 findings are fixed and deployed: 362/362 live checks passed on app 2b31110/revision 00068-vbx. Details are tracked in [fix verification](./fix-verification-2026-10-21.md). The original audit is retained below for context. [Audit and actual responses](./live-server-test-results-2026-10-21.md). API contract exists; full sign-off is pending fixes and mobile acceptance.
+The nine 21 October 2026 findings are fixed and deployed: 362/362 live checks passed on app 2b31110/revision 00068-vbx. Details are tracked in [fix verification](./fix-verification-2026-10-21.md). The original audit is retained below for context. [Audit and actual responses](./live-server-test-results-2026-10-21.md). The nine fixes are accepted in the tested API scope; mobile, gateway and missing design-feature acceptance remain open.
 
 ## Screen/API map
 

@@ -1,0 +1,843 @@
+{
+  "stage": "postdeployment-verified",
+  "currency": "BDT",
+  "productionApi": "https://zomaal-backend-563898960389.us-central1.run.app",
+  "scenario": "Manual order; no real parcel or courier dispatch",
+  "verifiedConditions": [
+    "GOOD",
+    "RETURNED",
+    "DAMAGED",
+    "LOST",
+    "MISSING"
+  ],
+  "correctionSteps": 5,
+  "apiContractFinding": "Fixed and verified: live OpenAPI now documents the observed HTTP 201 response for manual-order creation.",
+  "retainedQARecords": {
+    "manualOrders": 1,
+    "processedReturns": 1,
+    "archivedProducts": 1,
+    "inactiveCategories": 1,
+    "customer": "One QA-labelled customer with a non-contact test identifier"
+  },
+  "results": [
+    {
+      "name": "test account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "Home baseline",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "Returns baseline",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "warehouse categories",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "test account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA fixture image upload",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "QA category creation",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "QA warehouse product creation",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "test account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA manual order creation or idempotent recovery",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "QA initial product stock read",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA opening stock is 50 with no damage",
+      "pass": true
+    },
+    {
+      "name": "test account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "manual verification order search",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "manual search finds one QA order",
+      "pass": true
+    },
+    {
+      "name": "first concurrent detect",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "second concurrent detect",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "concurrent detect returns one return request",
+      "pass": true
+    },
+    {
+      "name": "return contains all five QA lines",
+      "pass": true
+    },
+    {
+      "name": "initial preview includes only the shipping proxy",
+      "pass": true
+    },
+    {
+      "name": "invalid second line is rejected before writes",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "read return after invalid batch",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "invalid batch leaves every line unverified",
+      "pass": true
+    },
+    {
+      "name": "after rejected batch: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "after rejected batch: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "after rejected batch: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "invalid batch leaves stock and ledger unchanged",
+      "pass": true,
+      "snapshot": {
+        "onHand": 50,
+        "reserved": 0,
+        "damaged": 0,
+        "ledgerLoss": 0,
+        "netProfit": 0,
+        "ledgerEvents": 0,
+        "movements": 1
+      }
+    },
+    {
+      "name": "verify GOOD",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "GOOD: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "GOOD: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "GOOD: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "GOOD: live stock and ledger match",
+      "pass": true,
+      "snapshot": {
+        "onHand": 50,
+        "reserved": 0,
+        "damaged": 0,
+        "ledgerLoss": 0,
+        "netProfit": 0,
+        "ledgerEvents": 0,
+        "movements": 1
+      }
+    },
+    {
+      "name": "GOOD: preview uses purchase costs",
+      "pass": true,
+      "currency": "BDT",
+      "lossPreview": "15.00"
+    },
+    {
+      "name": "GOOD: partial/completed status",
+      "pass": true
+    },
+    {
+      "name": "verify RETURNED",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "RETURNED: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "RETURNED: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "RETURNED: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "RETURNED: live stock and ledger match",
+      "pass": true,
+      "snapshot": {
+        "onHand": 50,
+        "reserved": 0,
+        "damaged": 0,
+        "ledgerLoss": 0,
+        "netProfit": 0,
+        "ledgerEvents": 0,
+        "movements": 1
+      }
+    },
+    {
+      "name": "RETURNED: preview uses purchase costs",
+      "pass": true,
+      "currency": "BDT",
+      "lossPreview": "15.00"
+    },
+    {
+      "name": "RETURNED: partial/completed status",
+      "pass": true
+    },
+    {
+      "name": "verify DAMAGED",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "DAMAGED: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "DAMAGED: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "DAMAGED: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "DAMAGED: live stock and ledger match",
+      "pass": true,
+      "snapshot": {
+        "onHand": 50,
+        "reserved": 0,
+        "damaged": 2,
+        "ledgerLoss": 60,
+        "netProfit": -60,
+        "ledgerEvents": 1,
+        "movements": 2
+      }
+    },
+    {
+      "name": "DAMAGED: preview uses purchase costs",
+      "pass": true,
+      "currency": "BDT",
+      "lossPreview": "75.00"
+    },
+    {
+      "name": "DAMAGED: partial/completed status",
+      "pass": true
+    },
+    {
+      "name": "verify LOST",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "LOST: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "LOST: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "LOST: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "LOST: live stock and ledger match",
+      "pass": true,
+      "snapshot": {
+        "onHand": 48,
+        "reserved": 0,
+        "damaged": 2,
+        "ledgerLoss": 120,
+        "netProfit": -120,
+        "ledgerEvents": 2,
+        "movements": 3
+      }
+    },
+    {
+      "name": "LOST: preview uses purchase costs",
+      "pass": true,
+      "currency": "BDT",
+      "lossPreview": "135.00"
+    },
+    {
+      "name": "LOST: partial/completed status",
+      "pass": true
+    },
+    {
+      "name": "verify MISSING",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "MISSING: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "MISSING: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "MISSING: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "MISSING: live stock and ledger match",
+      "pass": true,
+      "snapshot": {
+        "onHand": 46,
+        "reserved": 0,
+        "damaged": 2,
+        "ledgerLoss": 180,
+        "netProfit": -180,
+        "ledgerEvents": 3,
+        "movements": 4
+      }
+    },
+    {
+      "name": "MISSING: preview uses purchase costs",
+      "pass": true,
+      "currency": "BDT",
+      "lossPreview": "195.00"
+    },
+    {
+      "name": "MISSING: partial/completed status",
+      "pass": true
+    },
+    {
+      "name": "before identical retry: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "before identical retry: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "before identical retry: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "repeat entire condition submission",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "after identical retry: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "after identical retry: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "after identical retry: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "repeat submission adds no stock movement or loss event",
+      "pass": true,
+      "snapshot": {
+        "onHand": 46,
+        "reserved": 0,
+        "damaged": 2,
+        "ledgerLoss": 180,
+        "netProfit": -180,
+        "ledgerEvents": 3,
+        "movements": 4
+      }
+    },
+    {
+      "name": "correction 1: DAMAGED",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 1: DAMAGED: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 1: DAMAGED: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 1: DAMAGED: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 1: DAMAGED: correct net stock and ledger",
+      "pass": true,
+      "snapshot": {
+        "onHand": 46,
+        "reserved": 0,
+        "damaged": 2,
+        "ledgerLoss": 127.5,
+        "netProfit": -127.5,
+        "ledgerEvents": 4,
+        "movements": 4
+      },
+      "lossPreview": "142.50"
+    },
+    {
+      "name": "correction 2: DAMAGED",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 2: DAMAGED: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 2: DAMAGED: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 2: DAMAGED: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 2: DAMAGED: correct net stock and ledger",
+      "pass": true,
+      "snapshot": {
+        "onHand": 46,
+        "reserved": 0,
+        "damaged": 2,
+        "ledgerLoss": 130,
+        "netProfit": -130,
+        "ledgerEvents": 5,
+        "movements": 4
+      },
+      "lossPreview": "145.00"
+    },
+    {
+      "name": "correction 3: GOOD",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 3: GOOD: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 3: GOOD: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 3: GOOD: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 3: GOOD: correct net stock and ledger",
+      "pass": true,
+      "snapshot": {
+        "onHand": 48,
+        "reserved": 0,
+        "damaged": 2,
+        "ledgerLoss": 70,
+        "netProfit": -70,
+        "ledgerEvents": 6,
+        "movements": 5
+      },
+      "lossPreview": "85.00"
+    },
+    {
+      "name": "correction 4: GOOD",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 4: GOOD: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 4: GOOD: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 4: GOOD: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 4: GOOD: correct net stock and ledger",
+      "pass": true,
+      "snapshot": {
+        "onHand": 50,
+        "reserved": 0,
+        "damaged": 2,
+        "ledgerLoss": 10,
+        "netProfit": -10,
+        "ledgerEvents": 7,
+        "movements": 6
+      },
+      "lossPreview": "25.00"
+    },
+    {
+      "name": "correction 5: GOOD",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 5: GOOD: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 5: GOOD: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 5: GOOD: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "correction 5: GOOD: correct net stock and ledger",
+      "pass": true,
+      "snapshot": {
+        "onHand": 50,
+        "reserved": 0,
+        "damaged": 0,
+        "ledgerLoss": 0,
+        "netProfit": 0,
+        "ledgerEvents": 8,
+        "movements": 7
+      },
+      "lossPreview": "15.00"
+    },
+    {
+      "name": "completed QA return list",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "one QA return is processed",
+      "pass": true
+    },
+    {
+      "name": "manual order retry produced no duplicate",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "exactly one QA order exists",
+      "pass": true
+    },
+    {
+      "name": "test account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "before QA cleanup: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "before QA cleanup: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "before QA cleanup: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "cleanup starts with reversed item losses and no damage",
+      "pass": true
+    },
+    {
+      "name": "clear QA synthetic stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "archive QA fixture product",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "QA product is archived",
+      "pass": true
+    },
+    {
+      "name": "archive QA fixture category",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA category is inactive",
+      "pass": true
+    },
+    {
+      "name": "final live QA state: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "final live QA state: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "final live QA state: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "synthetic stock and item losses are cleared",
+      "pass": true,
+      "snapshot": {
+        "onHand": 0,
+        "reserved": 0,
+        "damaged": 0,
+        "ledgerLoss": 0,
+        "netProfit": 0,
+        "ledgerEvents": 8,
+        "movements": 8
+      }
+    },
+    {
+      "name": "Home after live QA cleanup",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "Returns summary after QA cleanup",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "test account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "Home after dashboard correction deployment",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "manual order no longer marks remote catalog incomplete",
+      "pass": true,
+      "catalog": {
+        "connectedProducts": 6,
+        "connectedCustomers": 10,
+        "warehouseProducts": 1,
+        "activeWarehouseProducts": 0,
+        "complete": true,
+        "metricsFreshAsOf": "2026-10-18T19:50:08.899Z"
+      }
+    },
+    {
+      "name": "QA creation retained only one additional order",
+      "pass": true
+    },
+    {
+      "name": "published OpenAPI schema",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "live API schema documents manual order HTTP 201",
+      "pass": true
+    },
+    {
+      "name": "post-deployment final fixture state: stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "post-deployment final fixture state: movement history",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "post-deployment final fixture state: ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA stock and item losses remain cleared after deployment",
+      "pass": true,
+      "snapshot": {
+        "onHand": 0,
+        "reserved": 0,
+        "damaged": 0,
+        "ledgerLoss": 0,
+        "netProfit": 0,
+        "ledgerEvents": 8,
+        "movements": 8
+      }
+    },
+    {
+      "name": "QA processed return remains readable",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "one retained QA return remains processed",
+      "pass": true
+    }
+  ],
+  "final": {
+    "snapshot": {
+      "onHand": 0,
+      "reserved": 0,
+      "damaged": 0,
+      "ledgerLoss": 0,
+      "netProfit": 0,
+      "ledgerEvents": 8,
+      "movements": 8
+    },
+    "home": {
+      "baseCurrency": "BDT",
+      "orders": {
+        "total": 3,
+        "inPeriod": 1,
+        "open": 3,
+        "unfulfilled": 3,
+        "readyToDispatch": 3,
+        "dispatched": 0,
+        "cancelled": 0,
+        "refunded": 0
+      },
+      "catalog": {
+        "connectedProducts": 6,
+        "connectedCustomers": 10,
+        "warehouseProducts": 1,
+        "activeWarehouseProducts": 0,
+        "complete": true,
+        "metricsFreshAsOf": "2026-10-18T19:50:08.899Z"
+      },
+      "shipping": {
+        "connectedProviders": 4,
+        "totalDispatches": 0,
+        "pending": 0,
+        "dispatched": 0,
+        "failed": 0
+      },
+      "profit": {
+        "value": "0.0000",
+        "orderProfit": "0.0000",
+        "adSpend": "0.0000",
+        "operatingExpenses": "0.0000",
+        "unconvertedCurrencies": []
+      }
+    },
+    "returnsSummary": {
+      "period": {
+        "from": "2026-10-01",
+        "to": "2026-10-19",
+        "timezone": "UTC"
+      },
+      "currency": "BDT",
+      "received": {
+        "items": 10,
+        "value": "1000.0000"
+      },
+      "pending": {
+        "items": 0,
+        "value": "0.0000"
+      },
+      "damaged": {
+        "items": 0,
+        "value": "0.0000"
+      },
+      "missing": {
+        "items": 0,
+        "value": "0.0000"
+      },
+      "dataUpdatedAt": "2026-10-19T13:10:01.704Z"
+    }
+  },
+  "homeFinding": "Fixed and verified: an internal manual-order source no longer marks synchronized YouCan catalog metrics incomplete.",
+  "followupCommit": "8f8c578",
+  "followupCI": "https://github.com/Himatrooshe/Zomaal/actions/runs/39259407812"
+}
