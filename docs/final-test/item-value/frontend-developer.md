@@ -1,5 +1,13 @@
 # Item Value — frontend developer guide
 
+## Handoff status — 22 October 2026
+
+`7a1cb34` / revision `zomaal-backend-00072-kmd` passed 100/100 live observations. Store-scoped current physical stock valuation, whole-filter summaries, unknown costs/FX, permissions and isolation are deployed. No historical valuation or detailed Figma screen is provided; frontend/device and large-catalog acceptance remain separate. Reports are outside v1.
+
+[Verification evidence](./live-server-test-results-2026-10-22.md) · [Cross-module status and API gaps](../CURRENT-STATUS.md) · [Production API contract](../openapi.production.json).
+
+This refresh consolidates recorded work; it does not claim a new full regression run. Unchecked UI/QA checklists remain acceptance work. Revision names below identify the version tested at that time.
+
 Updated 22 October 2026. No detailed Figma screen exists; the client confirmed current inventory valuation (`stock × cost`). Reports are excluded from v1. Deployed as `7a1cb34`, revision `zomaal-backend-00072-kmd`; 100/100 live observations passed.
 
 ## Request
@@ -21,7 +29,7 @@ The response has `items`, `total`, `page`, `limit`, and `summary`. `summary` cov
 
 Handle empty, loading, denied, incomplete valuation and retry states with real API responses. Do not invent inventory/costs or use Figma samples as business data.
 
-[Requirements](../../module-context/18-reports.md) · [OpenAPI](../../api/openapi.yaml).
+[Requirements](../../module-context/18-reports.md) · [OpenAPI](../openapi.production.json).
 
 [Deployment, live evidence and limits](./live-server-test-results-2026-10-22.md) · [Sanitized QA response examples](./live-server-results-2026-10-22.json).
 

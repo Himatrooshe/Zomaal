@@ -1,0 +1,615 @@
+{
+  "date": "2026-10-20",
+  "mainFixCommit": "9a090ca",
+  "finalCommit": "5aa776d",
+  "revision": "zomaal-backend-00061-ffw",
+  "traffic": [
+    {
+      "latestRevision": true,
+      "percent": 100,
+      "revisionName": "zomaal-backend-00061-ffw"
+    }
+  ],
+  "ci": {
+    "main": "https://github.com/Himatrooshe/Zomaal/actions/runs/39335927163",
+    "followUp": "https://github.com/Himatrooshe/Zomaal/actions/runs/39337469445",
+    "bothJobs": "success"
+  },
+  "unitTests": {
+    "suites": 135,
+    "passed": 1184
+  },
+  "trackingPostgresTests": {
+    "passed": 65
+  },
+  "liveChecks": {
+    "main": 88,
+    "callback": 9,
+    "passed": 97,
+    "failed": 0,
+    "note": "Recorded API, setup and cleanup assertions; not a count of distinct scenarios."
+  },
+  "resolvedFindings": [
+    "LIVE-01",
+    "LIVE-02",
+    "LIVE-03",
+    "LIVE-04",
+    "LIVE-05",
+    "LIVE-06",
+    "CONFIG-01"
+  ],
+  "results": [
+    {
+      "name": "approved QA login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "LIVE-01 limit 101 rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "LIVE-01 limit 100 accepted",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read existing QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "LIVE-03 huge allocation rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "LIVE-03 huge legacy condition rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "read existing QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "rejected amounts leave stock and ledger unchanged",
+      "pass": true
+    },
+    {
+      "name": "LIVE-02 identical pre-fingerprint order retry",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "legacy retry returns original order",
+      "pass": true
+    },
+    {
+      "name": "LIVE-02 changed pre-fingerprint payload conflict",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "restore archived QA category",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "activate labelled temporary QA product",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "activate labelled temporary QA product",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "activate labelled temporary QA product",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "set synthetic QA stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "set synthetic QA stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create new fingerprint-protected QA order",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "read QA price version",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "set QA catalog price",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "retry original after catalog price changes",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "exact retry keeps original order and original sale value",
+      "pass": true
+    },
+    {
+      "name": "changed new fingerprint payload conflicts",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "read QA price version",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "set QA catalog price",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "concurrent changed payloads create one order and conflict the other",
+      "pass": true,
+      "statuses": [
+        201,
+        409
+      ]
+    },
+    {
+      "name": "reactivate disposable QA staff",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "grant QA staff financial view and refresh",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "QA staff login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "LIVE-04 authorized staff financial read",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "LIVE-04 authorized staff financial refresh",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "staff cannot read another store financials",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "staff cannot refresh another store financials",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "QA staff remains scheduled for deletion",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "deactivate disposable QA staff",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "LIVE-06 refresh confirms old parcel no longer exists",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "scan old deleted parcel",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "old deleted parcel now CANCELLED",
+      "pass": true,
+      "status": "CANCELLED"
+    },
+    {
+      "name": "repeat old parcel refresh safely",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "approved QA login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create real-courier regression QA order",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "real ForceLog dispatch after deployment",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "real dispatch reserves physical pack quantities",
+      "pass": true,
+      "a": {
+        "onHand": 20,
+        "reserved": 4,
+        "damaged": 0,
+        "incoming": 0
+      },
+      "b": {
+        "onHand": 20,
+        "reserved": 2,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "real tracking resolves pack before deletion",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "new real parcel status pending",
+      "pass": true
+    },
+    {
+      "name": "fetch new real ForceLog PDF sticker",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "real provider sticker is PDF",
+      "pass": true
+    },
+    {
+      "name": "new shipping QR renders PDF",
+      "pass": true
+    },
+    {
+      "name": "LIVE-06 delete real provider parcel",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "provider confirms deletion",
+      "pass": true
+    },
+    {
+      "name": "scan real parcel after deletion",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "LIVE-06 local scan is CANCELLED immediately",
+      "pass": true
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "deletion releases reservations without selling units",
+      "pass": true,
+      "a": {
+        "onHand": 20,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      },
+      "b": {
+        "onHand": 20,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "finance after real provider deletion",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "pre-pickup cancellation has zero sales and zero shipping loss",
+      "pass": true
+    },
+    {
+      "name": "refresh already deleted parcel is safe",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cancelled dispatch fails cleanly when retried",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "approved QA login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "scan decoded provider label after cancellation",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "provider printed label resolves current CANCELLED status",
+      "pass": true
+    },
+    {
+      "name": "scan decoded zomaal label after cancellation",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "zomaal printed label resolves current CANCELLED status",
+      "pass": true
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "approved QA login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "stores before fixed cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cleanup targets only labelled QA store",
+      "pass": true
+    },
+    {
+      "name": "LIVE-05 delete retained QA store and inventory history",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "stores after fixed deletion",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "temporary store removed and original store list restored",
+      "pass": true
+    },
+    {
+      "name": "original Home after all bug fixes",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original order counts preserved",
+      "pass": true
+    },
+    {
+      "name": "original catalog preserved",
+      "pass": true
+    },
+    {
+      "name": "original dispatch counts preserved",
+      "pass": true
+    },
+    {
+      "name": "select QA context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "valid provider-generated signature",
+      "pass": true,
+      "http": 200,
+      "message": "Untracked QuickLivraison parcel ignored"
+    },
+    {
+      "name": "forged signature",
+      "pass": true,
+      "http": 401,
+      "message": "Invalid QuickLivraison webhook signature"
+    },
+    {
+      "name": "missing signature",
+      "pass": true,
+      "http": 401,
+      "message": "Missing QuickLivraison webhook signature"
+    },
+    {
+      "name": "provider callback enabled",
+      "pass": true
+    },
+    {
+      "name": "real provider test callback succeeds",
+      "pass": true,
+      "message": "Test envoy\u00e9 avec succ\u00e8s ! (HTTP 200)"
+    },
+    {
+      "name": "QuickLivraison test response confirms HTTP 200",
+      "pass": true,
+      "code": 200
+    },
+    {
+      "name": "Zomaal callback remains active",
+      "pass": true
+    },
+    {
+      "name": "Zomaal callback has no delivery failures",
+      "pass": true
+    },
+    {
+      "name": "pre-existing webhooks preserved",
+      "pass": true
+    }
+  ],
+  "providerCallback": {
+    "testResponse": {
+      "success": true,
+      "status_code": 200,
+      "message": "Test envoy\u00e9 avec succ\u00e8s ! (HTTP 200)"
+    },
+    "active": 1,
+    "failCount": 0,
+    "previousCallbacksPreserved": 2,
+    "secretLocation": "Secret Manager; value intentionally omitted",
+    "note": "The provider connectivity test does not populate production shipment-notification metadata."
+  },
+  "realCourier": {
+    "provider": "FORCELOG",
+    "trackingNumber": "F-CSA1RWHLKSFX",
+    "deletedAtProvider": true,
+    "localStatusAfterDeletion": "CANCELLED",
+    "revenue": "0.00",
+    "shippingCost": "0.00",
+    "damageCost": "0.00",
+    "labels": {
+      "provider": {
+        "codes": [
+          {
+            "format": "QR Code",
+            "text": "F-CSA1RWHLKSFX"
+          }
+        ],
+        "pages": 1
+      },
+      "zomaal": {
+        "codes": [
+          {
+            "format": "QR Code",
+            "text": "{\"type\":\"PACK\",\"packCode\":\"K0MYTEVS\",\"quantity\":2,\"orderId\":\"#E82F39B5\",\"trackingNumber\":\"F-CSA1RWHLKSFX\",\"items\":[{\"productCode\":\"U7MD7RK1\",\"quantity\":4},{\"productCode\":\"UAZGO4X9\",\"quantity\":2}]}"
+          }
+        ],
+        "pages": 1
+      }
+    }
+  },
+  "cleanup": {
+    "temporaryStoreDeleted": true,
+    "originalStoreSelected": true,
+    "originalDataPreserved": true,
+    "disposableStaff": "Deactivated and scheduled for standard account deletion",
+    "originalHome": {
+      "catalog": {
+        "connectedProducts": 6,
+        "connectedCustomers": 10,
+        "warehouseProducts": 8,
+        "activeWarehouseProducts": 0,
+        "complete": true,
+        "metricsFreshAsOf": "2026-10-18T19:50:08.899Z"
+      },
+      "orders": {
+        "total": 4,
+        "inPeriod": 2,
+        "open": 4,
+        "unfulfilled": 4,
+        "readyToDispatch": 4,
+        "dispatched": 0,
+        "cancelled": 0,
+        "refunded": 0
+      },
+      "shipping": {
+        "connectedProviders": 4,
+        "totalDispatches": 0,
+        "pending": 0,
+        "dispatched": 0,
+        "failed": 0
+      }
+    }
+  },
+  "limits": [
+    "Labels were decoded digitally; no physical printer or phone camera was tested.",
+    "No physical pickup/delivery occurred. The real provider test verifies callback connectivity/signatures, not a real Delivered/Returned business event.",
+    "The regression suite covers the reported cases, not every possible future bug."
+  ]
+}

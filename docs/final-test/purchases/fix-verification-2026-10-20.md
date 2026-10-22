@@ -2,7 +2,7 @@
 
 ## Status
 
-**Update: all six fixes are now deployed in `54e1048` and passed 284 recorded live checks.** See [production results](./live-fix-retest-2026-10-20.md). The following records the earlier local verification phase. The earlier live audit remains the record of the deployed version's failures; its results have not been replaced with local results.
+**Update: all six fixes are now deployed in `54e1048` and passed 284 recorded live checks.** See [production results](./live-fix-retest-2026-10-20.md). The following records the earlier local verification phase. The earlier live audit remains the record of the pre-fix version's failures; its results have not been replaced with local results.
 
 - Branch: `fix/purchases-live-audit-20261020`.
 - Worktree: `/private/tmp/zomaal-tracking-workflow`.
@@ -56,7 +56,7 @@ Prisma generated an initial migration that also proposed removing old legacy pro
 - Replaces media CHECKs in the migration transaction. Verify it succeeds before serving the new application, which reads the added columns. The repository's normal migration/deployment sequence can do this.
 - CI now runs the new Purchases PostgreSQL suite after applying migrations.
 - Application rollback can retain these additive columns and expanded media-purpose constraints. Do not drop supplier/invoice columns after real data has been recorded.
-- After deployment rerun the original six failing live cases plus the full receipt lifecycle with isolated fixtures. No live fix signoff is claimed yet.
+- The original six failures and receipt lifecycle were subsequently retested live: 284/284 observations passed. See the deployed report linked above; remaining limits there still apply.
 
 ## Cleanup
 

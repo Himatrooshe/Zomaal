@@ -1,5 +1,7 @@
 # Orders — expanded live audit, 21 October 2026
 
+> Historical evidence. Original failures and observations below describe the tested revision at that time. Use [the subsequent verification](./live-fix-verification-2026-10-21.md) and [current module status](../CURRENT-STATUS.md) for resolved findings and remaining acceptance.
+
 > Historical audit: all five findings below were subsequently fixed, deployed, and retested. See [current fix verification](./live-fix-verification-2026-10-21.md).
 
 Production revision: `zomaal-backend-00069-vb7`, 100% of traffic. Application commit: `ecae39f`.

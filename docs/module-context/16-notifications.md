@@ -21,6 +21,8 @@ The system generates notifications from other modules (stock, payments, sales). 
 | `PLATFORM_DISCONNECTED` | Critical | Shopify / YouCan / Lightfunnels connection not ACTIVE | Owner only |
 | `PLATFORM_SYNC_FAILED` | Warning | Active platform connection has a stored sync error | Owner only |
 | `COURIER_SYNC_FAILED` | Warning | QuickLivraison / ForceLog / OzoneExpress / Ameex has a stored sync error | Owner only |
+| `TRIAL_ENDING`, `SUBSCRIPTION_ENDING`, `SUBSCRIPTION_EXPIRED` | Warning / Critical | Trial or manually activated subscription approaches or passes its end date | Owner only |
+| `WHATSAPP_BALANCE_LOW`, `WHATSAPP_DISCONNECTED` | Warning / Critical | WhatsApp balance crosses its configured threshold or the connection is disconnected | Owner only |
 | `DUPLICATE_ORDERS` | Warning | New order joins a duplicate group (same phone + same product within 24h) | Owner + staff with `customers.view` |
 
 - State-based alerts (stock, salary, sales, connections) are evaluated by `POST /internal/notifications/run`
@@ -33,8 +35,15 @@ The system generates notifications from other modules (stock, payments, sales). 
 `LOW_STOCK` / `OUT_OF_STOCK` also cover packaging with "Auto Reorder Alert" on, at or below its minimum
 level (`entityType: PACKAGING_MATERIAL`).
 
-**Not built yet:** overdue customer payments (Q16.2), trial/subscription
-ending and WhatsApp balance low (those modules don't exist yet), Sendit sync failures (no stored sync error).
+**Not built yet:** overdue customer payments (Q16.2) and Sendit sync failures
+(no stored Sendit sync error is available).
+
+**Production status (21 October 2026):** the in-app API and scheduled inventory
+alert lifecycle passed live checks on revision `zomaal-backend-00068-vbx`.
+The evaluator scheduler runs every five minutes and its recent invocation
+returned HTTP 200. Firebase push is not configured on the serving revision, so
+phone delivery is still unverified. See the
+[live test report](../final-test/notifications/live-server-test-results-2026-10-21.md).
 
 ## Questions
 

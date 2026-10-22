@@ -1,0 +1,246 @@
+{
+  "date": "2026-10-20",
+  "commit": "75c8524",
+  "suite": "tracking-pack-workflow.postgres",
+  "total": 59,
+  "passed": 59,
+  "failed": 0,
+  "cases": [
+    {
+      "name": "verifies GOOD with correct stock, losses, and repeat behavior",
+      "status": "passed"
+    },
+    {
+      "name": "verifies RETURNED with correct stock, losses, and repeat behavior",
+      "status": "passed"
+    },
+    {
+      "name": "verifies DAMAGED with correct stock, losses, and repeat behavior",
+      "status": "passed"
+    },
+    {
+      "name": "verifies LOST with correct stock, losses, and repeat behavior",
+      "status": "passed"
+    },
+    {
+      "name": "verifies MISSING with correct stock, losses, and repeat behavior",
+      "status": "passed"
+    },
+    {
+      "name": "applies only the difference for damage-cost and condition corrections",
+      "status": "passed"
+    },
+    {
+      "name": "keeps partially verified returns open until every line is checked",
+      "status": "passed"
+    },
+    {
+      "name": "does not invent product costs or stock for an unmatched line",
+      "status": "passed"
+    },
+    {
+      "name": "deduplicates concurrent scans and counts customer return risk once",
+      "status": "passed"
+    },
+    {
+      "name": "resolves a third-party tracking barcode and a Zomaal QR payload",
+      "status": "passed"
+    },
+    {
+      "name": "shows delayed requests and removes them from that tab when processed",
+      "status": "passed"
+    },
+    {
+      "name": "blocks another store from detecting, verifying, or listing the return",
+      "status": "passed"
+    },
+    {
+      "name": "allows view-only staff to read and blocks scanning and verification",
+      "status": "passed"
+    },
+    {
+      "name": "rejects an invalid line without partially verifying earlier valid lines",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE same product on separate orders resolves the right tracking and releases only that order stock",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE a QR with a misleading product/order id still resolves by the store-owned tracking number",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ambiguous tracking numbers must not silently choose one of two orders",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE whole-pack delivery and GOOD return update every component correctly",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE whole-pack delivery and RETURNED return update every component correctly",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE whole-pack delivery and DAMAGED return update every component correctly",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE whole-pack delivery and LOST return update every component correctly",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE whole-pack delivery and MISSING return update every component correctly",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE scanning a pack must expose physical component codes and quantities",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE pack QR must retain component quantities rather than just code strings",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE mixed conditions for different pack components must be supported independently",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE two units on one line need independently recorded partial conditions",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE conflicting repeated line IDs must be rejected rather than silently overwriting conditions",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE duplicate delivery events do not duplicate stock deductions or revenue",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE stale terminal delivery arriving after a newer return does not resurrect revenue",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE a later genuine Delivered correction after a returned status restores revenue",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE concurrent delivery syncs both finish without duplicate stock or financial events",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE an Ameex-only shipment reference can resolve to its manual order",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ticket requests contain product codes and quantities for all four dispatch adapters",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog status ingestion links the order and duplicate Delivered snapshots are idempotent",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog stale In Transit snapshot must not replace a Delivered outcome",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog CANCELLED before delivery releases reservation and books only incurred shipping",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog REFUSED before delivery releases reservation and books only incurred shipping",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog RETURNED_TO_SELLER before delivery releases reservation and books only incurred shipping",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog RETURNED_TO_WAREHOUSE before delivery releases reservation and books only incurred shipping",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog RETURN_INSPECTION before delivery releases reservation and books only incurred shipping",
+      "status": "passed"
+    },
+    {
+      "name": "EDGE ForceLog RETURNED_TO_STOCK before delivery releases reservation and books only incurred shipping",
+      "status": "passed"
+    },
+    {
+      "name": "ALLOC two delivered units with mixed conditions update only the affected quantities",
+      "status": "passed"
+    },
+    {
+      "name": "ALLOC an incomplete quantity stays open and later replacement does not restock twice",
+      "status": "passed"
+    },
+    {
+      "name": "ALLOC pack component quantities, losses, retries and corrections stay consistent",
+      "status": "passed"
+    },
+    {
+      "name": "ALLOC a foreign second component leaves every stock bucket and condition unchanged",
+      "status": "passed"
+    },
+    {
+      "name": "ALLOC a ledger failure rolls back condition changes and stock movements",
+      "status": "passed"
+    },
+    {
+      "name": "FIN repeated delivery/return corrections retain one incurred shipping charge",
+      "status": "passed"
+    },
+    {
+      "name": "AMEEX provider ingestion links a manual order and applies real matching-currency fee once",
+      "status": "passed"
+    },
+    {
+      "name": "READ mixed quantities appear in Returns tiles and completed return reads create no new request",
+      "status": "passed"
+    },
+    {
+      "name": "READ scan and return detection both reject a cross-source tracking collision",
+      "status": "passed"
+    },
+    {
+      "name": "READ pack return screen exposes component identifiers and full ordered quantities",
+      "status": "passed"
+    },
+    {
+      "name": "FIN simultaneous deliveries of different orders retain all shared-product stock movements",
+      "status": "passed"
+    },
+    {
+      "name": "FIN reinstated deliveries are included again in revenue summaries",
+      "status": "passed"
+    },
+    {
+      "name": "REV stale changes conflict while an identical revision retry remains safe",
+      "status": "passed"
+    },
+    {
+      "name": "REV completed returns reopen atomically for incomplete allocations",
+      "status": "passed"
+    },
+    {
+      "name": "REV another open return prevents reopening an older one without stock mutation",
+      "status": "passed"
+    },
+    {
+      "name": "FX return costs use an actual adapter rate and missing rates leave stock unchanged",
+      "status": "passed"
+    },
+    {
+      "name": "STATUS QuickLivraison imports cannot regress a delivered parcel",
+      "status": "passed"
+    },
+    {
+      "name": "STATUS Ozone tracking cannot regress a delivered parcel",
+      "status": "passed"
+    }
+  ]
+}

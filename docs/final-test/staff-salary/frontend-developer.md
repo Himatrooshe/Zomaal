@@ -1,5 +1,13 @@
 # Staff & Salary — frontend handoff
 
+## Handoff status — 22 October 2026
+
+Fix `0326eaa` passed 267/267 live observations. Strict input/date validation, saved schedule timezone, local-calendar reports and protected 15-minute scheduling are deployed; a real Scheduler invocation returned 200. PAID is an accounting record. Bank transfer, natural overnight recurrence and unresolved client policies are not certified.
+
+[Verification evidence](./fix-verification-2026-10-21.md) · [Cross-module status and API gaps](../CURRENT-STATUS.md) · [Production API contract](../openapi.production.json).
+
+This refresh consolidates recorded work; it does not claim a new full regression run. Unchecked UI/QA checklists remain acceptance work. Revision names below identify the version tested at that time.
+
 ## API flow
 
 1. Load `GET /access/permissions` for role/override toggles. Staff and Salary management remains owner-only.

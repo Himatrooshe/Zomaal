@@ -1,16 +1,20 @@
 # Frontend Developer Guide — Orders
 
-Updated 19 October 2026.
+## Handoff status — 22 October 2026
+
+All five expanded-audit findings passed 155/155 live observations on `9d4e661`. Staff access passed 118/118 and separate-owner isolation 114/114. Export heap fixes in `31c0dd4` passed 34/34 live observations: 10,000 rows and two concurrent exports succeed; 10,001 rows return 413. Ameex access, genuine courier events and physical-device scanning remain open.
+
+[Verification evidence](./export-memory-fix-verification-2026-10-22.md) · [Cross-module status and API gaps](../CURRENT-STATUS.md) · [Production API contract](../openapi.production.json).
+
+This refresh consolidates recorded work; it does not claim a new full regression run. Unchecked UI/QA checklists remain acceptance work. Revision names below identify the version tested at that time.
+
+Updated 22 October 2026 (documentation reconciliation; original test dates are retained).
 
 ## References
 
 - Figma: [Orders (Figma section 1:4178)](https://www.figma.com/design/6g6gVrZZovSVOOfRB9vPGw/zomal-copy?node-id=0-1).
 - [Module requirements](../../module-context/03-orders.md).
-- [OpenAPI contract](../../api/openapi.yaml).
-
-## Backend status
-
-Excel export is merged and deployed; other order flows are implemented.
+- [OpenAPI contract](../openapi.production.json).
 
 ## Main flow
 
@@ -39,11 +43,11 @@ All five expanded-audit findings are fixed on application `9d4e661`, production 
 - Timelines resolve the active owner store or assigned staff store. Access outside that store returns 404. Reload the selected order after switching stores.
 - Keep the same retry key and original payload for retries. Changed payloads return 409; concurrent exact retries preserve one order.
 
-The initial expanded audit is historical. Its five findings are closed; broader provider/device/large-export acceptance limits remain as listed in the fix report.
+The initial expanded audit is historical. Its five findings are closed. Provider/device acceptance remains open; the later 10,000-row export retest is recorded below.
 
 ## Live staff access verification — 21 October 2026
 
-The Orders view/edit/export permission matrix, role inheritance and replacement overrides, immediate grant/revocation, deactivation and staff assigned-store isolation passed 118/118 recorded live observations. See [staff access results and scope](./live-staff-access-2026-10-21.md). Separate merchant-owner isolation subsequently passed 114/114 recorded live observations. See [owner isolation results and cleanup](./live-owner-isolation-2026-10-21.md). Real courier/device acceptance and the large production export boundary remain outside these checks.
+The Orders view/edit/export permission matrix, role inheritance and replacement overrides, immediate grant/revocation, deactivation and staff assigned-store isolation passed 118/118 recorded live observations. See [staff access results and scope](./live-staff-access-2026-10-21.md). Separate merchant-owner isolation subsequently passed 114/114 recorded live observations. See [owner isolation results and cleanup](./live-owner-isolation-2026-10-21.md). Real courier/device acceptance remains outside those access checks. The export boundary was subsequently verified below.
 
 ## Live export boundary finding — 22 October 2026
 

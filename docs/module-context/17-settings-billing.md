@@ -102,3 +102,12 @@ two make the account read-only.
 
 **Not built yet.** Payment gateway or web checkout (waiting on Q17.2), and stored card / payment method
 (`paymentMethod` is always null).
+
+**Production live test (21 October 2026):** store switching, temporary-store
+settings updates, trial entitlements, validation, and trial cancel/resume
+guards passed on revision `zomaal-backend-00068-vbx`; the disposable store was
+removed and the original store restored. `GET /billing/plans` returned HTTP
+200 with an empty list, leaving the Plans & Pricing screen without options.
+Approved active plan records must be configured before plan selection or manual
+activation can be accepted. The original account remains in its unchanged
+trial. See the [live test report](../final-test/settings-billing/live-server-test-results-2026-10-21.md).

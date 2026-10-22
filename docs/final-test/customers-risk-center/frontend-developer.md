@@ -1,6 +1,14 @@
 # Customers & Risk Center — frontend handoff
 
-**Status: deployed on revision`zomaal-backend-00066-bbg`; 342/342 live observations passed.** See [report and actual failures](live-server-test-results-2026-10-21.md).
+## Handoff status — 22 October 2026
+
+Fix `0e7d246` passed 342/342 live observations across all seven original finding groups: phone identity, duplicate matching/cancellation races, badges and validation. Blacklisting warns; it does not automatically reject orders. Real platform cancellation and unresolved client risk policies retain their limits.
+
+[Verification evidence](./fix-verification-2026-10-21.md) · [Cross-module status and API gaps](../CURRENT-STATUS.md) · [Production API contract](../openapi.production.json).
+
+This refresh consolidates recorded work; it does not claim a new full regression run. Unchecked UI/QA checklists remain acceptance work. Revision names below identify the version tested at that time.
+
+**Status: deployed on revision`zomaal-backend-00066-bbg`; 342/342 live observations passed.** See [deployed verification](fix-verification-2026-10-21.md).
 
 ## APIs
 

@@ -1,0 +1,1189 @@
+import { randomUUID } from 'node:crypto';
+import { ForceLogShipmentService } from '../src/shipping/forcelog-shipment.service';
+import type { Server } from 'node:http';
+import {
+  ExecutionContext,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { PrismaClient, EcommercePlatform } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
+import request from 'supertest';
+import { StoreAccessService } from '../src/access/store-access.service';
+import { PermissionGuard } from '../src/access/permission.guard';
+import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
+import { GLOBAL_VALIDATION_PIPE_OPTIONS } from '../src/common/validation-pipe.options';
+import { CustomerRiskService } from '../src/customers/customer-risk.service';
+import { EcommerceService } from '../src/ecommerce/ecommerce.service';
+import { EcommerceOrderFinancialService } from '../src/ecommerce/ecommerce-order-financial.service';
+import { OrderStockService } from '../src/ecommerce/order-stock.service';
+import { ReturnRequestController } from '../src/ecommerce/return-request.controller';
+import { ReturnRequestService } from '../src/ecommerce/return-request.service';
+import type {
+  DetectedReturnResponseDto,
+  VerifiedReturnResponseDto,
+  ReturnListResponseDto,
+} from '../src/ecommerce/dto/return-request.dto';
+import { OrderEventType } from '../src/ecommerce/constants/order-event-type';
+import type { PrismaService } from '../src/prisma/prisma.service';
+
+// Explicit opt-in to a disposable local database; never use DATABASE_URL.
+const url = process.env.TRACKING_TEST_DATABASE_URL;
+const postgres = url ? describe : describe.skip;
+
+postgres('Tracking, pack and return edge cases with PostgreSQL', () => {
+  let db: PrismaClient;
+  let pool: Pool;
+  let app: INestApplication;
+  let server: Server;
+  let financial: EcommerceOrderFinancialService;
+  let stock: OrderStockService;
+  let ecommerce: EcommerceService;
+  const ticketShipping = {
+    createSenditDelivery: jest.fn().mockResolvedValue({}),
+    createQuickLivraisonDelivery: jest.fn().mockResolvedValue({}),
+    addForceLogParcel: jest.fn().mockResolvedValue({}),
+    addOzoneExpressParcel: jest.fn().mockResolvedValue({}),
+  };
+  const users: string[] = [];
+  const stores: string[] = [];
+  let owner: string;
+  let otherOwner: string;
+  let viewer: string;
+  let connectionId: string;
+
+  beforeAll(async () => {
+    const parsed = new URL(url!);
+    if (
+      !['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname) ||
+      !/(?:test|_ci$)/.test(parsed.pathname)
+    ) {
+      throw new Error(
+        'TRACKING_TEST_DATABASE_URL must identify a dedicated local test database',
+      );
+    }
+    pool = new Pool({ connectionString: url, max: 10 });
+    db = new PrismaClient({ adapter: new PrismaPg(pool) });
+    for (let index = 0; index < 2; index++) {
+      const user = await db.user.create({
+        data: { phone: `returns-test-${randomUUID()}` },
+      });
+      users.push(user.id);
+      const store = await db.store.create({
+        data: {
+          userId: user.id,
+          ownerName: 'Test owner',
+          businessName: 'Returns fixture',
+          address: 'Test',
+          city: 'Test',
+          country: 'MA',
+          baseCurrency: 'MAD',
+        },
+      });
+      stores.push(store.id);
+      await db.user.update({
+        where: { id: user.id },
+        data: { activeStoreId: store.id },
+      });
+    }
+    [owner, otherOwner] = users;
+    const staffUser = await db.user.create({
+      data: { phone: `returns-viewer-${randomUUID()}` },
+    });
+    viewer = staffUser.id;
+    users.push(viewer);
+    await db.staffMember.create({
+      data: {
+        userId: viewer,
+        storeId: stores[0],
+        name: 'Returns viewer',
+        permissionOverrides: ['returns.view'],
+      },
+    });
+    connectionId = (
+      await db.ecommerceConnection.create({
+        data: {
+          storeId: stores[0],
+          platform: EcommercePlatform.MANUAL,
+          externalAccountId: `returns-fixture-${randomUUID()}`,
+        },
+      })
+    ).id;
+
+    const prisma = db as PrismaService;
+    const access = new StoreAccessService(prisma);
+    stock = new OrderStockService(prisma);
+    financial = new EcommerceOrderFinancialService(prisma, stock, {
+      onShipmentStatus: jest.fn().mockResolvedValue(undefined),
+    } as never);
+    const risk = new CustomerRiskService(
+      prisma,
+      access,
+      {
+        raise: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      {} as never,
+    );
+    ecommerce = new EcommerceService(
+      prisma,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      ticketShipping as never,
+      stock,
+      financial,
+      risk,
+      access,
+      {} as never,
+    );
+    const returns = new ReturnRequestService(
+      prisma,
+      ecommerce,
+      financial,
+      risk,
+      access,
+    );
+    const moduleRef = await Test.createTestingModule({
+      controllers: [ReturnRequestController],
+      providers: [
+        { provide: ReturnRequestService, useValue: returns },
+        { provide: StoreAccessService, useValue: access },
+        PermissionGuard,
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate(context: ExecutionContext) {
+          const req = context.switchToHttp().getRequest<{
+            headers: Record<string, string | undefined>;
+            user?: { userId: string };
+          }>();
+          const userId = req.headers['x-test-user'];
+          if (!userId || !users.includes(userId)) return false;
+          req.user = { userId };
+          return true;
+        },
+      })
+      .compile();
+    app = moduleRef.createNestApplication();
+    app.useGlobalPipes(new ValidationPipe(GLOBAL_VALIDATION_PIPE_OPTIONS));
+    await app.listen(0, '127.0.0.1');
+    server = app.getHttpServer() as Server;
+  }, 30000);
+
+  afterAll(async () => {
+    if (app) await app.close();
+    if (db) {
+      // Movements deliberately restrict deletion of their inventory items.
+      await db.inventoryMovement.deleteMany({
+        where: { inventoryItem: { storeId: { in: stores } } },
+      });
+      await db.user.deleteMany({ where: { id: { in: users } } });
+      await db.$disconnect();
+    }
+    if (pool) await pool.end();
+  });
+
+  async function fixture(lineCount = 1, linked = true) {
+    const customer = await db.customer.create({
+      data: {
+        storeId: stores[0],
+        name: 'Test customer',
+        phone: `fixture-${randomUUID()}`,
+      },
+    });
+    const product = await db.warehouseProduct.create({
+      data: {
+        storeId: stores[0],
+        name: 'Return fixture product',
+        status: 'ACTIVE',
+      },
+    });
+    const variant = await db.warehouseVariant.create({
+      data: {
+        storeId: stores[0],
+        productId: product.id,
+        title: 'Default',
+        price: '100',
+        costPrice: '30',
+        productCode: `TEST-${randomUUID()}`,
+      },
+    });
+    const item = await db.inventoryItem.create({
+      data: {
+        storeId: stores[0],
+        variantId: variant.id,
+        kind: 'PRODUCT_VARIANT',
+      },
+    });
+    const location = await db.warehouseLocation.upsert({
+      where: { storeId_code: { storeId: stores[0], code: 'DEFAULT' } },
+      create: {
+        storeId: stores[0],
+        code: 'DEFAULT',
+        name: 'Default',
+        isDefault: true,
+      },
+      update: {},
+    });
+    await db.inventoryBalance.create({
+      data: { inventoryItemId: item.id, locationId: location.id, onHand: 20 },
+    });
+    const now = new Date();
+    const order = await db.ecommerceOrder.create({
+      data: {
+        connectionId,
+        externalOrderId: `return-${randomUUID()}`,
+        orderName: `RT-${randomUUID()}`,
+        customerId: customer.id,
+        manualCustomerName: 'Test customer',
+        manualCustomerPhone: customer.phone,
+        status: 'CLOSED',
+        financialStatus: 'PAID',
+        fulfillmentStatus: 'fulfilled',
+        currency: 'MAD',
+        grossSales: 200 * lineCount,
+        discounts: 0,
+        refunds: 0,
+        netSales: 200 * lineCount,
+        shipping: 15,
+        tax: 0,
+        totalCollected: 200 * lineCount + 15,
+        itemCount: 2 * lineCount,
+        providerCreatedAt: now,
+        providerUpdatedAt: now,
+        processedAt: now,
+        lines: {
+          create: Array.from({ length: lineCount }, (_, index) => ({
+            externalLineId: `line-${index}`,
+            name: `Test product ${index}`,
+            quantity: 2,
+            unitPrice: 100,
+            totalPrice: 200,
+            currency: 'MAD',
+            warehouseVariantId: linked ? variant.id : null,
+          })),
+        },
+      },
+      include: { lines: true },
+    });
+    await stock.reserveOrder(order.id);
+    const tracking = `TEST-TRACK-${randomUUID()}`;
+    await db.ecommerceOrderEvent.create({
+      data: {
+        orderId: order.id,
+        providerEventId: 'fixture-delivered',
+        source: 'SYSTEM',
+        type: OrderEventType.DELIVERED,
+        title: 'Test delivery',
+        occurredAt: new Date(now.getTime() + 1000),
+        metadata: { number: tracking },
+      },
+    });
+    await financial.syncUndispatchedOrder(order.id);
+    await db.ecommerceOrderEvent.create({
+      data: {
+        orderId: order.id,
+        providerEventId: 'fixture-returned',
+        source: 'SYSTEM',
+        type: OrderEventType.RETURNED,
+        title: 'Test returned parcel',
+        occurredAt: new Date(now.getTime() + 2000),
+        metadata: { number: tracking },
+      },
+    });
+    await financial.syncUndispatchedOrder(order.id);
+    return { order, item, customer, tracking };
+  }
+
+  async function detect(
+    f: Awaited<ReturnType<typeof fixture>>,
+    userId = owner,
+  ) {
+    const response = await request(server)
+      .post('/ecommerce/returns/detect')
+      .set('x-test-user', userId)
+      .send({ value: f.order.orderName, orderId: f.order.id })
+      .expect(200);
+    return response.body as DetectedReturnResponseDto;
+  }
+
+  async function verify(
+    returnId: string,
+    lines: Array<{
+      orderLineId: string;
+      condition: string;
+      damageCost?: number;
+    }>,
+    expected = 200,
+    userId = owner,
+  ) {
+    const response = await request(server)
+      .post(`/ecommerce/returns/${returnId}/verify`)
+      .set('x-test-user', userId)
+      .send({ lines })
+      .expect(expected);
+    return { body: response.body as VerifiedReturnResponseDto };
+  }
+
+  async function balance(itemId: string) {
+    return db.inventoryBalance.findFirstOrThrow({
+      where: { inventoryItemId: itemId },
+    });
+  }
+
+  it.each([
+    ['GOOD', 20, 0, '15.00'],
+    ['RETURNED', 20, 0, '15.00'],
+    ['DAMAGED', 20, 2, '75.00'],
+    ['LOST', 18, 0, '75.00'],
+    ['MISSING', 18, 0, '75.00'],
+  ] as const)(
+    'verifies %s with correct stock, losses, and repeat behavior',
+    async (condition, onHand, damaged, loss) => {
+      const f = await fixture();
+      const detected = await detect(f);
+      expect(detected.status).toBe('NEED_VERIFICATION');
+      expect(detected.products).toHaveLength(1);
+      const payload = [{ orderLineId: f.order.lines[0].id, condition }];
+      const result = await verify(detected.returnRequestId, payload);
+      expect(result.body.status).toBe('PROCESSED');
+      expect(result.body.lossSummary.netLoss).toBe(loss);
+      expect(await balance(f.item.id)).toMatchObject({
+        onHand,
+        reserved: 0,
+        damaged,
+      });
+      const before = {
+        movements: await db.inventoryMovement.count({
+          where: { inventoryItemId: f.item.id },
+        }),
+        ledger: await db.ecommerceOrderFinancialEvent.count({
+          where: { orderId: f.order.id },
+        }),
+      };
+      await verify(detected.returnRequestId, payload);
+      expect(await balance(f.item.id)).toMatchObject({
+        onHand,
+        reserved: 0,
+        damaged,
+      });
+      expect(
+        await db.inventoryMovement.count({
+          where: { inventoryItemId: f.item.id },
+        }),
+      ).toBe(before.movements);
+      expect(
+        await db.ecommerceOrderFinancialEvent.count({
+          where: { orderId: f.order.id },
+        }),
+      ).toBe(before.ledger);
+      const totals = await financial.getSummary(owner, f.order.id);
+      expect(totals.revenue).toBe('0.00');
+      expect(totals.netProfit).toBe(`-${loss}`);
+    },
+  );
+
+  it('applies only the difference for damage-cost and condition corrections', async () => {
+    const f = await fixture();
+    const detected = await detect(f);
+    const lineId = f.order.lines[0].id;
+    for (const [condition, damageCost, onHand, damaged, loss] of [
+      ['DAMAGED', 7.5, 20, 2, '22.50'],
+      ['DAMAGED', 10, 20, 2, '25.00'],
+      ['LOST', undefined, 18, 0, '75.00'],
+      ['GOOD', undefined, 20, 0, '15.00'],
+    ] as const) {
+      const result = await verify(detected.returnRequestId, [
+        { orderLineId: lineId, condition, damageCost },
+      ]);
+      expect(result.body.lossSummary.netLoss).toBe(loss);
+      expect(await balance(f.item.id)).toMatchObject({ onHand, damaged });
+      expect((await financial.getSummary(owner, f.order.id)).netProfit).toBe(
+        `-${loss}`,
+      );
+    }
+  });
+
+  it('keeps partially verified returns open until every line is checked', async () => {
+    const f = await fixture(2);
+    const detected = await detect(f);
+    const partial = await verify(detected.returnRequestId, [
+      { orderLineId: f.order.lines[0].id, condition: 'GOOD' },
+    ]);
+    expect(partial.body.status).toBe('NEED_VERIFICATION');
+    const complete = await verify(detected.returnRequestId, [
+      { orderLineId: f.order.lines[1].id, condition: 'LOST' },
+    ]);
+    expect(complete.body.status).toBe('PROCESSED');
+    expect(complete.body.lossSummary.netLoss).toBe('75.00');
+    expect(await balance(f.item.id)).toMatchObject({ onHand: 18, reserved: 0 });
+  });
+
+  it('does not invent product costs or stock for an unmatched line', async () => {
+    const f = await fixture(1, false);
+    const detected = await detect(f);
+    const lineId = f.order.lines[0].id;
+    const lost = await verify(detected.returnRequestId, [
+      { orderLineId: lineId, condition: 'LOST' },
+    ]);
+    expect(lost.body.lossSummary.netLoss).toBe('15.00');
+    const damaged = await verify(detected.returnRequestId, [
+      { orderLineId: lineId, condition: 'DAMAGED', damageCost: 7.5 },
+    ]);
+    expect(damaged.body.lossSummary.netLoss).toBe('22.50');
+    expect(await balance(f.item.id)).toMatchObject({ onHand: 20, damaged: 0 });
+  });
+
+  it('deduplicates concurrent scans and counts customer return risk once', async () => {
+    const f = await fixture();
+    const [first, second] = await Promise.all([detect(f), detect(f)]);
+    expect(first.returnRequestId).toBe(second.returnRequestId);
+    expect(
+      await db.returnRequest.count({ where: { orderId: f.order.id } }),
+    ).toBe(1);
+    expect(
+      (await db.customer.findUniqueOrThrow({ where: { id: f.customer.id } }))
+        .returnsCount,
+    ).toBe(1);
+  });
+
+  it('resolves a third-party tracking barcode and a Zomaal QR payload', async () => {
+    const f = await fixture();
+    const first = await request(server)
+      .post('/ecommerce/returns/detect')
+      .set('x-test-user', owner)
+      .send({ value: `${f.tracking}\n` })
+      .expect(200);
+    const qr = await request(server)
+      .post('/ecommerce/returns/detect')
+      .set('x-test-user', owner)
+      .send({ value: JSON.stringify({ trackingNumber: f.tracking }) })
+      .expect(200);
+    expect((qr.body as DetectedReturnResponseDto).returnRequestId).toBe(
+      (first.body as DetectedReturnResponseDto).returnRequestId,
+    );
+  });
+
+  it('shows delayed requests and removes them from that tab when processed', async () => {
+    const f = await fixture();
+    const detected = await detect(f);
+    await db.returnRequest.update({
+      where: { id: detected.returnRequestId },
+      data: { createdAt: new Date(Date.now() - 3 * 86400000) },
+    });
+    const delayed = await request(server)
+      .get('/ecommerce/returns')
+      .set('x-test-user', owner)
+      .query({ status: 'DELAYED', search: f.order.orderName })
+      .expect(200);
+    expect((delayed.body as ReturnListResponseDto).data).toHaveLength(1);
+    expect((delayed.body as ReturnListResponseDto).data[0].status).toBe(
+      'DELAYED',
+    );
+    await verify(detected.returnRequestId, [
+      { orderLineId: f.order.lines[0].id, condition: 'GOOD' },
+    ]);
+    const after = await request(server)
+      .get('/ecommerce/returns')
+      .set('x-test-user', owner)
+      .query({ status: 'DELAYED', search: f.order.orderName })
+      .expect(200);
+    expect((after.body as ReturnListResponseDto).data).toHaveLength(0);
+  });
+
+  it('blocks another store from detecting, verifying, or listing the return', async () => {
+    const f = await fixture();
+    const detected = await detect(f);
+    await request(server)
+      .post('/ecommerce/returns/detect')
+      .set('x-test-user', otherOwner)
+      .send({ value: f.order.orderName, orderId: f.order.id })
+      .expect(404);
+    await verify(
+      detected.returnRequestId,
+      [{ orderLineId: f.order.lines[0].id, condition: 'GOOD' }],
+      404,
+      otherOwner,
+    );
+    const list = await request(server)
+      .get('/ecommerce/returns')
+      .set('x-test-user', otherOwner)
+      .expect(200);
+    expect((list.body as ReturnListResponseDto).data).toHaveLength(0);
+    const search = await request(server)
+      .get('/ecommerce/returns/search')
+      .set('x-test-user', otherOwner)
+      .query({ q: f.order.orderName })
+      .expect(200);
+    expect((search.body as { data: unknown[] }).data).toHaveLength(0);
+  });
+
+  it('allows view-only staff to read and blocks scanning and verification', async () => {
+    const f = await fixture();
+    const detected = await detect(f);
+    await request(server)
+      .get('/ecommerce/returns')
+      .set('x-test-user', viewer)
+      .expect(200);
+    await request(server)
+      .post('/ecommerce/returns/detect')
+      .set('x-test-user', viewer)
+      .send({ value: f.order.orderName, orderId: f.order.id })
+      .expect(403);
+    await verify(
+      detected.returnRequestId,
+      [{ orderLineId: f.order.lines[0].id, condition: 'GOOD' }],
+      403,
+      viewer,
+    );
+    expect(await balance(f.item.id)).toMatchObject({ onHand: 18, damaged: 0 });
+  });
+
+  it('rejects an invalid line without partially verifying earlier valid lines', async () => {
+    const f = await fixture();
+    const detected = await detect(f);
+    await verify(
+      detected.returnRequestId,
+      [
+        { orderLineId: f.order.lines[0].id, condition: 'LOST' },
+        { orderLineId: randomUUID(), condition: 'GOOD' },
+      ],
+      400,
+    );
+    const line = await db.ecommerceOrderLine.findUniqueOrThrow({
+      where: { id: f.order.lines[0].id },
+    });
+    expect(line.condition).toBeNull();
+    expect((await financial.getSummary(owner, f.order.id)).damageCost).toBe(
+      '0.00',
+    );
+  });
+  async function physical(cost = 30) {
+    const product = await db.warehouseProduct.create({
+      data: { storeId: stores[0], name: 'Edge fixture', status: 'ACTIVE' },
+    });
+    const variant = await db.warehouseVariant.create({
+      data: {
+        storeId: stores[0],
+        productId: product.id,
+        title: 'Default',
+        price: 100,
+        costPrice: cost,
+        productCode: `CODE-${randomUUID()}`,
+      },
+    });
+    const location = await db.warehouseLocation.upsert({
+      where: { storeId_code: { storeId: stores[0], code: 'DEFAULT' } },
+      create: {
+        storeId: stores[0],
+        code: 'DEFAULT',
+        name: 'Default',
+        isDefault: true,
+      },
+      update: {},
+    });
+    const item = await db.inventoryItem.create({
+      data: {
+        storeId: stores[0],
+        variantId: variant.id,
+        kind: 'PRODUCT_VARIANT',
+        balances: { create: { locationId: location.id, onHand: 20 } },
+      },
+    });
+    return { product, variant, item };
+  }
+
+  async function edgeOrder(
+    variantId: string,
+    quantity = 2,
+    tracking = `EDGE-${randomUUID()}`,
+  ) {
+    const now = new Date();
+    const order = await db.ecommerceOrder.create({
+      data: {
+        connectionId,
+        externalOrderId: randomUUID(),
+        orderName: `EDGE-${randomUUID()}`,
+        manualCustomerName: 'QA',
+        manualCustomerPhone: `qa-${randomUUID()}`,
+        currency: 'MAD',
+        grossSales: 100 * quantity,
+        discounts: 0,
+        refunds: 0,
+        netSales: 100 * quantity,
+        shipping: 15,
+        tax: 0,
+        totalCollected: 100 * quantity + 15,
+        status: 'OPEN',
+        financialStatus: 'PENDING',
+        processedAt: now,
+        providerCreatedAt: now,
+        providerUpdatedAt: now,
+        lines: {
+          create: {
+            externalLineId: randomUUID(),
+            name: 'Edge item',
+            quantity,
+            unitPrice: 100,
+            totalPrice: 100 * quantity,
+            currency: 'MAD',
+            warehouseVariantId: variantId,
+          },
+        },
+      },
+      include: { lines: true },
+    });
+    await db.ecommerceOrderEvent.create({
+      data: {
+        orderId: order.id,
+        providerEventId: randomUUID(),
+        source: 'SYSTEM',
+        type: OrderEventType.IN_TRANSIT,
+        title: 'Fixture in transit',
+        occurredAt: now,
+        metadata: { number: tracking },
+      },
+    });
+    await stock.reserveOrder(order.id);
+    return { order, tracking };
+  }
+
+  async function edgeEvent(orderId: string, type: string, time: number) {
+    await db.ecommerceOrderEvent.create({
+      data: {
+        orderId,
+        providerEventId: randomUUID(),
+        source: 'SYSTEM',
+        type,
+        title: 'Fixture event',
+        occurredAt: new Date(time),
+      },
+    });
+    await financial.syncUndispatchedOrder(orderId);
+  }
+
+  async function edgeDetect(f: Awaited<ReturnType<typeof edgeOrder>>) {
+    const r = await request(server)
+      .post('/ecommerce/returns/detect')
+      .set('x-test-user', owner)
+      .send({ value: f.tracking })
+      .expect(200);
+    return r.body as DetectedReturnResponseDto;
+  }
+
+  async function packFixture() {
+    const a = await physical(30),
+      b = await physical(10);
+    const product = await db.warehouseProduct.create({
+      data: {
+        storeId: stores[0],
+        name: 'Summer pack',
+        kind: 'BUNDLE',
+        status: 'ACTIVE',
+        bundleComponents: {
+          create: [
+            { componentVariantId: a.variant.id, quantity: 2, position: 0 },
+            { componentVariantId: b.variant.id, quantity: 1, position: 1 },
+          ],
+        },
+      },
+    });
+    const variant = await db.warehouseVariant.create({
+      data: {
+        storeId: stores[0],
+        productId: product.id,
+        title: 'Pack',
+        productCode: `PACK-${randomUUID()}`,
+        price: 100,
+        costPrice: 70,
+        isDefault: true,
+      },
+    });
+    return { a, b, product, variant };
+  }
+
+  it('EDGE same product on separate orders resolves the right tracking and releases only that order stock', async () => {
+    const p = await physical(),
+      a = await edgeOrder(p.variant.id, 2),
+      b = await edgeOrder(p.variant.id, 3);
+    expect(
+      (await ecommerce.resolveScannedCode(owner, a.tracking)).orderId,
+    ).toBe(a.order.id);
+    expect(
+      (await ecommerce.resolveScannedCode(owner, b.tracking)).orderId,
+    ).toBe(b.order.id);
+    const detected = await edgeDetect(a);
+    await verify(detected.returnRequestId, [
+      { orderLineId: a.order.lines[0].id, condition: 'GOOD' },
+    ]);
+    expect(await balance(p.item.id)).toMatchObject({
+      onHand: 20,
+      reserved: 3,
+      damaged: 0,
+    });
+    expect(
+      (
+        await db.ecommerceOrderLine.findUniqueOrThrow({
+          where: { id: b.order.lines[0].id },
+        })
+      ).condition,
+    ).toBeNull();
+  });
+
+  it('EDGE a QR with a misleading product/order id still resolves by the store-owned tracking number', async () => {
+    const p = await physical(),
+      a = await edgeOrder(p.variant.id);
+    const result = await ecommerce.resolveScannedCode(
+      owner,
+      JSON.stringify({
+        trackingNumber: a.tracking,
+        orderId: 'wrong-order',
+        productCode: 'wrong-product',
+      }),
+    );
+    expect(result.orderId).toBe(a.order.id);
+    expect(result.products[0].productCode).toBe(p.variant.productCode);
+  });
+
+  it('EDGE ambiguous tracking numbers must not silently choose one of two orders', async () => {
+    const p = await physical(),
+      tracking = `COLLISION-${randomUUID()}`;
+    await edgeOrder(p.variant.id, 1, tracking);
+    await edgeOrder(p.variant.id, 1, tracking);
+    await expect(
+      ecommerce.resolveScannedCode(owner, tracking),
+    ).rejects.toThrow();
+  });
+
+  it.each(['GOOD', 'RETURNED', 'DAMAGED', 'LOST', 'MISSING'])(
+    'EDGE whole-pack delivery and %s return update every component correctly',
+    async (condition) => {
+      const p = await packFixture(),
+        f = await edgeOrder(p.variant.id, 2),
+        time = Date.now() + 1000;
+      await edgeEvent(f.order.id, OrderEventType.DELIVERED, time);
+      expect(await balance(p.a.item.id)).toMatchObject({
+        onHand: 16,
+        reserved: 0,
+      });
+      expect(await balance(p.b.item.id)).toMatchObject({
+        onHand: 18,
+        reserved: 0,
+      });
+      await edgeEvent(f.order.id, OrderEventType.RETURNED, time + 1000);
+      const detected = await edgeDetect(f);
+      await verify(detected.returnRequestId, [
+        { orderLineId: f.order.lines[0].id, condition },
+      ]);
+      const restocks = ['GOOD', 'RETURNED', 'DAMAGED'].includes(condition),
+        damaged = condition === 'DAMAGED';
+      expect(await balance(p.a.item.id)).toMatchObject({
+        onHand: restocks ? 20 : 16,
+        reserved: 0,
+        damaged: damaged ? 4 : 0,
+      });
+      expect(await balance(p.b.item.id)).toMatchObject({
+        onHand: restocks ? 20 : 18,
+        reserved: 0,
+        damaged: damaged ? 2 : 0,
+      });
+      expect((await financial.getSummary(owner, f.order.id)).netProfit).toBe(
+        ['GOOD', 'RETURNED'].includes(condition) ? '-15.00' : '-155.00',
+      );
+    },
+  );
+
+  it('EDGE scanning a pack must expose physical component codes and quantities', async () => {
+    const p = await packFixture(),
+      f = await edgeOrder(p.variant.id, 2);
+    const scan = await ecommerce.resolveScannedCode(owner, f.tracking);
+    expect(JSON.stringify(scan.products)).toContain(p.a.variant.productCode!);
+    expect(JSON.stringify(scan.products)).toContain(p.b.variant.productCode!);
+  });
+
+  it('EDGE pack QR must retain component quantities rather than just code strings', async () => {
+    const p = await packFixture(),
+      f = await edgeOrder(p.variant.id, 2);
+    await db.ecommerceOrderDispatch.create({
+      data: {
+        orderId: f.order.id,
+        provider: 'FORCELOG',
+        status: 'DISPATCHED',
+        merchantTracking: randomUUID(),
+        providerTracking: f.tracking,
+      },
+    });
+    const qr = await ecommerce.getShipmentQrPayload(owner, f.order.id);
+    expect(qr).toMatchObject({
+      type: 'PACK',
+      items: expect.arrayContaining([
+        expect.objectContaining({
+          productCode: p.a.variant.productCode,
+          quantity: 4,
+        }),
+      ]),
+    });
+  });
+
+  it('EDGE mixed conditions for different pack components must be supported independently', async () => {
+    const p = await packFixture(),
+      f = await edgeOrder(p.variant.id, 1);
+    const detected = await edgeDetect(f);
+    await request(server)
+      .post(`/ecommerce/returns/${detected.returnRequestId}/verify`)
+      .set('x-test-user', owner)
+      .send({
+        lines: [
+          {
+            orderLineId: f.order.lines[0].id,
+            componentVariantId: p.a.variant.id,
+            quantity: 1,
+            condition: 'DAMAGED',
+            damageCost: 30,
+          },
+          {
+            orderLineId: f.order.lines[0].id,
+            componentVariantId: p.b.variant.id,
+            quantity: 1,
+            condition: 'GOOD',
+          },
+        ],
+      })
+      .expect(200);
+  });
+
+  it('EDGE two units on one line need independently recorded partial conditions', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2),
+      detected = await edgeDetect(f);
+    await request(server)
+      .post(`/ecommerce/returns/${detected.returnRequestId}/verify`)
+      .set('x-test-user', owner)
+      .send({
+        lines: [
+          {
+            orderLineId: f.order.lines[0].id,
+            quantity: 1,
+            condition: 'DAMAGED',
+            damageCost: 30,
+          },
+          { orderLineId: f.order.lines[0].id, quantity: 1, condition: 'GOOD' },
+        ],
+      })
+      .expect(200);
+  });
+
+  it('EDGE conflicting repeated line IDs must be rejected rather than silently overwriting conditions', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2),
+      detected = await edgeDetect(f);
+    await verify(
+      detected.returnRequestId,
+      [
+        { orderLineId: f.order.lines[0].id, condition: 'GOOD' },
+        {
+          orderLineId: f.order.lines[0].id,
+          condition: 'DAMAGED',
+          damageCost: 30,
+        },
+      ],
+      400,
+    );
+  });
+
+  it('EDGE duplicate delivery events do not duplicate stock deductions or revenue', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2),
+      time = Date.now() + 1000;
+    await edgeEvent(f.order.id, OrderEventType.DELIVERED, time);
+    const counts = {
+      movements: await db.inventoryMovement.count({
+        where: { inventoryItemId: p.item.id },
+      }),
+      events: await db.ecommerceOrderFinancialEvent.count({
+        where: { orderId: f.order.id },
+      }),
+    };
+    await edgeEvent(f.order.id, OrderEventType.DELIVERED, time);
+    expect(await balance(p.item.id)).toMatchObject({ onHand: 18, reserved: 0 });
+    expect(
+      await db.inventoryMovement.count({
+        where: { inventoryItemId: p.item.id },
+      }),
+    ).toBe(counts.movements);
+    expect(
+      await db.ecommerceOrderFinancialEvent.count({
+        where: { orderId: f.order.id },
+      }),
+    ).toBe(counts.events);
+  });
+
+  it('EDGE stale terminal delivery arriving after a newer return does not resurrect revenue', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2),
+      time = Date.now() + 1000;
+    await edgeEvent(f.order.id, OrderEventType.DELIVERED, time);
+    await edgeEvent(f.order.id, OrderEventType.RETURNED, time + 2000);
+    await edgeEvent(f.order.id, OrderEventType.DELIVERED, time + 1000);
+    expect((await ecommerce.resolveScannedCode(owner, f.tracking)).status).toBe(
+      OrderEventType.RETURNED,
+    );
+    expect((await financial.getSummary(owner, f.order.id)).revenue).toBe(
+      '0.00',
+    );
+  });
+
+  it('EDGE a later genuine Delivered correction after a returned status restores revenue', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2),
+      time = Date.now() + 1000;
+    await edgeEvent(f.order.id, OrderEventType.DELIVERED, time);
+    await edgeEvent(f.order.id, OrderEventType.RETURNED, time + 1000);
+    await edgeEvent(f.order.id, OrderEventType.DELIVERED, time + 2000);
+    expect((await ecommerce.resolveScannedCode(owner, f.tracking)).status).toBe(
+      OrderEventType.DELIVERED,
+    );
+    expect((await financial.getSummary(owner, f.order.id)).revenue).toBe(
+      '215.00',
+    );
+  });
+
+  it('EDGE concurrent delivery syncs both finish without duplicate stock or financial events', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2),
+      time = Date.now() + 1000;
+    await db.ecommerceOrderEvent.create({
+      data: {
+        orderId: f.order.id,
+        providerEventId: randomUUID(),
+        source: 'SYSTEM',
+        type: OrderEventType.DELIVERED,
+        title: 'Concurrent test',
+        occurredAt: new Date(time),
+      },
+    });
+    const outcomes = await Promise.allSettled([
+      financial.syncUndispatchedOrder(f.order.id),
+      financial.syncUndispatchedOrder(f.order.id),
+    ]);
+    console.log(
+      'Concurrent delivery outcomes',
+      outcomes.map((r) =>
+        r.status === 'rejected'
+          ? { status: r.status, code: (r.reason as { code?: string }).code }
+          : { status: r.status },
+      ),
+    );
+    expect(outcomes.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
+    expect(await balance(p.item.id)).toMatchObject({ onHand: 18, reserved: 0 });
+    expect(
+      await db.ecommerceOrderFinancialEvent.count({
+        where: { orderId: f.order.id, type: 'REVENUE_RECOGNIZED' },
+      }),
+    ).toBe(1);
+  });
+
+  it('EDGE an Ameex-only shipment reference can resolve to its manual order', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2),
+      tracking = `AMEEX-${randomUUID()}`;
+    await db.ameexShipment.create({
+      data: {
+        userId: owner,
+        providerCode: tracking,
+        providerStatus: 'DELIVERED',
+        normalizedStatus: 'DELIVERED',
+        reference: f.order.orderName,
+        fee: 15,
+        currency: 'MAD',
+      },
+    });
+    expect((await ecommerce.resolveScannedCode(owner, tracking)).orderId).toBe(
+      f.order.id,
+    );
+  });
+  it('EDGE ticket requests contain product codes and quantities for all four dispatch adapters', async () => {
+    const preview = {
+      recipientName: 'QA',
+      recipientPhone: 'QA-NO-CONTACT',
+      address: 'Test only',
+      city: 'Test',
+      notes: null,
+      orderReference: 'QA-ORDER',
+      lineItems: [
+        { productCode: 'DH564BJ0', title: 'Long product title', quantity: 2 },
+      ],
+    };
+    const send = Reflect.get(ecommerce, 'createProviderShipment') as (
+      userId: string,
+      provider: string,
+      options: Record<string, unknown>,
+      preview: object,
+      reference: string,
+      amount: number,
+    ) => Promise<unknown>;
+    for (const provider of [
+      'SENDIT',
+      'QUICKLIVRAISON',
+      'FORCELOG',
+      'OZONEEXPRESS',
+    ]) {
+      await send.call(
+        ecommerce,
+        owner,
+        provider,
+        {
+          pickupDistrictId: 1,
+          destinationDistrictId: 1,
+          destinationCity: 'Test',
+        },
+        preview,
+        'QA-REFERENCE',
+        215,
+      );
+    }
+    for (const mock of Object.values(ticketShipping)) {
+      expect(JSON.stringify(mock.mock.calls)).toContain('DH564BJ0 x2');
+      expect(JSON.stringify(mock.mock.calls)).not.toContain(
+        'Long product title',
+      );
+    }
+  });
+
+  it('EDGE ForceLog status ingestion links the order and duplicate Delivered snapshots are idempotent', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2),
+      reference = `QA-${randomUUID()}`;
+    await db.ecommerceOrderDispatch.create({
+      data: {
+        orderId: f.order.id,
+        provider: 'FORCELOG',
+        merchantTracking: reference,
+        providerTracking: f.tracking,
+        status: 'DISPATCHED',
+      },
+    });
+    const carrier = new ForceLogShipmentService(
+      db as PrismaService,
+      {} as never,
+      {} as never,
+      financial,
+      {
+        recordShipmentOutcome: jest.fn().mockResolvedValue(undefined),
+      } as never,
+    );
+    const snapshot = {
+      PARCEL: {
+        TRACKING_NUMBER: f.tracking,
+        ORDER_NUM: reference,
+        STATUS: 'Livré',
+        DELIVERY_FEES: '15',
+        PRICE: '215',
+      },
+    };
+    await carrier.reconcileProviderParcel(owner, f.tracking, snapshot);
+    const first = await financial.getSummary(owner, f.order.id);
+    await carrier.reconcileProviderParcel(owner, f.tracking, snapshot);
+    expect((await ecommerce.resolveScannedCode(owner, f.tracking)).status).toBe(
+      'DELIVERED',
+    );
+    expect(await balance(p.item.id)).toMatchObject({ onHand: 18, reserved: 0 });
+    expect((await financial.getSummary(owner, f.order.id)).revenue).toBe(
+      first.revenue,
+    );
+    expect(first.revenue).toBe('215.00');
+  });
+
+  it('EDGE ForceLog stale In Transit snapshot must not replace a Delivered outcome', async () => {
+    const p = await physical(),
+      f = await edgeOrder(p.variant.id, 2),
+      reference = `QA-${randomUUID()}`;
+    await db.ecommerceOrderDispatch.create({
+      data: {
+        orderId: f.order.id,
+        provider: 'FORCELOG',
+        merchantTracking: reference,
+        providerTracking: f.tracking,
+        status: 'DISPATCHED',
+      },
+    });
+    const carrier = new ForceLogShipmentService(
+      db as PrismaService,
+      {} as never,
+      {} as never,
+      financial,
+      {
+        recordShipmentOutcome: jest.fn().mockResolvedValue(undefined),
+      } as never,
+    );
+    await carrier.reconcileProviderParcel(owner, f.tracking, {
+      PARCEL: {
+        TRACKING_NUMBER: f.tracking,
+        ORDER_NUM: reference,
+        STATUS: 'Livré',
+        DELIVERY_FEES: '15',
+        UPDATED_AT: '2026-10-20T10:00:00Z',
+      },
+    });
+    await carrier.reconcileProviderParcel(owner, f.tracking, {
+      PARCEL: {
+        TRACKING_NUMBER: f.tracking,
+        ORDER_NUM: reference,
+        STATUS: 'IN_TRANSIT',
+        DELIVERY_FEES: '15',
+        UPDATED_AT: '2026-10-20T09:00:00Z',
+      },
+    });
+    expect((await ecommerce.resolveScannedCode(owner, f.tracking)).status).toBe(
+      'DELIVERED',
+    );
+  });
+  it.each(['CANCELLED', 'REFUSED', 'RETURNED_TO_SELLER'])(
+    'EDGE ForceLog %s before delivery releases reservation and books only incurred shipping',
+    async (status) => {
+      const p = await physical(),
+        f = await edgeOrder(p.variant.id, 2),
+        reference = `QA-${randomUUID()}`;
+      await db.ecommerceOrderDispatch.create({
+        data: {
+          orderId: f.order.id,
+          provider: 'FORCELOG',
+          merchantTracking: reference,
+          providerTracking: f.tracking,
+          status: 'DISPATCHED',
+        },
+      });
+      const carrier = new ForceLogShipmentService(
+        db as PrismaService,
+        {} as never,
+        {} as never,
+        financial,
+        {
+          recordShipmentOutcome: jest.fn().mockResolvedValue(undefined),
+        } as never,
+      );
+      await carrier.reconcileProviderParcel(owner, f.tracking, {
+        PARCEL: {
+          TRACKING_NUMBER: f.tracking,
+          ORDER_NUM: reference,
+          STATUS: status,
+          DELIVERY_FEES: '15',
+        },
+      });
+      expect(await balance(p.item.id)).toMatchObject({
+        onHand: 20,
+        reserved: 0,
+        damaged: 0,
+      });
+      const summary = await financial.getSummary(owner, f.order.id);
+      expect(summary.revenue).toBe('0.00');
+      expect(summary.netProfit).toBe(
+        status === 'CANCELLED' ? '0.00' : '-15.00',
+      );
+    },
+  );
+});

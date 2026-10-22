@@ -1,0 +1,1250 @@
+{
+  "date": "2026-10-19",
+  "environment": "production Cloud Run",
+  "scope": "Products and Inventory live API tests",
+  "stage": "cleanup-verified",
+  "results": [
+    {
+      "name": "approved QA account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "reject unauthenticated product list",
+      "http": 401,
+      "pass": true
+    },
+    {
+      "name": "Home baseline",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "product list baseline",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "compare platform availability",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "connected YouCan catalog",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "bad page",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "bad limit",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "bad status",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "bad stock status",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "repeated search",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "invalid product UUID",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "unknown product",
+      "http": 404,
+      "pass": true
+    },
+    {
+      "name": "disconnected Shopify catalog",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "invalid import platform",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "approved QA account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "create QA category",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "upload PRODUCT_MAIN",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "create QA simple",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "simple has generated codes and barcodes",
+      "pass": true
+    },
+    {
+      "name": "simple opening stock",
+      "pass": true,
+      "detail": {
+        "onHand": 20
+      }
+    },
+    {
+      "name": "identical creation retry simple",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "simple retry same product",
+      "pass": true
+    },
+    {
+      "name": "changed idempotent payload rejected simple",
+      "http": 409,
+      "pass": true
+    },
+    {
+      "name": "upload PRODUCT_MAIN",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "create QA variants",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "variants has generated codes and barcodes",
+      "pass": true
+    },
+    {
+      "name": "variants opening stock",
+      "pass": true,
+      "detail": {
+        "onHand": 21
+      }
+    },
+    {
+      "name": "identical creation retry variants",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "variants retry same product",
+      "pass": true
+    },
+    {
+      "name": "changed idempotent payload rejected variants",
+      "http": 409,
+      "pass": true
+    },
+    {
+      "name": "approved QA account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "filtered product list",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "filtered list contains QA product",
+      "pass": true
+    },
+    {
+      "name": "filtered product list",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "filtered list contains QA product",
+      "pass": true
+    },
+    {
+      "name": "filtered product list",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "filtered list contains QA product",
+      "pass": true
+    },
+    {
+      "name": "filtered product list",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "filtered list contains QA product",
+      "pass": true
+    },
+    {
+      "name": "reject invalid product",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "reject invalid product",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "reject invalid product",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "reject invalid product",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "reject invalid product",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "reject invalid product",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "reject invalid product",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "upload PRODUCT_MAIN",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "duplicate SKU conflict",
+      "http": 409,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "prices persisted",
+      "pass": true
+    },
+    {
+      "name": "stale version conflict",
+      "http": 409,
+      "pass": true
+    },
+    {
+      "name": "reject negative edit",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "gift link",
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "gift removed",
+      "pass": true
+    },
+    {
+      "name": "resolve stored barcode",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "barcode resolves QA variant",
+      "pass": true
+    },
+    {
+      "name": "barcode PDF label",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "label valid PDF",
+      "pass": true
+    },
+    {
+      "name": "barcode SVG label",
+      "http": 400,
+      "pass": false
+    },
+    {
+      "name": "barcode lookup and labels",
+      "pass": false,
+      "error": "barcode SVG label: expected 200, got 400"
+    },
+    {
+      "name": "adjust ON_HAND 5",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "adjust ON_HAND 5",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "adjust retry same movement",
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "onHand increases once",
+      "pass": true
+    },
+    {
+      "name": "adjust RESERVED 4",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "adjust DAMAGED 3",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "adjust INCOMING 7",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "available excludes reserved and damaged",
+      "pass": true
+    },
+    {
+      "name": "adjust ON_HAND -26",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "adjust RESERVED 100",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "adjust DAMAGED -4",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "reject stock under reserved+damaged",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "invalid adjustments leave stock unchanged",
+      "pass": true
+    },
+    {
+      "name": "adjust RESERVED -4",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "adjust DAMAGED -3",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "adjust INCOMING -7",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "set QA stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "set QA stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "set stock retry stays two",
+      "pass": true
+    },
+    {
+      "name": "low stock filter",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "low stock includes QA simple",
+      "pass": true
+    },
+    {
+      "name": "set QA stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "out of stock filter",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "out of stock includes QA simple",
+      "pass": true
+    },
+    {
+      "name": "set QA stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "inventory audit",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "movement history retains opening balance",
+      "pass": true
+    },
+    {
+      "name": "invalid movement limit",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "performance 7D",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "zero-sales metrics 7D",
+      "pass": true
+    },
+    {
+      "name": "performance 30D",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "zero-sales metrics 30D",
+      "pass": true
+    },
+    {
+      "name": "performance 90D",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "zero-sales metrics 90D",
+      "pass": true
+    },
+    {
+      "name": "custom missing dates",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "reversed dates",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "compare warehouse products",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "compare zero data has no invented insight",
+      "pass": true
+    },
+    {
+      "name": "compare PDF export",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "compare export valid PDF",
+      "pass": true
+    },
+    {
+      "name": "same product comparison rejected",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "archive QA product",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "archived excluded by default",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "default list excludes archived",
+      "pass": true
+    },
+    {
+      "name": "restore QA product",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "restored active",
+      "pass": true
+    },
+    {
+      "name": "approved QA account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "upload PRODUCT_MAIN",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "create discounted bundle",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "bundle availability floors component ratios",
+      "pass": true,
+      "detail": {
+        "available": 4
+      }
+    },
+    {
+      "name": "bundle cost sums component purchase costs",
+      "pass": true
+    },
+    {
+      "name": "discounted bundle price retained",
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "component cost refreshes bundle cost",
+      "pass": true
+    },
+    {
+      "name": "adjust RESERVED 14",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "reserved units reduce derived bundle availability",
+      "pass": true
+    },
+    {
+      "name": "adjust RESERVED -14",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "approved QA account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "upload PRODUCT_MAIN",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 500,
+      "pass": false
+    },
+    {
+      "name": "approved QA account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "SVG format per API contract",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "SVG label renders",
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 500,
+      "pass": false
+    },
+    {
+      "name": "nullable description contract",
+      "pass": false,
+      "error": "edit QA product: expected 200, got 500: \"Internal server error\""
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "reject whitespace product name",
+      "http": 200,
+      "pass": false
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "blank name edit validation",
+      "pass": false,
+      "error": "reject whitespace product name: expected 400, got 200"
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "main removal rejected",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "upload VARIANT",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "variant image attached",
+      "pass": true
+    },
+    {
+      "name": "approved QA account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "upload PRODUCT_GALLERY",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "gallery image added",
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 500,
+      "pass": false
+    },
+    {
+      "name": "gallery lifecycle",
+      "pass": false,
+      "error": "edit QA product: expected 200, got 500: \"Internal server error\""
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "variant and new option value added",
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "edit QA product",
+      "http": 500,
+      "pass": false
+    },
+    {
+      "name": "variant lifecycle",
+      "pass": false,
+      "error": "edit QA product: expected 200, got 500: \"Internal server error\""
+    },
+    {
+      "name": "YouCan import into warehouse",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "one YouCan product imports successfully",
+      "pass": true,
+      "detail": {
+        "statuses": [
+          {
+            "status": "IMPORTED",
+            "message": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "repeat platform import",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "repeat import skips duplicate",
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "import without stock starts at zero",
+      "pass": true
+    },
+    {
+      "name": "import generates product codes",
+      "pass": true
+    },
+    {
+      "name": "approved QA account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "adjust ON_HAND 1",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "adjust ON_HAND 1",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "both concurrent increments retained",
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "adjust ON_HAND 1",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "adjust ON_HAND 1",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "concurrent retry same audit movement",
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "concurrent retry increments once",
+      "pass": true
+    },
+    {
+      "name": "set QA stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "stocked variant removal validation",
+      "http": 400,
+      "pass": true
+    },
+    {
+      "name": "approved QA account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "archive QA fixture",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 400,
+      "pass": false
+    },
+    {
+      "name": "approved QA account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "archive QA fixture",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "set QA stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "set QA stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "archive QA fixture",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "set QA stock",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "archive QA fixture",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "deactivate QA category",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "final Home",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "approved QA account login",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA fixture archived with zero available stock",
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA stock buckets cleared",
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA fixture archived with zero available stock",
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA stock buckets cleared",
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA stock buckets cleared",
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA stock buckets cleared",
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA fixture archived with zero available stock",
+      "pass": true
+    },
+    {
+      "name": "read QA product",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA fixture archived with zero available stock",
+      "pass": true
+    },
+    {
+      "name": "read stock balances",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "QA stock buckets cleared",
+      "pass": true
+    },
+    {
+      "name": "verify final Home",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "original order counts unchanged",
+      "pass": true
+    },
+    {
+      "name": "no courier dispatches created",
+      "pass": true
+    },
+    {
+      "name": "no active warehouse QA products",
+      "pass": true
+    }
+  ],
+  "baseline": {
+    "catalog": {
+      "connectedProducts": 6,
+      "connectedCustomers": 10,
+      "warehouseProducts": 1,
+      "activeWarehouseProducts": 0,
+      "complete": true,
+      "metricsFreshAsOf": "2026-10-18T19:50:08.899Z"
+    },
+    "orders": {
+      "total": 3,
+      "inPeriod": 1,
+      "open": 3,
+      "unfulfilled": 3,
+      "readyToDispatch": 3,
+      "dispatched": 0,
+      "cancelled": 0,
+      "refunded": 0
+    },
+    "shipping": {
+      "connectedProviders": 4,
+      "totalDispatches": 0,
+      "pending": 0,
+      "dispatched": 0,
+      "failed": 0
+    }
+  },
+  "final": {
+    "catalog": {
+      "connectedProducts": 6,
+      "connectedCustomers": 10,
+      "warehouseProducts": 5,
+      "activeWarehouseProducts": 0,
+      "complete": true,
+      "metricsFreshAsOf": "2026-10-18T19:50:08.899Z"
+    },
+    "orders": {
+      "total": 3,
+      "inPeriod": 1,
+      "open": 3,
+      "unfulfilled": 3,
+      "readyToDispatch": 3,
+      "dispatched": 0,
+      "cancelled": 0,
+      "refunded": 0
+    },
+    "shipping": {
+      "connectedProviders": 4,
+      "totalDispatches": 0,
+      "pending": 0,
+      "dispatched": 0,
+      "failed": 0
+    }
+  },
+  "knownHarnessIssues": [
+    "Uppercase SVG rejected correctly; lowercase svg passed",
+    "Initial cleanup tried to read a derived bundle inventory item with null ID; helper corrected and cleanup resumed"
+  ],
+  "automated": {
+    "suites": 10,
+    "tests": 75,
+    "passed": true
+  }
+}

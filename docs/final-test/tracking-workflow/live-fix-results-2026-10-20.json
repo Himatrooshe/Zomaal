@@ -1,0 +1,592 @@
+{
+  "date": "2026-10-20",
+  "commit": "75c8524",
+  "api": "https://zomaal-backend-563898960389.us-central1.run.app",
+  "scope": "Manual order and pack return API; no real courier dispatch",
+  "checks": 67,
+  "failures": [],
+  "results": [
+    {
+      "name": "approved QA login",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "live Home baseline",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "create QA category",
+      "pass": true,
+      "detail": {
+        "http": 201
+      }
+    },
+    {
+      "name": "upload QA image",
+      "pass": true,
+      "detail": {
+        "http": 201
+      }
+    },
+    {
+      "name": "create QA component a",
+      "pass": true,
+      "detail": {
+        "http": 201
+      }
+    },
+    {
+      "name": "upload QA image",
+      "pass": true,
+      "detail": {
+        "http": 201
+      }
+    },
+    {
+      "name": "create QA component b",
+      "pass": true,
+      "detail": {
+        "http": 201
+      }
+    },
+    {
+      "name": "upload QA image",
+      "pass": true,
+      "detail": {
+        "http": 201
+      }
+    },
+    {
+      "name": "create QA pack",
+      "pass": true,
+      "detail": {
+        "http": 201
+      }
+    },
+    {
+      "name": "create QA manual pack order",
+      "pass": true,
+      "detail": {
+        "http": 201
+      }
+    },
+    {
+      "name": "detect QA manual return",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "pack exposes ordered component quantities",
+      "pass": true
+    },
+    {
+      "name": "approved QA login",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA financial ledger",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "reject quantity overflow",
+      "pass": true,
+      "detail": {
+        "http": 400
+      }
+    },
+    {
+      "name": "reject foreign pack component",
+      "pass": true,
+      "detail": {
+        "http": 400
+      }
+    },
+    {
+      "name": "reject ambiguous duplicate whole-line conditions",
+      "pass": true,
+      "detail": {
+        "http": 400
+      }
+    },
+    {
+      "name": "read QA financial ledger",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "invalid batches leave stock and ledger unchanged",
+      "pass": true
+    },
+    {
+      "name": "verify mixed pack and simple quantities",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "mixed return processes",
+      "pass": true
+    },
+    {
+      "name": "read QA financial ledger",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "pack and simple losses total 80",
+      "pass": true
+    },
+    {
+      "name": "component A damaged and lost units reconcile",
+      "pass": true
+    },
+    {
+      "name": "component B missing units reconcile",
+      "pass": true
+    },
+    {
+      "name": "read saved return without creating another",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "complete mixed lines expose allocations",
+      "pass": true
+    },
+    {
+      "name": "repeat exact mixed verification",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA financial ledger",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "repeat leaves stock and ledger unchanged",
+      "pass": true
+    },
+    {
+      "name": "reject stale changed revision",
+      "pass": true,
+      "detail": {
+        "http": 409
+      }
+    },
+    {
+      "name": "correct all units to good",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA financial ledger",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "correction restores stock and reverses losses",
+      "pass": true
+    },
+    {
+      "name": "replace completed allocation with partial quantity",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read saved return without creating another",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "partial correction reopens saved return",
+      "pass": true
+    },
+    {
+      "name": "complete partial correction again",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read saved return without creating another",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "completed correction saves processed status",
+      "pass": true
+    },
+    {
+      "name": "approved QA login",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "clear synthetic QA stock",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "clear synthetic QA stock",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "archive QA product",
+      "pass": true,
+      "detail": {
+        "http": 201
+      }
+    },
+    {
+      "name": "archive QA product",
+      "pass": true,
+      "detail": {
+        "http": 201
+      }
+    },
+    {
+      "name": "archive QA product",
+      "pass": true,
+      "detail": {
+        "http": 201
+      }
+    },
+    {
+      "name": "deactivate QA category",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA inventory",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "read QA financial ledger",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "QA inventory buckets zero",
+      "pass": true
+    },
+    {
+      "name": "QA item losses zero after correction",
+      "pass": true
+    },
+    {
+      "name": "Home after tracking cleanup",
+      "pass": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "name": "no courier dispatches created",
+      "pass": true
+    },
+    {
+      "name": "no active QA products remain",
+      "pass": true
+    }
+  ],
+  "mixed": {
+    "a": {
+      "onHand": 19,
+      "reserved": 0,
+      "damaged": 1,
+      "incoming": 0
+    },
+    "b": {
+      "onHand": 18,
+      "reserved": 0,
+      "damaged": 0,
+      "incoming": 0
+    },
+    "loss": 80,
+    "profit": -80
+  },
+  "final": {
+    "catalog": {
+      "connectedProducts": 6,
+      "connectedCustomers": 10,
+      "warehouseProducts": 8,
+      "activeWarehouseProducts": 0,
+      "complete": true,
+      "metricsFreshAsOf": "2026-10-18T19:50:08.899Z"
+    },
+    "orders": {
+      "total": 4,
+      "inPeriod": 2,
+      "open": 4,
+      "unfulfilled": 4,
+      "readyToDispatch": 4,
+      "dispatched": 0,
+      "cancelled": 0,
+      "refunded": 0
+    },
+    "shipping": {
+      "connectedProviders": 4,
+      "totalDispatches": 0,
+      "pending": 0,
+      "dispatched": 0,
+      "failed": 0
+    },
+    "stock": {
+      "a": {
+        "onHand": 0,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      },
+      "b": {
+        "onHand": 0,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    "loss": 0,
+    "profit": 0
+  },
+  "retainedQARecords": {
+    "manualOrders": 1,
+    "processedReturns": 1,
+    "archivedProducts": 3,
+    "inactiveCategories": 1
+  },
+  "limitations": [
+    "Real courier ticket printing and physical scanning require a real test parcel",
+    "Live courier callbacks were not simulated in production"
+  ],
+  "responseSamples": {
+    "mixedVerificationDetails": {
+      "status": "PROCESSED",
+      "products": [
+        {
+          "kind": "BUNDLE",
+          "quantity": 2,
+          "condition": "MIXED",
+          "conditionComplete": true,
+          "conditionRevision": 1,
+          "components": [
+            {
+              "componentVariantId": "63f6791d-4cc4-4662-bdf2-77deeab1b962",
+              "productCode": "NJ8COOID",
+              "productName": "[QA TRACKING] a f2aa61de",
+              "variantTitle": "Default",
+              "quantityPerPack": 2,
+              "quantity": 4
+            },
+            {
+              "componentVariantId": "073d7427-6016-40ef-8ace-8049c12fb915",
+              "productCode": "K2VNNGEP",
+              "productName": "[QA TRACKING] b f2aa61de",
+              "variantTitle": "Default",
+              "quantityPerPack": 1,
+              "quantity": 2
+            }
+          ],
+          "allocations": [
+            {
+              "componentVariantId": "073d7427-6016-40ef-8ace-8049c12fb915",
+              "quantity": 2,
+              "physicalQuantity": 2,
+              "condition": "MISSING",
+              "damageCost": null,
+              "unitCost": "10.0000",
+              "saleValue": "71.4286"
+            },
+            {
+              "componentVariantId": "63f6791d-4cc4-4662-bdf2-77deeab1b962",
+              "quantity": 1,
+              "physicalQuantity": 1,
+              "condition": "DAMAGED",
+              "damageCost": "30.0000",
+              "unitCost": "30.0000",
+              "saleValue": "107.1429"
+            },
+            {
+              "componentVariantId": "63f6791d-4cc4-4662-bdf2-77deeab1b962",
+              "quantity": 3,
+              "physicalQuantity": 3,
+              "condition": "GOOD",
+              "damageCost": null,
+              "unitCost": "30.0000",
+              "saleValue": "321.4286"
+            }
+          ]
+        },
+        {
+          "kind": "STANDARD",
+          "quantity": 2,
+          "condition": "MIXED",
+          "conditionComplete": true,
+          "conditionRevision": 1,
+          "components": [],
+          "allocations": [
+            {
+              "componentVariantId": null,
+              "quantity": 1,
+              "physicalQuantity": 1,
+              "condition": "GOOD",
+              "damageCost": null,
+              "unitCost": "30.0000",
+              "saleValue": "100.0000"
+            },
+            {
+              "componentVariantId": null,
+              "quantity": 1,
+              "physicalQuantity": 1,
+              "condition": "LOST",
+              "damageCost": null,
+              "unitCost": "30.0000",
+              "saleValue": "100.0000"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

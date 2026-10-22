@@ -1,5 +1,7 @@
 # Packaging — live audit, 20 October 2026
 
+> Historical evidence. Original failures and observations below describe the tested revision at that time. Use [the subsequent verification](./fix-verification-2026-10-20.md) and [current module status](../CURRENT-STATUS.md) for resolved findings and remaining acceptance.
+
 ## Result
 
 **Not ready for final signoff: five findings remain open.** On production, 181 recorded observations produced **174 passes and 7 failed assertions**. These include requests, assertions, setup and cleanup, not 181 unique business scenarios. Multiple failed assertions map to the same finding; the WhatsApp gap is identified from requirements and implementation, not from a message-send attempt.

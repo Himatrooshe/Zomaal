@@ -1,0 +1,2320 @@
+{
+  "date": "2026-10-20",
+  "deployedCommit": "75c8524",
+  "environment": "live production API with a dedicated labelled QA store",
+  "api": "https://zomaal-backend-563898960389.us-central1.run.app",
+  "recordedChecks": {
+    "expandedApiSuite": 377,
+    "courierSuite": 35,
+    "note": "Includes setup, retries, cleanup assertions and group failure markers; these are not counts of distinct business scenarios. Raw discrepancies include expected provider phone rejection and the missing-secret configuration case."
+  },
+  "findings": [
+    {
+      "id": "LIVE-01",
+      "classification": "VALIDATION_BUG",
+      "summary": "Returns accepts limit=101 despite the documented maximum of 100",
+      "expectedHttp": 400,
+      "actualHttp": 200,
+      "source": "ReturnListQueryDto.limit lacks @Max(100)"
+    },
+    {
+      "id": "LIVE-02",
+      "classification": "IDEMPOTENCY_CONTRACT_GAP",
+      "summary": "Changed manual-order payload with the same retry key silently returns the previous order",
+      "observation": {
+        "http": 201,
+        "sameOrder": true,
+        "returnedShipping": "15.00",
+        "expectedOriginalShipping": 15,
+        "submittedShipping": 16
+      },
+      "impact": "No duplicate or overwritten order observed; caller is not told that its changed data was ignored."
+    },
+    {
+      "id": "LIVE-03",
+      "classification": "VALIDATION_BUG",
+      "summary": "damageCost=10000000000000000 reaches the database and returns 500",
+      "expectedHttp": 400,
+      "actualHttp": 500,
+      "atomicRollbackVerified": true,
+      "source": "Amount exceeds Decimal(20,4); precision validation does not bound magnitude."
+    },
+    {
+      "id": "LIVE-04",
+      "classification": "STAFF_ACCESS_BUG",
+      "summary": "Staff with orders.view receives 404 for owned-store order financials",
+      "expectedHttp": 200,
+      "actualHttp": 404,
+      "source": "Financial summary lookup filters connection.store.userId by staff user ID instead of resolving staff store access."
+    },
+    {
+      "id": "LIVE-05",
+      "classification": "STORE_DELETION_BUG",
+      "summary": "Deleting a temporary store containing inventory movements returns 500",
+      "actualHttp": 500,
+      "constraint": "InventoryMovement_inventoryItemId_fkey",
+      "impact": "Temporary store retained with archived products and zero stock; original active store restored."
+    },
+    {
+      "id": "LIVE-06",
+      "classification": "COURIER_LIFECYCLE_GAP",
+      "summary": "ForceLog confirms parcel deletion but Zomaal still resolves its status as PENDING",
+      "providerDeletionConfirmed": true,
+      "actualStatus": "PENDING",
+      "source": "deleteForceLogParcel forwards provider deletion without reconciling local shipment/dispatch state."
+    },
+    {
+      "id": "CONFIG-01",
+      "classification": "DEPLOYMENT_CONFIGURATION",
+      "summary": "QuickLivraison webhook secret is not configured",
+      "actualHttp": 503,
+      "impact": "Valid signed callback acceptance cannot be verified until the shared secret is configured on both sides."
+    }
+  ],
+  "expandedApiChecks": [
+    {
+      "name": "approved QA login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "owned stores baseline",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original Home baseline",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "current entitlements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create isolated live QA store",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create QA category",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "upload QA image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create QA component a",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "upload QA image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create QA component b",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "upload QA image",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create QA pack",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "create multi-line QA order",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "detect QA order",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "separate repeated-code order lines retained",
+      "pass": true
+    },
+    {
+      "name": "approved QA login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "unauthenticated list",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "unauthenticated read",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "unauthenticated verify",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "unauthenticated detect",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "unauthenticated scan",
+      "pass": true,
+      "http": 401
+    },
+    {
+      "name": "invalid return UUID",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "missing return UUID",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "bad page",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "bad limit",
+      "pass": false,
+      "http": 200,
+      "expected": 400
+    },
+    {
+      "name": "GROUP authentication and shape",
+      "pass": false,
+      "error": "bad limit"
+    },
+    {
+      "name": "empty scan",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "blank scan",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "short scan",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "oversized scan",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "malformed QR",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "QR missing tracking",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "QR numeric tracking",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "QR blank tracking",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "unknown tracking",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "QR forged orderId",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "reject empty lines",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject missing quantity on repeated line",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject zero quantity",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject negative quantity",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject fractional quantity",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject null quantity",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject unsafe quantity",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject overallocated simple",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject invalid condition",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject mixed response-only condition",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject negative cost",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject excess money precision",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject duplicate simple condition",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject duplicate component condition",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject foreign component",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject component on simple product",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject mixed whole-pack and component",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject sum exceeds component capacity",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject foreign line after valid line",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject negative revision",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "reject too many allocation rows",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "all invalid batches preserve stock financials and journals",
+      "pass": true
+    },
+    {
+      "name": "read saved QA return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "invalid batches leave return pending and no allocations",
+      "pass": true
+    },
+    {
+      "name": "retry identical manual order",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "manual retry same order",
+      "pass": true
+    },
+    {
+      "name": "changed manual order payload conflict",
+      "pass": false,
+      "http": 201,
+      "expected": 409
+    },
+    {
+      "name": "GROUP manual order idempotency and line identity",
+      "pass": false,
+      "error": "changed manual order payload conflict"
+    },
+    {
+      "name": "parallel detect returns same open request",
+      "pass": true,
+      "statuses": [
+        200,
+        200,
+        200
+      ]
+    },
+    {
+      "name": "partial one physical component",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read saved QA return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "partial component return remains pending",
+      "pass": true
+    },
+    {
+      "name": "partial simple allocation",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read saved QA return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "omitted pack allocation retained",
+      "pass": true
+    },
+    {
+      "name": "complete all current allocations",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read saved QA return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "complete allocations process all lines",
+      "pass": true
+    },
+    {
+      "name": "whole-pack GOOD",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "whole-pack GOOD A stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 100,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack GOOD B stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 100,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack GOOD purchase-cost loss correct",
+      "pass": true,
+      "actual": "0.00"
+    },
+    {
+      "name": "whole-pack RETURNED",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "whole-pack RETURNED A stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 100,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack RETURNED B stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 100,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack RETURNED purchase-cost loss correct",
+      "pass": true,
+      "actual": "0.00"
+    },
+    {
+      "name": "whole-pack DAMAGED",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "whole-pack DAMAGED A stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 100,
+        "reserved": 0,
+        "damaged": 4,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack DAMAGED B stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 100,
+        "reserved": 0,
+        "damaged": 2,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack DAMAGED purchase-cost loss correct",
+      "pass": true,
+      "actual": "140.00"
+    },
+    {
+      "name": "whole-pack LOST",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "whole-pack LOST A stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 96,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack LOST B stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 98,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack LOST purchase-cost loss correct",
+      "pass": true,
+      "actual": "140.00"
+    },
+    {
+      "name": "whole-pack MISSING",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "whole-pack MISSING A stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 96,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack MISSING B stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 98,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack MISSING purchase-cost loss correct",
+      "pass": true,
+      "actual": "140.00"
+    },
+    {
+      "name": "whole-pack GOOD",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "whole-pack GOOD A stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 100,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack GOOD B stock correct",
+      "pass": true,
+      "actual": {
+        "onHand": 100,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "whole-pack GOOD purchase-cost loss correct",
+      "pass": true,
+      "actual": "0.00"
+    },
+    {
+      "name": "record mixed component and repeated-code lines",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "mixed loss uses explicit total and default purchase costs",
+      "pass": true,
+      "actual": "62.35"
+    },
+    {
+      "name": "mixed A counts all occurrences correctly",
+      "pass": true,
+      "actual": {
+        "onHand": 99,
+        "reserved": 0,
+        "damaged": 2,
+        "incoming": 0
+      }
+    },
+    {
+      "name": "mixed B missing stock correct",
+      "pass": true
+    },
+    {
+      "name": "read saved QA return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "MIXED exposed on all complete mixed lines",
+      "pass": true
+    },
+    {
+      "name": "parallel identical allocation requests succeed",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ]
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "parallel identical requests preserve journals",
+      "pass": true
+    },
+    {
+      "name": "restore all Good after mixed",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read saved QA return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "one concurrent changed revision wins and one conflicts",
+      "pass": true,
+      "statuses": [
+        409,
+        200
+      ]
+    },
+    {
+      "name": "restore after revision race",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "concurrent financial refreshes succeed",
+      "pass": true,
+      "statuses": [
+        200,
+        200
+      ]
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "refreshes do not change undispatched finance",
+      "pass": true
+    },
+    {
+      "name": "ensure complete before repeated detect",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "new return after old processed",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "processed return read differs from new detection",
+      "pass": true
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "reopening older processed return blocked",
+      "pass": true,
+      "http": 409
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "blocked reopening has no journal changes",
+      "pass": true
+    },
+    {
+      "name": "complete new open return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cross-store return read",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "cross-store return verify",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "cross-store return detect",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "cross-store legacy condition",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "cross-store product read",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "cross-store Returns search excludes QA order",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "cross-store search no matches",
+      "pass": true
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "quicklivraison invalid signature rejected before mutation",
+      "pass": false,
+      "http": 503,
+      "message": "QuickLivraison webhook secret is not configured"
+    },
+    {
+      "name": "GROUP webhook rejection boundary",
+      "pass": false,
+      "error": "quicklivraison invalid signature rejected before mutation"
+    },
+    {
+      "name": "final restore current return allocations",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "final QA stock and item loss restored",
+      "pass": true
+    },
+    {
+      "name": "QA supplemental login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "bad Returns status",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "blank Returns search",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "missing Returns search",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "repeated Returns search",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "fractional Returns page",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "null-text page",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "bad scan repeated value",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "maximum limit accepted",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "private no-store cache policy",
+      "pass": true
+    },
+    {
+      "name": "legacy condition rejects duplicate product lines",
+      "pass": true,
+      "http": 409,
+      "expected": 409
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "validation {\"lines\":[null]}",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "invalid input atomicity 400",
+      "pass": true
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "validation {\"lines\":\"wrong\"}",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "invalid input atomicity 400",
+      "pass": true
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "validation {\"lines\":[{\"orderLineId\":\"c033c607-c406-401d-85ad-41b639da0401\",\"",
+      "pass": true,
+      "http": 400,
+      "expected": 400
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "invalid input atomicity 400",
+      "pass": true
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "validation {\"lines\":[{\"orderLineId\":\"c033c607-c406-401d-85ad-41b639da0401\",\"",
+      "pass": false,
+      "http": 500,
+      "expected": 400,
+      "message": "Internal server error"
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read A movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read B movements",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "invalid input atomicity 500",
+      "pass": true
+    },
+    {
+      "name": "quicklivraison callback readiness",
+      "pass": null,
+      "http": 503,
+      "classification": "MISSING_DEPLOYMENT_CONFIGURATION",
+      "message": "QuickLivraison webhook secret is not configured"
+    },
+    {
+      "name": "sendit callback readiness",
+      "pass": true,
+      "http": 401,
+      "classification": "AUTHENTICATION_CHECK",
+      "message": "Missing Sendit webhook signature"
+    },
+    {
+      "name": "Ameex unknown parcel no match",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "create QA view-only staff",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "QA staff login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "view-only staff reads Returns list",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "view-only staff reads saved Returns",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "view-only staff cannot verify",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "view-only staff cannot detect",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "view-only staff cannot scan orders",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "grant QA staff processing and order read",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "authorized staff verifies same Good snapshot",
+      "pass": true,
+      "http": 200,
+      "expected": 200
+    },
+    {
+      "name": "authorized staff reads order financials",
+      "pass": false,
+      "http": 404,
+      "expected": 200,
+      "message": "Order not found"
+    },
+    {
+      "name": "staff cannot manage staff",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "schedule disposable QA staff account deletion",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "deactivate disposable QA staff",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "deactivation revokes existing token Returns access",
+      "pass": true,
+      "http": 403,
+      "expected": 403
+    },
+    {
+      "name": "restore after supplemental cases",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "QA currency and barcode login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA product barcode",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "resolve QA inventory scanner value",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "barcode resolves own QA product",
+      "pass": true,
+      "responseKeys": [
+        "barcode",
+        "inventoryItemId",
+        "inventoryItemKind",
+        "product",
+        "variant",
+        "packagingMaterial",
+        "inventory"
+      ]
+    },
+    {
+      "name": "live pdf barcode label renders",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "live svg barcode label renders",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "barcode from another active store is inaccessible",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "undispatched shipping QR rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "create QA USD order",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "detect QA USD return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "real cross-currency verification succeeds",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read saved QA return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "MAD purchase cost converted into USD snapshot",
+      "pass": true,
+      "unitCost": "3.0843"
+    },
+    {
+      "name": "correct USD currency return to Good",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "USD correction restores stock",
+      "pass": true
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "USD correction reverses monetary loss",
+      "pass": true
+    },
+    {
+      "name": "create QA ZZZ order",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "detect QA ZZZ return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "missing real FX rate returns 503",
+      "pass": true,
+      "http": 503
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "missing FX rate does not change stock",
+      "pass": true
+    },
+    {
+      "name": "read saved QA return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "missing FX rate does not record allocations",
+      "pass": true
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "missing FX rate creates no financial event",
+      "pass": true
+    },
+    {
+      "name": "QA currency and barcode login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA product barcode",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "resolve QA inventory scanner value",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "barcode resolves own QA product",
+      "pass": true,
+      "responseKeys": [
+        "barcode",
+        "inventoryItemId",
+        "inventoryItemKind",
+        "product",
+        "variant",
+        "packagingMaterial",
+        "inventory"
+      ]
+    },
+    {
+      "name": "live pdf barcode label renders",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "live svg barcode label renders",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "barcode from another active store is inaccessible",
+      "pass": true,
+      "http": 404
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "undispatched shipping QR rejected",
+      "pass": true,
+      "http": 400
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "real cross-currency verification succeeds",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read saved QA return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "MAD purchase cost converted into USD snapshot",
+      "pass": true,
+      "unitCost": "3.0843"
+    },
+    {
+      "name": "correct USD currency return to Good",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "USD correction restores stock",
+      "pass": true
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "USD correction reverses monetary loss",
+      "pass": true
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "missing real FX rate returns 503",
+      "pass": true,
+      "http": 503
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "missing FX rate does not change stock",
+      "pass": true
+    },
+    {
+      "name": "read saved QA return",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "missing FX rate does not record allocations",
+      "pass": true
+    },
+    {
+      "name": "read QA financials",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "missing FX rate creates no financial event",
+      "pass": true
+    },
+    {
+      "name": "approved QA login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "owned stores before QA cleanup",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "only newly created labelled QA store is deleted",
+      "pass": true
+    },
+    {
+      "name": "delete temporary QA store and fixtures",
+      "pass": false,
+      "http": 500,
+      "expected": 200,
+      "message": "Internal server error"
+    },
+    {
+      "name": "QA final cleanup login",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "resolve exact decoded provider label",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "provider label resolves correct order",
+      "pass": true
+    },
+    {
+      "name": "resolve exact decoded zomaal label",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "zomaal label resolves correct order",
+      "pass": true
+    },
+    {
+      "name": "provider parcel after deletion",
+      "pass": false,
+      "http": 502,
+      "expected": 200,
+      "message": "ForceLog request failed with status 400"
+    },
+    {
+      "name": "post-provider-deletion checks",
+      "pass": false,
+      "error": "provider parcel after deletion"
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "zero temporary QA stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "zero temporary QA stock",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "archive temporary QA product",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "archive temporary QA product",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "archive temporary QA product",
+      "pass": true,
+      "http": 201
+    },
+    {
+      "name": "deactivate temporary QA category",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "label retained QA store with cleanup bug",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "read QA balance",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "temporary QA inventory completely zero",
+      "pass": true
+    },
+    {
+      "name": "select test context",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original Home after full live edge testing",
+      "pass": true,
+      "http": 200
+    },
+    {
+      "name": "original store order counts preserved",
+      "pass": true
+    },
+    {
+      "name": "original store catalog preserved",
+      "pass": true
+    },
+    {
+      "name": "original store dispatch counts preserved",
+      "pass": true
+    }
+  ],
+  "courierChecks": [
+    {
+      "name": "select labelled QA store",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "select labelled QA store",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "create prepaid no-pickup QA order",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "dispatch QA parcel to real ForceLog API",
+      "http": 502,
+      "pass": false
+    },
+    {
+      "name": "select labelled QA store",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "dispatch QA parcel to real ForceLog API",
+      "http": 502,
+      "pass": false
+    },
+    {
+      "name": "select labelled QA store",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "create prepaid no-pickup QA order",
+      "http": 201,
+      "pass": true
+    },
+    {
+      "name": "dispatch QA parcel to real ForceLog API",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "select labelled QA store for parcel tests",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "resolve real provider tracking",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "retrieve real ForceLog sticker",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "restore original active store",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "select labelled QA store for parcel tests",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "scan real tracking with forged QR metadata",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "real tracking overrides QR order and status",
+      "pass": true
+    },
+    {
+      "name": "duplicate dispatch rejected without creating another parcel",
+      "pass": true,
+      "actual": {
+        "http": 400
+      }
+    },
+    {
+      "name": "first parallel live dispatch financial sync",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "second parallel live dispatch financial sync",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "real pending parcel finance",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "pending real parcel has no delivered revenue",
+      "pass": true
+    },
+    {
+      "name": "detect return through real courier barcode",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "real courier return detection resolves pack",
+      "pass": true
+    },
+    {
+      "name": "real parcel mixed component verification",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "real parcel mixed loss ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "real parcel mixed loss is 50 MAD",
+      "pass": true
+    },
+    {
+      "name": "restore real parcel Good conditions",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "real parcel corrected loss ledger",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "real parcel correction reverses loss",
+      "pass": true
+    },
+    {
+      "name": "switch original store for real tracking isolation",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "real tracking inaccessible in another active store",
+      "http": 404,
+      "pass": true
+    },
+    {
+      "name": "restore original active store",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "select labelled QA store for parcel tests",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "delete NEW_PARCEL QA record from ForceLog",
+      "http": 200,
+      "pass": true
+    },
+    {
+      "name": "restore original active store",
+      "http": 200,
+      "pass": true
+    }
+  ],
+  "realFx": {
+    "currency": "USD",
+    "unitCost": "3.0843",
+    "allocationQuantity": 2
+  },
+  "realCourier": {
+    "provider": "FORCELOG",
+    "trackingNumber": "F-CSA1PNDZYH8E",
+    "created": true,
+    "providerDeleted": true,
+    "pickupRequested": false,
+    "statusAfterProviderDeletion": "PENDING"
+  },
+  "labelDecoding": {
+    "provider": {
+      "pages": 1,
+      "trackingInText": true,
+      "packCodeInText": true,
+      "codes": [
+        {
+          "format": "QR Code",
+          "text": "F-CSA1PNDZYH8E"
+        }
+      ]
+    },
+    "zomaal": {
+      "pages": 1,
+      "trackingInText": false,
+      "packCodeInText": true,
+      "codes": [
+        {
+          "format": "QR Code",
+          "text": "{\"type\":\"PACK\",\"packCode\":\"K0MYTEVS\",\"quantity\":2,\"orderId\":\"#0AC93F46\",\"trackingNumber\":\"F-CSA1PNDZYH8E\",\"items\":[{\"productCode\":\"U7MD7RK1\",\"quantity\":4},{\"productCode\":\"UAZGO4X9\",\"quantity\":2}]}"
+        }
+      ]
+    }
+  },
+  "cleanup": {
+    "temporaryStoreRetained": true,
+    "reason": "DELETE /stores/:id fails with InventoryMovement_inventoryItemId_fkey",
+    "stock": {
+      "a": {
+        "onHand": 0,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      },
+      "b": {
+        "onHand": 0,
+        "reserved": 0,
+        "damaged": 0,
+        "incoming": 0
+      }
+    },
+    "archivedProducts": 3,
+    "inactiveCategories": 1,
+    "staffDeactivated": true,
+    "staffDeletionScheduled": true
+  },
+  "originalStoreFinalHome": {
+    "catalog": {
+      "connectedProducts": 6,
+      "connectedCustomers": 10,
+      "warehouseProducts": 8,
+      "activeWarehouseProducts": 0,
+      "complete": true,
+      "metricsFreshAsOf": "2026-10-18T19:50:08.899Z"
+    },
+    "orders": {
+      "total": 4,
+      "inPeriod": 2,
+      "open": 4,
+      "unfulfilled": 4,
+      "readyToDispatch": 4,
+      "dispatched": 0,
+      "cancelled": 0,
+      "refunded": 0
+    },
+    "shipping": {
+      "connectedProviders": 4,
+      "totalDispatches": 0,
+      "pending": 0,
+      "dispatched": 0,
+      "failed": 0
+    }
+  },
+  "remaining": [
+    "No physical printer or camera was used: QR/barcodes were decoded from real PDF labels.",
+    "No physical pickup/delivery was requested, so no genuine delivered/returned courier event was produced.",
+    "ForceLog real creation/label/deletion verified; other couriers were not physically dispatched.",
+    "QuickLivraison valid callback acceptance is blocked by missing deployment configuration.",
+    "Database fault injection and a deliberately fabricated real shipment collision were not performed in production."
+  ]
+}

@@ -1,5 +1,7 @@
 # Expenses — production audit, 20 October 2026
 
+> Historical evidence. Original failures and observations below describe the tested revision at that time. Use [the subsequent verification](./fix-verification-2026-10-20.md) and [current module status](../CURRENT-STATUS.md) for resolved findings and remaining acceptance.
+
 ## Result
 
 **Not ready for final signoff.** 345 recorded live observations: **313 passed, 32 failed assertions**, grouped into **10 live findings**. This count includes requests, setup and cleanup, not 345 unique business scenarios. There is also one requirement gap confirmed from code, with insufficient nonzero live courier data to reproduce its financial effect.
