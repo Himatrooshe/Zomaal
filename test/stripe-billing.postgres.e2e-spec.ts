@@ -415,6 +415,25 @@ postgres('Stripe billing HTTP with PostgreSQL', () => {
         .accessEndsAt,
     ).toEqual(before);
   });
+  it('a verified renewal invoice extends the paid period once', async () => {
+    const before = await db.subscription.findUniqueOrThrow({
+      where: { userId: owner },
+    });
+    remote.status = 'active';
+    latestInvoice.id = 'in_local_renewal';
+    latestInvoice.status = 'paid';
+    latestInvoice.amount_paid = 9900;
+    const start = Math.floor(before.accessEndsAt.getTime() / 1000);
+    latestInvoice.lines.data[0].period = { start, end: start + 2592000 };
+    const renewal = event('invoice.paid', latestInvoice);
+    await send(renewal).expect(200);
+    await send(renewal).expect(200);
+    const after = await db.subscription.findUniqueOrThrow({
+      where: { userId: owner },
+    });
+    expect(after.accessEndsAt.getTime()).toBe((start + 2592000) * 1000);
+    expect(await db.billingInvoice.count({ where: { userId: owner } })).toBe(2);
+  });
   it('rejects live-mode and wrong-owner events', async () => {
     const old = remote.metadata.owner_user_id;
     remote.metadata.owner_user_id = outsider;

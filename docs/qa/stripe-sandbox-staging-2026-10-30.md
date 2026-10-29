@@ -12,6 +12,8 @@
 - Staging keys only; live keys and another database name are refused by both
   configuration validation and the Stripe client. Schedulers and external
   business integrations are disabled. Production was not redeployed or migrated.
+- Optional Redis retries are capped at one on staging so its intentionally absent
+  Redis server does not delay cold starts. Rate limiting uses its database fallback.
 - The supplied owner login was reproduced only in staging, with two empty QA
   stores, a synthetic staff member and an unrelated owner. Credentials/tokens are
   absent from this report. Staff has `products.view` and `ads.view` only.
@@ -59,10 +61,11 @@ payment did not change this account's production subscription or permissions.
 
 - `npm test -- --runInBand`: 144 suites, 1,395 tests passed.
 - `STRIPE_TEST_DATABASE_URL=<dedicated-local-test-db> npm run test:e2e -- --runInBand stripe-billing.postgres`:
-  17 tests passed. Real PostgreSQL, HTTP guards/validation, and raw-body signature
+  18 tests passed. Real PostgreSQL, HTTP guards/validation, and raw-body signature
   handling; Stripe calls mocked. Covers concurrent receipts, invoice uniqueness,
   failed-payment periods, timeout idempotency, wrong-owner/live events, stale
-  events after cancellation, and starting checkout after an ended subscription.
+  events after cancellation, starting checkout after an ended subscription, and
+  a verified renewal invoice advancing the paid period exactly once.
 - `npm run build`: passed.
 - `npx prisma validate`: passed for the final schema.
 - `npm run docs:generate`: generated the updated API contract.
