@@ -147,6 +147,11 @@ jobs:
       - name: Test
         run: npm test -- --runInBand
 
+      - name: Verify Snapchat OAuth, reporting and permissions in PostgreSQL
+        env:
+          SNAPCHAT_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run test:e2e -- --runInBand snapchat-ads.postgres
+
       - name: Verify salary transactions in PostgreSQL
         env:
           STAFF_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
@@ -288,6 +293,8 @@ jobs:
             ADS_SYNC_SCHEDULER_ENABLED=true
             NOTIFICATIONS_SCHEDULER_ENABLED=true
             STAFF_SALARY_SCHEDULER_ENABLED=true
+            SNAPCHAT_ADS_ENABLED=true
+            SNAPCHAT_ADS_REDIRECT_URI=https://zomaal-backend-563898960389.us-central1.run.app/auth/snapchat-ads/callback
           env_vars_update_strategy: merge
           secrets: |-
             YOUCAN_CLIENT_ID=zomaal-youcan-client-id:latest
@@ -303,6 +310,9 @@ jobs:
             ADS_SYNC_SCHEDULER_SECRET=zomaal-ads-sync-scheduler-secret:latest
             NOTIFICATIONS_SCHEDULER_SECRET=zomaal-notifications-scheduler-secret:latest
             STAFF_SALARY_SCHEDULER_SECRET=zomaal-staff-salary-scheduler-secret:latest
+            SNAPCHAT_ADS_CLIENT_ID=zomaal-snapchat-ads-client-id:latest
+            SNAPCHAT_ADS_CLIENT_SECRET=zomaal-snapchat-ads-client-secret:latest
+            ADS_TOKEN_ENCRYPTION_KEY=zomaal-ads-token-encryption-key:latest
             QUICKLIVRAISON_WEBHOOK_SECRET=zomaal-quicklivraison-webhook-secret:latest
           secrets_update_strategy: merge
 

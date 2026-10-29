@@ -13321,6 +13321,132 @@ paths:
       summary: Complete Meta Ads (Facebook Login) authorization
       tags:
         - Ads — Meta OAuth
+  /ads/snapchat/auth/start:
+    post:
+      operationId: SnapchatAds_begin
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Start Snapchat Marketing API OAuth; open the returned URL in the merchant browser
+      tags:
+        - Ads — Snapchat
+  /ads/snapchat/campaigns/{connectionId}:
+    get:
+      operationId: SnapchatAds_list
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Read cached Snapchat campaigns. Provider refresh uses the separate management endpoint.
+      tags:
+        - Ads — Snapchat
+  /ads/snapchat/campaigns/{connectionId}/refresh:
+    post:
+      operationId: SnapchatAds_refresh
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Refresh the local campaign mirror from Snapchat; does not change ads or spend
+      tags:
+        - Ads — Snapchat
+  /ads/snapchat/campaigns/{connectionId}/selection:
+    post:
+      operationId: SnapchatAds_select
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SnapchatCampaignSelectionDto'
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Select campaigns for Zomaal reporting; does not change Snapchat campaigns
+      tags:
+        - Ads — Snapchat
+  /ads/snapchat/sync/{connectionId}:
+    post:
+      operationId: SnapchatAds_sync
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Read real Snapchat daily reports into tracked campaign snapshots; first sync backfills 90 days
+      tags:
+        - Ads — Snapchat
+  /ads/snapchat/metrics/{connectionId}:
+    get:
+      description: Results mean conversion_purchases; attribution uses conversion time, 28-day swipe and 1-day view. Multi-day reach is not added.
+      operationId: SnapchatAds_metrics
+      parameters:
+        - name: connectionId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: days
+          required: false
+          in: query
+          description: Calendar days in the Snapchat ad account timezone.
+          schema:
+            default: 7
+            type: number
+            enum:
+              - 1
+              - 7
+              - 30
+              - 90
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      summary: Read Snapchat spend, swipes, impressions and purchases in account currency/timezone
+      tags:
+        - Ads — Snapchat
+  /auth/snapchat-ads/callback:
+    get:
+      operationId: SnapchatAdsOAuth_callback
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      summary: Snapchat browser OAuth callback; consumes single-use state and stores encrypted credentials
+      tags:
+        - Ads — Snapchat OAuth
   /roles:
     get:
       description: Owner-only. Role management can never be delegated to a staff member.
@@ -30220,6 +30346,16 @@ components:
             $ref: '#/components/schemas/AdsConnectionDto'
       required:
         - connections
+    SnapchatCampaignSelectionDto:
+      type: object
+      properties:
+        externalCampaignIds:
+          description: Snapchat campaign UUIDs returned for this connection. Only selected campaigns contribute to reporting.
+          type: array
+          items:
+            type: string
+      required:
+        - externalCampaignIds
     RoleResponseDto:
       type: object
       properties:

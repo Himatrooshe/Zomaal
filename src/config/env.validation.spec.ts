@@ -1,5 +1,72 @@
 import { validateEnvironment } from './env.validation';
 
+describe('validateEnvironment Snapchat Marketing API', () => {
+  const base = {
+    DATABASE_URL: 'postgresql://local/test',
+    JWT_SECRET: 'x'.repeat(40),
+    SHIPPING_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 6).toString('base64'),
+  };
+  const snap = {
+    SNAPCHAT_ADS_ENABLED: 'true',
+    SNAPCHAT_ADS_CLIENT_ID: 'fake-client',
+    SNAPCHAT_ADS_CLIENT_SECRET: 'fake-secret',
+    SNAPCHAT_ADS_REDIRECT_URI: 'https://api.example/auth/snapchat-ads/callback',
+    ADS_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+  };
+  it('defaults to disabled without requiring provider credentials', () => {
+    expect(validateEnvironment(base).SNAPCHAT_ADS_ENABLED).toBe('false');
+  });
+  it('accepts complete HTTPS OAuth configuration', () => {
+    expect(validateEnvironment({ ...base, ...snap }).SNAPCHAT_ADS_ENABLED).toBe(
+      'true',
+    );
+  });
+  it.each(['SNAPCHAT_ADS_CLIENT_ID', 'SNAPCHAT_ADS_CLIENT_SECRET'])(
+    'requires %s when enabled',
+    (key) => {
+      expect(() =>
+        validateEnvironment({ ...base, ...snap, [key]: '' }),
+      ).toThrow(key);
+    },
+  );
+  it('requires the exact HTTPS callback path', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        ...snap,
+        SNAPCHAT_ADS_REDIRECT_URI: 'http://api.example/other',
+      }),
+    ).toThrow('Snapchat redirect');
+  });
+  it('requires a valid shared encryption key', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        ...snap,
+        ADS_TOKEN_ENCRYPTION_KEY: 'bad',
+      }),
+    ).toThrow('ADS_TOKEN_ENCRYPTION_KEY');
+  });
+  it('bounds timeout and state expiration settings', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        ...snap,
+        SNAPCHAT_ADS_HTTP_TIMEOUT_MS: '0',
+      }),
+    ).toThrow('SNAPCHAT_ADS_HTTP_TIMEOUT_MS');
+  });
+  it('rejects unsafe frontend redirects', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        ...snap,
+        SNAPCHAT_ADS_AUTH_SUCCESS_REDIRECT_URL: 'javascript:alert(1)',
+      }),
+    ).toThrow('SNAPCHAT_ADS_AUTH_SUCCESS_REDIRECT_URL');
+  });
+});
+
 describe('validateEnvironment warehouse image storage', () => {
   const base = {
     DATABASE_URL: 'postgresql://postgres:password@localhost:5434/zomaal',
