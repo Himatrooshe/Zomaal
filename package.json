@@ -19,6 +19,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "docs:generate": "ts-node scripts/generate-openapi.ts",
+    "billing:catalog": "node --env-file=.env scripts/setup-stripe-catalog.cjs",
+    "billing:catalog:test": "node --test scripts/setup-stripe-catalog.test.cjs",
     "db:seed": "prisma db seed"
   },
   "dependencies": {
