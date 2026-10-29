@@ -87,7 +87,7 @@ export class AdsController {
   }
 
   @Delete('connections/:id')
-  @RequirePermission(PERMISSIONS.ADS_VIEW)
+  @RequirePermission(PERMISSIONS.ADS_MANAGE)
   @ApiOperation({ summary: 'Disconnect an ad platform account' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiOkResponse({ type: AdsConnectionDto })

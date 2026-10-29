@@ -25,8 +25,15 @@ import { MetaAdsApiService } from './meta/meta-ads-api.service';
 import { MetaAdsAuthService } from './meta/meta-ads-auth.service';
 import { MetaAdsCampaignService } from './meta/meta-ads-campaign.service';
 import { MetaAdsSyncService } from './meta/meta-ads-sync.service';
+import {
+  SnapchatAdsController,
+  SnapchatAdsOAuthController,
+} from './snapchat/snapchat-ads.controller';
+import { SnapchatAdsApiService } from './snapchat/snapchat-ads-api.service';
+import { SnapchatAdsAuthService } from './snapchat/snapchat-ads-auth.service';
+import { SnapchatAdsService } from './snapchat/snapchat-ads.service';
 
-// Each ad platform (TikTok, Google, Meta; Snapchat later) has its own
+// Each ad platform (TikTok, Google, Meta, Snapchat) has its own
 // *AdsApiService/*AdsAuthService/etc. under src/ads/<platform>/, writing into
 // the same AdsConnection/AdsCampaign/AdsMetricSnapshot tables —
 // AdsController, AdsDashboardService and AdsConnectionService are generic.
@@ -44,6 +51,8 @@ import { MetaAdsSyncService } from './meta/meta-ads-sync.service';
     MetaAdsController,
     MetaAdsOAuthController,
     AdsSchedulerController,
+    SnapchatAdsController,
+    SnapchatAdsOAuthController,
   ],
   providers: [
     AdsConnectionService,
@@ -63,6 +72,9 @@ import { MetaAdsSyncService } from './meta/meta-ads-sync.service';
     MetaAdsCampaignService,
     MetaAdsSyncService,
     AdsSpendService,
+    SnapchatAdsApiService,
+    SnapchatAdsAuthService,
+    SnapchatAdsService,
   ],
   exports: [AdsConnectionService, AdsDashboardService, AdsSpendService],
 })

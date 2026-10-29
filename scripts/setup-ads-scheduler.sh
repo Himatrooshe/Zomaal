@@ -54,8 +54,8 @@ SERVICE_URL="$(gc run services describe "$DEPLOY_CLOUD_RUN_SERVICE" \
   --region "$DEPLOY_REGION" --format='value(status.url)')"
 SCHEDULER_SECRET="$(gc secrets versions access latest --secret "$SECRET_NAME")"
 
-# Staggered so the three platforms never sync at the same minute.
-for job in "tiktok:0" "google:10" "meta:20"; do
+# Staggered so the four platforms never sync at the same minute.
+for job in "tiktok:0" "google:10" "meta:20" "snapchat:30"; do
   platform="${job%%:*}"
   minute="${job##*:}"
   name="zomaal-ads-${platform}-sync"
