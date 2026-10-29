@@ -1,3 +1,4 @@
+import { requiredCurrencyConverter } from '../currency/required-currency-converter';
 import { lockDuplicateReviewStore } from '../customers/duplicate-review-lock.util';
 import { assertPersistedMoney } from '../common/persisted-money';
 import { CourierCostsService } from '../expenses/courier-costs.service';
@@ -200,6 +201,8 @@ interface ReturnsBucketRow {
   damagedValue: Prisma.Decimal;
   missingItems: number | bigint;
   missingValue: Prisma.Decimal;
+  legacyDamagedCost?: Prisma.Decimal;
+  legacyMissingCost?: Prisma.Decimal;
   latestUpdatedAt: Date | null;
 }
 
@@ -1887,9 +1890,11 @@ export class EcommerceService {
         COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN GREATEST(COALESCE((lines."conditionAllocations"->>'expectedQuantity')::int,0)-COALESCE(alloc."allocatedItems",0),0) ELSE CASE WHEN lines."condition" IS NULL AND ss."normalizedStatus" IN ${RETURN_IN_PROGRESS_STATUSES} THEN lines."quantity" ELSE 0 END END),0)::int AS "pendingItems",
         COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN GREATEST(lines."totalPrice"-COALESCE(alloc."allocatedValue",0),0) ELSE CASE WHEN lines."condition" IS NULL AND ss."normalizedStatus" IN ${RETURN_IN_PROGRESS_STATUSES} THEN lines."totalPrice" ELSE 0 END END),0) AS "pendingValue",
         COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."damagedItems",0) ELSE CASE WHEN lines."condition"='DAMAGED' THEN lines."quantity" ELSE 0 END END),0)::int AS "damagedItems",
-        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."damagedValue",0) ELSE CASE WHEN lines."condition"='DAMAGED' THEN COALESCE(lines."damageCost",wv."costPrice"*lines."quantity",0) ELSE 0 END END),0) AS "damagedValue",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."damagedValue",0) ELSE CASE WHEN lines."condition"='DAMAGED' THEN COALESCE(lines."damageCost",0) ELSE 0 END END),0) AS "damagedValue",
         COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."missingItems",0) ELSE CASE WHEN lines."condition" IN ('MISSING','LOST') THEN lines."quantity" ELSE 0 END END),0)::int AS "missingItems",
-        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."missingValue",0) ELSE CASE WHEN lines."condition" IN ('MISSING','LOST') THEN COALESCE(wv."costPrice"*lines."quantity",0) ELSE 0 END END),0) AS "missingValue",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NOT NULL THEN COALESCE(alloc."missingValue",0) ELSE 0 END),0) AS "missingValue",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NULL AND lines."condition"='DAMAGED' AND lines."damageCost" IS NULL THEN wv."costPrice"*lines."quantity" ELSE 0 END),0) AS "legacyDamagedCost",
+        COALESCE(SUM(CASE WHEN lines."conditionAllocations" IS NULL AND lines."condition" IN ('MISSING','LOST') THEN wv."costPrice"*lines."quantity" ELSE 0 END),0) AS "legacyMissingCost",
         MAX(lines."updatedAt") AS "latestUpdatedAt"
       FROM "EcommerceOrderLine" lines
       INNER JOIN "EcommerceOrder" orders ON orders."id" = lines."orderId"
@@ -1924,19 +1929,26 @@ export class EcommerceService {
     };
     let latestUpdatedAt: Date | null = null;
 
+    const convert = requiredCurrencyConverter(this.currencyService);
     for (const row of rows) {
       for (const key of RETURNS_BUCKET_KEYS) {
         const itemsField = `${key}Items` as keyof ReturnsBucketRow;
         const valueField = `${key}Value` as keyof ReturnsBucketRow;
         buckets[key].items += Number(row[itemsField]);
-        const converted = await this.toBaseOrSkip(
+        const converted = await convert(
           row[valueField] as Prisma.Decimal,
           row.currency,
           store.baseCurrency,
-          'Returns buckets',
         );
         if (converted) buckets[key].value = buckets[key].value.plus(converted);
       }
+      // Legacy warehouse cost fallbacks are already in store currency.
+      buckets.damaged.value = buckets.damaged.value.plus(
+        row.legacyDamagedCost ?? 0,
+      );
+      buckets.missing.value = buckets.missing.value.plus(
+        row.legacyMissingCost ?? 0,
+      );
       if (
         row.latestUpdatedAt &&
         (!latestUpdatedAt || row.latestUpdatedAt > latestUpdatedAt)

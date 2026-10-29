@@ -1,6 +1,11 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, ReturnRequestStatus } from '@prisma/client';
 import { ReturnRequestService } from './return-request.service';
+import type { StoreAccess } from '../access/store-access.service';
 import { ProductCondition } from './constants/product-condition';
 
 function build() {
@@ -23,10 +28,7 @@ function build() {
     ecommerceOrder: {
       findFirst: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
-      aggregate: jest.fn().mockResolvedValue({
-        _sum: { totalCollected: null },
-        _count: 0,
-      }),
+      groupBy: jest.fn().mockResolvedValue([]),
     },
     ecommerceOrderDispatch: {
       findFirst: jest.fn(),
@@ -36,6 +38,7 @@ function build() {
     },
     $queryRaw: jest.fn().mockResolvedValue([
       {
+        currency: 'MAD',
         totalCount: 0n,
         totalValue: new Prisma.Decimal(0),
         pendingCount: 0n,
@@ -45,6 +48,7 @@ function build() {
   };
 
   const ecommerceService = {
+    resolveScannedCode: jest.fn().mockRejectedValue(new NotFoundException()),
     getFulfillmentPreview: jest.fn(),
     recordProductConditionByLineId: jest.fn(),
     verifyProductConditions: jest.fn().mockResolvedValue(undefined),
@@ -70,12 +74,14 @@ function build() {
     touchLastActive: jest.fn(),
   };
 
+  const currency = { convertOrNull: jest.fn().mockResolvedValue(null) };
   const service = new ReturnRequestService(
     prisma as never,
     ecommerceService as never,
     financialService as never,
     customerRisk as never,
     storeAccess as never,
+    currency as never,
   );
 
   return {
@@ -85,6 +91,7 @@ function build() {
     financialService,
     customerRisk,
     storeAccess,
+    currency,
   };
 }
 
@@ -106,6 +113,7 @@ const ORDER_LINE = {
 
 const ORDER = {
   id: 'order-1',
+  currency: 'MAD',
   orderName: 'ORD-1001',
   customerId: null,
   manualCustomerName: 'Customer One',
@@ -138,7 +146,8 @@ describe('ReturnRequestService', () => {
         expect.objectContaining({
           where: {
             connection: { storeId: 'store-1' },
-            OR: [
+            OR: expect.arrayContaining([
+              { id: 'ORD-1001' },
               {
                 externalOrderId: { contains: 'ORD-1001', mode: 'insensitive' },
               },
@@ -150,7 +159,7 @@ describe('ReturnRequestService', () => {
                 },
               },
               { manualCustomerPhone: { contains: 'ORD-1001' } },
-            ],
+            ]) as Prisma.EcommerceOrderWhereInput[],
           },
           take: 20,
         }),
@@ -172,6 +181,137 @@ describe('ReturnRequestService', () => {
       expect(storeAccess.requireStore).toHaveBeenCalledWith('user-1');
     });
 
+    it('searches returns by internal order ID within the active store', async () => {
+      const { service, prisma } = build();
+      await service.list('user-1', { search: 'internal-order-id' });
+      expect(prisma.returnRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            order: {
+              connection: { storeId: 'store-1' },
+              OR: expect.arrayContaining([
+                { id: 'internal-order-id' },
+                {
+                  externalOrderId: {
+                    contains: 'internal-order-id',
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  orderName: {
+                    contains: 'internal-order-id',
+                    mode: 'insensitive',
+                  },
+                },
+              ]) as Prisma.EcommerceOrderWhereInput[],
+            },
+          },
+        }),
+      );
+    });
+
+    it('reuses request access without another store lookup', async () => {
+      const { service, storeAccess } = build();
+      const access: StoreAccess = {
+        userId: 'user-1',
+        storeId: 'store-2',
+        baseCurrency: 'BDT',
+        isOwner: true,
+        staffMemberId: null,
+        permissions: [],
+      };
+      const result = await service.list('user-1', {}, access);
+      expect(result.currency).toBe('BDT');
+      expect(storeAccess.requireStore).not.toHaveBeenCalled();
+    });
+
+    it('does not reuse access belonging to another user', async () => {
+      const { service, storeAccess } = build();
+      await service.list(
+        'user-1',
+        {},
+        {
+          userId: 'other-user',
+          storeId: 'other-store',
+          baseCurrency: 'USD',
+          isOwner: true,
+          staffMemberId: null,
+          permissions: [],
+        },
+      );
+      expect(storeAccess.requireStore).toHaveBeenCalledWith('user-1');
+    });
+
+    it('converts mixed-currency rows and all summary cards before adding them', async () => {
+      const { service, prisma, currency } = build();
+      currency.convertOrNull.mockResolvedValue(new Prisma.Decimal(10));
+      prisma.$queryRaw.mockResolvedValue([
+        {
+          currency: 'MAD',
+          totalCount: 1n,
+          pendingCount: 0n,
+          totalValue: new Prisma.Decimal(100),
+          pendingValue: new Prisma.Decimal(0),
+        },
+        {
+          currency: 'USD',
+          totalCount: 1n,
+          pendingCount: 1n,
+          totalValue: new Prisma.Decimal(10),
+          pendingValue: new Prisma.Decimal(10),
+        },
+      ]);
+      prisma.ecommerceOrder.groupBy.mockResolvedValue([
+        {
+          currency: 'USD',
+          _sum: { totalCollected: new Prisma.Decimal(5) },
+          _count: 1,
+        },
+        {
+          currency: 'MAD',
+          _sum: { totalCollected: new Prisma.Decimal(20) },
+          _count: 1,
+        },
+      ]);
+      prisma.returnRequest.findMany.mockResolvedValue([
+        {
+          id: 'rr-usd',
+          order: { id: 'order-usd', currency: 'USD' },
+          createdAt: new Date(),
+          status: 'NEED_VERIFICATION',
+          lines: [
+            {
+              orderLine: { ...ORDER_LINE, totalPrice: new Prisma.Decimal(10) },
+            },
+          ],
+        },
+      ]);
+      const result = await service.list('user-1', {});
+      expect(result.summary).toEqual({
+        totalReturns: { value: '200.00', orders: 2 },
+        pendingVerification: { value: '100.00', orders: 1 },
+        totalOrderConfirm: { value: '70.00', orders: 2 },
+      });
+      expect(result.data[0].value).toBe('100.00');
+      expect(currency.convertOrNull).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails rather than showing incomplete totals when a rate is unavailable', async () => {
+      const { service, prisma } = build();
+      prisma.$queryRaw.mockResolvedValue([
+        {
+          currency: 'USD',
+          totalCount: 1n,
+          pendingCount: 1n,
+          totalValue: new Prisma.Decimal(10),
+          pendingValue: new Prisma.Decimal(10),
+        },
+      ]);
+      await expect(service.list('user-1', {})).rejects.toThrow(
+        'Exchange rate USD → MAD is unavailable',
+      );
+    });
+
     it('throws when the user has no store', async () => {
       const { service, storeAccess } = build();
       storeAccess.requireStore.mockRejectedValue(
@@ -185,6 +325,154 @@ describe('ReturnRequestService', () => {
   });
 
   describe('detect', () => {
+    it('rejects an unknown code without creating a return', async () => {
+      const { service, prisma } = build();
+      await expect(
+        service.detect('user-1', { value: 'ORD-NOT-EXIST' }),
+      ).rejects.toThrow('No order matches this code');
+      expect(prisma.ecommerceOrder.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            connection: { storeId: 'store-1' },
+            OR: [
+              { id: 'ORD-NOT-EXIST' },
+              { externalOrderId: 'ORD-NOT-EXIST' },
+              { orderName: 'ORD-NOT-EXIST' },
+            ],
+          },
+        }),
+      );
+      expect(prisma.returnRequest.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects ambiguous order references without creating a return', async () => {
+      const { service, prisma } = build();
+      prisma.ecommerceOrder.findMany.mockResolvedValue([
+        ORDER,
+        { ...ORDER, id: 'order-2' },
+      ]);
+      await expect(
+        service.detect('user-1', { value: 'ORD-1001' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.returnRequest.create).not.toHaveBeenCalled();
+    });
+
+    it('preserves ambiguous tracking errors instead of falling back to an order reference', async () => {
+      const { service, prisma, ecommerceService } = build();
+      ecommerceService.resolveScannedCode.mockRejectedValue(
+        new ConflictException('Ambiguous tracking'),
+      );
+      await expect(
+        service.detect('user-1', { value: 'TRACK-1' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.ecommerceOrder.findMany).not.toHaveBeenCalled();
+      expect(prisma.returnRequest.create).not.toHaveBeenCalled();
+    });
+
+    it('does not reinterpret an unknown QR payload as an order reference', async () => {
+      const { service, prisma } = build();
+      await expect(
+        service.detect('user-1', { value: '{"trackingNumber":"UNKNOWN"}' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.ecommerceOrder.findMany).not.toHaveBeenCalled();
+      expect(prisma.returnRequest.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects another store's explicit order without creating a return", async () => {
+      const { service, prisma } = build();
+      prisma.ecommerceOrder.findFirst.mockResolvedValue(null);
+      await expect(
+        service.detect('user-1', {
+          value: 'ORD-OTHER',
+          orderId: 'other-order',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.ecommerceOrder.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'other-order', connection: { storeId: 'store-1' } },
+        }),
+      );
+      expect(prisma.returnRequest.create).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      {
+        condition: ProductCondition.LOST,
+        damageCost: null,
+        conditionAllocations: undefined,
+        expected: '24.00',
+        calls: 1,
+      },
+      {
+        condition: ProductCondition.DAMAGED,
+        damageCost: new Prisma.Decimal(2),
+        conditionAllocations: undefined,
+        expected: '17.00',
+        calls: 0,
+      },
+      {
+        condition: ProductCondition.LOST,
+        damageCost: null,
+        conditionAllocations: {
+          version: 1,
+          entries: [],
+          loss: '4.00',
+          completed: true,
+        },
+        expected: '19.00',
+        calls: 0,
+      },
+    ])(
+      'keeps the loss preview in order currency without double-converting saved loss ($expected)',
+      async ({
+        condition,
+        damageCost,
+        conditionAllocations,
+        expected,
+        calls,
+      }) => {
+        const { service, prisma, currency } = build();
+        currency.convertOrNull.mockResolvedValue(new Prisma.Decimal('0.1'));
+        const line = {
+          ...ORDER_LINE,
+          condition,
+          damageCost,
+          conditionAllocations,
+        };
+        prisma.ecommerceOrder.findFirst.mockResolvedValue({
+          ...ORDER,
+          currency: 'USD',
+          lines: [line],
+        });
+        prisma.returnRequest.findFirst.mockResolvedValue({
+          id: 'rr-usd',
+          status: 'NEED_VERIFICATION',
+          createdAt: new Date(),
+          lines: [{ orderLine: line }],
+        });
+        const result = await service.detect('user-1', {
+          value: 'ORD-1001',
+          orderId: ORDER.id,
+        });
+        expect(result.currency).toBe('USD');
+        expect(result.lossSummary.netLoss).toBe(expected);
+        expect(currency.convertOrNull).toHaveBeenCalledTimes(calls);
+      },
+    );
+
+    it('checks required conversion before creating a return', async () => {
+      const { service, prisma } = build();
+      prisma.ecommerceOrder.findFirst.mockResolvedValue({
+        ...ORDER,
+        currency: 'USD',
+        lines: [{ ...ORDER_LINE, condition: ProductCondition.LOST }],
+      });
+      await expect(
+        service.detect('user-1', { value: 'ORD-1001', orderId: ORDER.id }),
+      ).rejects.toThrow('Exchange rate MAD → USD is unavailable');
+      expect(prisma.returnRequest.create).not.toHaveBeenCalled();
+    });
+
     it('returns reason and warehouse imageUrl for an existing open return', async () => {
       const { service, prisma, financialService } = build();
       prisma.ecommerceOrder.findFirst.mockResolvedValue(ORDER);
@@ -264,6 +552,22 @@ describe('ReturnRequestService', () => {
       expect(prisma.returnRequest.update).not.toHaveBeenCalled();
     });
 
+    it('checks conversion before committing any conditions', async () => {
+      const { service, prisma, ecommerceService } = build();
+      prisma.returnRequest.findFirst.mockResolvedValue({
+        id: 'rr-usd',
+        orderId: ORDER.id,
+        order: { id: ORDER.id, currency: 'USD' },
+        lines: [{ orderLineId: 'line-1' }],
+      });
+      await expect(
+        service.verify('user-1', 'rr-usd', {
+          lines: [{ orderLineId: 'line-1', condition: ProductCondition.LOST }],
+        }),
+      ).rejects.toThrow('Exchange rate MAD → USD is unavailable');
+      expect(ecommerceService.verifyProductConditions).not.toHaveBeenCalled();
+    });
+
     it('records conditions and returns updated loss summary', async () => {
       const { service, prisma, ecommerceService } = build();
       prisma.returnRequest.findFirst.mockResolvedValue({
@@ -272,7 +576,7 @@ describe('ReturnRequestService', () => {
         status: ReturnRequestStatus.NEED_VERIFICATION,
         reason: null,
         lines: [{ orderLineId: 'line-1' }],
-        order: { id: ORDER.id },
+        order: { id: ORDER.id, currency: ORDER.currency },
       });
       prisma.returnRequest.findUniqueOrThrow.mockResolvedValue({
         id: 'rr-1',
@@ -313,7 +617,7 @@ describe('ReturnRequestService', () => {
         status: ReturnRequestStatus.NEED_VERIFICATION,
         reason: null,
         lines: [{ orderLineId: 'line-1' }],
-        order: { id: ORDER.id },
+        order: { id: ORDER.id, currency: ORDER.currency },
       });
       prisma.returnRequest.findUniqueOrThrow.mockResolvedValue({
         id: 'rr-1',

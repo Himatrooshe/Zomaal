@@ -35,6 +35,7 @@ function build(pushEnabled = false) {
       findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn(),
       count: jest.fn().mockResolvedValue(0),
+      groupBy: jest.fn().mockResolvedValue([]),
       update: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
@@ -328,6 +329,53 @@ describe('NotificationsService', () => {
         storeId: 'store-1',
         reads: { none: { userId: 'owner-1' } },
       });
+    });
+  });
+
+  describe('unreadCounts', () => {
+    it('counts overlapping inventory and severity badges in a single query', async () => {
+      const { service, prisma } = build();
+      prisma.notification.groupBy.mockResolvedValue([
+        { severity: 'CRITICAL', category: 'INVENTORY', _count: { _all: 2 } },
+        { severity: 'WARNING', category: 'INVENTORY', _count: { _all: 3 } },
+        { severity: 'WARNING', category: 'SALES', _count: { _all: 4 } },
+        { severity: 'INFO', category: 'SALES', _count: { _all: 5 } },
+      ]);
+      await expect(service.unreadCounts(OWNER)).resolves.toEqual({
+        all: 14,
+        critical: 2,
+        warning: 7,
+        inventory: 5,
+      });
+      expect(prisma.notification.groupBy).toHaveBeenCalledTimes(1);
+      expect(prisma.notification.groupBy).toHaveBeenCalledWith({
+        by: ['severity', 'category'],
+        where: {
+          storeId: OWNER.storeId,
+          reads: { none: { userId: OWNER.userId } },
+        },
+        _count: { _all: true },
+      });
+      expect(prisma.notification.count).not.toHaveBeenCalled();
+    });
+
+    it('scopes unread counts to the staff user, store and permissions', async () => {
+      const { service, prisma } = build();
+      await expect(service.unreadCounts(STAFF)).resolves.toEqual({
+        all: 0,
+        critical: 0,
+        warning: 0,
+        inventory: 0,
+      });
+      expect(prisma.notification.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            storeId: STAFF.storeId,
+            audiencePermission: { in: STAFF.permissions },
+            reads: { none: { userId: STAFF.userId } },
+          },
+        }),
+      );
     });
   });
 

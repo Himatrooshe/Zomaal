@@ -8998,7 +8998,7 @@ paths:
         - name: search
           required: false
           in: query
-          description: Matches order ID/name.
+          description: Matches order ID/name and saved manual or linked customer name/phone. Whitespace is trimmed.
           schema:
             type: string
         - name: page
@@ -9049,7 +9049,7 @@ paths:
         - E-commerce Returns
   /ecommerce/returns/search:
     get:
-      description: Order ID/name matches every platform. Phone/customer-name matches ONLY manually created orders — Shopify/YouCan/Lightfunnels orders intentionally omit customer PII at rest (see EcommerceOrder in schema.prisma), so there is nothing to search there without a live per-candidate platform call, which this endpoint does not do.
+      description: Matches order identifiers and names, manual customer fields, and linked customer names/phones captured during platform sync. Results are scoped to the active store. Legacy orders without saved customer details match only order identifiers/names.
       operationId: ReturnRequest_search
       parameters:
         - name: q
@@ -26878,6 +26878,10 @@ components:
     DetectedReturnResponseDto:
       type: object
       properties:
+        currency:
+          type: string
+          description: Order currency for product prices, condition allocations and loss summary.
+          example: MAD
         returnRequestId:
           type: string
           format: uuid
@@ -26913,6 +26917,7 @@ components:
         lossSummary:
           $ref: '#/components/schemas/ReturnLossPreviewDto'
       required:
+        - currency
         - returnRequestId
         - orderId
         - status
@@ -26970,6 +26975,10 @@ components:
     VerifiedReturnResponseDto:
       type: object
       properties:
+        currency:
+          type: string
+          description: Order currency for product prices, condition allocations and loss summary.
+          example: MAD
         returnRequestId:
           type: string
           format: uuid
@@ -26981,6 +26990,7 @@ components:
         lossSummary:
           $ref: '#/components/schemas/ReturnLossPreviewDto'
       required:
+        - currency
         - returnRequestId
         - status
         - lossSummary

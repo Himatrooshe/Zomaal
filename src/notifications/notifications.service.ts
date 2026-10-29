@@ -167,13 +167,27 @@ export class NotificationsService {
   }
 
   async unreadCounts(access: StoreAccess): Promise<UnreadCountResponseDto> {
-    const [all, critical, warning, inventory] = await Promise.all([
-      this.countUnread(access, 'ALL'),
-      this.countUnread(access, 'CRITICAL'),
-      this.countUnread(access, 'WARNING'),
-      this.countUnread(access, 'INVENTORY'),
-    ]);
-    return { all, critical, warning, inventory };
+    // Group once so all badges share a snapshot. Inventory overlaps severity tabs.
+    const groups = await this.prisma.notification.groupBy({
+      by: ['severity', 'category'],
+      where: {
+        ...this.visibleWhere(access),
+        reads: { none: { userId: access.userId } },
+      },
+      _count: { _all: true },
+    });
+    const counts = { all: 0, critical: 0, warning: 0, inventory: 0 };
+    for (const group of groups) {
+      const count = group._count._all;
+      counts.all += count;
+      if (group.severity === NotificationSeverity.CRITICAL)
+        counts.critical += count;
+      if (group.severity === NotificationSeverity.WARNING)
+        counts.warning += count;
+      if (group.category === NotificationCategory.INVENTORY)
+        counts.inventory += count;
+    }
+    return counts;
   }
 
   async markRead(access: StoreAccess, notificationId: string): Promise<void> {

@@ -1,3 +1,5 @@
+import { CurrencyService } from '../currency/currency.service';
+import { requiredCurrencyConverter } from '../currency/required-currency-converter';
 import { StoreAccessService } from '../access/store-access.service';
 import { randomUUID } from 'node:crypto';
 import {
@@ -49,6 +51,7 @@ const SHIPPED_FAILURE_EVENT_TYPES = new Set<string>([
 const SHIPMENT_SYNC_SELECT = {
   normalizedStatus: true,
   fee: true,
+  currency: true,
   recipientPhone: true,
   recipientName: true,
   lastActionAt: true,
@@ -88,6 +91,7 @@ export class EcommerceOrderFinancialService {
     private readonly storeAccess: StoreAccessService = new StoreAccessService(
       prisma,
     ),
+    private readonly currency?: CurrencyService,
   ) {}
 
   forTransaction(prisma: PrismaService): EcommerceOrderFinancialService {
@@ -95,6 +99,8 @@ export class EcommerceOrderFinancialService {
       prisma,
       this.orderStock.forTransaction(prisma),
       this.whatsAppTrigger,
+      new StoreAccessService(prisma),
+      this.currency,
     );
   }
 
@@ -383,6 +389,7 @@ export class EcommerceOrderFinancialService {
           currency: true,
           totalCollected: true,
           shipping: true,
+          connection: { select: { store: { select: { baseCurrency: true } } } },
           lines: { include: ORDER_LINE_STOCK_INCLUDE },
         },
       });
@@ -396,11 +403,7 @@ export class EcommerceOrderFinancialService {
         | { fee?: string | null; currency?: string }
         | null
         | undefined;
-      const fee =
-        meta?.fee && meta.currency === order.currency
-          ? new Prisma.Decimal(meta.fee)
-          : null;
-      const event = await this.applyRevenueRecognition(order, fee);
+      const event = await this.applyRevenueRecognition(order, meta);
       const deliveredAt = events
         .filter((e) => e.type === OrderEventType.DELIVERED)
         .reduce(
@@ -435,9 +438,8 @@ export class EcommerceOrderFinancialService {
         await this.applyShippingLoss(
           order.id,
           order.currency,
-          meta?.fee && meta.currency === order.currency
-            ? new Prisma.Decimal(meta.fee)
-            : order.shipping,
+          order.shipping,
+          meta,
         );
       }
       await this.syncStock(order.id, 'CANCELLED');
@@ -475,6 +477,21 @@ export class EcommerceOrderFinancialService {
    * number the financial ledger does, rather than re-implementing the
    * courier-fee fallback chain a second time.
    */
+  private async convertShipmentFee(
+    shipment:
+      | { fee?: Prisma.Decimal | string | null; currency?: string }
+      | null
+      | undefined,
+    orderCurrency: string,
+  ): Promise<Prisma.Decimal | null> {
+    if (shipment?.fee == null) return null;
+    return requiredCurrencyConverter(this.currency)(
+      new Prisma.Decimal(shipment.fee),
+      shipment.currency!,
+      orderCurrency,
+    );
+  }
+
   async resolveEffectiveShippingCost(orderId: string): Promise<Prisma.Decimal> {
     const order = await this.prisma.ecommerceOrder.findUniqueOrThrow({
       where: { id: orderId },
@@ -489,23 +506,24 @@ export class EcommerceOrderFinancialService {
         },
         dispatch: {
           select: {
-            senditShipment: { select: { fee: true } },
-            quickLivraisonShipment: { select: { fee: true } },
-            forceLogShipment: { select: { fee: true } },
-            ozoneExpressShipment: { select: { fee: true } },
+            senditShipment: { select: { fee: true, currency: true } },
+            quickLivraisonShipment: { select: { fee: true, currency: true } },
+            forceLogShipment: { select: { fee: true, currency: true } },
+            ozoneExpressShipment: { select: { fee: true, currency: true } },
           },
         },
       },
     });
-    const fee = pickShipmentFee(order.dispatch);
+    const fee = await this.convertShipmentFee(
+      order.dispatch ? pickCourierShipment(order.dispatch) : null,
+      order.currency,
+    );
     const meta = order.events?.[0]?.metadata as
       | { fee?: string | null; currency?: string }
       | null
       | undefined;
     const ameexFee =
-      meta?.fee && meta.currency === order.currency
-        ? new Prisma.Decimal(meta.fee)
-        : null;
+      fee === null ? await this.convertShipmentFee(meta, order.currency) : null;
     return fee ?? ameexFee ?? order.shipping;
   }
 
@@ -543,7 +561,12 @@ export class EcommerceOrderFinancialService {
       where: { id: dispatchId },
       include: {
         order: {
-          include: { lines: { include: ORDER_LINE_STOCK_INCLUDE } },
+          include: {
+            connection: {
+              select: { store: { select: { baseCurrency: true } } },
+            },
+            lines: { include: ORDER_LINE_STOCK_INCLUDE },
+          },
         },
         senditShipment: { select: SHIPMENT_SYNC_SELECT },
         quickLivraisonShipment: { select: SHIPMENT_SYNC_SELECT },
@@ -564,7 +587,7 @@ export class EcommerceOrderFinancialService {
     if (shipment.normalizedStatus === ShippingShipmentStatus.DELIVERED) {
       const event = await this.applyRevenueRecognition(
         dispatch.order,
-        shipment.fee,
+        shipment,
       );
       await this.syncStock(dispatch.order.id, 'DELIVERED');
       return {
@@ -582,7 +605,8 @@ export class EcommerceOrderFinancialService {
         await this.applyShippingLoss(
           dispatch.order.id,
           dispatch.order.currency,
-          shipment.fee ?? dispatch.order.shipping,
+          dispatch.order.shipping,
+          shipment,
         );
       }
       await this.syncStock(dispatch.order.id, 'CANCELLED');
@@ -663,11 +687,15 @@ export class EcommerceOrderFinancialService {
     order: {
       id: string;
       currency: string;
+      connection: { store: { baseCurrency: string } };
       totalCollected: Prisma.Decimal;
       shipping: Prisma.Decimal;
       lines: OrderLineWithStock[];
     },
-    shipmentFee: Prisma.Decimal | null,
+    shipment:
+      | { fee?: Prisma.Decimal | string | null; currency?: string }
+      | null
+      | undefined,
   ) {
     const existing = await this.prisma.ecommerceOrderFinancialEvent.findUnique({
       where: {
@@ -712,9 +740,11 @@ export class EcommerceOrderFinancialService {
     // COGS from lines matched to a warehouse product: product, gift and
     // packaging. Unmatched lines contribute 0 — profit is understated, not
     // overstated, when the catalog link is missing.
+    const convert = requiredCurrencyConverter(this.currency);
     const packagingUnitCosts = await resolvePackagingUnitCosts(
       this.prisma,
       packagingMaterialIds(order.lines),
+      { targetCurrency: order.currency, convert },
     );
     const zero = new Prisma.Decimal(0);
     const costs = order.lines
@@ -727,6 +757,13 @@ export class EcommerceOrderFinancialService {
         }),
         { productCost: zero, giftCost: zero, packagingCost: zero },
       );
+    for (const key of ['productCost', 'giftCost'] as const) {
+      costs[key] = await convert(
+        costs[key],
+        order.connection.store.baseCurrency,
+        order.currency,
+      );
+    }
     // Prefer the actual courier fee (merchant's real cost) over the shipping
     // amount charged to the customer, when known. Already booked as a
     // shipping loss (courier reported a failure first) → not charged twice.
@@ -742,7 +779,8 @@ export class EcommerceOrderFinancialService {
       });
     const shippingCost = shippingLoss
       ? new Prisma.Decimal(0)
-      : (shipmentFee ?? order.shipping);
+      : ((await this.convertShipmentFee(shipment, order.currency)) ??
+        order.shipping);
     const revenue = order.totalCollected;
     const netProfitImpact = revenue
       .minus(costs.productCost)
@@ -841,9 +879,12 @@ export class EcommerceOrderFinancialService {
   private async applyShippingLoss(
     orderId: string,
     currency: string,
-    shippingCost: Prisma.Decimal,
+    fallbackShipping: Prisma.Decimal,
+    shipment?: {
+      fee?: Prisma.Decimal | string | null;
+      currency?: string;
+    } | null,
   ) {
-    if (shippingCost.lte(0)) return null;
     const recognized =
       await this.prisma.ecommerceOrderFinancialEvent.findUnique({
         where: {
@@ -855,6 +896,15 @@ export class EcommerceOrderFinancialService {
         select: { id: true },
       });
     if (recognized) return null;
+    const existing = await this.prisma.ecommerceOrderFinancialEvent.findUnique({
+      where: {
+        orderId_idempotencyKey: { orderId, idempotencyKey: SHIPPING_LOSS_KEY },
+      },
+    });
+    if (existing) return existing;
+    const shippingCost =
+      (await this.convertShipmentFee(shipment, currency)) ?? fallbackShipping;
+    if (shippingCost.lte(0)) return null;
     const zero = new Prisma.Decimal(0);
     return this.prisma.ecommerceOrderFinancialEvent.upsert({
       where: {
@@ -896,11 +946,4 @@ function pickCourierShipment<T>(dispatch: CourierShipmentFields<T>): T | null {
     dispatch.ozoneExpressShipment ??
     null
   );
-}
-
-function pickShipmentFee(
-  dispatch: CourierShipmentFields<{ fee: Prisma.Decimal | null }> | null,
-): Prisma.Decimal | null {
-  if (!dispatch) return null;
-  return pickCourierShipment(dispatch)?.fee ?? null;
 }
