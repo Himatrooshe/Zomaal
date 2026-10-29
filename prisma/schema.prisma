@@ -2443,23 +2443,28 @@ model Plan {
 }
 
 model Subscription {
-  id                 String           @id @default(uuid())
+  id                      String           @id @default(uuid())
   // Null while on the free trial.
-  planId             String?
-  plan               Plan?            @relation(fields: [planId], references: [id], onDelete: Restrict)
-  interval           BillingInterval?
-  trialEndsAt        DateTime?
-  currentPeriodStart DateTime?
-  currentPeriodEnd   DateTime?
-  cancelAtPeriodEnd  Boolean          @default(false)
-  canceledAt         DateTime?
+  planId                  String?
+  plan                    Plan?            @relation(fields: [planId], references: [id], onDelete: Restrict)
+  interval                BillingInterval?
+  trialEndsAt             DateTime?
+  currentPeriodStart      DateTime?
+  currentPeriodEnd        DateTime?
+  cancelAtPeriodEnd       Boolean          @default(false)
+  canceledAt              DateTime?
   // When access ends (trial end or paid period end). Status is derived from
   // this at read time, so nothing has to run on a schedule to lock accounts.
-  accessEndsAt       DateTime
-  provider           String           @default("MANUAL")
-  providerReference  String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  accessEndsAt            DateTime
+  provider                String           @default("MANUAL")
+  providerReference       String?
+  stripeCustomerId        String?          @unique
+  stripeSubscriptionId    String?          @unique
+  stripeCheckoutSessionId String?          @unique
+  stripeCheckoutRequestId String?
+  stripeCheckoutPlanId    String?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2482,6 +2487,7 @@ model BillingInvoice {
   paidAt            DateTime
   provider          String          @default("MANUAL")
   providerReference String?
+  stripeInvoiceId   String?         @unique
   note              String?
   recordedByAdminId String?
   createdAt         DateTime        @default(now())
@@ -2494,6 +2500,14 @@ model BillingInvoice {
   plan           Plan?         @relation(fields: [planId], references: [id], onDelete: SetNull)
 
   @@index([userId, paidAt])
+}
+
+// A receipt is committed atomically with the corresponding billing changes.
+// Payloads are not retained: they contain payment/customer information.
+model StripeWebhookReceipt {
+  eventId     String   @id
+  eventType   String
+  processedAt DateTime @default(now())
 }
 
 // Fixed-window request counters (OTP sends, login attempts) used when Redis

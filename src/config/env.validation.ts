@@ -237,6 +237,38 @@ export function validateEnvironment(
   if (billingCheckoutUrl && !/^https:\/\/\S+$/.test(billingCheckoutUrl))
     errors.push('BILLING_CHECKOUT_URL must be an https:// URL');
 
+  const stripeBillingEnabled =
+    asString(config.STRIPE_BILLING_ENABLED) || 'false';
+  if (!['true', 'false'].includes(stripeBillingEnabled))
+    errors.push('STRIPE_BILLING_ENABLED must be true or false');
+  if (stripeBillingEnabled === 'true') {
+    let isolatedDatabase = false;
+    try {
+      isolatedDatabase =
+        new URL(asString(config.DATABASE_URL)).pathname ===
+        '/zomaal_stripe_staging';
+    } catch {
+      /* invalid database URL */
+    }
+    if (!isolatedDatabase || config.STRIPE_BILLING_ENVIRONMENT !== 'staging')
+      errors.push(
+        'Stripe sandbox billing requires the isolated zomaal_stripe_staging database and staging environment',
+      );
+    if (!/^(sk|rk)_test_/.test(asString(config.STRIPE_SECRET_KEY)))
+      errors.push('Stripe staging requires a sandbox secret key');
+    if (!asString(config.STRIPE_WEBHOOK_SECRET).startsWith('whsec_'))
+      errors.push('Stripe webhook signing secret is required');
+    if (!/^https:\/\/\S+$/.test(asString(config.STRIPE_PUBLIC_BASE_URL)))
+      errors.push('STRIPE_PUBLIC_BASE_URL must be HTTPS');
+    for (const name of [
+      'STRIPE_STARTER_MONTHLY_PRICE_ID',
+      'STRIPE_PRO_MONTHLY_PRICE_ID',
+    ]) {
+      if (!asString(config[name]).startsWith('price_'))
+        errors.push(`${name} is required`);
+    }
+  }
+
   const pushNotificationsEnabled =
     asString(config.PUSH_NOTIFICATIONS_ENABLED) || 'false';
   const fcmProjectId = asString(config.FCM_PROJECT_ID);
@@ -606,6 +638,7 @@ export function validateEnvironment(
     ACCOUNTS_SCHEDULER_ENABLED: accountsSchedulerEnabled,
     ACCOUNTS_SCHEDULER_SECRET: accountsSchedulerSecret,
     BILLING_CHECKOUT_URL: billingCheckoutUrl,
+    STRIPE_BILLING_ENABLED: stripeBillingEnabled,
     GOOGLE_ADS_ENABLED: googleAdsEnabled,
     META_ADS_ENABLED: metaAdsEnabled,
     PUSH_NOTIFICATIONS_ENABLED: pushNotificationsEnabled,

@@ -19327,6 +19327,59 @@ paths:
       summary: Billing history (owner only), newest first
       tags:
         - Billing
+  /billing/stripe/checkout:
+    post:
+      description: Available only in isolated Stripe staging. Monthly plans only; one subscription per owner account.
+      operationId: StripeBilling_checkout
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StripeCheckoutDto'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StripeCheckoutResponseDto'
+      security:
+        - bearer: []
+      summary: Create or reuse owner-only sandbox subscription checkout
+      tags:
+        - Billing — Stripe
+  /billing/stripe/return:
+    get:
+      operationId: StripeBilling_complete
+      parameters:
+        - name: outcome
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      summary: Stripe browser return; never changes subscription access
+      tags:
+        - Billing — Stripe
+  /webhooks/stripe:
+    post:
+      operationId: StripeWebhook_webhook
+      parameters:
+        - name: stripe-signature
+          required: true
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      summary: Receive signed Stripe sandbox events; no bearer token required
+      tags:
+        - Billing — Stripe
 info:
   title: Zomaal API
   description: |-
@@ -34307,3 +34360,30 @@ components:
       required:
         - items
         - pagination
+    StripeCheckoutDto:
+      type: object
+      properties:
+        planId:
+          type: string
+          format: uuid
+        interval:
+          type: string
+          enum:
+            - MONTHLY
+            - YEARLY
+      required:
+        - planId
+        - interval
+    StripeCheckoutResponseDto:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        checkoutUrl:
+          type: string
+        expiresAt:
+          type: string
+      required:
+        - sessionId
+        - checkoutUrl
+        - expiresAt

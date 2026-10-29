@@ -7,6 +7,9 @@ dist
 coverage
 .env
 .env.*
+.tmp
+.temp
+.gcp-local
 gha-creds-*.json
 CODEX_NOTES.md
 CLOUD_RUN_DEPLOYMENT_AUDIT.md
