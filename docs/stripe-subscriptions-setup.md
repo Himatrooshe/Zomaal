@@ -66,6 +66,9 @@ Runtime refuses live keys, a non-staging environment, or another database name.
 Leave `STRIPE_BILLING_ENABLED=false` in production. Staging uses its own database
 role, JWT/encryption keys, Secret Manager entries and Cloud Run runtime identity.
 Third-party integrations and all automated schedulers are disabled there.
+The deployed staging service starts `node dist/main` directly. Apply pending
+migrations explicitly to its isolated database before any future source deploy;
+it does not run production's migration entrypoint on every cold start.
 
 Post `{ planId, interval: "MONTHLY" }` with the owner's bearer token to
 `/billing/stripe/checkout`; open the returned `checkoutUrl` in a browser. Repeated

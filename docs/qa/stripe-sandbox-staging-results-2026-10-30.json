@@ -264,5 +264,23 @@
     "currency": "MAD",
     "provider": "STRIPE",
     "count": 1
+  },
+  "deployment": {
+    "revision": "zomaal-stripe-staging-00004-ftv",
+    "trafficPercent": 100
+  },
+  "finalSmoke": {
+    "health": 200,
+    "login": 200,
+    "subscription": "ACTIVE",
+    "invoiceCount": 1,
+    "webhookReplay": "duplicate",
+    "passed": true
+  },
+  "productionUnchanged": {
+    "status": "TRIAL_ENDED",
+    "provider": "MANUAL",
+    "readOnly": true,
+    "invoiceCount": 0
   }
 }

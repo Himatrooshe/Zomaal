@@ -3,6 +3,7 @@
 ## Environment and boundaries
 
 - Service: https://zomaal-stripe-staging-563898960389.us-central1.run.app
+- Final ready revision: `zomaal-stripe-staging-00004-ftv`, serving 100% of traffic.
 - Database: `zomaal_stripe_staging`, on the existing Cloud SQL instance with a
   separate login role. No production merchant/order data was copied.
 - Runtime identity: `zomaal-stripe-staging`, with Cloud SQL connection permission
@@ -14,6 +15,10 @@
   business integrations are disabled. Production was not redeployed or migrated.
 - Optional Redis retries are capped at one on staging so its intentionally absent
   Redis server does not delay cold starts. Rate limiting uses its database fallback.
+- Staging starts with `node dist/main` after an explicit migration step. The
+  default npm migration launcher delayed startup despite no pending migrations;
+  production's entrypoint is unchanged. Apply future staging migrations before
+  deploying a revision that depends on them.
 - The supplied owner login was reproduced only in staging, with two empty QA
   stores, a synthetic staff member and an unrelated owner. Credentials/tokens are
   absent from this report. Staff has `products.view` and `ads.view` only.
@@ -56,6 +61,10 @@ The subsequent 22 API/provider checks passed:
 Production baseline: the original login worked; the production account was
 `TRIAL_ENDED`, had two stores, and the plans/invoices lists were empty. Sandbox
 payment did not change this account's production subscription or permissions.
+The final revision was smoke-tested again: health/login HTTP 200, active Pro,
+one 199 MAD invoice, end-of-period cancellation, and an acknowledged duplicate
+payment webhook. A final production read confirmed its original trial-ended,
+manual, read-only state with zero invoices.
 
 ## Local verification
 
