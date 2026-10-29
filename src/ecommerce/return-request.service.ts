@@ -1,3 +1,8 @@
+import { CurrencyService } from '../currency/currency.service';
+import {
+  requiredCurrencyConverter,
+  type RequiredCurrencyConverter,
+} from '../currency/required-currency-converter';
 import {
   conditionSnapshot,
   publicConditionEntries,
@@ -11,6 +16,7 @@ import {
 import { Prisma, ReturnRequestStatus, MediaAssetPurpose } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreAccessService } from '../access/store-access.service';
+import type { StoreAccess } from '../access/store-access.service';
 import { EcommerceService } from './ecommerce.service';
 import { EcommerceOrderFinancialService } from './ecommerce-order-financial.service';
 import { CustomerRiskService } from '../customers/customer-risk.service';
@@ -29,6 +35,38 @@ import type {
 // time, so there is no background job needed to flip it, and it self-heals
 // the moment it's verified.
 const DELAYED_AFTER_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+
+function orderSearch(
+  storeId: string,
+  term: string,
+): Prisma.EcommerceOrderWhereInput[] {
+  const phoneTerms = [
+    ...new Set([
+      term,
+      ...(/^[+\d\s().-]+$/.test(term) ? [term.replace(/[^\d+]/g, '')] : []),
+    ]),
+  ].filter((phone) => /\d/.test(phone));
+  return [
+    { id: term },
+    { externalOrderId: { contains: term, mode: 'insensitive' } },
+    { orderName: { contains: term, mode: 'insensitive' } },
+    { manualCustomerName: { contains: term, mode: 'insensitive' } },
+    ...phoneTerms.map((phone) => ({
+      manualCustomerPhone: { contains: phone },
+    })),
+    {
+      customer: {
+        is: {
+          storeId,
+          OR: [
+            { name: { contains: term, mode: 'insensitive' } },
+            ...phoneTerms.map((phone) => ({ phone: { contains: phone } })),
+          ],
+        },
+      },
+    },
+  ];
+}
 
 /** Prefer PRODUCT_MAIN on the variant, else on the parent product. */
 const orderLineImageInclude = {
@@ -85,6 +123,7 @@ type ReturnOrder = {
   id: string;
   connectionId: string;
   orderName: string | null;
+  currency: string;
   manualCustomerName: string | null;
   manualCustomerPhone: string | null;
   manualShippingAddress: string | null;
@@ -98,6 +137,7 @@ export class ReturnRequestService {
     private readonly financialService: EcommerceOrderFinancialService,
     private readonly customerRisk: CustomerRiskService,
     private readonly storeAccess: StoreAccessService,
+    private readonly currency?: CurrencyService,
   ) {}
 
   /**
@@ -115,9 +155,21 @@ export class ReturnRequestService {
   async detect(
     userId: string,
     dto: DetectReturnDto,
+    access?: StoreAccess,
   ): Promise<DetectedReturnResponseDto> {
-    const store = await this.requireStore(userId);
+    const store = await this.requireStore(userId, access);
     const order = await this.resolveOrder(userId, store.id, dto);
+    const convert = requiredCurrencyConverter(this.currency);
+    const deliveryCost =
+      await this.financialService.resolveEffectiveShippingCost(order.id);
+    // Resolve required rates before creating a return or recording customer risk.
+    await this.computeLoss(
+      order.lines,
+      deliveryCost,
+      order.currency,
+      store.baseCurrency,
+      convert,
+    );
 
     let returnRequest = await this.prisma.returnRequest.findFirst({
       where: {
@@ -177,36 +229,53 @@ export class ReturnRequestService {
     if (isNewReturn) {
       await this.recordReturnRisk(store.id, order, customer);
     }
-    return this.present(userId, returnRequest, order, customer);
+    return this.present(
+      userId,
+      returnRequest,
+      order,
+      store.baseCurrency,
+      customer,
+      convert,
+      deliveryCost,
+    );
   }
 
-  async get(userId: string, id: string): Promise<DetectedReturnResponseDto> {
-    const store = await this.requireStore(userId);
+  async get(
+    userId: string,
+    id: string,
+    access?: StoreAccess,
+  ): Promise<DetectedReturnResponseDto> {
+    const store = await this.requireStore(userId, access);
     const request = await this.prisma.returnRequest.findFirst({
       where: { id, order: { connection: { storeId: store.id } } },
       include: { ...returnRequestWithLinesInclude, order: true },
     });
     if (!request) throw new NotFoundException('Return request not found');
-    return this.present(userId, request, request.order);
+    return this.present(userId, request, request.order, store.baseCurrency);
   }
 
   private async present(
     userId: string,
     returnRequest: ReturnWithLines,
     order: ReturnOrder,
+    baseCurrency: string,
     providedCustomer?: {
       name: string | null;
       phone: string | null;
       address: string | null;
     },
+    convert = requiredCurrencyConverter(this.currency),
+    providedDeliveryCost?: Prisma.Decimal,
   ): Promise<DetectedReturnResponseDto> {
     const customer =
       providedCustomer ?? (await this.resolveCustomer(userId, order));
     const deliveryCost =
-      await this.financialService.resolveEffectiveShippingCost(order.id);
+      providedDeliveryCost ??
+      (await this.financialService.resolveEffectiveShippingCost(order.id));
     const lines = returnRequest.lines.map((rl) => rl.orderLine);
 
     return {
+      currency: order.currency,
       returnRequestId: returnRequest.id,
       orderId: order.id,
       orderName: order.orderName,
@@ -239,7 +308,13 @@ export class ReturnRequestService {
           }),
         ),
       })),
-      lossSummary: this.computeLoss(lines, deliveryCost),
+      lossSummary: await this.computeLoss(
+        lines,
+        deliveryCost,
+        order.currency,
+        baseCurrency,
+        convert,
+      ),
     };
   }
 
@@ -255,14 +330,15 @@ export class ReturnRequestService {
     userId: string,
     returnRequestId: string,
     dto: VerifyReturnDto,
+    access?: StoreAccess,
   ): Promise<VerifiedReturnResponseDto> {
-    const store = await this.requireStore(userId);
+    const store = await this.requireStore(userId, access);
     const returnRequest = await this.prisma.returnRequest.findFirst({
       where: {
         id: returnRequestId,
         order: { connection: { storeId: store.id } },
       },
-      include: { lines: true, order: { select: { id: true } } },
+      include: { lines: true, order: { select: { id: true, currency: true } } },
     });
     if (!returnRequest) {
       throw new NotFoundException('Return request not found');
@@ -275,6 +351,17 @@ export class ReturnRequestService {
           'Order line is not part of this return request',
         );
     }
+    const convert = requiredCurrencyConverter(this.currency);
+    // Preflight the cost rate and shipping conversion before committing conditions.
+    await convert(
+      new Prisma.Decimal(1),
+      store.baseCurrency,
+      returnRequest.order.currency,
+    );
+    const deliveryCost =
+      await this.financialService.resolveEffectiveShippingCost(
+        returnRequest.orderId,
+      );
     await this.ecommerceService.verifyProductConditions(
       store.id,
       returnRequest.orderId,
@@ -302,15 +389,17 @@ export class ReturnRequestService {
         line.condition !== null,
     );
 
-    const deliveryCost =
-      await this.financialService.resolveEffectiveShippingCost(
-        returnRequest.orderId,
-      );
-
     return {
+      currency: returnRequest.order.currency,
       returnRequestId: updated.id,
       status: allVerified ? 'PROCESSED' : 'NEED_VERIFICATION',
-      lossSummary: this.computeLoss(lines, deliveryCost),
+      lossSummary: await this.computeLoss(
+        lines,
+        deliveryCost,
+        returnRequest.order.currency,
+        store.baseCurrency,
+        convert,
+      ),
     };
   }
 
@@ -324,20 +413,19 @@ export class ReturnRequestService {
   async list(
     userId: string,
     query: ReturnListQueryDto,
+    access?: StoreAccess,
   ): Promise<ReturnListResponseDto> {
-    const store = await this.requireStore(userId);
+    const store = await this.requireStore(userId, access);
     const delayedCutoff = new Date(Date.now() - DELAYED_AFTER_MS);
 
     const where: Prisma.ReturnRequestWhereInput = {
       order: { connection: { storeId: store.id } },
     };
-    if (query.search) {
+    const term = query.search?.trim();
+    if (term) {
       where.order = {
         connection: { storeId: store.id },
-        OR: [
-          { externalOrderId: query.search },
-          { orderName: { contains: query.search, mode: 'insensitive' } },
-        ],
+        OR: orderSearch(store.id, term),
       };
     }
     if (query.status === 'NEED_VERIFICATION') {
@@ -365,8 +453,10 @@ export class ReturnRequestService {
             select: {
               id: true,
               orderName: true,
+              currency: true,
               manualCustomerName: true,
               manualCustomerPhone: true,
+              customer: { select: { name: true, phone: true } },
             },
           },
           lines: { include: { orderLine: true } },
@@ -377,13 +467,14 @@ export class ReturnRequestService {
       // actually being summed, not with total return history size.
       this.prisma.$queryRaw<
         {
+          currency: string;
           totalCount: bigint;
           totalValue: Prisma.Decimal;
           pendingCount: bigint;
           pendingValue: Prisma.Decimal;
         }[]
       >(Prisma.sql`
-        SELECT
+        SELECT o."currency",
           COUNT(DISTINCT rr."id")::int AS "totalCount",
           COALESCE(SUM(ol."totalPrice"), 0) AS "totalValue",
           COUNT(DISTINCT rr."id") FILTER (WHERE rr."status" = 'NEED_VERIFICATION')::int AS "pendingCount",
@@ -394,8 +485,10 @@ export class ReturnRequestService {
         LEFT JOIN "ReturnRequestLine" rrl ON rrl."returnRequestId" = rr."id"
         LEFT JOIN "EcommerceOrderLine" ol ON ol."id" = rrl."orderLineId"
         WHERE c."storeId" = ${store.id}
+        GROUP BY o."currency"
       `),
-      this.prisma.ecommerceOrder.aggregate({
+      this.prisma.ecommerceOrder.groupBy({
+        by: ['currency'],
         where: {
           connection: { storeId: store.id },
           financialStatus: 'PENDING',
@@ -407,47 +500,82 @@ export class ReturnRequestService {
       }),
     ]);
 
-    const summaryRow = summaryRows[0];
+    const convert = requiredCurrencyConverter(this.currency);
+    let totalValue = new Prisma.Decimal(0);
+    let pendingValue = new Prisma.Decimal(0);
+    let totalCount = 0;
+    let pendingCount = 0;
+    for (const row of summaryRows) {
+      totalValue = totalValue.plus(
+        await convert(row.totalValue, row.currency, store.baseCurrency),
+      );
+      pendingValue = pendingValue.plus(
+        await convert(row.pendingValue, row.currency, store.baseCurrency),
+      );
+      totalCount += Number(row.totalCount);
+      pendingCount += Number(row.pendingCount);
+    }
+    let confirmValue = new Prisma.Decimal(0);
+    let confirmCount = 0;
+    for (const row of confirmOrders) {
+      confirmValue = confirmValue.plus(
+        await convert(
+          row._sum.totalCollected ?? new Prisma.Decimal(0),
+          row.currency,
+          store.baseCurrency,
+        ),
+      );
+      confirmCount += row._count;
+    }
 
     return {
       currency: store.baseCurrency,
       summary: {
         totalReturns: {
-          value: (summaryRow?.totalValue ?? new Prisma.Decimal(0)).toFixed(2),
-          orders: Number(summaryRow?.totalCount ?? 0),
+          value: totalValue.toFixed(2),
+          orders: totalCount,
         },
         pendingVerification: {
-          value: (summaryRow?.pendingValue ?? new Prisma.Decimal(0)).toFixed(2),
-          orders: Number(summaryRow?.pendingCount ?? 0),
+          value: pendingValue.toFixed(2),
+          orders: pendingCount,
         },
         totalOrderConfirm: {
-          value: (
-            confirmOrders._sum.totalCollected ?? new Prisma.Decimal(0)
-          ).toFixed(2),
-          orders: confirmOrders._count,
+          value: confirmValue.toFixed(2),
+          orders: confirmCount,
         },
       },
-      data: requests.map((r) => {
-        const lines = r.lines.map((rl) => rl.orderLine);
-        const first = lines[0];
-        return {
-          returnRequestId: r.id,
-          orderId: r.order.id,
-          orderName: r.order.orderName,
-          customerName: r.order.manualCustomerName,
-          customerPhone: r.order.manualCustomerPhone,
-          productSummary: first
-            ? lines.length > 1
-              ? `${first.name} +${lines.length - 1} more`
-              : first.name
-            : 'No products',
-          status: this.presentStatus(r),
-          value: lines
-            .reduce((sum, l) => sum.plus(l.totalPrice), new Prisma.Decimal(0))
-            .toFixed(2),
-          createdAt: r.createdAt.toISOString(),
-        };
-      }),
+      data: await Promise.all(
+        requests.map(async (r) => {
+          const lines = r.lines.map((rl) => rl.orderLine);
+          const first = lines[0];
+          return {
+            returnRequestId: r.id,
+            orderId: r.order.id,
+            orderName: r.order.orderName,
+            customerName:
+              r.order.manualCustomerName ?? r.order.customer?.name ?? null,
+            customerPhone:
+              r.order.manualCustomerPhone ?? r.order.customer?.phone ?? null,
+            productSummary: first
+              ? lines.length > 1
+                ? `${first.name} +${lines.length - 1} more`
+                : first.name
+              : 'No products',
+            status: this.presentStatus(r),
+            value: (
+              await convert(
+                lines.reduce(
+                  (sum, l) => sum.plus(l.totalPrice),
+                  new Prisma.Decimal(0),
+                ),
+                r.order.currency,
+                store.baseCurrency,
+              )
+            ).toFixed(2),
+            createdAt: r.createdAt.toISOString(),
+          };
+        }),
+      ),
       total,
       page,
       limit,
@@ -456,27 +584,20 @@ export class ReturnRequestService {
 
   /**
    * Manual Verification screen's search box. Order ID/name matches every
-   * platform. Phone/name matches ONLY MANUAL orders — Shopify/YouCan/
-   * Lightfunnels orders intentionally don't store customer PII at rest
-   * (see EcommerceOrder's manualCustomerName/Phone comment in schema.prisma)
-   * so there is nothing to search for those without a live per-candidate
-   * platform call, which this endpoint deliberately does not do.
+   * platform. Customer name/phone matches manual fields and the linked
+   * Customer captured during platform sync. Legacy orders without either
+   * source remain searchable by order identifiers; no live provider call.
    */
-  async search(userId: string, q: string) {
+  async search(userId: string, q: string, access?: StoreAccess) {
     if (typeof q !== 'string' || !q.trim()) {
       throw new BadRequestException('A non-empty search query is required');
     }
     const term = q.trim();
-    const store = await this.requireStore(userId);
+    const store = await this.requireStore(userId, access);
     const orders = await this.prisma.ecommerceOrder.findMany({
       where: {
         connection: { storeId: store.id },
-        OR: [
-          { externalOrderId: { contains: term, mode: 'insensitive' } },
-          { orderName: { contains: term, mode: 'insensitive' } },
-          { manualCustomerName: { contains: term, mode: 'insensitive' } },
-          { manualCustomerPhone: { contains: term } },
-        ],
+        OR: orderSearch(store.id, term),
       },
       take: 20,
       orderBy: { processedAt: 'desc' },
@@ -486,6 +607,7 @@ export class ReturnRequestService {
         externalOrderId: true,
         manualCustomerName: true,
         manualCustomerPhone: true,
+        customer: { select: { name: true, phone: true } },
       },
     });
     return {
@@ -493,8 +615,8 @@ export class ReturnRequestService {
         orderId: o.id,
         orderName: o.orderName,
         externalOrderId: o.externalOrderId,
-        customerName: o.manualCustomerName,
-        customerPhone: o.manualCustomerPhone,
+        customerName: o.manualCustomerName ?? o.customer?.name ?? null,
+        customerPhone: o.manualCustomerPhone ?? o.customer?.phone ?? null,
       })),
     };
   }
@@ -630,16 +752,31 @@ export class ReturnRequestService {
     return null;
   }
 
-  private computeLoss(lines: OrderLineForLoss[], deliveryCost: Prisma.Decimal) {
+  private async computeLoss(
+    lines: OrderLineForLoss[],
+    deliveryCost: Prisma.Decimal,
+    orderCurrency: string,
+    baseCurrency: string,
+    convert: RequiredCurrencyConverter,
+  ) {
     const originalOrderValue = lines.reduce(
-      (sum, l) => sum.plus(l.totalPrice),
+      (sum, line) => sum.plus(line.totalPrice),
       new Prisma.Decimal(0),
     );
-    const itemLoss = lines.reduce(
-      (sum, l) => sum.plus(conditionLoss(l)),
-      new Prisma.Decimal(0),
-    );
-
+    let itemLoss = new Prisma.Decimal(0);
+    for (const line of lines) {
+      const loss = conditionLoss(line);
+      // Saved allocations and explicit damage amounts are already in order currency.
+      // Legacy fallback purchase costs come from the warehouse in store currency.
+      const inOrderCurrency =
+        conditionSnapshot(line.conditionAllocations) !== null ||
+        (line.condition === 'DAMAGED' && line.damageCost !== null);
+      itemLoss = itemLoss.plus(
+        inOrderCurrency
+          ? loss
+          : await convert(loss, baseCurrency, orderCurrency),
+      );
+    }
     return {
       originalOrderValue: originalOrderValue.toFixed(2),
       deliveryCost: deliveryCost.toFixed(2),
@@ -661,7 +798,12 @@ export class ReturnRequestService {
 
   private async requireStore(
     userId: string,
+    access?: StoreAccess,
   ): Promise<{ id: string; baseCurrency: string }> {
+    // Reuse the permission guard's result only within this authenticated request.
+    if (access?.userId === userId) {
+      return { id: access.storeId, baseCurrency: access.baseCurrency };
+    }
     const store = await this.storeAccess.requireStore(userId);
     return store;
   }

@@ -10,6 +10,7 @@ import { PrismaClient, Prisma, EcommercePlatform } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import request from 'supertest';
+import { NotificationsService } from '../src/notifications/notifications.service';
 import { StoreAccessService } from '../src/access/store-access.service';
 import { PermissionGuard } from '../src/access/permission.guard';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
@@ -39,6 +40,19 @@ postgres('Returns workflow with PostgreSQL', () => {
   let server: Server;
   let financial: EcommerceOrderFinancialService;
   let stock: OrderStockService;
+  let ecommerce: EcommerceService;
+  const currency = {
+    convertOrNull: jest.fn(
+      (amount: number | string | Prisma.Decimal, from: string, to: string) => {
+        const rates: Record<string, number> = { USD: 1, MAD: 10 };
+        return Promise.resolve(
+          rates[from] && rates[to]
+            ? new Prisma.Decimal(amount).times(rates[to]).dividedBy(rates[from])
+            : null,
+        );
+      },
+    ),
+  };
   const users: string[] = [];
   const stores: string[] = [];
   let owner: string;
@@ -107,9 +121,15 @@ postgres('Returns workflow with PostgreSQL', () => {
     const prisma = db as PrismaService;
     const access = new StoreAccessService(prisma);
     stock = new OrderStockService(prisma);
-    financial = new EcommerceOrderFinancialService(prisma, stock, {
-      onShipmentStatus: jest.fn().mockResolvedValue(undefined),
-    } as never);
+    financial = new EcommerceOrderFinancialService(
+      prisma,
+      stock,
+      {
+        onShipmentStatus: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      access,
+      currency as never,
+    );
     const risk = new CustomerRiskService(
       prisma,
       access,
@@ -118,12 +138,12 @@ postgres('Returns workflow with PostgreSQL', () => {
       } as never,
       {} as never,
     );
-    const ecommerce = new EcommerceService(
+    ecommerce = new EcommerceService(
       prisma,
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
+      currency as never,
       {} as never,
       stock,
       financial,
@@ -142,6 +162,7 @@ postgres('Returns workflow with PostgreSQL', () => {
       financial,
       risk,
       access,
+      currency as never,
     );
     const moduleRef = await Test.createTestingModule({
       controllers: [ReturnRequestController],
@@ -184,7 +205,7 @@ postgres('Returns workflow with PostgreSQL', () => {
     if (pool) await pool.end();
   });
 
-  async function fixture(lineCount = 1, linked = true) {
+  async function fixture(lineCount = 1, linked = true, orderCurrency = 'MAD') {
     const customer = await db.customer.create({
       data: {
         storeId: stores[0],
@@ -241,7 +262,7 @@ postgres('Returns workflow with PostgreSQL', () => {
         status: 'CLOSED',
         financialStatus: 'PAID',
         fulfillmentStatus: 'fulfilled',
-        currency: 'MAD',
+        currency: orderCurrency,
         grossSales: 200 * lineCount,
         discounts: 0,
         refunds: 0,
@@ -260,7 +281,7 @@ postgres('Returns workflow with PostgreSQL', () => {
             quantity: 2,
             unitPrice: 100,
             totalPrice: 200,
-            currency: 'MAD',
+            currency: orderCurrency,
             warehouseVariantId: linked ? variant.id : null,
           })),
         },
@@ -314,6 +335,7 @@ postgres('Returns workflow with PostgreSQL', () => {
       orderLineId: string;
       condition: string;
       damageCost?: number;
+      quantity?: number;
     }>,
     expected = 200,
     userId = owner,
@@ -463,6 +485,390 @@ postgres('Returns workflow with PostgreSQL', () => {
     expect((qr.body as DetectedReturnResponseDto).returnRequestId).toBe(
       (first.body as DetectedReturnResponseDto).returnRequestId,
     );
+  });
+
+  it('finds orders and returns by their internal ID only within the active store', async () => {
+    const f = await fixture();
+    const detected = await detect(f);
+    for (const user of [owner, otherOwner]) {
+      const search = await request(server)
+        .get('/ecommerce/returns/search')
+        .set('x-test-user', user)
+        .query({ q: f.order.id })
+        .expect(200);
+      const list = await request(server)
+        .get('/ecommerce/returns')
+        .set('x-test-user', user)
+        .query({ search: `  ${f.order.id}  ` })
+        .expect(200);
+      if (user === owner) {
+        expect(
+          (search.body as { data: { orderId: string }[] }).data.map(
+            (o) => o.orderId,
+          ),
+        ).toEqual([f.order.id]);
+        expect(
+          (list.body as ReturnListResponseDto).data.map(
+            (r) => r.returnRequestId,
+          ),
+        ).toEqual([detected.returnRequestId]);
+      } else {
+        expect((search.body as { data: unknown[] }).data).toEqual([]);
+        expect((list.body as ReturnListResponseDto).data).toEqual([]);
+      }
+    }
+  });
+
+  it('rejects unknown scans without creating any return', async () => {
+    const before = await db.returnRequest.count();
+    await request(server)
+      .post('/ecommerce/returns/detect')
+      .set('x-test-user', owner)
+      .send({ value: `UNKNOWN-${randomUUID()}` })
+      .expect(404);
+    expect(await db.returnRequest.count()).toBe(before);
+  });
+
+  it('rejects ambiguous order references and tracking codes without creating returns', async () => {
+    const first = await fixture();
+    const second = await fixture();
+    await db.ecommerceOrder.update({
+      where: { id: second.order.id },
+      data: { orderName: first.order.orderName },
+    });
+    await db.ecommerceOrderEvent.create({
+      data: {
+        orderId: second.order.id,
+        providerEventId: `ambiguous-${randomUUID()}`,
+        source: 'SYSTEM',
+        type: OrderEventType.RETURNED,
+        title: 'Shared tracking',
+        occurredAt: new Date(),
+        metadata: { number: first.tracking },
+      },
+    });
+    for (const value of [first.order.orderName, first.tracking]) {
+      await request(server)
+        .post('/ecommerce/returns/detect')
+        .set('x-test-user', owner)
+        .send({ value })
+        .expect(409);
+    }
+    expect(
+      await db.returnRequest.count({
+        where: { orderId: { in: [first.order.id, second.order.id] } },
+      }),
+    ).toBe(0);
+  });
+
+  it("keeps grouped unread counts scoped to store, permissions, and each user's reads", async () => {
+    const notifications = new NotificationsService(
+      db as PrismaService,
+      { isEnabled: false } as never,
+    );
+    const access = new StoreAccessService(db as PrismaService);
+    const rows = await Promise.all([
+      ...Array.from({ length: 2 }, () =>
+        db.notification.create({
+          data: {
+            storeId: stores[0],
+            type: 'TEST',
+            title: 'Critical inventory',
+            severity: 'CRITICAL',
+            category: 'INVENTORY',
+            audiencePermission: 'returns.view',
+          },
+        }),
+      ),
+      db.notification.create({
+        data: {
+          storeId: stores[0],
+          type: 'TEST',
+          title: 'Warning inventory',
+          severity: 'WARNING',
+          category: 'INVENTORY',
+          audiencePermission: 'returns.view',
+        },
+      }),
+      db.notification.create({
+        data: {
+          storeId: stores[0],
+          type: 'TEST',
+          title: 'Hidden sales',
+          severity: 'INFO',
+          category: 'SALES',
+          audiencePermission: 'products.view',
+        },
+      }),
+      db.notification.create({
+        data: {
+          storeId: stores[0],
+          type: 'TEST',
+          title: 'Owner only',
+          severity: 'WARNING',
+          category: 'STAFF',
+        },
+      }),
+      db.notification.create({
+        data: {
+          storeId: stores[0],
+          type: 'TEST',
+          title: 'Read inventory',
+          severity: 'WARNING',
+          category: 'INVENTORY',
+          audiencePermission: 'returns.view',
+        },
+      }),
+      db.notification.create({
+        data: {
+          storeId: stores[1],
+          type: 'TEST',
+          title: 'Other store',
+          severity: 'CRITICAL',
+          category: 'INVENTORY',
+          audiencePermission: 'returns.view',
+        },
+      }),
+    ]);
+    await db.notificationRead.create({
+      data: { notificationId: rows[5].id, userId: viewer },
+    });
+    const ownerAccess = await access.require(owner);
+    const viewerAccess = await access.require(viewer);
+    await expect(notifications.unreadCounts(ownerAccess)).resolves.toEqual({
+      all: 6,
+      critical: 2,
+      warning: 3,
+      inventory: 4,
+    });
+    await expect(notifications.unreadCounts(viewerAccess)).resolves.toEqual({
+      all: 3,
+      critical: 2,
+      warning: 1,
+      inventory: 3,
+    });
+    await notifications.markRead(ownerAccess, rows[0].id);
+    await expect(notifications.unreadCounts(ownerAccess)).resolves.toEqual({
+      all: 5,
+      critical: 1,
+      warning: 3,
+      inventory: 3,
+    });
+    await expect(notifications.unreadCounts(viewerAccess)).resolves.toEqual({
+      all: 3,
+      critical: 2,
+      warning: 1,
+      inventory: 3,
+    });
+  });
+
+  it('searches manual and synced customers in both endpoints without exposing another store', async () => {
+    const manual = await fixture();
+    const synced = await fixture();
+    const sharedName = `Search-${randomUUID()}`;
+    manual.customer.phone = '+212600000071';
+    synced.customer.phone = '+212600000072';
+    for (const f of [manual, synced]) {
+      await db.customer.update({
+        where: { id: f.customer.id },
+        data: { phone: f.customer.phone },
+      });
+    }
+    await db.ecommerceOrder.update({
+      where: { id: manual.order.id },
+      data: {
+        manualCustomerName: `${sharedName} Manual`,
+        manualCustomerPhone: manual.customer.phone,
+      },
+    });
+    await db.customer.update({
+      where: { id: synced.customer.id },
+      data: { name: `${sharedName} Synced` },
+    });
+    await db.ecommerceOrder.update({
+      where: { id: synced.order.id },
+      data: { manualCustomerName: null, manualCustomerPhone: null },
+    });
+    await detect(manual);
+    await detect(synced);
+    for (const path of ['/ecommerce/returns', '/ecommerce/returns/search']) {
+      const key = path.endsWith('/search') ? 'q' : 'search';
+      const matches = await request(server)
+        .get(path)
+        .set('x-test-user', owner)
+        .query({ [key]: `  ${sharedName.toLowerCase()}  ` })
+        .expect(200);
+      const rows = (
+        matches.body as {
+          data: {
+            orderId: string;
+            customerName: string;
+            customerPhone: string;
+          }[];
+        }
+      ).data;
+      expect(rows.map((row) => row.orderId).sort()).toEqual(
+        [manual.order.id, synced.order.id].sort(),
+      );
+      expect(rows.find((row) => row.orderId === synced.order.id)).toMatchObject(
+        {
+          customerName: `${sharedName} Synced`,
+          customerPhone: synced.customer.phone,
+        },
+      );
+      for (const fixture of [manual, synced]) {
+        const phone = fixture.customer.phone;
+        const formattedPhone = `${phone.slice(0, 4)} ${phone.slice(4)}`;
+        const result = await request(server)
+          .get(path)
+          .set('x-test-user', owner)
+          .query({ [key]: formattedPhone })
+          .expect(200);
+        expect(
+          (result.body as { data: { orderId: string }[] }).data.map(
+            (row) => row.orderId,
+          ),
+        ).toEqual([fixture.order.id]);
+      }
+      const other = await request(server)
+        .get(path)
+        .set('x-test-user', otherOwner)
+        .query({ [key]: sharedName })
+        .expect(200);
+      expect((other.body as { data: unknown[] }).data).toEqual([]);
+    }
+  });
+
+  it('normalizes mixed-currency list totals and prorated return buckets without changing order-currency allocations', async () => {
+    const beforeList = await request(server)
+      .get('/ecommerce/returns')
+      .set('x-test-user', owner)
+      .expect(200);
+    const beforeBuckets = await ecommerce.getReturnsSummary(owner, {});
+    const mad = await fixture();
+    const usd = await fixture(1, true, 'USD');
+    await detect(mad);
+    const detected = await detect(usd);
+    expect(detected.currency).toBe('USD');
+    expect(detected.lossSummary).toEqual({
+      originalOrderValue: '200.00',
+      deliveryCost: '15.00',
+      netLoss: '15.00',
+    });
+    const { body: result } = await verify(detected.returnRequestId, [
+      { orderLineId: usd.order.lines[0].id, quantity: 1, condition: 'GOOD' },
+      { orderLineId: usd.order.lines[0].id, quantity: 1, condition: 'LOST' },
+    ]);
+    expect(result.currency).toBe('USD');
+    expect(result.lossSummary.netLoss).toBe('18.00');
+    const stored = await db.ecommerceOrderLine.findUniqueOrThrow({
+      where: { id: usd.order.lines[0].id },
+    });
+    expect((stored.conditionAllocations as { loss: string }).loss).toBe(
+      '3.0000',
+    );
+    const read = await request(server)
+      .get(`/ecommerce/returns/${detected.returnRequestId}`)
+      .set('x-test-user', owner)
+      .expect(200);
+    expect((read.body as DetectedReturnResponseDto).lossSummary.netLoss).toBe(
+      '18.00',
+    );
+    const list = await request(server)
+      .get('/ecommerce/returns')
+      .set('x-test-user', owner)
+      .query({ search: usd.order.id })
+      .expect(200);
+    const body = list.body as ReturnListResponseDto;
+    expect(body.currency).toBe('MAD');
+    expect(body.data[0].value).toBe('2000.00');
+    expect(
+      new Prisma.Decimal(body.summary.totalReturns.value)
+        .minus(
+          (beforeList.body as ReturnListResponseDto).summary.totalReturns.value,
+        )
+        .toFixed(2),
+    ).toBe('2200.00');
+    const buckets = await ecommerce.getReturnsSummary(owner, {});
+    expect(
+      new Prisma.Decimal(buckets.received.value)
+        .minus(beforeBuckets.received.value)
+        .toFixed(2),
+    ).toBe('1000.00');
+    expect(
+      new Prisma.Decimal(buckets.missing.value)
+        .minus(beforeBuckets.missing.value)
+        .toFixed(2),
+    ).toBe('30.00');
+    const ledger = await db.ecommerceOrderFinancialEvent.findMany({
+      where: { orderId: usd.order.id },
+    });
+    expect(ledger.every((event) => event.currency === 'USD')).toBe(true);
+    const revenue = ledger.find(
+      (event) => event.type === 'REVENUE_RECOGNIZED',
+    )!;
+    expect(revenue.productCost.toFixed(2)).toBe('6.00');
+    expect(revenue.shippingCost.toFixed(2)).toBe('15.00');
+  });
+
+  it('returns 503 without recording conditions when required FX is unavailable', async () => {
+    const f = await fixture(1, true, 'USD');
+    const detected = await detect(f);
+    const beforeEvents = await db.ecommerceOrderFinancialEvent.count({
+      where: { orderId: f.order.id },
+    });
+    const implementation = currency.convertOrNull.getMockImplementation()!;
+    currency.convertOrNull.mockResolvedValue(null);
+    try {
+      await verify(
+        detected.returnRequestId,
+        [{ orderLineId: f.order.lines[0].id, condition: 'LOST' }],
+        503,
+      );
+      expect(
+        (
+          await db.ecommerceOrderLine.findUniqueOrThrow({
+            where: { id: f.order.lines[0].id },
+          })
+        ).conditionAllocations,
+      ).toBeNull();
+      expect(
+        await db.ecommerceOrderFinancialEvent.count({
+          where: { orderId: f.order.id },
+        }),
+      ).toBe(beforeEvents);
+      await request(server)
+        .get('/ecommerce/returns')
+        .set('x-test-user', owner)
+        .expect(503);
+      await expect(ecommerce.getReturnsSummary(owner, {})).rejects.toThrow(
+        'Exchange rate USD → MAD is unavailable',
+      );
+    } finally {
+      currency.convertOrNull.mockImplementation(implementation);
+    }
+  });
+
+  it('does not convert legacy warehouse purchase losses as though they were order amounts', async () => {
+    const f = await fixture(1, true, 'USD');
+    await db.ecommerceOrderLine.update({
+      where: { id: f.order.lines[0].id },
+      data: { condition: 'LOST' },
+    });
+    const before = await ecommerce.getReturnsSummary(owner, {});
+    const detected = await detect(f);
+    expect(detected.currency).toBe('USD');
+    expect(detected.lossSummary.netLoss).toBe('21.00');
+    await db.ecommerceOrderLine.update({
+      where: { id: f.order.lines[0].id },
+      data: { condition: null },
+    });
+    const after = await ecommerce.getReturnsSummary(owner, {});
+    expect(
+      new Prisma.Decimal(before.missing.value)
+        .minus(after.missing.value)
+        .toFixed(2),
+    ).toBe('60.00');
   });
 
   it('shows delayed requests and removes them from that tab when processed', async () => {

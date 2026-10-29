@@ -23,6 +23,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { CurrentStoreAccess } from '../access/current-store-access.decorator';
+import type { StoreAccess } from '../access/store-access.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
@@ -81,8 +83,9 @@ export class ReturnRequestController {
   list(
     @CurrentUser() user: JwtPayload,
     @Query() query: ReturnListQueryDto,
+    @CurrentStoreAccess() access: StoreAccess,
   ): Promise<ReturnListResponseDto> {
-    return this.returns.list(user.userId, query);
+    return this.returns.list(user.userId, query, access);
   }
 
   @Get('search')
@@ -91,10 +94,9 @@ export class ReturnRequestController {
   @ApiOperation({
     summary: 'Search orders for Manual Verification',
     description:
-      'Order ID/name matches every platform. Phone/customer-name matches ONLY manually ' +
-      'created orders — Shopify/YouCan/Lightfunnels orders intentionally omit customer PII ' +
-      'at rest (see EcommerceOrder in schema.prisma), so there is nothing to search there ' +
-      'without a live per-candidate platform call, which this endpoint does not do.',
+      'Matches order identifiers and names, manual customer fields, and linked customer ' +
+      'names/phones captured during platform sync. Results are scoped to the active store. ' +
+      'Legacy orders without saved customer details match only order identifiers/names.',
   })
   @ApiOkResponse({ description: 'Up to 20 matching orders.' })
   @ApiBadRequestResponse({
@@ -104,8 +106,9 @@ export class ReturnRequestController {
   search(
     @CurrentUser() user: JwtPayload,
     @Query() query: ReturnSearchQueryDto,
+    @CurrentStoreAccess() access: StoreAccess,
   ) {
-    return this.returns.search(user.userId, query.q);
+    return this.returns.search(user.userId, query.q, access);
   }
 
   @Post('detect')
@@ -135,8 +138,9 @@ export class ReturnRequestController {
   detect(
     @CurrentUser() user: JwtPayload,
     @Body() dto: DetectReturnDto,
+    @CurrentStoreAccess() access: StoreAccess,
   ): Promise<DetectedReturnResponseDto> {
-    return this.returns.detect(user.userId, dto);
+    return this.returns.detect(user.userId, dto, access);
   }
 
   @Post(':returnRequestId/verify')
@@ -166,8 +170,9 @@ export class ReturnRequestController {
     @CurrentUser() user: JwtPayload,
     @Param('returnRequestId', new ParseUUIDPipe()) returnRequestId: string,
     @Body() dto: VerifyReturnDto,
+    @CurrentStoreAccess() access: StoreAccess,
   ): Promise<VerifiedReturnResponseDto> {
-    return this.returns.verify(user.userId, returnRequestId, dto);
+    return this.returns.verify(user.userId, returnRequestId, dto, access);
   }
   @Get(':returnRequestId')
   @RequirePermission(PERMISSIONS.RETURNS_VIEW)
@@ -186,7 +191,8 @@ export class ReturnRequestController {
   get(
     @CurrentUser() user: JwtPayload,
     @Param('returnRequestId', new ParseUUIDPipe()) id: string,
+    @CurrentStoreAccess() access: StoreAccess,
   ) {
-    return this.returns.get(user.userId, id);
+    return this.returns.get(user.userId, id, access);
   }
 }

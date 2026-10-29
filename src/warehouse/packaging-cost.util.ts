@@ -1,3 +1,4 @@
+import type { RequiredCurrencyConverter } from '../currency/required-currency-converter';
 import { MerchantPurchaseSource, Prisma } from '@prisma/client';
 
 type PackagingCostClient = Pick<
@@ -6,6 +7,7 @@ type PackagingCostClient = Pick<
   | 'merchantPurchase'
   | 'shopProductVariant'
   | 'shopProduct'
+  | 'shopSettings'
 >;
 
 /**
@@ -16,6 +18,7 @@ type PackagingCostClient = Pick<
 export async function resolvePackagingUnitCosts(
   db: PackagingCostClient,
   materialIds: string[],
+  options?: { targetCurrency: string; convert: RequiredCurrencyConverter },
 ): Promise<Map<string, Prisma.Decimal>> {
   const costs = new Map<string, Prisma.Decimal>();
   const ids = [...new Set(materialIds)];
@@ -50,14 +53,33 @@ export async function resolvePackagingUnitCosts(
         ],
       },
       orderBy: [{ purchaseDate: 'desc' }, { createdAt: 'desc' }],
-      select: { unitPrice: true },
+      select: { unitPrice: true, currency: true },
     });
     if (!key) {
-      if (purchase) costs.set(material.id, purchase.unitPrice);
+      if (purchase)
+        costs.set(
+          material.id,
+          options
+            ? await options.convert(
+                purchase.unitPrice,
+                purchase.currency,
+                options.targetCurrency,
+              )
+            : purchase.unitPrice,
+        );
       continue;
     }
     if (purchase) {
-      costs.set(material.id, purchase.unitPrice);
+      costs.set(
+        material.id,
+        options
+          ? await options.convert(
+              purchase.unitPrice,
+              purchase.currency,
+              options.targetCurrency,
+            )
+          : purchase.unitPrice,
+      );
       continue;
     }
     const variant = await db.shopProductVariant.findUnique({
@@ -72,7 +94,26 @@ export async function resolvePackagingUnitCosts(
           select: { price: true },
         })
       )?.price;
-    if (catalogPrice) costs.set(material.id, catalogPrice);
+    if (catalogPrice) {
+      const sourceCurrency = options
+        ? (
+            await db.shopSettings.findUniqueOrThrow({
+              where: { id: 'default' },
+              select: { currency: true },
+            })
+          ).currency
+        : null;
+      costs.set(
+        material.id,
+        options
+          ? await options.convert(
+              catalogPrice,
+              sourceCurrency!,
+              options.targetCurrency,
+            )
+          : catalogPrice,
+      );
+    }
   }
   return costs;
 }

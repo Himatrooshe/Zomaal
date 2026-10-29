@@ -58,6 +58,9 @@ export class DetectReturnDto {
       'Ignored when orderId is given. Still required by the request shape — pass the ' +
       "order's own reference (orderName) when using orderId, for the audit trail.",
   })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(1)
   value: string;
@@ -69,7 +72,7 @@ export class DetectReturnDto {
       'client after GET /ecommerce/returns/search returns candidates and the user taps one.',
   })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   orderId?: string;
 }
 
@@ -148,6 +151,13 @@ export class DetectedReturnLineDto {
 }
 
 export class DetectedReturnResponseDto {
+  @ApiProperty({
+    description:
+      'Order currency for product prices, condition allocations and loss summary.',
+    example: 'MAD',
+  })
+  currency: string;
+
   @ApiProperty({ format: 'uuid' })
   returnRequestId: string;
 
@@ -264,6 +274,13 @@ export class VerifyReturnDto {
 }
 
 export class VerifiedReturnResponseDto {
+  @ApiProperty({
+    description:
+      'Order currency for product prices, condition allocations and loss summary.',
+    example: 'MAD',
+  })
+  currency: string;
+
   @ApiProperty({ format: 'uuid' })
   returnRequestId: string;
 
@@ -287,8 +304,14 @@ export class ReturnListQueryDto {
   @IsIn(['ALL', 'NEED_VERIFICATION', 'DELAYED', 'PROCESSED'])
   status?: 'ALL' | 'NEED_VERIFICATION' | 'DELAYED' | 'PROCESSED';
 
-  @ApiPropertyOptional({ description: 'Matches order ID/name.' })
+  @ApiPropertyOptional({
+    description:
+      'Matches order ID/name and saved manual or linked customer name/phone. Whitespace is trimmed.',
+  })
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   search?: string;
 

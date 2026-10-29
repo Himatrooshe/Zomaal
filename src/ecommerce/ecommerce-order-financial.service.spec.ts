@@ -41,32 +41,35 @@ function deliveredLine() {
 function setup(status: ShippingShipmentStatus) {
   const events = new Map<string, StoredEvent>();
   const transaction = jest.fn();
+  const dispatch = {
+    id: 'dispatch-1',
+    orderId: 'order-1',
+    order: {
+      id: 'order-1',
+      currency: 'MAD',
+      connection: { store: { baseCurrency: 'MAD' } },
+      totalCollected: new Prisma.Decimal(300),
+      shipping: new Prisma.Decimal(25),
+      lines: [deliveredLine()],
+    },
+    senditShipment: {
+      currency: 'MAD',
+      normalizedStatus: status,
+      fee: new Prisma.Decimal(30),
+      recipientPhone: '0600000001',
+      recipientName: 'Test Recipient',
+      lastActionAt: new Date('2026-01-01T10:00:00Z'),
+      providerUpdatedAt: null,
+    },
+    quickLivraisonShipment: null,
+    forceLogShipment: null,
+    ozoneExpressShipment: null,
+  };
   const prisma = {
     $queryRaw: jest.fn().mockResolvedValue([]),
     $transaction: transaction,
     ecommerceOrderDispatch: {
-      findUnique: jest.fn().mockResolvedValue({
-        id: 'dispatch-1',
-        orderId: 'order-1',
-        order: {
-          id: 'order-1',
-          currency: 'MAD',
-          totalCollected: new Prisma.Decimal(300),
-          shipping: new Prisma.Decimal(25),
-          lines: [deliveredLine()],
-        },
-        senditShipment: {
-          normalizedStatus: status,
-          fee: new Prisma.Decimal(30),
-          recipientPhone: '0600000001',
-          recipientName: 'Test Recipient',
-          lastActionAt: new Date('2026-01-01T10:00:00Z'),
-          providerUpdatedAt: null,
-        },
-        quickLivraisonShipment: null,
-        forceLogShipment: null,
-        ozoneExpressShipment: null,
-      }),
+      findUnique: jest.fn().mockResolvedValue(dispatch),
     },
     ecommerceOrderFinancialEvent: {
       findUnique: jest.fn(
@@ -110,9 +113,10 @@ function setup(status: ShippingShipmentStatus) {
         ]),
     },
     merchantPurchase: {
-      findFirst: jest
-        .fn()
-        .mockResolvedValue({ unitPrice: new Prisma.Decimal(5) }),
+      findFirst: jest.fn().mockResolvedValue({
+        unitPrice: new Prisma.Decimal(5),
+        currency: 'MAD',
+      }),
     },
   };
   transaction.mockImplementation((work: (tx: unknown) => Promise<unknown>) =>
@@ -127,15 +131,166 @@ function setup(status: ShippingShipmentStatus) {
   const whatsAppTrigger = {
     onShipmentStatus: jest.fn().mockResolvedValue('NOT_CONNECTED'),
   };
+  const currency = { convertOrNull: jest.fn().mockResolvedValue(null) };
   const service = new EcommerceOrderFinancialService(
     prisma as unknown as PrismaService,
     orderStock as unknown as OrderStockService,
     whatsAppTrigger as unknown as WhatsAppTriggerService,
+    undefined,
+    currency as never,
   );
-  return { service, prisma, events, orderStock, whatsAppTrigger };
+  return {
+    service,
+    prisma,
+    events,
+    orderStock,
+    whatsAppTrigger,
+    currency,
+    dispatch,
+  };
 }
 
 describe('EcommerceOrderFinancialService', () => {
+  it('converts warehouse, gift, packaging and courier costs into order currency before posting', async () => {
+    const { service, prisma, events, currency } = setup(
+      ShippingShipmentStatus.DELIVERED,
+    );
+    const dispatch =
+      (await prisma.ecommerceOrderDispatch.findUnique()) as ReturnType<
+        typeof setup
+      >['dispatch'];
+    dispatch.order.currency = 'USD';
+    currency.convertOrNull.mockResolvedValue(new Prisma.Decimal('0.1'));
+    await service.syncFromDispatchId('dispatch-1');
+    const event = events.get('revenue-recognized')!;
+    expect(event.currency).toBe('USD');
+    for (const [key, value] of Object.entries({
+      productCost: '12.00',
+      giftCost: '2.00',
+      packagingCost: '1.00',
+      shippingCost: '3.00',
+      netProfitImpact: '282.00',
+    })) {
+      expect((event[key] as Prisma.Decimal).toFixed(2)).toBe(value);
+    }
+    await service.syncFromDispatchId('dispatch-1');
+    expect(events.size).toBe(1);
+  });
+
+  it.each([
+    'senditShipment',
+    'quickLivraisonShipment',
+    'forceLogShipment',
+    'ozoneExpressShipment',
+  ])('converts %s fees for a returned parcel', async (provider) => {
+    const { service, prisma, events, currency } = setup(
+      ShippingShipmentStatus.REFUSED,
+    );
+    const dispatch =
+      (await prisma.ecommerceOrderDispatch.findUnique()) as ReturnType<
+        typeof setup
+      >['dispatch'];
+    const shipment = dispatch.senditShipment;
+    Object.assign(dispatch, { senditShipment: null, [provider]: shipment });
+    dispatch.order.currency = 'USD';
+    currency.convertOrNull.mockResolvedValue(new Prisma.Decimal('0.1'));
+    await service.syncFromDispatchId('dispatch-1');
+    expect(
+      (events.get('shipping-loss')!.shippingCost as Prisma.Decimal).toFixed(2),
+    ).toBe('3.00');
+    expect(events.get('shipping-loss')!.currency).toBe('USD');
+  });
+
+  it('does not post a ledger event or move stock if a required rate is unavailable', async () => {
+    const { service, prisma, events, orderStock } = setup(
+      ShippingShipmentStatus.DELIVERED,
+    );
+    (
+      (await prisma.ecommerceOrderDispatch.findUnique()) as ReturnType<
+        typeof setup
+      >['dispatch']
+    ).order.currency = 'USD';
+    await expect(service.syncFromDispatchId('dispatch-1')).rejects.toThrow(
+      'Exchange rate MAD → USD is unavailable',
+    );
+    expect(events.size).toBe(0);
+    expect(orderStock.deliverOrder).not.toHaveBeenCalled();
+  });
+
+  it.each(['DELIVERED', 'RETURNED'])(
+    'converts Ameex fee metadata on timeline outcome %s',
+    async (outcome) => {
+      const { service, prisma, events, currency } = setup(
+        ShippingShipmentStatus.PENDING,
+      );
+      const dispatch =
+        (await prisma.ecommerceOrderDispatch.findUnique()) as ReturnType<
+          typeof setup
+        >['dispatch'];
+      Object.assign(prisma, {
+        ecommerceOrder: {
+          findUnique: jest.fn().mockResolvedValue({ dispatch: null }),
+          findUniqueOrThrow: jest
+            .fn()
+            .mockResolvedValue({ ...dispatch.order, currency: 'USD' }),
+        },
+        ecommerceOrderEvent: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              type: outcome,
+              occurredAt: new Date(),
+              metadata: { carrier: 'AMEEX', fee: '30', currency: 'MAD' },
+            },
+          ]),
+        },
+      });
+      currency.convertOrNull.mockResolvedValue(new Prisma.Decimal('0.1'));
+      await service.syncUndispatchedOrder('order-1');
+      const event = events.get(
+        outcome === 'DELIVERED' ? 'revenue-recognized' : 'shipping-loss',
+      )!;
+      expect((event.shippingCost as Prisma.Decimal).toFixed(2)).toBe('3.00');
+      expect(event.currency).toBe('USD');
+    },
+  );
+
+  it.each(['dispatch', 'ameex'])(
+    'converts the effective shipping cost from %s into order currency',
+    async (source) => {
+      const { service, prisma, currency } = setup(
+        ShippingShipmentStatus.PENDING,
+      );
+      Object.assign(prisma, {
+        ecommerceOrder: {
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            currency: 'USD',
+            shipping: new Prisma.Decimal(7),
+            dispatch:
+              source === 'dispatch'
+                ? {
+                    senditShipment: {
+                      fee: new Prisma.Decimal(30),
+                      currency: 'MAD',
+                    },
+                    quickLivraisonShipment: null,
+                    forceLogShipment: null,
+                    ozoneExpressShipment: null,
+                  }
+                : null,
+            events:
+              source === 'ameex'
+                ? [{ metadata: { fee: '30', currency: 'MAD' } }]
+                : [],
+          }),
+        },
+      });
+      currency.convertOrNull.mockResolvedValue(new Prisma.Decimal('0.1'));
+      await expect(
+        service.resolveEffectiveShippingCost('order-1'),
+      ).resolves.toEqual(new Prisma.Decimal(3));
+    },
+  );
+
   it('hands the courier status to the WhatsApp trigger', async () => {
     const { service, whatsAppTrigger } = setup(
       ShippingShipmentStatus.OUT_FOR_DELIVERY,
@@ -208,6 +363,7 @@ describe('EcommerceOrderFinancialService', () => {
         findUniqueOrThrow: jest.fn().mockResolvedValue({
           id: 'order-1',
           currency: 'MAD',
+          connection: { store: { baseCurrency: 'MAD' } },
           shipping: new Prisma.Decimal(25),
         }),
       },
@@ -268,9 +424,12 @@ describe('EcommerceOrderFinancialService', () => {
     await service.syncFromDispatchId('dispatch-1');
 
     prisma.ecommerceOrderDispatch.findUnique.mockResolvedValue({
-      ...(await prisma.ecommerceOrderDispatch.findUnique()),
+      ...((await prisma.ecommerceOrderDispatch.findUnique()) as ReturnType<
+        typeof setup
+      >['dispatch']),
       senditShipment: {
         normalizedStatus: ShippingShipmentStatus.RETURNED_TO_SELLER,
+        currency: 'MAD',
         fee: new Prisma.Decimal(30),
       },
     });
