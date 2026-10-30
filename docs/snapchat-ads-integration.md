@@ -107,9 +107,11 @@ backend gates before production deployment. Rollback by setting
 `SNAPCHAT_ADS_ENABLED=false` and pausing the Snapchat Scheduler job, or redeploying
 the previous backend revision. Keep stored history and the encryption key.
 
-Live QA uses an explicitly approved temporary merchant with a normal seven-day
-trial, a viewer and another store for isolation checks. It does not activate or
-extend the original merchant's expired production subscription. Real account
+Initial live QA used an explicitly approved temporary merchant with a normal
+seven-day trial, a viewer and another store for isolation checks. The owner later
+explicitly authorized a separate seven-day production trial extension for their
+own account, ending 6 November 2026 at 00:00:32 UTC; this is an administrative
+testing grant, not a paid subscription. Real account
 IDs, tokens, credentials and detailed advertising metrics belong in private QA
 artifacts, not committed reports.
 

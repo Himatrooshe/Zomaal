@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { BillingInterval, Plan, Prisma, Subscription } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoreAccessService } from '../access/store-access.service';
+import { StripeBillingService } from './stripe-billing.service';
 import {
   TRIAL_DAYS,
   TRIAL_ENTITLEMENTS,
@@ -56,6 +57,7 @@ export class SubscriptionService {
     private readonly prisma: PrismaService,
     private readonly storeAccess: StoreAccessService,
     private readonly config: ConfigService,
+    private readonly stripeBilling?: StripeBillingService,
   ) {}
 
   /** Called when an owner creates their first store. Idempotent. */
@@ -181,6 +183,12 @@ export class SubscriptionService {
         'Only an active paid subscription can be cancelled',
       );
     }
+    if (state.subscription.provider === 'STRIPE') {
+      if (!this.stripeBilling)
+        throw new ConflictException('Stripe billing is unavailable');
+      await this.stripeBilling.setCancellation(userId, true);
+      return this.getForUser(userId);
+    }
     if (!state.subscription.cancelAtPeriodEnd) {
       await this.prisma.subscription.update({
         where: { id: state.subscription.id },
@@ -195,6 +203,12 @@ export class SubscriptionService {
     const state = await this.stateForOwner(userId);
     if (state.status !== 'ACTIVE' || !state.subscription.cancelAtPeriodEnd) {
       throw new ConflictException('There is no pending cancellation to undo');
+    }
+    if (state.subscription.provider === 'STRIPE') {
+      if (!this.stripeBilling)
+        throw new ConflictException('Stripe billing is unavailable');
+      await this.stripeBilling.setCancellation(userId, false);
+      return this.getForUser(userId);
     }
     await this.prisma.subscription.update({
       where: { id: state.subscription.id },

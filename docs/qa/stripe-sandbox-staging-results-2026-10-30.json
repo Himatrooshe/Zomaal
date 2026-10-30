@@ -1,0 +1,286 @@
+{
+  "environment": "isolated Stripe sandbox staging",
+  "baseUrl": "https://zomaal-stripe-staging-563898960389.us-central1.run.app",
+  "prepayment": [
+    {
+      "name": "owner staging login",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "staff staging login",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "outsider staging login",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Plans available while locked",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Owner subscription status",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Unauthenticated checkout",
+      "status": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "name": "Unsigned webhook",
+      "status": 400,
+      "expected": 400,
+      "passed": true
+    },
+    {
+      "name": "Expired owner write blocked",
+      "status": 402,
+      "expected": 402,
+      "passed": true
+    },
+    {
+      "name": "Staff cannot view invoices",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "name": "Staff cannot cancel",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "name": "Staff cannot checkout",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "name": "Staff cannot write products",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "name": "Reject forged owner/amount",
+      "status": 400,
+      "expected": 400,
+      "passed": true
+    },
+    {
+      "name": "Starter cannot cover two stores",
+      "status": 409,
+      "expected": 409,
+      "passed": true
+    },
+    {
+      "name": "Pro checkout created",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Checkout retry reuses session",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Other store invoice isolation",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Staging token rejected by production",
+      "status": 401,
+      "expected": 401,
+      "passed": true
+    }
+  ],
+  "browser": {
+    "sandbox": true,
+    "declinedCardRejected": true,
+    "declineKeptReadOnly": true,
+    "successfulCheckoutReturned": true,
+    "browser": "Chrome",
+    "screenshot": "/private/tmp/zomaal-stripe-checkout-complete.png"
+  },
+  "postpayment": [
+    {
+      "name": "Refresh owner login",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Refresh staff login",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Refresh outsider login",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Paid owner subscription",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Paid invoice history",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Stripe confirms sandbox checkout paid",
+      "passed": true,
+      "status": "paid"
+    },
+    {
+      "name": "Paid owner can write",
+      "status": 201,
+      "expected": 201,
+      "passed": true
+    },
+    {
+      "name": "Remove QA category",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Duplicate subscription blocked",
+      "status": 409,
+      "expected": 409,
+      "passed": true
+    },
+    {
+      "name": "Staff inherits paid plan",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Staff retains product read permission",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Staff does not gain product write permission",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "name": "Staff cannot see billing history",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "name": "Staff cannot cancel paid subscription",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "name": "Staff cannot resume paid subscription",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "name": "Staff cannot buy subscription",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "name": "Other owner cannot see paid invoice",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Payment did not unlock another owner",
+      "passed": true
+    },
+    {
+      "name": "Owner cancellation",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Owner resumption",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Signed payment-event replay",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Schedule final sandbox cancellation",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    }
+  ],
+  "finalSubscription": {
+    "status": "ACTIVE",
+    "plan": "PRO",
+    "provider": "STRIPE",
+    "readOnly": false,
+    "storesUsed": 2,
+    "cancelAtPeriodEnd": true,
+    "accessEndsAt": "2026-11-29T22:45:08.000Z"
+  },
+  "invoice": {
+    "amount": "199.00",
+    "currency": "MAD",
+    "provider": "STRIPE",
+    "count": 1
+  },
+  "deployment": {
+    "revision": "zomaal-stripe-staging-00004-ftv",
+    "trafficPercent": 100
+  },
+  "finalSmoke": {
+    "health": 200,
+    "login": 200,
+    "subscription": "ACTIVE",
+    "invoiceCount": 1,
+    "webhookReplay": "duplicate",
+    "passed": true
+  },
+  "productionUnchanged": {
+    "status": "TRIAL_ENDED",
+    "provider": "MANUAL",
+    "readOnly": true,
+    "invoiceCount": 0
+  }
+}

@@ -1,10 +1,12 @@
-# Stripe sandbox catalog setup
+# Stripe sandbox billing setup
 
-Branch: `feature/stripe-subscriptions`.
+Branch: `feature/stripe-checkout-webhooks`.
 
 The catalog setup is ready for the approved Starter (99 MAD/month) and Pro
-(199 MAD/month) prices. This is product provisioning, not a working payment
-integration. It does not activate subscriptions or change Zomaal plan records.
+(199 MAD/month) prices. The catalog command only provisions products. The
+runtime integration now supports owner-only hosted Checkout, signed webhooks,
+payment-confirmed access/invoices, and provider-backed cancellation/resumption
+in isolated staging. See the [staging QA report](qa/stripe-sandbox-staging-2026-10-30.md).
 
 ## Run when the sandbox key is available
 
@@ -15,8 +17,7 @@ integration. It does not activate subscriptions or change Zomaal plan records.
 3. Create/reuse sandbox products and recurring prices:
    `npm run billing:catalog -- --apply`.
 4. Copy the printed `STRIPE_STARTER_MONTHLY_PRICE_ID` and
-   `STRIPE_PRO_MONTHLY_PRICE_ID` into `.env`. These names are reserved for the
-   upcoming runtime integration; the existing billing service does not use them.
+   `STRIPE_PRO_MONTHLY_PRICE_ID` into `.env`.
 
 The command rejects live keys before making requests. Stable product IDs,
 price lookup keys and idempotency keys make retries reuse matching resources.
@@ -39,7 +40,7 @@ Sandbox IDs cannot be reused in live mode.
   for these products yet.
 - Orders are shown as unlimited in the approved design. Do not add metered
   charges, order caps or overage fees. Catalog prices are fixed monthly prices;
-  future Checkout must use quantity 1 per owner subscription, not per staff/store.
+  Checkout uses quantity 1 per owner subscription, not per staff/store.
 - Existing feature keys are `ads`, `whatsapp`, and `shop`. Display bullets do not
   grant permissions. Pro features must remain separate from staff authorization.
 - Starter's advertised campaign management conflicts with the current single
@@ -48,17 +49,55 @@ Sandbox IDs cannot be reused in live mode.
 - Do not change permissions, activate plans, extend trials, reset usage or apply
   upgrade/downgrade proration from a browser redirect or product-creation result.
 
-## Remaining subscription integration
+## Runtime staging configuration
 
-Still required: server-side plan/price mapping and price verification; owner-only
-Checkout creation; approved success/cancel destinations; Stripe customer and
-subscription linkage; signed, idempotent webhooks; payment-confirmed period and
-invoice updates; failed-payment policy; provider-backed cancellation/resumption;
-and integration tests for staff denial, expiry, retries and store limits.
+```dotenv
+STRIPE_BILLING_ENABLED=true
+STRIPE_BILLING_ENVIRONMENT=staging
+DATABASE_URL=postgresql://<staging-user>:<password>@<host>/zomaal_stripe_staging
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_STARTER_MONTHLY_PRICE_ID=price_...
+STRIPE_PRO_MONTHLY_PRICE_ID=price_...
+STRIPE_PUBLIC_BASE_URL=https://zomaal-stripe-staging-563898960389.us-central1.run.app
+```
 
-The webhook signing secret (`whsec_...`) will be separate from the API key. Add it
-when a webhook receiver is implemented. The existing generic
-`BILLING_CHECKOUT_URL` is not a selected-plan checkout session.
+Runtime refuses live keys, a non-staging environment, or another database name.
+Leave `STRIPE_BILLING_ENABLED=false` in production. Staging uses its own database
+role, JWT/encryption keys, Secret Manager entries and Cloud Run runtime identity.
+Third-party integrations and all automated schedulers are disabled there.
+The deployed staging service starts `node dist/main` directly. Apply pending
+migrations explicitly to its isolated database before any future source deploy;
+it does not run production's migration entrypoint on every cold start.
+
+Post `{ planId, interval: "MONTHLY" }` with the owner's bearer token to
+`/billing/stripe/checkout`; open the returned `checkoutUrl` in a browser. Repeated
+requests reuse an open session. A paid subscription blocks additional checkouts;
+plan changes/proration are intentionally not implemented.
+
+Register a **snapshot** event destination at
+`https://zomaal-stripe-staging-563898960389.us-central1.run.app/webhooks/stripe`,
+with API version `2026-10-28.endive` (the installed SDK version), for:
+`checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`,
+`customer.subscription.updated`, and `customer.subscription.deleted`.
+Use the signing secret from this staging destination, not another endpoint or CLI
+listener. It is separate from the API key. The handler reads the exact raw body,
+verifies signatures/timestamps, and commits a receipt with billing changes.
+
+Failed payments never extend access; past-due accounts retain only already paid
+time. Immediate cancellation/unpaid/paused status revokes access. End-of-period
+cancellation preserves the paid period. A browser return never grants access.
+The existing `/billing/subscription/cancel` and `/resume` endpoints manage Stripe
+subscriptions at the provider before updating local cancellation state.
+
+## Remaining before a production rollout
+
+Approve production entitlements, limits, taxes, yearly prices, and the Starter ads
+policy. Implement a reviewed live-mode rollout; this branch deliberately only
+enables isolated sandbox billing. Wire the frontend to the new Checkout API.
+Payment-method display/customer portal and upgrades/downgrades/proration are not
+included. Advance a Stripe test clock for full renewal/long-term dunning coverage.
+The existing generic `BILLING_CHECKOUT_URL` is not a selected-plan session.
 
 References: [Products](https://docs.stripe.com/api/products/create),
 [Prices](https://docs.stripe.com/api/prices/create),
