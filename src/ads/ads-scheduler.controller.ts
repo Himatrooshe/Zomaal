@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { AdsSchedulerGuard } from './ads-scheduler.guard';
+import { SnapchatAdsService } from './snapchat/snapchat-ads.service';
 import {
   TikTokAdsSyncService,
   type ScheduledTikTokAdsSyncResponse,
@@ -29,6 +30,7 @@ export class AdsSchedulerController {
     private readonly tiktokSync: TikTokAdsSyncService,
     private readonly googleSync: GoogleAdsSyncService,
     private readonly metaSync: MetaAdsSyncService,
+    private readonly snapchatSync: SnapchatAdsService,
   ) {}
 
   @Post('tiktok/sync')
@@ -50,5 +52,12 @@ export class AdsSchedulerController {
   @Header('Cache-Control', 'no-store')
   synchronizeMeta(): Promise<ScheduledMetaAdsSyncResponse> {
     return this.metaSync.syncAllActiveConnections();
+  }
+
+  @Post('snapchat/sync')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  synchronizeSnapchat() {
+    return this.snapchatSync.syncAll();
   }
 }

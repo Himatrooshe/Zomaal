@@ -1,5 +1,12 @@
 # Stripe isolated staging verification — 30 October 2026
 
+This is the staging verification snapshot, before the combined release. The
+owner later explicitly authorized a seven-day production trial extension for
+Snapchat testing, ending 6 November 2026 at 00:00:32 UTC. That administrative
+grant did not record a payment or turn on production Stripe billing. The combined
+release also includes the additive Stripe migration on production, with billing
+remaining disabled there. See the release handoff for final deployment evidence.
+
 ## Environment and boundaries
 
 - Service: https://zomaal-stripe-staging-563898960389.us-central1.run.app

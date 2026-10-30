@@ -149,6 +149,63 @@ export function validateEnvironment(
     );
 
   const googleAdsEnabled = asString(config.GOOGLE_ADS_ENABLED) || 'false';
+  const snapchatAdsEnabled = asString(config.SNAPCHAT_ADS_ENABLED) || 'false';
+  if (!['true', 'false'].includes(snapchatAdsEnabled))
+    errors.push('SNAPCHAT_ADS_ENABLED must be true or false');
+  if (snapchatAdsEnabled === 'true') {
+    for (const name of [
+      'SNAPCHAT_ADS_CLIENT_ID',
+      'SNAPCHAT_ADS_CLIENT_SECRET',
+    ]) {
+      if (!asString(config[name]))
+        errors.push(`${name} is required when Snapchat Ads is enabled`);
+    }
+    try {
+      const callback = new URL(asString(config.SNAPCHAT_ADS_REDIRECT_URI));
+      if (
+        callback.protocol !== 'https:' ||
+        callback.pathname !== '/auth/snapchat-ads/callback'
+      )
+        errors.push(
+          'Snapchat redirect must be HTTPS at /auth/snapchat-ads/callback',
+        );
+    } catch {
+      errors.push('SNAPCHAT_ADS_REDIRECT_URI must be a valid HTTPS callback');
+    }
+    if (
+      Buffer.from(asString(config.ADS_TOKEN_ENCRYPTION_KEY), 'base64')
+        .length !== 32
+    )
+      errors.push(
+        'ADS_TOKEN_ENCRYPTION_KEY must contain 32 base64-encoded bytes when Snapchat Ads is enabled',
+      );
+  }
+  for (const name of [
+    'SNAPCHAT_ADS_AUTH_SUCCESS_REDIRECT_URL',
+    'SNAPCHAT_ADS_AUTH_FAILURE_REDIRECT_URL',
+  ]) {
+    if (asString(config[name])) {
+      try {
+        const u = new URL(asString(config[name]));
+        if (u.protocol !== 'https:') errors.push(`${name} must be HTTPS`);
+      } catch {
+        errors.push(`${name} must be a valid URL`);
+      }
+    }
+  }
+  for (const [name, maximum] of [
+    ['SNAPCHAT_ADS_HTTP_TIMEOUT_MS', 60000],
+    ['SNAPCHAT_ADS_OAUTH_STATE_TTL_SECONDS', 1800],
+  ] as const) {
+    const value = asString(config[name]);
+    if (
+      value &&
+      (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > maximum)
+    )
+      errors.push(
+        `${name} must be a positive integer no greater than ${maximum}`,
+      );
+  }
   if (!['true', 'false'].includes(googleAdsEnabled))
     errors.push('GOOGLE_ADS_ENABLED must be true or false');
   if (googleAdsEnabled === 'true') {
@@ -640,6 +697,7 @@ export function validateEnvironment(
     BILLING_CHECKOUT_URL: billingCheckoutUrl,
     STRIPE_BILLING_ENABLED: stripeBillingEnabled,
     GOOGLE_ADS_ENABLED: googleAdsEnabled,
+    SNAPCHAT_ADS_ENABLED: snapchatAdsEnabled,
     META_ADS_ENABLED: metaAdsEnabled,
     PUSH_NOTIFICATIONS_ENABLED: pushNotificationsEnabled,
     FCM_PROJECT_ID: fcmProjectId,
