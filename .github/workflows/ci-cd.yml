@@ -291,6 +291,8 @@ jobs:
           # OAuth scope configuration already present on the Cloud Run service.
           # Commas inside one value must be escaped for deploy-cloudrun's parser.
           env_vars: |-
+            PRIVACY_POLICY_URL=https://zomaal-backend-563898960389.us-central1.run.app/privacy-policy/
+            SUPPORT_EMAIL=guighirfb2@gmail.com
             YOUCAN_ENABLED=true
             YOUCAN_REDIRECT_URI=https://zomaal-backend-563898960389.us-central1.run.app/auth/youcan/callback
             YOUCAN_SCOPES=*
