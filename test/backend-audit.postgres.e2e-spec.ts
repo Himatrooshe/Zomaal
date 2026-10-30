@@ -15,6 +15,7 @@ import { PermissionGuard } from '../src/access/permission.guard';
 import { StoreAccessService } from '../src/access/store-access.service';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { SubscriptionService } from '../src/billing/subscription.service';
+import { StripeBillingService } from '../src/billing/stripe-billing.service';
 import { GLOBAL_VALIDATION_PIPE_OPTIONS } from '../src/common/validation-pipe.options';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ProfileMediaService } from '../src/profile-media/profile-media.service';
@@ -80,6 +81,8 @@ postgres('Live audit regressions through HTTP and PostgreSQL', () => {
         StoreAccessService,
         PermissionGuard,
         SubscriptionService,
+        // Store/role/category auditing does not call the billing provider.
+        { provide: StripeBillingService, useValue: {} },
         { provide: PrismaService, useValue: db },
         { provide: ConfigService, useValue: new ConfigService() },
         // This suite performs no uploads and does not call object storage.
