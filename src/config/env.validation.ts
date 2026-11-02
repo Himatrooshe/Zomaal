@@ -294,6 +294,18 @@ export function validateEnvironment(
   if (billingCheckoutUrl && !/^https:\/\/\S+$/.test(billingCheckoutUrl))
     errors.push('BILLING_CHECKOUT_URL must be an https:// URL');
 
+  for (const key of [
+    'BILLING_CHECKOUT_SUCCESS_URL',
+    'BILLING_CHECKOUT_CANCEL_URL',
+  ]) {
+    const target = asString(config[key]);
+    if (
+      target &&
+      !isValidOAuthCompletionUrl(target, oauthMobileRedirectSchemes)
+    )
+      errors.push(oauthCompletionUrlError(key, oauthMobileRedirectSchemes));
+  }
+
   const stripeBillingEnabled =
     asString(config.STRIPE_BILLING_ENABLED) || 'false';
   if (!['true', 'false'].includes(stripeBillingEnabled))

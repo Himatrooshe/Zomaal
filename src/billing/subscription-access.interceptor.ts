@@ -55,16 +55,19 @@ export class SubscriptionAccessInterceptor implements NestInterceptor {
         if (!state) return next.handle();
 
         if (isWrite && !allowWhenLocked && state.isReadOnly) {
+          const canManage = userId === state.ownerUserId;
           throw new HttpException(
             {
               statusCode: HttpStatus.PAYMENT_REQUIRED,
               error: 'Payment Required',
-              message:
-                state.status === 'TRIAL_ENDED'
+              message: !canManage
+                ? 'The store subscription is inactive. You can still view data. Contact the store owner to restore access to changes.'
+                : state.status === 'TRIAL_ENDED'
                   ? 'Your free trial has ended. Choose a plan to keep making changes.'
                   : 'Your subscription has expired. Renew to keep making changes.',
               reason: 'SUBSCRIPTION_INACTIVE',
               subscriptionStatus: state.status,
+              canManage,
             },
             HttpStatus.PAYMENT_REQUIRED,
           );

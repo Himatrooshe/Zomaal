@@ -19478,6 +19478,7 @@ paths:
         - Billing — Stripe
   /billing/stripe/return:
     get:
+      description: Redirects to the configured app URL for success or cancellation. The app must refresh subscription status; a browser return is not payment confirmation. Returns informational JSON when no app URL is configured.
       operationId: StripeBilling_complete
       parameters:
         - name: outcome
@@ -19487,7 +19488,9 @@ paths:
             type: string
       responses:
         '200':
-          description: ''
+          description: Informational JSON when no app return URL is configured.
+        '303':
+          description: Return to the configured app URL.
       summary: Stripe browser return; never changes subscription access
       tags:
         - Billing — Stripe

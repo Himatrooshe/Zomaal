@@ -42,6 +42,7 @@ const run = (i: SubscriptionAccessInterceptor, c: ExecutionContext) =>
   lastValueFrom(i.intercept(c, next));
 
 const LOCKED = {
+  ownerUserId: 'u',
   status: 'TRIAL_ENDED',
   isReadOnly: true,
   features: ['ads', 'shop'],
@@ -73,6 +74,37 @@ describe('SubscriptionAccessInterceptor', () => {
     expect((err as HttpException).getResponse()).toMatchObject({
       reason: 'SUBSCRIPTION_INACTIVE',
       subscriptionStatus: 'TRIAL_ENDED',
+      canManage: true,
+      message:
+        'Your free trial has ended. Choose a plan to keep making changes.',
+    });
+  });
+
+  it('gives staff read-only guidance without offering billing management', async () => {
+    const { interceptor } = build(LOCKED);
+    const err = await run(interceptor, ctx('POST', { userId: 'staff' })).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(HttpException);
+    expect((err as HttpException).getStatus()).toBe(402);
+    expect((err as HttpException).getResponse()).toMatchObject({
+      reason: 'SUBSCRIPTION_INACTIVE',
+      subscriptionStatus: 'TRIAL_ENDED',
+      canManage: false,
+      message:
+        'The store subscription is inactive. You can still view data. Contact the store owner to restore access to changes.',
+    });
+  });
+
+  it('keeps owner renewal guidance for expired paid subscriptions', async () => {
+    const { interceptor } = build({ ...LOCKED, status: 'EXPIRED' });
+    const err = await run(interceptor, ctx('PATCH', { userId: 'u' })).catch(
+      (e: unknown) => e,
+    );
+    expect((err as HttpException).getResponse()).toMatchObject({
+      canManage: true,
+      subscriptionStatus: 'EXPIRED',
+      message: 'Your subscription has expired. Renew to keep making changes.',
     });
   });
 

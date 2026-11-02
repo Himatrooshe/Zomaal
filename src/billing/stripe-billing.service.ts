@@ -30,11 +30,7 @@ export class StripeBillingService {
     const priceId = this.stripe.priceId(plan.code, dto.interval);
     this.assertPrice(await api.prices.retrieve(priceId), plan);
     const storesUsed = await this.prisma.store.count({ where: { userId } });
-    if (plan.maxStores !== null && storesUsed > plan.maxStores) {
-      throw new ConflictException(
-        'This plan cannot cover your existing stores',
-      );
-    }
+    this.assertStoreCapacity(plan, storesUsed);
     const reservation = await this.prisma.$transaction(
       async (tx) => {
         await this.lockOwner(tx, userId);
@@ -102,11 +98,7 @@ export class StripeBillingService {
           );
         }
         const currentStoreCount = await tx.store.count({ where: { userId } });
-        if (plan.maxStores !== null && currentStoreCount > plan.maxStores) {
-          throw new ConflictException(
-            'This plan cannot cover your existing stores',
-          );
-        }
+        this.assertStoreCapacity(plan, currentStoreCount);
         const customerId =
           sub.stripeCustomerId ??
           (
@@ -389,6 +381,19 @@ export class StripeBillingService {
   private priceMinor(plan: Plan): number {
     return new Prisma.Decimal(plan.monthlyPrice ?? 0).times(100).toNumber();
   }
+  private assertStoreCapacity(plan: Plan, storesUsed: number): void {
+    if (plan.maxStores !== null && storesUsed > plan.maxStores) {
+      throw new ConflictException({
+        statusCode: 409,
+        error: 'Conflict',
+        reason: 'PLAN_STORE_LIMIT_EXCEEDED',
+        message: `You own ${storesUsed} stores. The ${plan.name} plan supports up to ${plan.maxStores} store${plan.maxStores === 1 ? '' : 's'}. Choose a plan that supports all your stores.`,
+        storesUsed,
+        maxStores: plan.maxStores,
+      });
+    }
+  }
+
   private assertPrice(price: Stripe.Price, plan: Plan) {
     if (
       price.livemode ||

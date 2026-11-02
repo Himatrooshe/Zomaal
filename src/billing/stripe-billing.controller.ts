@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
@@ -15,14 +16,16 @@ import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { AllowWhenLocked } from './billing.decorators';
 import { StripeBillingService } from './stripe-billing.service';
+import { StripeClientService } from './stripe-client.service';
 import {
   StripeCheckoutDto,
   StripeCheckoutResponseDto,
@@ -32,7 +35,10 @@ import {
 @AllowWhenLocked()
 @Controller('billing/stripe')
 export class StripeBillingController {
-  constructor(private readonly billing: StripeBillingService) {}
+  constructor(
+    private readonly billing: StripeBillingService,
+    private readonly stripe: StripeClientService,
+  ) {}
 
   @Post('checkout')
   @HttpCode(200)
@@ -53,8 +59,27 @@ export class StripeBillingController {
   @Header('Cache-Control', 'no-store')
   @ApiOperation({
     summary: 'Stripe browser return; never changes subscription access',
+    description:
+      'Redirects to the configured app URL for success or cancellation. The app must refresh subscription status; a browser return is not payment confirmation. Returns informational JSON when no app URL is configured.',
   })
-  complete(@Query('outcome') outcome?: string) {
+  @ApiResponse({
+    status: 303,
+    description: 'Return to the configured app URL.',
+  })
+  @ApiOkResponse({
+    description: 'Informational JSON when no app return URL is configured.',
+  })
+  complete(
+    @Res({ passthrough: true }) response: Response,
+    @Query('outcome') outcome?: string,
+  ) {
+    if (outcome === 'success' || outcome === 'cancel') {
+      const target = this.stripe.appReturnUrl(outcome);
+      if (target) {
+        response.redirect(303, target);
+        return;
+      }
+    }
     return {
       sandbox: true,
       message:

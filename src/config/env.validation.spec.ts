@@ -173,6 +173,42 @@ describe('validateEnvironment OAuth completion redirects', () => {
   });
 });
 
+describe('validateEnvironment billing app returns', () => {
+  const base = {
+    DATABASE_URL: 'postgresql://local/test',
+    JWT_SECRET: 'a-secure-test-jwt-secret-with-32-characters',
+    SHIPPING_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 5).toString('base64'),
+  };
+
+  it('accepts web and explicitly allowlisted mobile destinations', () => {
+    expect(() =>
+      validateEnvironment({
+        ...base,
+        OAUTH_MOBILE_REDIRECT_SCHEMES: 'zomaal',
+        BILLING_CHECKOUT_SUCCESS_URL: 'zomaal://screens/apps/plans-pricing',
+        BILLING_CHECKOUT_CANCEL_URL:
+          'https://app.example/screens/apps/plans-pricing',
+      }),
+    ).not.toThrow();
+  });
+
+  it.each(['BILLING_CHECKOUT_SUCCESS_URL', 'BILLING_CHECKOUT_CANCEL_URL'])(
+    'rejects an invalid %s',
+    (key) => {
+      for (const target of [
+        'javascript:alert(1)',
+        'data:text/html,test',
+        '/screens/apps/plans-pricing',
+        'untrusted://screens/apps/plans-pricing',
+      ]) {
+        expect(() => validateEnvironment({ ...base, [key]: target })).toThrow(
+          key,
+        );
+      }
+    },
+  );
+});
+
 describe('validateEnvironment scheduled e-commerce synchronization', () => {
   const encryptionKey = Buffer.alloc(32, 5).toString('base64');
   const base = {

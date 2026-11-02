@@ -60,6 +60,9 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_STARTER_MONTHLY_PRICE_ID=price_...
 STRIPE_PRO_MONTHLY_PRICE_ID=price_...
 STRIPE_PUBLIC_BASE_URL=https://zomaal-stripe-staging-563898960389.us-central1.run.app
+# Optional: the frontend build must use staging for login and every API call.
+BILLING_CHECKOUT_SUCCESS_URL=https://<staging-frontend>/screens/apps/plans-pricing
+BILLING_CHECKOUT_CANCEL_URL=https://<staging-frontend>/screens/apps/plans-pricing
 ```
 
 Runtime refuses live keys, a non-staging environment, or another database name.
@@ -74,6 +77,39 @@ Post `{ planId, interval: "MONTHLY" }` with the owner's bearer token to
 `/billing/stripe/checkout`; open the returned `checkoutUrl` in a browser. Repeated
 requests reuse an open session. A paid subscription blocks additional checkouts;
 plan changes/proration are intentionally not implemented.
+
+Checkout continues to return through `/billing/stripe/return`. When the matching
+`BILLING_CHECKOUT_SUCCESS_URL` or `BILLING_CHECKOUT_CANCEL_URL` is configured,
+that endpoint sends HTTP 303 to the configured destination with `outcome=success`
+or `outcome=cancel`. Existing query parameters are retained. These destinations
+are server configuration; request-supplied redirect URLs are ignored. Leave them
+empty to keep the informational JSON response. Mobile destinations can use a
+scheme explicitly allowed in `OAUTH_MOBILE_REDIRECT_SCHEMES`.
+
+The return endpoint never grants access. The app must refresh
+`GET /billing/subscription` after returning and handle a pending webhook with a
+bounded retry and a manual refresh action. Only `ACTIVE` with `isReadOnly=false`
+confirms that paid access is available. Then refresh `GET /billing/invoices` and
+the UI's subscription-dependent state. Cancelled or failed checkout must not
+unlock writes or be presented as a successful payment.
+
+All requests in a sandbox QA build must use the same staging API and staging
+login: authentication, stores, products, plans, subscription, checkout, invoices,
+cancellation and resumption. Do not attach a production token only to staging
+billing routes. Production and staging intentionally have separate authentication
+and subscription records; accepting a production token in staging alone would
+not restore production writes after a sandbox payment.
+
+Expired writes retain `402 SUBSCRIPTION_INACTIVE` and `subscriptionStatus`, and
+now include `canManage`. Owners receive `canManage=true` and plan/renewal guidance;
+staff receive `canManage=false` and a message to contact the owner while retaining
+read-only access. The frontend should use this field to show its owner billing
+prompt or staff notice instead of redirecting every user to plans.
+
+An ineligible store count returns HTTP 409 with
+`reason=PLAN_STORE_LIMIT_EXCEEDED`, `storesUsed`, and `maxStores`. The frontend
+should display the message and offer an eligible plan. Inactive stores still
+count; do not suggest archiving a store as a workaround.
 
 Register a **snapshot** event destination at
 `https://zomaal-stripe-staging-563898960389.us-central1.run.app/webhooks/stripe`,

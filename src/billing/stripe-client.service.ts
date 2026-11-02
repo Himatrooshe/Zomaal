@@ -58,4 +58,16 @@ export class StripeClientService {
       );
     return `${base.replace(/\/$/, '')}/billing/stripe/return?outcome=${outcome}`;
   }
+
+  appReturnUrl(outcome: 'success' | 'cancel'): string | null {
+    const key =
+      outcome === 'success'
+        ? 'BILLING_CHECKOUT_SUCCESS_URL'
+        : 'BILLING_CHECKOUT_CANCEL_URL';
+    const target = this.config.get<string>(key)?.trim();
+    if (!target) return null;
+    const url = new URL(target);
+    url.searchParams.set('outcome', outcome);
+    return url.toString();
+  }
 }

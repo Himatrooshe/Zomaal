@@ -71,6 +71,7 @@ postgres('Stripe billing HTTP with PostgreSQL', () => {
       return price.id;
     },
     completionUrl: () => 'https://staging.example/billing/stripe/return',
+    appReturnUrl: jest.fn<string | null, []>(() => null),
   };
 
   beforeAll(async () => {
@@ -242,6 +243,35 @@ postgres('Stripe billing HTTP with PostgreSQL', () => {
       .send({ planId, interval: 'MONTHLY', amount: 1, userId: outsider })
       .expect(400);
   });
+  it('explains store capacity conflicts without creating a checkout session', async () => {
+    currentUser = owner;
+    const extra = await db.store.create({
+      data: {
+        userId: owner,
+        ownerName: 'Test',
+        businessName: 'Extra store',
+        address: 'Test',
+        city: 'Test',
+        country: 'MA',
+        isActive: false,
+      },
+    });
+    try {
+      const response = await checkout().expect(409);
+      expect(response.body).toMatchObject({
+        statusCode: 409,
+        reason: 'PLAN_STORE_LIMIT_EXCEEDED',
+        storesUsed: 2,
+        maxStores: 1,
+      });
+      expect((response.body as { message: string }).message).toContain(
+        'Choose a plan that supports all your stores.',
+      );
+      expect(sessionCreate).not.toHaveBeenCalled();
+    } finally {
+      await db.store.delete({ where: { id: extra.id } });
+    }
+  });
   it('allows an expired owner to checkout and reuses the pending session', async () => {
     currentUser = owner;
     const first = await checkout().expect(200),
@@ -294,6 +324,21 @@ postgres('Stripe billing HTTP with PostgreSQL', () => {
       (await db.subscription.findUniqueOrThrow({ where: { userId: owner } }))
         .planId,
     ).toBeNull();
+  });
+  it('returning to the app does not activate a subscription or create an invoice', async () => {
+    billingConfig.appReturnUrl.mockReturnValueOnce(
+      'https://app.example/plans?outcome=success',
+    );
+    await request(server)
+      .get('/billing/stripe/return?outcome=success')
+      .expect(303)
+      .expect('Location', 'https://app.example/plans?outcome=success');
+    const subscription = await db.subscription.findUniqueOrThrow({
+      where: { userId: owner },
+    });
+    expect(subscription.planId).toBeNull();
+    expect(subscription.accessEndsAt.getTime()).toBeLessThan(Date.now());
+    expect(await db.billingInvoice.count({ where: { userId: owner } })).toBe(0);
   });
   it('rejects unsigned webhooks', async () => {
     await request(server)
