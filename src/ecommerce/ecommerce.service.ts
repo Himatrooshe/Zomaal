@@ -318,7 +318,7 @@ export class EcommerceService {
     query: RevenueRangeQueryDto,
   ): Promise<EcommerceHomeResponseDto> {
     const store = await this.requireStore(userId);
-    const homeQuery = defaultHomeRange(query);
+    const homeQuery = query;
     const range = validateRange(homeQuery);
     const dateFilter = buildDateFilter(range);
 
@@ -1734,7 +1734,7 @@ export class EcommerceService {
     query: RevenueRangeQueryDto,
   ): Promise<OrderStatusSummaryResponseDto> {
     const store = await this.requireStore(userId);
-    const range = validateRange(defaultHomeRange(query));
+    const range = validateRange(query);
     const buckets = await this.getOrderStatusBuckets(store, range);
 
     return {
@@ -1754,7 +1754,7 @@ export class EcommerceService {
     query: RevenueRangeQueryDto,
   ): Promise<ReturnsSummaryResponseDto> {
     const store = await this.requireStore(userId);
-    const range = validateRange(defaultHomeRange(query));
+    const range = validateRange(query);
     const buckets = await this.getReturnsBuckets(store, range);
 
     return {
@@ -2072,24 +2072,6 @@ function validateRange(
     }
   }
   return { from, to, timezone };
-}
-
-function defaultHomeRange(query: RevenueRangeQueryDto): RevenueRangeQueryDto {
-  if (query.from || query.to) {
-    return query;
-  }
-  const timezone = query.timezone || 'UTC';
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format();
-  } catch {
-    throw new BadRequestException('timezone must be a valid IANA timezone');
-  }
-  const to = dateInTimezone(new Date(), timezone);
-  return {
-    timezone,
-    from: `${to.slice(0, 7)}-01`,
-    to,
-  };
 }
 
 function emptyHomeOrderMetrics(): HomeOrderMetricsRow {

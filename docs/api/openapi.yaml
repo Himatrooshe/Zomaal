@@ -7418,7 +7418,7 @@ paths:
         - Shopify Webhooks
   /ecommerce/home:
     get:
-      description: Returns delivered revenue, net profit (order profit − ad spend − salary and other expenses), lost orders (cancelled or returned), actionable order states, cached product/customer totals, warehouse totals, shipping state, connection health, and recent orders in one request. The default period is the current calendar month in the requested timezone.
+      description: Returns delivered revenue, net profit (order profit − ad spend − salary and other expenses), lost orders (cancelled or returned), actionable order states, cached product/customer totals, warehouse totals, shipping state, connection health, and recent orders in one request. Omit dates for all time, consistently with the expense summary and ad-spend endpoints. Send explicit dates for Today, rolling periods, or the current month.
       operationId: Ecommerce_getHome
       parameters:
         - name: from
@@ -7846,7 +7846,7 @@ paths:
         - E-commerce Revenue
   /ecommerce/orders/status-summary:
     get:
-      description: Backs the Orders screen status tiles (Delivered / In Delivery / Refused / Canceled). "confirmed" is every non-cancelled order in the period (payment status is not used — COD orders stay unpaid until the courier collects on delivery); the other buckets read the normalized status of the courier shipment dispatched via Sendit/QuickLivraison/ForceLog/OzoneExpress. Orders never dispatched through one of our courier integrations (a 3rd-party plugin or manual fulfillment) only ever count toward "confirmed" or "cancelled" (via order.status). Defaults to the current calendar month.
+      description: Backs the Orders screen status tiles (Delivered / In Delivery / Refused / Canceled). "confirmed" is every non-cancelled order in the period (payment status is not used — COD orders stay unpaid until the courier collects on delivery); the other buckets read the normalized status of the courier shipment dispatched via Sendit/QuickLivraison/ForceLog/OzoneExpress. Orders never dispatched through one of our courier integrations (a 3rd-party plugin or manual fulfillment) only ever count toward "confirmed" or "cancelled" (via order.status). Omit dates for all time; send explicit dates to select a reporting period.
       operationId: Ecommerce_getOrderStatusSummary
       parameters:
         - name: from
@@ -7924,7 +7924,7 @@ paths:
         - E-commerce Revenue
   /ecommerce/returns/summary:
     get:
-      description: Backs the Returns screen tiles (Received / Pending / Damaged / Missing). Built from the per-line condition recorded via POST /ecommerce/orders/:orderId/condition — "pending" additionally reads the courier shipment status for orders whose return is in transit but not yet scanned. Defaults to the current calendar month, filtered by the parent order's processedAt.
+      description: Backs the Returns screen tiles (Received / Pending / Damaged / Missing). Built from the per-line condition recorded via POST /ecommerce/orders/:orderId/condition — "pending" additionally reads the courier shipment status for orders whose return is in transit but not yet scanned. Omit dates for all time; explicit dates filter by the parent order's processedAt.
       operationId: Ecommerce_getReturnsSummary
       parameters:
         - name: from
@@ -14634,7 +14634,7 @@ paths:
         - Expenses
   /expenses/summary:
     get:
-      description: Includes recorded expenses, tracked ad spend and signed courier financial ledger costs. Missing FX is returned separately. Courier fees use event timestamps; they are not subtracted from Home profit a second time.
+      description: Includes store currency, recorded expense totals by category ID, group totals including tracked ad spend and signed courier financial ledger costs, and a grand total. Category totals allow Packaging within OTHER to be separated from operational expenses; they exclude synthesized ad spend and courier fees. Omit dates for all time; dateFrom/dateTo are inclusive in the supplied timezone. Missing FX is returned separately. Courier fees use event timestamps; they are not subtracted from Home profit a second time.
       operationId: Expenses_summary
       parameters:
         - name: timezone
@@ -14677,7 +14677,7 @@ paths:
                 $ref: '#/components/schemas/ApiErrorDto'
       security:
         - bearer: []
-      summary: Totals by group (Expenses Breakdown screen)
+      summary: Totals by group and category (Expenses Breakdown and Home screens)
       tags:
         - Expenses
   /expenses/ad-spend:
@@ -31377,6 +31377,30 @@ components:
         - contentType
         - sizeBytes
         - previewPath
+    ExpenseCategoryTotalDto:
+      type: object
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        group:
+          type: string
+          enum:
+            - SHIPPING
+            - ADS
+            - SALARY
+            - PURCHASES
+            - OTHER
+        total:
+          type: string
+          description: Recorded expenses in this category, in store currency.
+      required:
+        - categoryId
+        - name
+        - group
+        - total
     ExpenseGroupTotalDto:
       type: object
       properties:
@@ -31396,6 +31420,15 @@ components:
     ExpenseSummaryResponseDto:
       type: object
       properties:
+        currency:
+          type: string
+          example: MAD
+          description: Store base currency for all totals.
+        byCategory:
+          description: Recorded expense totals by category ID. Use the Packaging category within OTHER to separate packaging from other operational expenses. Categories without expenses are omitted. Tracked ad spend and courier ledger fees are included only in byGroup and totalAmount.
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpenseCategoryTotalDto'
         unconvertedShippingCosts:
           description: Courier fees excluded because a real exchange rate was unavailable.
           type: array
@@ -31415,6 +31448,8 @@ components:
           items:
             $ref: '#/components/schemas/UnconvertedAmountDto'
       required:
+        - currency
+        - byCategory
         - unconvertedShippingCosts
         - totalAmount
         - byGroup

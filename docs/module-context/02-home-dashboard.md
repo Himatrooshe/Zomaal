@@ -19,6 +19,11 @@ Home only reads data; nothing is entered here. The cards pull from other modules
 | Profit / Lost orders (Lost profit) | Calculated |
 
 **Built on `GET /ecommerce/home`:**
+
+Date filters use `from` / `to` / `timezone` on Home, order status summary, and returns summary. Omitting both dates means **All time** on all three endpoints, matching `/expenses/summary` and `/expenses/ad-spend` (which use `dateFrom` / `dateTo` / `timezone`). Send explicit inclusive dates for Today, Yesterday, rolling 7D/30D, the current month, or a custom range. This replaces the previous implicit current-month default on the three ecommerce dashboard routes.
+
+`GET /expenses/summary` includes `currency` and `byCategory: [{ categoryId, name, group, total }]` alongside the existing `byGroup` and `totalAmount`. For Position 5, use the selected Packaging category ID within OTHER for Packaging and subtract its total from OTHER for Operational cost. Category names may change; retain the ID. Categories without recorded expenses are omitted and can be displayed as zero. Category totals cover recorded expense rows; tracked ad spend and courier ledger fees remain in group/grand totals and are not duplicated into category totals.
+
 - `revenue` (Q2.1): only delivered orders count. "Delivered" comes from the order financial ledger, which the courier status (or the platform timeline for plugin shipping) drives. An order returned after delivery drops out again. `GET /ecommerce/revenue/summary` and `/revenue/timeseries` use the same rule, so the screens agree.
 - `profit` (Q2.2):
   - `value` = `orderProfit` − `adSpend` − `operatingExpenses`.

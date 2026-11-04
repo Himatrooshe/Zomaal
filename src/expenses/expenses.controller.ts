@@ -226,9 +226,10 @@ export class ExpensesController {
   @Get('summary')
   @RequirePermission(PERMISSIONS.EXPENSES_VIEW)
   @ApiOperation({
-    summary: 'Totals by group (Expenses Breakdown screen)',
+    summary:
+      'Totals by group and category (Expenses Breakdown and Home screens)',
     description:
-      'Includes recorded expenses, tracked ad spend and signed courier financial ledger costs. Missing FX is returned separately. Courier fees use event timestamps; they are not subtracted from Home profit a second time.',
+      'Includes store currency, recorded expense totals by category ID, group totals including tracked ad spend and signed courier financial ledger costs, and a grand total. Category totals allow Packaging within OTHER to be separated from operational expenses; they exclude synthesized ad spend and courier fees. Omit dates for all time; dateFrom/dateTo are inclusive in the supplied timezone. Missing FX is returned separately. Courier fees use event timestamps; they are not subtracted from Home profit a second time.',
   })
   @ApiOkResponse({ type: ExpenseSummaryResponseDto })
   summary(

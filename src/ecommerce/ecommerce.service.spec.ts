@@ -948,6 +948,35 @@ describe('EcommerceService', () => {
     expect(result.lostOrders).toEqual({ orders: 4, value: '400.0000' });
     expect(result.shipping.connectedProviders).toBe(0);
 
+    // An omitted range must match the unbounded expense endpoints, including
+    // profit and lost orders when the client selects All time.
+    const allTime = await service.getHome('user-id', {
+      timezone: 'Asia/Dhaka',
+    });
+    expect(allTime.revenue.period).toEqual({
+      from: null,
+      to: null,
+      timezone: 'Asia/Dhaka',
+    });
+    expect(
+      (
+        await service.getOrderStatusSummary('user-id', {
+          timezone: 'Asia/Dhaka',
+        })
+      ).period,
+    ).toEqual(allTime.revenue.period);
+    expect(
+      (await service.getReturnsSummary('user-id', { timezone: 'Asia/Dhaka' }))
+        .period,
+    ).toEqual(allTime.revenue.period);
+    const upperBoundOnly = { to: '2026-01-31', timezone: 'Asia/Dhaka' };
+    expect(
+      (await service.getOrderStatusSummary('user-id', upperBoundOnly)).period,
+    ).toEqual({ from: null, ...upperBoundOnly });
+    expect(
+      (await service.getReturnsSummary('user-id', upperBoundOnly)).period,
+    ).toEqual({ from: null, ...upperBoundOnly });
+
     quickLivraisonConnection.mockResolvedValue({ userId: 'user-id' });
     forceLogConnection.mockResolvedValue({ userId: 'user-id' });
     ozoneExpressConnection.mockResolvedValue({ userId: 'user-id' });

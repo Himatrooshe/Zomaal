@@ -121,7 +121,7 @@ export class EcommerceController {
   @ApiOperation({
     summary: 'Get the consolidated e-commerce home-screen payload',
     description:
-      'Returns delivered revenue, net profit (order profit − ad spend − salary and other expenses), lost orders (cancelled or returned), actionable order states, cached product/customer totals, warehouse totals, shipping state, connection health, and recent orders in one request. The default period is the current calendar month in the requested timezone.',
+      'Returns delivered revenue, net profit (order profit − ad spend − salary and other expenses), lost orders (cancelled or returned), actionable order states, cached product/customer totals, warehouse totals, shipping state, connection health, and recent orders in one request. Omit dates for all time, consistently with the expense summary and ad-spend endpoints. Send explicit dates for Today, rolling periods, or the current month.',
   })
   @ApiOkResponse({
     type: EcommerceHomeResponseDto,
@@ -309,7 +309,7 @@ export class EcommerceController {
       'the other buckets read the normalized status of the courier shipment dispatched via ' +
       'Sendit/QuickLivraison/ForceLog/OzoneExpress. Orders never dispatched through one of ' +
       'our courier integrations (a 3rd-party plugin or manual fulfillment) only ever count ' +
-      'toward "confirmed" or "cancelled" (via order.status). Defaults to the current calendar month.',
+      'toward "confirmed" or "cancelled" (via order.status). Omit dates for all time; send explicit dates to select a reporting period.',
   })
   @ApiOkResponse({
     type: OrderStatusSummaryResponseDto,
@@ -336,7 +336,7 @@ export class EcommerceController {
       'Backs the Returns screen tiles (Received / Pending / Damaged / Missing). Built from ' +
       'the per-line condition recorded via POST /ecommerce/orders/:orderId/condition — ' +
       '"pending" additionally reads the courier shipment status for orders whose return is ' +
-      'in transit but not yet scanned. Defaults to the current calendar month, filtered by ' +
+      'in transit but not yet scanned. Omit dates for all time; explicit dates filter by ' +
       "the parent order's processedAt.",
   })
   @ApiOkResponse({

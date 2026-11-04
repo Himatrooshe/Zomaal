@@ -248,6 +248,16 @@ export class ExpenseGroupTotalDto {
   @ApiProperty() total!: string;
 }
 
+export class ExpenseCategoryTotalDto {
+  @ApiProperty({ format: 'uuid' }) categoryId!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ enum: ExpenseGroup }) group!: ExpenseGroup;
+  @ApiProperty({
+    description: 'Recorded expenses in this category, in store currency.',
+  })
+  total!: string;
+}
+
 export class ExpenseSummaryQueryDto {
   @ApiPropertyOptional({
     default: 'UTC',
@@ -270,6 +280,19 @@ export class ExpenseSummaryQueryDto {
 }
 
 export class ExpenseSummaryResponseDto {
+  @ApiProperty({
+    example: 'MAD',
+    description: 'Store base currency for all totals.',
+  })
+  currency!: string;
+
+  @ApiProperty({
+    type: [ExpenseCategoryTotalDto],
+    description:
+      'Recorded expense totals by category ID. Use the Packaging category within OTHER to separate packaging from other operational expenses. Categories without expenses are omitted. Tracked ad spend and courier ledger fees are included only in byGroup and totalAmount.',
+  })
+  byCategory!: ExpenseCategoryTotalDto[];
+
   @ApiProperty({
     type: [UnconvertedAmountDto],
     description:

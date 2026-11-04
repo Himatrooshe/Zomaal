@@ -326,15 +326,23 @@ describe('ExpensesService', () => {
     prisma.expense.findMany.mockResolvedValue([
       {
         amount: new Prisma.Decimal('100'),
-        category: { group: ExpenseGroup.SHIPPING },
+        category: {
+          id: 'shipping',
+          name: 'Shipping',
+          group: ExpenseGroup.SHIPPING,
+        },
       },
       {
         amount: new Prisma.Decimal('50'),
-        category: { group: ExpenseGroup.SHIPPING },
+        category: {
+          id: 'shipping',
+          name: 'Shipping',
+          group: ExpenseGroup.SHIPPING,
+        },
       },
       {
         amount: new Prisma.Decimal('25'),
-        category: { group: ExpenseGroup.OTHER },
+        category: CATEGORY,
       },
     ]);
 
@@ -349,6 +357,59 @@ describe('ExpensesService', () => {
         { group: ExpenseGroup.SALARY, total: '0.00' },
         { group: ExpenseGroup.PURCHASES, total: '0.00' },
       ]),
+    );
+  });
+
+  it('separates packaging by category ID using exact decimal sums', async () => {
+    const { service, prisma } = build();
+    prisma.expense.findMany.mockResolvedValue([
+      { amount: new Prisma.Decimal('0.10'), category: CATEGORY },
+      { amount: new Prisma.Decimal('0.20'), category: CATEGORY },
+      {
+        amount: new Prisma.Decimal('7.66'),
+        category: { ...CATEGORY, id: 'rent', name: 'Rent' },
+      },
+    ]);
+    const result = await service.summary('store-1', {
+      dateFrom: '2026-11-03',
+      dateTo: '2026-11-03',
+      timezone: 'Asia/Dhaka',
+    });
+    expect(result.currency).toBe('MAD');
+    expect(result.byCategory).toEqual([
+      { categoryId: 'cat-1', name: 'Packaging', group: 'OTHER', total: '0.30' },
+      { categoryId: 'rent', name: 'Rent', group: 'OTHER', total: '7.66' },
+    ]);
+    expect(result.byGroup.find((group) => group.group === 'OTHER')?.total).toBe(
+      '7.96',
+    );
+    expect(result.totalAmount).toBe('7.96');
+    expect(prisma.expense.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          storeId: 'store-1',
+          spentAt: {
+            gte: new Date('2026-11-02T18:00:00.000Z'),
+            lt: new Date('2026-11-03T18:00:00.000Z'),
+          },
+        },
+      }),
+    );
+  });
+
+  it('returns store currency and empty categories when there are no expenses', async () => {
+    const { service, prisma } = build();
+    prisma.expense.findMany.mockResolvedValue([]);
+    prisma.store.findUniqueOrThrow.mockResolvedValue({
+      id: 'store-1',
+      baseCurrency: 'USD',
+    });
+    const result = await service.summary('store-1', {});
+    expect(result.currency).toBe('USD');
+    expect(result.byCategory).toEqual([]);
+    expect(result.totalAmount).toBe('0.00');
+    expect(prisma.expense.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { storeId: 'store-1' } }),
     );
   });
 
@@ -568,7 +629,7 @@ describe('ExpensesService', () => {
     prisma.expense.findMany.mockResolvedValue([
       {
         amount: new Prisma.Decimal('25'),
-        category: { group: ExpenseGroup.OTHER },
+        category: CATEGORY,
       },
     ]);
     adsSpend.getTotals.mockResolvedValue({
@@ -592,6 +653,14 @@ describe('ExpensesService', () => {
       { from: '2026-10-01', to: '2026-10-18' },
     );
     expect(result.totalAmount).toBe('145.50');
+    expect(result.byCategory).toEqual([
+      {
+        categoryId: 'cat-1',
+        name: 'Packaging',
+        group: 'OTHER',
+        total: '25.00',
+      },
+    ]);
     expect(result.byGroup).toEqual(
       expect.arrayContaining([
         { group: ExpenseGroup.ADS, total: '120.50' },

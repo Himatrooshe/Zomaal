@@ -38,6 +38,13 @@ type Expense = {
   notes: string | null;
 };
 type Summary = {
+  currency: string;
+  byCategory: {
+    categoryId: string;
+    name: string;
+    group: string;
+    total: string;
+  }[];
   totalAmount: string;
   byGroup: { group: string; total: string }[];
   unconvertedShippingCosts: { currency: string; amount: string }[];
@@ -572,6 +579,62 @@ postgres('Expenses production regressions with PostgreSQL', () => {
     });
     return { order, event };
   }
+  it('separates category totals by ID across dates, renames and stores', async () => {
+    const packaging = await db.expenseCategory.create({
+      data: { storeId, name: 'Packaging', group: 'OTHER' },
+    });
+    await create({
+      categoryId: packaging.id,
+      amount: '12.34',
+      spentAt: '2026-10-19',
+    });
+    await create({
+      categoryId: packaging.id,
+      amount: '0.66',
+      spentAt: '2026-10-19',
+    });
+    await create({ amount: '7.00', spentAt: '2026-10-19' });
+    await create({
+      categoryId: packaging.id,
+      amount: '100.00',
+      spentAt: '2026-10-18',
+    });
+    const renamed = 'Packaging supplies';
+    await request(server)
+      .patch(`/expenses/categories/${packaging.id}`)
+      .send({ name: renamed })
+      .expect(200);
+    const query =
+      '/expenses/summary?dateFrom=2026-10-19&dateTo=2026-10-19&timezone=UTC';
+    const response = await request(server).get(query).expect(200);
+    const summary = response.body as Summary;
+    expect(summary.currency).toBe('MAD');
+    expect(summary.byCategory).toEqual(
+      expect.arrayContaining([
+        {
+          categoryId: packaging.id,
+          name: renamed,
+          group: 'OTHER',
+          total: '13.00',
+        },
+        { categoryId, name: 'Other', group: 'OTHER', total: '7.00' },
+      ]),
+    );
+    expect(summary.byCategory).toHaveLength(2);
+    expect(summary.totalAmount).toBe('20.00');
+    expect(
+      summary.byGroup.find((group) => group.group === 'OTHER')?.total,
+    ).toBe('20.00');
+    const foreign = await request(server)
+      .get(query)
+      .set('x-foreign', '1')
+      .expect(200);
+    expect((foreign.body as Summary).byCategory).toEqual([]);
+    expect((foreign.body as Summary).totalAmount).toBe('0.00');
+    const allTime = await request(server).get('/expenses/summary').expect(200);
+    expect((allTime.body as Summary).totalAmount).toBe('120.00');
+  });
+
   it('aggregates courier cost and legacy reversal signs, retaining return costs', async () => {
     const { event, order } = await fee('REVENUE_RECOGNIZED', '30');
     await db.ecommerceOrderFinancialEvent.create({
@@ -597,6 +660,7 @@ postgres('Expenses production regressions with PostgreSQL', () => {
       '48.00',
     );
     expect(summary.totalAmount).toBe('48.00');
+    expect(summary.byCategory).toEqual([]);
     expect(await db.expense.count({ where: { storeId } })).toBe(0);
     expect(event.id).toBeTruthy();
   });
@@ -656,6 +720,72 @@ postgres('Expenses production regressions with PostgreSQL', () => {
     expect(home.profit.value).toBe('-35.0000');
     expect(home.profit.operatingExpenses).toBe('5.0000');
   });
+  it('includes previous-month profit, cancelled orders and returns in All time', async () => {
+    const historical = new Date('2020-01-15T12:00:00Z');
+    const { order } = await fee('SHIPPING_LOSS', '30', 'MAD', historical);
+    await db.ecommerceOrder.update({
+      where: { id: order.id },
+      data: { status: 'CANCELLED', netSales: '100', totalCollected: '100' },
+    });
+    await db.ecommerceOrderLine.create({
+      data: {
+        orderId: order.id,
+        externalLineId: randomUUID(),
+        name: 'Historical returned item',
+        quantity: 2,
+        unitPrice: '50',
+        totalPrice: '100',
+        currency: 'MAD',
+        condition: 'DAMAGED',
+        damageCost: '8',
+      },
+    });
+    await create({ spentAt: historical.toISOString(), amount: '5.00' });
+    const ecommerce = new EcommerceService(
+      db as PrismaService,
+      {} as never,
+      {} as never,
+      {} as never,
+      currency,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      access,
+      ads,
+      costs,
+    );
+    const query = { timezone: 'Asia/Dhaka' };
+    const home = await ecommerce.getHome(owner, query);
+    const orders = await ecommerce.getOrderStatusSummary(owner, query);
+    const returns = await ecommerce.getReturnsSummary(owner, query);
+    expect(home.revenue.period).toEqual({
+      from: null,
+      to: null,
+      timezone: 'Asia/Dhaka',
+    });
+    expect(orders.period).toEqual(home.revenue.period);
+    expect(returns.period).toEqual(home.revenue.period);
+    expect(home.profit.value).toBe('-35.0000');
+    expect(home.lostOrders).toEqual({ orders: 1, value: '100.0000' });
+    expect(orders.cancelled).toEqual({ orders: 1, value: '100.0000' });
+    expect(returns.damaged).toEqual({ items: 2, value: '8.0000' });
+    const current = {
+      from: '2026-11-01',
+      to: '2026-11-04',
+      timezone: 'Asia/Dhaka',
+    };
+    expect((await ecommerce.getHome(owner, current)).profit.value).toBe(
+      '0.0000',
+    );
+    expect(
+      (await ecommerce.getOrderStatusSummary(owner, current)).cancelled.orders,
+    ).toBe(0);
+    expect(
+      (await ecommerce.getReturnsSummary(owner, current)).damaged.items,
+    ).toBe(0);
+  });
+
   it('keeps tracked daily ad spend in its provider calendar month and exposes missing rates', async () => {
     const now = new Date(),
       month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;

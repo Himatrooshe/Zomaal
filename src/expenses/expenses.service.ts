@@ -300,20 +300,29 @@ export class ExpensesService {
         : {}),
     };
 
+    const store = await this.requireStore(storeId);
     const [expenses, adSpend, shipping] = await Promise.all([
       this.prisma.expense.findMany({
         where,
-        select: { amount: true, category: { select: { group: true } } },
+        select: {
+          amount: true,
+          category: { select: { id: true, name: true, group: true } },
+        },
       }),
-      this.requireStore(storeId).then((store) =>
-        this.adsSpend.getTotals(store, toAdSpendRange(query)),
-      ),
-      this.requireStore(storeId).then((store) =>
-        this.courierCosts.getTotals(store, query),
-      ),
+      this.adsSpend.getTotals(store, toAdSpendRange(query)),
+      this.courierCosts.getTotals(store, query),
     ]);
 
     const totals = new Map<ExpenseGroup, Prisma.Decimal>();
+    const categories = new Map<
+      string,
+      {
+        categoryId: string;
+        name: string;
+        group: ExpenseGroup;
+        total: Prisma.Decimal;
+      }
+    >();
     let totalAmount = new Prisma.Decimal(0);
     for (const expense of expenses) {
       const group = expense.category.group;
@@ -322,6 +331,15 @@ export class ExpensesService {
         (totals.get(group) ?? new Prisma.Decimal(0)).plus(expense.amount),
       );
       totalAmount = totalAmount.plus(expense.amount);
+      const category = expense.category;
+      const categoryTotal = categories.get(category.id) ?? {
+        categoryId: category.id,
+        name: category.name,
+        group: category.group,
+        total: new Prisma.Decimal(0),
+      };
+      categoryTotal.total = categoryTotal.total.plus(expense.amount);
+      categories.set(category.id, categoryTotal);
     }
     totals.set(
       ExpenseGroup.ADS,
@@ -338,6 +356,10 @@ export class ExpensesService {
     totalAmount = totalAmount.plus(adSpend.spend).plus(shipping.total);
 
     return {
+      currency: store.baseCurrency,
+      byCategory: [...categories.values()]
+        .sort((a, b) => a.categoryId.localeCompare(b.categoryId))
+        .map((category) => ({ ...category, total: category.total.toFixed(2) })),
       totalAmount: totalAmount.toFixed(2),
       byGroup: Object.values(ExpenseGroup).map((group) => ({
         group,
