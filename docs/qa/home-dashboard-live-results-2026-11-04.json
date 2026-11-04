@@ -1,0 +1,1432 @@
+{
+  "checkedAt": "2026-11-04T13:22:03.659Z",
+  "base": "https://zomaal-backend-563898960389.us-central1.run.app",
+  "checks": [
+    {
+      "name": "production health",
+      "passed": true
+    },
+    {
+      "name": "deployed OpenAPI exposes currency and category totals",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/home schema {\"from\":\"2026-11-04\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/orders/status-summary schema {\"from\":\"2026-11-04\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/summary schema {\"from\":\"2026-11-04\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/ad-spend schema {\"from\":\"2026-11-04\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/returns/summary schema {\"from\":\"2026-11-04\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/home schema {\"from\":\"2026-11-03\",\"to\":\"2026-11-03\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/orders/status-summary schema {\"from\":\"2026-11-03\",\"to\":\"2026-11-03\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/summary schema {\"from\":\"2026-11-03\",\"to\":\"2026-11-03\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/ad-spend schema {\"from\":\"2026-11-03\",\"to\":\"2026-11-03\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/returns/summary schema {\"from\":\"2026-11-03\",\"to\":\"2026-11-03\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/home schema {\"from\":\"2026-10-29\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/orders/status-summary schema {\"from\":\"2026-10-29\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/summary schema {\"from\":\"2026-10-29\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/ad-spend schema {\"from\":\"2026-10-29\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/returns/summary schema {\"from\":\"2026-10-29\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/home schema {\"from\":\"2026-10-06\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/orders/status-summary schema {\"from\":\"2026-10-06\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/summary schema {\"from\":\"2026-10-06\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/ad-spend schema {\"from\":\"2026-10-06\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/returns/summary schema {\"from\":\"2026-10-06\",\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/home schema {\"from\":\"2026-10-15\",\"to\":\"2026-10-23\",\"timezone\":\"America/New_York\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/orders/status-summary schema {\"from\":\"2026-10-15\",\"to\":\"2026-10-23\",\"timezone\":\"America/New_York\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/summary schema {\"from\":\"2026-10-15\",\"to\":\"2026-10-23\",\"timezone\":\"America/New_York\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/ad-spend schema {\"from\":\"2026-10-15\",\"to\":\"2026-10-23\",\"timezone\":\"America/New_York\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/returns/summary schema {\"from\":\"2026-10-15\",\"to\":\"2026-10-23\",\"timezone\":\"America/New_York\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/home schema {\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/orders/status-summary schema {\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/summary schema {\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/ad-spend schema {\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/returns/summary schema {\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/home schema {\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/orders/status-summary schema {\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/summary schema {\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/expenses/ad-spend schema {\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "/ecommerce/returns/summary schema {\"to\":\"2026-11-04\",\"timezone\":\"Asia/Dhaka\"}",
+      "passed": true
+    },
+    {
+      "name": "authentication and invalid date/timezone/unknown-query rejection",
+      "passed": true
+    },
+    {
+      "name": "allTime expense delta",
+      "passed": true
+    },
+    {
+      "name": "allTime operating expense delta",
+      "passed": true
+    },
+    {
+      "name": "allTime net profit delta",
+      "passed": true
+    },
+    {
+      "name": "allTime source order profit unchanged",
+      "passed": true
+    },
+    {
+      "name": "allTime category total",
+      "passed": true
+    },
+    {
+      "name": "allTime currency matches Home",
+      "passed": true
+    },
+    {
+      "name": "todayDhaka expense delta",
+      "passed": true
+    },
+    {
+      "name": "todayDhaka operating expense delta",
+      "passed": true
+    },
+    {
+      "name": "todayDhaka net profit delta",
+      "passed": true
+    },
+    {
+      "name": "todayDhaka source order profit unchanged",
+      "passed": true
+    },
+    {
+      "name": "todayDhaka category total",
+      "passed": true
+    },
+    {
+      "name": "todayDhaka currency matches Home",
+      "passed": true
+    },
+    {
+      "name": "todayUTC expense delta",
+      "passed": true
+    },
+    {
+      "name": "todayUTC operating expense delta",
+      "passed": true
+    },
+    {
+      "name": "todayUTC net profit delta",
+      "passed": true
+    },
+    {
+      "name": "todayUTC source order profit unchanged",
+      "passed": true
+    },
+    {
+      "name": "todayUTC category total",
+      "passed": true
+    },
+    {
+      "name": "todayUTC currency matches Home",
+      "passed": true
+    },
+    {
+      "name": "yesterdayDhaka expense delta",
+      "passed": true
+    },
+    {
+      "name": "yesterdayDhaka operating expense delta",
+      "passed": true
+    },
+    {
+      "name": "yesterdayDhaka net profit delta",
+      "passed": true
+    },
+    {
+      "name": "yesterdayDhaka source order profit unchanged",
+      "passed": true
+    },
+    {
+      "name": "yesterdayDhaka category total",
+      "passed": true
+    },
+    {
+      "name": "yesterdayDhaka currency matches Home",
+      "passed": true
+    },
+    {
+      "name": "historical expense delta",
+      "passed": true
+    },
+    {
+      "name": "historical operating expense delta",
+      "passed": true
+    },
+    {
+      "name": "historical net profit delta",
+      "passed": true
+    },
+    {
+      "name": "historical source order profit unchanged",
+      "passed": true
+    },
+    {
+      "name": "historical category total",
+      "passed": true
+    },
+    {
+      "name": "historical currency matches Home",
+      "passed": true
+    },
+    {
+      "name": "category rename retains stable ID",
+      "passed": true
+    },
+    {
+      "name": "packaging category total",
+      "passed": true
+    },
+    {
+      "name": "DST day expense delta",
+      "passed": true
+    },
+    {
+      "name": "DST day Home operating expense delta",
+      "passed": true
+    },
+    {
+      "name": "DST day Home net profit delta",
+      "passed": true
+    },
+    {
+      "name": "DST day category excludes preceding and following midnight",
+      "passed": true
+    },
+    {
+      "name": "allTime expense baseline restored",
+      "passed": true
+    },
+    {
+      "name": "allTime profit baseline restored",
+      "passed": true
+    },
+    {
+      "name": "allTime fixture categories absent",
+      "passed": true
+    },
+    {
+      "name": "todayDhaka expense baseline restored",
+      "passed": true
+    },
+    {
+      "name": "todayDhaka profit baseline restored",
+      "passed": true
+    },
+    {
+      "name": "todayDhaka fixture categories absent",
+      "passed": true
+    },
+    {
+      "name": "todayUTC expense baseline restored",
+      "passed": true
+    },
+    {
+      "name": "todayUTC profit baseline restored",
+      "passed": true
+    },
+    {
+      "name": "todayUTC fixture categories absent",
+      "passed": true
+    },
+    {
+      "name": "yesterdayDhaka expense baseline restored",
+      "passed": true
+    },
+    {
+      "name": "yesterdayDhaka profit baseline restored",
+      "passed": true
+    },
+    {
+      "name": "yesterdayDhaka fixture categories absent",
+      "passed": true
+    },
+    {
+      "name": "historical expense baseline restored",
+      "passed": true
+    },
+    {
+      "name": "historical profit baseline restored",
+      "passed": true
+    },
+    {
+      "name": "historical fixture categories absent",
+      "passed": true
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/docs/openapi.json",
+      "query": {},
+      "http": 200
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "query": {},
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-03",
+        "to": "2026-11-03",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {
+        "from": "2026-11-03",
+        "to": "2026-11-03",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-03",
+        "dateTo": "2026-11-03",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {
+        "dateFrom": "2026-11-03",
+        "dateTo": "2026-11-03",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {
+        "from": "2026-11-03",
+        "to": "2026-11-03",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-10-29",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {
+        "from": "2026-10-29",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-10-29",
+        "dateTo": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {
+        "dateFrom": "2026-10-29",
+        "dateTo": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {
+        "from": "2026-10-29",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-10-06",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {
+        "from": "2026-10-06",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-10-06",
+        "dateTo": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {
+        "dateFrom": "2026-10-06",
+        "dateTo": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {
+        "from": "2026-10-06",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-10-15",
+        "to": "2026-10-23",
+        "timezone": "America/New_York"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {
+        "from": "2026-10-15",
+        "to": "2026-10-23",
+        "timezone": "America/New_York"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-10-15",
+        "dateTo": "2026-10-23",
+        "timezone": "America/New_York"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {
+        "dateFrom": "2026-10-15",
+        "dateTo": "2026-10-23",
+        "timezone": "America/New_York"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {
+        "from": "2026-10-15",
+        "to": "2026-10-23",
+        "timezone": "America/New_York"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateTo": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {
+        "dateTo": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {},
+      "http": 401
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-03"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-02-30",
+        "to": "2026-11-04"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "Invalid/Zone"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "unexpected": "1"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {},
+      "http": 401
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-03"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {
+        "from": "2026-02-30",
+        "to": "2026-11-04"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "Invalid/Zone"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/orders/status-summary",
+      "query": {
+        "unexpected": "1"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {},
+      "http": 401
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-03"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-02-30",
+        "dateTo": "2026-11-04"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-04",
+        "timezone": "Invalid/Zone"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "unexpected": "1"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {},
+      "http": 401
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-03"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {
+        "dateFrom": "2026-02-30",
+        "dateTo": "2026-11-04"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-04",
+        "timezone": "Invalid/Zone"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/ad-spend",
+      "query": {
+        "unexpected": "1"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {},
+      "http": 401
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-03"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {
+        "from": "2026-02-30",
+        "to": "2026-11-04"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "Invalid/Zone"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/returns/summary",
+      "query": {
+        "unexpected": "1"
+      },
+      "http": 400
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "UTC"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-04",
+        "timezone": "UTC"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-03",
+        "to": "2026-11-03",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-03",
+        "dateTo": "2026-11-03",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-10-15",
+        "to": "2026-10-15",
+        "timezone": "UTC"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-10-15",
+        "dateTo": "2026-10-15",
+        "timezone": "UTC"
+      },
+      "http": 200
+    },
+    {
+      "method": "POST",
+      "path": "/expenses/categories",
+      "query": {},
+      "http": 201
+    },
+    {
+      "method": "POST",
+      "path": "/expenses/categories",
+      "query": {},
+      "http": 201
+    },
+    {
+      "method": "POST",
+      "path": "/expenses",
+      "query": {},
+      "http": 201
+    },
+    {
+      "method": "POST",
+      "path": "/expenses",
+      "query": {},
+      "http": 201
+    },
+    {
+      "method": "POST",
+      "path": "/expenses",
+      "query": {},
+      "http": 201
+    },
+    {
+      "method": "POST",
+      "path": "/expenses",
+      "query": {},
+      "http": 201
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "UTC"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-04",
+        "timezone": "UTC"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-03",
+        "to": "2026-11-03",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-03",
+        "dateTo": "2026-11-03",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-10-15",
+        "to": "2026-10-15",
+        "timezone": "UTC"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-10-15",
+        "dateTo": "2026-10-15",
+        "timezone": "UTC"
+      },
+      "http": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/expenses/categories/a197c815-51c0-4ff6-8220-1760cef890dc",
+      "query": {},
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {},
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-03-08",
+        "to": "2026-03-08",
+        "timezone": "America/New_York"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-03-08",
+        "dateTo": "2026-03-08",
+        "timezone": "America/New_York"
+      },
+      "http": 200
+    },
+    {
+      "method": "POST",
+      "path": "/expenses",
+      "query": {},
+      "http": 201
+    },
+    {
+      "method": "POST",
+      "path": "/expenses",
+      "query": {},
+      "http": 201
+    },
+    {
+      "method": "POST",
+      "path": "/expenses",
+      "query": {},
+      "http": 201
+    },
+    {
+      "method": "POST",
+      "path": "/expenses",
+      "query": {},
+      "http": 201
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-03-08",
+        "to": "2026-03-08",
+        "timezone": "America/New_York"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-03-08",
+        "dateTo": "2026-03-08",
+        "timezone": "America/New_York"
+      },
+      "http": 200
+    },
+    {
+      "method": "DELETE",
+      "path": "/expenses/56f8445d-9b65-49b6-b711-c5cc47085966",
+      "query": {},
+      "http": 204
+    },
+    {
+      "method": "DELETE",
+      "path": "/expenses/7e9e36e1-3e0d-4744-b9c3-cdc668d8ba6d",
+      "query": {},
+      "http": 204
+    },
+    {
+      "method": "DELETE",
+      "path": "/expenses/204fd174-ad1c-4a9d-a033-9a105432a9e8",
+      "query": {},
+      "http": 204
+    },
+    {
+      "method": "DELETE",
+      "path": "/expenses/99390246-91bc-4d80-bf48-6008e856ede3",
+      "query": {},
+      "http": 204
+    },
+    {
+      "method": "DELETE",
+      "path": "/expenses/3fefedbd-5bd4-4188-a63b-19f5d4355736",
+      "query": {},
+      "http": 204
+    },
+    {
+      "method": "DELETE",
+      "path": "/expenses/c439474f-62fd-4be0-9d93-c370867be533",
+      "query": {},
+      "http": 204
+    },
+    {
+      "method": "DELETE",
+      "path": "/expenses/b61bdedc-3ad6-460d-95e7-5516d0546a75",
+      "query": {},
+      "http": 204
+    },
+    {
+      "method": "DELETE",
+      "path": "/expenses/1b832af1-fa0a-4b09-8348-264f018aa1e2",
+      "query": {},
+      "http": 204
+    },
+    {
+      "method": "DELETE",
+      "path": "/expenses/categories/d977945d-b3ae-48f8-b501-09950d13305c",
+      "query": {},
+      "http": 204
+    },
+    {
+      "method": "DELETE",
+      "path": "/expenses/categories/a197c815-51c0-4ff6-8220-1760cef890dc",
+      "query": {},
+      "http": 204
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-04",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-04",
+        "to": "2026-11-04",
+        "timezone": "UTC"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-04",
+        "dateTo": "2026-11-04",
+        "timezone": "UTC"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-11-03",
+        "to": "2026-11-03",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-11-03",
+        "dateTo": "2026-11-03",
+        "timezone": "Asia/Dhaka"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/ecommerce/home",
+      "query": {
+        "from": "2026-10-15",
+        "to": "2026-10-15",
+        "timezone": "UTC"
+      },
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "path": "/expenses/summary",
+      "query": {
+        "dateFrom": "2026-10-15",
+        "dateTo": "2026-10-15",
+        "timezone": "UTC"
+      },
+      "http": 200
+    }
+  ],
+  "cleanup": [
+    {
+      "type": "expense",
+      "deleted": true
+    },
+    {
+      "type": "expense",
+      "deleted": true
+    },
+    {
+      "type": "expense",
+      "deleted": true
+    },
+    {
+      "type": "expense",
+      "deleted": true
+    },
+    {
+      "type": "expense",
+      "deleted": true
+    },
+    {
+      "type": "expense",
+      "deleted": true
+    },
+    {
+      "type": "expense",
+      "deleted": true
+    },
+    {
+      "type": "expense",
+      "deleted": true
+    },
+    {
+      "type": "category",
+      "deleted": true
+    },
+    {
+      "type": "category",
+      "deleted": true
+    }
+  ],
+  "passed": true,
+  "deployedCommit": "923b4d7df8cdd0ee75f1f940e9cf93696907dabb",
+  "workflowUrl": "https://github.com/Himatrooshe/Zomaal/actions/runs/41835489793"
+}
