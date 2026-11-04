@@ -11,6 +11,12 @@ Initial review: 4 November 2026. The findings below describe the original deploy
 - Local verification: 146 unit suites / 1,442 tests passed; build and OpenAPI generation passed. Formatting passed for all changed TypeScript files. Lint comparison against HEAD found no added violations; two existing unit-test files retain 29 pre-existing errors in total.
 - PostgreSQL workflow verification uses a dedicated local database. Production verification and deployment evidence are recorded separately after release.
 
+### Populated live-test finding and correction
+
+The first production verification of commit `c2feefd` passed schema/range checks but found that an expense at 01:00 in Asia/Dhaka appeared in the expense summary while Home operating expenses excluded it. All four temporary expenses and both temporary categories were deleted successfully after that failed assertion. HTTP 200 checks with zero data had not exposed this defect.
+
+The ecommerce SQL compared UTC timestamp columns with `date AT TIME ZONE` expressions whose implicit PostgreSQL casts shifted the boundaries. Home operating expenses and shared order-date filters now use explicit UTC instants from the existing DST-aware `dateInZone` helper, matching the expense endpoints. Revenue timeseries grouping explicitly interprets stored timestamps as UTC before converting to the requested timezone. PostgreSQL regressions verify inclusive local midnight, exclusion at the following midnight, profit, lost orders, damaged returns and expense totals in Asia/Dhaka and America/New_York on the DST transition date. The local workflow suite now passes 61 tests.
+
 ## Result
 
 The five existing routes support the data sources for the six dial views. No additional dial-specific route is necessary. The separate Packaging card is not supported by the current expense summary response. The report's backend limitation is correct; complete issue acceptance is not established by this review.

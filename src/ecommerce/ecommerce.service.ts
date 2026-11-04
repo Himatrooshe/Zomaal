@@ -1,6 +1,7 @@
 import { requiredCurrencyConverter } from '../currency/required-currency-converter';
 import { lockDuplicateReviewStore } from '../customers/duplicate-review-lock.util';
 import { assertPersistedMoney } from '../common/persisted-money';
+import { dateInZone } from '../common/calendar-date.util';
 import { CourierCostsService } from '../expenses/courier-costs.service';
 import {
   findManualOrderRetry,
@@ -1695,7 +1696,7 @@ export class EcommerceService {
 
     const rows = await this.prisma.$queryRaw<AggregateRow[]>(Prisma.sql`
       SELECT
-        (orders."processedAt" AT TIME ZONE ${range.timezone})::date AS "date",
+        (orders."processedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${range.timezone})::date AS "date",
         orders."currency",
         COUNT(*)::int AS "orderCount",
         COALESCE(SUM(orders."grossSales"), 0) AS "grossSales",
@@ -2096,10 +2097,10 @@ function buildDateFilter(range: {
   timezone: string;
 }): Prisma.Sql {
   const from = range.from
-    ? Prisma.sql`AND orders."processedAt" >= (${range.from}::date AT TIME ZONE ${range.timezone})`
+    ? Prisma.sql`AND orders."processedAt" >= ${dateInZone(range.from, range.timezone)}`
     : Prisma.empty;
   const to = range.to
-    ? Prisma.sql`AND orders."processedAt" < ((${range.to}::date + INTERVAL '1 day') AT TIME ZONE ${range.timezone})`
+    ? Prisma.sql`AND orders."processedAt" < ${dateInZone(addUtcDays(range.to, 1), range.timezone)}`
     : Prisma.empty;
   return Prisma.sql`${from} ${to}`;
 }
@@ -2110,10 +2111,10 @@ function buildSpentAtFilter(range: {
   timezone: string;
 }): Prisma.Sql {
   const from = range.from
-    ? Prisma.sql`AND expense."spentAt" >= (${range.from}::date AT TIME ZONE ${range.timezone})`
+    ? Prisma.sql`AND expense."spentAt" >= ${dateInZone(range.from, range.timezone)}`
     : Prisma.empty;
   const to = range.to
-    ? Prisma.sql`AND expense."spentAt" < ((${range.to}::date + INTERVAL '1 day') AT TIME ZONE ${range.timezone})`
+    ? Prisma.sql`AND expense."spentAt" < ${dateInZone(addUtcDays(range.to, 1), range.timezone)}`
     : Prisma.empty;
   return Prisma.sql`${from} ${to}`;
 }
@@ -2223,7 +2224,7 @@ function dateInTimezone(date: Date, timezone: string): string {
 function addUtcDays(value: string, days: number): string {
   const date = new Date(`${value}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
+  return date.toISOString().split('T')[0];
 }
 
 function formatSqlDate(value: Date | string | undefined): string {

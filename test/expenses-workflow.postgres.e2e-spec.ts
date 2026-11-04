@@ -786,6 +786,100 @@ postgres('Expenses production regressions with PostgreSQL', () => {
     ).toBe(0);
   });
 
+  it.each(['Asia/Dhaka', 'America/New_York'])(
+    'reconciles Home, orders, returns and expense boundaries in %s including DST',
+    async (timezone) => {
+      const from = dateInZone('2026-03-08', timezone);
+      const until = dateInZone('2026-03-09', timezone);
+      for (const [instant, amount] of [
+        [new Date(from.getTime() - 1), '1'],
+        [from, '2'],
+        [new Date(until.getTime() - 1), '3'],
+        [until, '4'],
+      ] as const) {
+        await create({ spentAt: instant.toISOString(), amount });
+        const { order } = await fee('SHIPPING_LOSS', amount, 'MAD', instant);
+        await db.ecommerceOrder.update({
+          where: { id: order.id },
+          data: {
+            status: 'CANCELLED',
+            netSales: amount,
+            totalCollected: amount,
+          },
+        });
+        await db.ecommerceOrderLine.create({
+          data: {
+            orderId: order.id,
+            externalLineId: randomUUID(),
+            name: 'Boundary return',
+            quantity: 1,
+            unitPrice: amount,
+            totalPrice: amount,
+            currency: 'MAD',
+            condition: 'DAMAGED',
+            damageCost: amount,
+          },
+        });
+        const delivered = await fee('REVENUE_RECOGNIZED', '0', 'MAD', instant);
+        await db.ecommerceOrder.update({
+          where: { id: delivered.order.id },
+          data: {
+            netSales: amount,
+            grossSales: amount,
+            totalCollected: amount,
+          },
+        });
+      }
+      const ecommerce = new EcommerceService(
+        db as PrismaService,
+        {} as never,
+        {} as never,
+        {} as never,
+        currency,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        access,
+        ads,
+        costs,
+      );
+      const query = { from: '2026-03-08', to: '2026-03-08', timezone };
+      const home = await ecommerce.getHome(owner, query);
+      const orders = await ecommerce.getOrderStatusSummary(owner, query);
+      const returns = await ecommerce.getReturnsSummary(owner, query);
+      const summary = await service.summary(storeId, {
+        dateFrom: query.from,
+        dateTo: query.to,
+        timezone,
+      });
+      expect(home.profit.operatingExpenses).toBe('5.0000');
+      expect(home.profit.orderProfit).toBe('-5.0000');
+      expect(home.profit.value).toBe('-10.0000');
+      expect(home.expenses.total).toBe('10.00');
+      expect(summary.totalAmount).toBe('10.00');
+      expect(summary.byCategory).toEqual([
+        { categoryId, name: 'Other', group: 'OTHER', total: '5.00' },
+      ]);
+      expect(home.lostOrders).toEqual({ orders: 2, value: '5.0000' });
+      expect(orders.cancelled).toEqual({ orders: 2, value: '5.0000' });
+      expect(returns.damaged).toEqual({ items: 2, value: '5.0000' });
+      expect(home.revenue.totalsByCurrency[0]).toMatchObject({
+        currency: 'MAD',
+        orderCount: 2,
+        netSales: '5.0000',
+      });
+      const timeseries = await ecommerce.getRevenueTimeseries(owner, query);
+      expect(timeseries.data).toEqual([
+        expect.objectContaining({
+          date: '2026-03-08',
+          orderCount: 2,
+          netSales: '5.0000',
+        }),
+      ]);
+    },
+  );
+
   it('keeps tracked daily ad spend in its provider calendar month and exposes missing rates', async () => {
     const now = new Date(),
       month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
